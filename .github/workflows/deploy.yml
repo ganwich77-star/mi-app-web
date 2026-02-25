@@ -3,20 +3,25 @@ name: 🚀 Despliegue a Hostinger
 on:
   push:
     branches:
-      - main  # Esto hace que se actualice solo al aprobar cambios en main
+      - main
+  workflow_dispatch: # Esto nos permite dar a un botón para probar a mano
 
 jobs:
   web-deploy:
     name: 🚚 Sync Files
     runs-on: ubuntu-latest
     steps:
-      - name: 📂 Obtener código de GitHub
+      - name: 📂 Obtener código
         uses: actions/checkout@v4
 
-      - name: 🔄 Subir a Hostinger vía FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+      - name: 🔄 Subir a Hostinger
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           server-dir: ./public_html/
+          protocol: ftp
+          port: 21
+          # Esto ayuda a que si falla, nos dé un mensaje más claro
+          log-level: verbose
