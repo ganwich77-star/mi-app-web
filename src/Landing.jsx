@@ -295,24 +295,24 @@ const Landing = () => {
                                 ))}
                             </div>
                         </div>
+                    </div>
 
-                        {/* CTA de contacto directo post-calculadora */}
-                        <div className="mt-20 flex flex-col md:flex-row items-center justify-between p-12 bg-indigo-600 rounded-[50px] shadow-[0_30px_60px_-15px_rgba(79,70,229,0.5)] gap-8 relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-white/10 rounded-full blur-[80px] -mr-32 -mt-32"></div>
-                            <div className="relative z-10 text-center md:text-left">
-                                <h4 className="text-4xl font-black tracking-tighter italic leading-none mb-3">¿ESTO ES LO QUE BUSCABAS?</h4>
-                                <p className="text-indigo-100 text-lg font-bold uppercase tracking-widest opacity-90 max-w-xl">No pierdas más tiempo en gestión. Hablemos por WhatsApp y activamos tu cuenta en minutos.</p>
-                            </div>
-                            <a href="https://wa.me/34650494728" className="relative z-10 bg-white text-indigo-600 px-12 py-6 rounded-[30px] font-black text-base uppercase tracking-[0.2em] hover:scale-105 active:scale-95 transition-all flex items-center gap-4 shadow-2xl italic whitespace-nowrap">
-                                <MessageCircle size={24} className="fill-indigo-600" /> ¡QUIERO EMPEZAR YA!
-                            </a>
+                    {/* CTA de contacto directo post-calculadora - POSICIONADO DEBAJO */}
+                    <div className="mt-16 flex flex-col md:flex-row items-center justify-between p-12 bg-indigo-600 rounded-[50px] shadow-[0_30px_60px_-15px_rgba(79,70,229,0.5)] gap-8 relative overflow-hidden group animate-reveal">
+                        <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-white/10 rounded-full blur-[80px] -mr-32 -mt-32"></div>
+                        <div className="relative z-10 text-center md:text-left">
+                            <h4 className="text-4xl font-black tracking-tighter italic leading-none mb-3">¿ESTO ES LO QUE BUSCABAS?</h4>
+                            <p className="text-indigo-100 text-lg font-bold uppercase tracking-widest opacity-90 max-w-xl">No pierdas más tiempo en gestión. Hablemos por WhatsApp y activamos tu cuenta en minutos.</p>
                         </div>
+                        <a href="https://wa.me/34650494728" className="relative z-10 bg-white text-indigo-600 px-12 py-6 rounded-[30px] font-black text-base uppercase tracking-[0.2em] hover:scale-105 active:scale-95 transition-all flex items-center gap-4 shadow-2xl italic whitespace-nowrap">
+                            <MessageCircle size={24} className="fill-indigo-600" /> ¡QUIERO EMPEZAR YA!
+                        </a>
                     </div>
                 </div>
             </section>
 
             {/* SECCIÓN SOBRE EL CREADOR */}
-            <section id="nosotros" className="py-28 px-8 max-w-6xl mx-auto">
+            <section id="nosotros" className="py-28 px-8 max-w-6xl mx-auto" >
                 <div className="flex flex-col lg:flex-row items-center gap-20">
                     <div className="lg:w-[45%] relative group">
                         <div className="absolute inset-0 bg-indigo-600 rounded-[60px] rotate-2 -z-10 opacity-10" />
@@ -348,10 +348,10 @@ const Landing = () => {
                         </div>
                     </div>
                 </div>
-            </section>
+            </section >
 
             {/* FOOTER / CONTACTO */}
-            <footer id="contacto" className="bg-[#05070a] border-t border-white/5 pt-40 pb-16 text-center px-8 relative overflow-hidden">
+            < footer id="contacto" className="bg-[#05070a] border-t border-white/5 pt-40 pb-16 text-center px-8 relative overflow-hidden" >
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-indigo-600/10 blur-[140px] rounded-full pointer-events-none animate-pulse"></div>
 
                 <div className="max-w-4xl mx-auto relative z-10">
@@ -400,8 +400,8 @@ const Landing = () => {
                         © 2026 PUJALTE STUDIO · MURCIA · TECNOLOGÍA FOTOGRÁFICA
                     </div>
                 </div>
-            </footer>
-        </div>
+            </footer >
+        </div >
     );
 };
 
