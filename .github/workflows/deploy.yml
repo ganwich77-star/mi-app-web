@@ -28,8 +28,8 @@ jobs:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          # IMPORTANTE: Subimos la carpeta 'dist', no todo el código fuente
+          # IMPORTANTE: Subimos la carpeta 'dist' a la subcarpeta correcta
           local-dir: ./dist/ 
-          server-dir: ./public_html/
+          server-dir: ./public_html/orlaspujaltefotografia/
           protocol: ftp
           port: 21
