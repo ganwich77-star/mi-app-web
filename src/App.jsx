@@ -51,9 +51,10 @@ export default function App() {
     const [view, setView] = useState(() => {
         const params = new URLSearchParams(window.location.search);
         const v = params.get('view');
+        const f = params.get('f');
         if (v) return v;
-        if (params.get('f')) return 'user';
-        return 'landing'; // Landing por defecto para atraer fotógrafos
+        if (f) return 'user';
+        return 'landing';
     });
 
     useEffect(() => {
