@@ -295,6 +295,18 @@ const Landing = () => {
                                 ))}
                             </div>
                         </div>
+
+                        {/* CTA de contacto directo post-calculadora */}
+                        <div className="mt-20 flex flex-col md:flex-row items-center justify-between p-12 bg-indigo-600 rounded-[50px] shadow-[0_30px_60px_-15px_rgba(79,70,229,0.5)] gap-8 relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-white/10 rounded-full blur-[80px] -mr-32 -mt-32"></div>
+                            <div className="relative z-10 text-center md:text-left">
+                                <h4 className="text-4xl font-black tracking-tighter italic leading-none mb-3">¿ESTO ES LO QUE BUSCABAS?</h4>
+                                <p className="text-indigo-100 text-lg font-bold uppercase tracking-widest opacity-90 max-w-xl">No pierdas más tiempo en gestión. Hablemos por WhatsApp y activamos tu cuenta en minutos.</p>
+                            </div>
+                            <a href="https://wa.me/34650494728" className="relative z-10 bg-white text-indigo-600 px-12 py-6 rounded-[30px] font-black text-base uppercase tracking-[0.2em] hover:scale-105 active:scale-95 transition-all flex items-center gap-4 shadow-2xl italic whitespace-nowrap">
+                                <MessageCircle size={24} className="fill-indigo-600" /> ¡QUIERO EMPEZAR YA!
+                            </a>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -348,13 +360,23 @@ const Landing = () => {
                     </h2>
 
                     <div className="flex justify-center mb-24">
-                        <a href="https://wa.me/34650494728" className="inline-flex items-center gap-8 p-3 bg-white/5 border border-white/10 rounded-[50px] pr-12 hover:bg-white/10 transition-all hover:scale-105 group shadow-2xl">
-                            <div className="w-16 h-16 bg-indigo-600 rounded-[30px] flex items-center justify-center text-white shadow-xl group-hover:rotate-12 transition-transform duration-500">
-                                <MessageCircle size={32} />
+                        <a href="https://wa.me/34650494728" className="inline-flex items-center gap-8 p-4 bg-white/5 border border-white/10 rounded-[40px] pr-16 hover:bg-white/10 transition-all hover:scale-105 group shadow-[0_0_50px_rgba(79,70,229,0.2)] hover:shadow-[0_0_60px_rgba(79,70,229,0.4)] relative">
+                            {/* Indicador de "Clickeable" pulsante */}
+                            <div className="absolute -top-3 -right-3 bg-indigo-600 text-[10px] font-black px-4 py-1.5 rounded-full shadow-lg animate-bounce border-2 border-[#05070a] uppercase tracking-widest">
+                                ¡Escríbeme!
+                            </div>
+
+                            <div className="w-20 h-20 bg-indigo-600 rounded-[28px] flex items-center justify-center text-white shadow-xl group-hover:rotate-12 transition-transform duration-500 relative">
+                                <MessageCircle size={36} />
+                                <div className="absolute inset-0 bg-white rounded-[28px] animate-ping opacity-20"></div>
                             </div>
                             <div className="text-left">
-                                <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.3em] mb-1 italic">soporte estratégico</p>
-                                <p className="text-3xl font-black italic tracking-tighter text-white leading-none">650 494 728</p>
+                                <p className="text-[11px] font-black text-indigo-400 uppercase tracking-[0.3em] mb-1 italic">habla conmigo ahora</p>
+                                <p className="text-4xl font-black italic tracking-tighter text-white leading-none mb-2">WHATSAPP DIRECTO</p>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Disponible para soporte estratégico</p>
+                                </div>
                             </div>
                         </a>
                     </div>
