@@ -28,10 +28,9 @@ jobs:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          # Ruta simplificada para Hostinger
+          # Probamos sin public_html/ por si el FTP ya apunta allí
           local-dir: ./dist/ 
-          server-dir: public_html/orlaspujaltefotografia/
+          server-dir: orlaspujaltefotografia/
           protocol: ftp
           port: 21
-          # FORZAR SOBRESCRITURA Y LIMPIEZA
           dangerous-clean-slate: true
