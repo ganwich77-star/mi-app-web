@@ -8,7 +8,7 @@ import {
 import PricingTiers from './components/PricingTiers.jsx';
 
 export default function Onboarding({ onComplete }) {
-    const [step, setStep] = useState(1);
+    const [step, setStep] = useState(0); // 0: Welcome, 1: Plans, 2: Brand, 3: Billing, 4: Success
     const [loading, setLoading] = useState(false);
     const [copyStatus, setCopyStatus] = useState(false);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -196,7 +196,66 @@ export default function Onboarding({ onComplete }) {
 
                 <div className="bg-slate-900/50 border border-white/10 rounded-[40px] p-8 md:p-10 backdrop-blur-3xl shadow-2xl relative overflow-hidden">
                     {/* Progress Bar */}
-                    <div className="absolute top-0 left-0 h-1.5 bg-indigo-500 transition-all duration-500 shadow-[0_0_15px_rgba(99,102,241,0.5)]" style={{ width: `${(step / 4) * 100}%` }} />
+                    {step > 0 && (
+                        <div className="absolute top-0 left-0 h-1.5 bg-indigo-500 transition-all duration-500 shadow-[0_0_15px_rgba(99,102,241,0.5)]" style={{ width: `${(step / 4) * 100}%` }} />
+                    )}
+
+                    {step === 0 && (
+                        <div className="animate-in fade-in slide-in-from-bottom-8 duration-1000 space-y-10 py-4">
+                            {/* Logo Pujalte Fotografía en Blanco */}
+                            <div className="flex justify-center mb-4">
+                                <img
+                                    src={`${import.meta.env.BASE_URL}logo.png`}
+                                    alt="Pujalte Fotografía"
+                                    className="h-16 w-auto brightness-0 invert opacity-90"
+                                />
+                            </div>
+
+                            <div className="space-y-4 text-center">
+                                <h1 className="text-4xl md:text-5xl font-black text-white leading-tight tracking-tighter uppercase italic">
+                                    Revoluciona tu <br />
+                                    <span className="text-indigo-400 not-italic">Flujo de Orlas</span>
+                                </h1>
+                                <p className="text-slate-400 text-sm md:text-base font-medium max-w-md mx-auto leading-relaxed">
+                                    La plataforma "Todo en Uno" diseñada por fotógrafos para fotógrafos. Digitaliza tus orlas, automatiza registros y maximiza tus beneficios.
+                                </p>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div className="p-6 bg-white/5 rounded-[32px] border border-white/10 text-center space-y-3 hover:bg-white/10 transition-all group">
+                                    <div className="w-12 h-12 bg-indigo-500/20 rounded-2xl flex items-center justify-center mx-auto text-indigo-400 group-hover:scale-110 transition-transform">
+                                        <ShieldCheck size={24} />
+                                    </div>
+                                    <h3 className="text-white font-black text-xs uppercase tracking-widest">Digitalización 100%</h3>
+                                    <p className="text-slate-500 text-[10px] font-bold leading-relaxed uppercase">Adiós a los papeles y errores de escritura manual.</p>
+                                </div>
+                                <div className="p-6 bg-white/5 rounded-[32px] border border-white/10 text-center space-y-3 hover:bg-white/10 transition-all group">
+                                    <div className="w-12 h-12 bg-emerald-500/20 rounded-2xl flex items-center justify-center mx-auto text-emerald-400 group-hover:scale-110 transition-transform">
+                                        <CheckCircle size={24} />
+                                    </div>
+                                    <h3 className="text-white font-black text-xs uppercase tracking-widest">Pagos Garantizados</h3>
+                                    <p className="text-slate-500 text-[10px] font-bold leading-relaxed uppercase">Gestión de cobros integrada y control de impagos.</p>
+                                </div>
+                                <div className="p-6 bg-white/5 rounded-[32px] border border-white/10 text-center space-y-3 hover:bg-white/10 transition-all group">
+                                    <div className="w-12 h-12 bg-amber-500/20 rounded-2xl flex items-center justify-center mx-auto text-amber-400 group-hover:scale-110 transition-transform">
+                                        <Sparkles size={24} />
+                                    </div>
+                                    <h3 className="text-white font-black text-xs uppercase tracking-widest">Marca Propia</h3>
+                                    <p className="text-slate-500 text-[10px] font-bold leading-relaxed uppercase">App personalizada con tu logo y colores corporativos.</p>
+                                </div>
+                            </div>
+
+                            <div className="pt-6">
+                                <button
+                                    onClick={() => setStep(1)}
+                                    className="w-full bg-white text-[#020617] font-black text-lg uppercase tracking-[0.2em] rounded-3xl py-6 shadow-2xl hover:bg-indigo-50 transition-all active:scale-95 flex items-center justify-center gap-4 group"
+                                >
+                                    Comenzar ahora <ArrowRight size={24} className="group-hover:translate-x-2 transition-transform" />
+                                </button>
+                                <p className="text-slate-600 text-[10px] font-black uppercase tracking-widest mt-6 opacity-60">Pruébalo gratis • Sin permanencia • Configuración en 2 min</p>
+                            </div>
+                        </div>
+                    )}
 
                     {step === 1 && (
                         <div className="animate-in fade-in slide-in-from-right-4 duration-500">
