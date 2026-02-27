@@ -28,9 +28,9 @@ jobs:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          # Probamos sin public_html/ por si el FTP ya apunta allí
+          # Ruta absoluta desde la raíz del FTP
           local-dir: ./dist/ 
-          server-dir: orlaspujaltefotografia/
+          server-dir: /public_html/orlaspujaltefotografia/
           protocol: ftp
           port: 21
           dangerous-clean-slate: true
