@@ -1049,7 +1049,7 @@ export default function App() {
                 </div>
             ) : (
                 <>
-                    {/* 5.5. Landing Page del Producto */}
+                    {/* 5.5. Landing Page del Producto - ACTUALIZADA */}
                     {view === 'landing' && <Landing />}
 
                     {/* 6. Vista Maestra (Centro de Control) */}
