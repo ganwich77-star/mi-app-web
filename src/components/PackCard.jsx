@@ -3,7 +3,7 @@ import { Check, Plus, Minus } from 'lucide-react';
 export default function PackCard({ pack, selected, quantity = 1, onSelect, onUpdateQuantity }) {
     return (
         <div
-            onClick={() => !selected && onSelect()}
+            onClick={() => onSelect()}
             className={`w-full text-left rounded-[30px] p-6 border-2 transition-all duration-300 active:scale-98 relative overflow-hidden backdrop-blur-md cursor-pointer
         ${selected
                     ? 'border-accent bg-accent/10 shadow-2xl shadow-accent/20 scale-[1.02]'

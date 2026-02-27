@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { db } from '../firebase.js';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 
-export function useOrders(schoolId) {
-    const key = `orlas2026_orders_${schoolId}`;
+export function useOrders(photographerId, schoolId) {
+    const key = `orlas2026_orders_${photographerId}_${schoolId}`;
 
     // Estado inicial desde LocalStorage para velocidad
     const [orders, setOrders] = useState(() => {
@@ -19,7 +19,7 @@ export function useOrders(schoolId) {
     useEffect(() => {
         if (!schoolId) return;
 
-        const docRef = doc(db, 'orlas2026_orders', schoolId);
+        const docRef = doc(db, 'orlas2026_photographers', photographerId, 'orders', schoolId);
 
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
             if (docSnap.exists()) {
@@ -43,7 +43,7 @@ export function useOrders(schoolId) {
     const saveToFirebase = async (newOrders) => {
         if (!schoolId) return;
         try {
-            const docRef = doc(db, 'orlas2026_orders', schoolId);
+            const docRef = doc(db, 'orlas2026_photographers', photographerId, 'orders', schoolId);
             await setDoc(docRef, { items: newOrders }, { merge: true });
         } catch (error) {
             console.error("Error guardando en Firebase:", error);

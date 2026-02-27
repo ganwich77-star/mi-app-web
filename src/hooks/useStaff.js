@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { db } from '../firebase.js';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 
-export function useStaff(schoolId) {
-    const key = `orlas2026_staff_${schoolId}`;
+export function useStaff(photographerId, schoolId) {
+    const key = `orlas2026_staff_${photographerId}_${schoolId}`;
 
     const [staff, setStaff] = useState(() => {
         try {
@@ -18,7 +18,7 @@ export function useStaff(schoolId) {
     useEffect(() => {
         if (!schoolId) return;
 
-        const docRef = doc(db, 'orlas2026_staff', schoolId);
+        const docRef = doc(db, 'orlas2026_photographers', photographerId, 'staff', schoolId);
 
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
             if (docSnap.exists()) {
@@ -39,7 +39,7 @@ export function useStaff(schoolId) {
     const saveToFirebase = async (newStaff) => {
         if (!schoolId) return;
         try {
-            const docRef = doc(db, 'orlas2026_staff', schoolId);
+            const docRef = doc(db, 'orlas2026_photographers', photographerId, 'staff', schoolId);
             await setDoc(docRef, { items: newStaff }, { merge: true });
         } catch (error) {
             console.error("Error guardando staff en Firebase:", error);

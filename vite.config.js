@@ -13,7 +13,7 @@ export default defineConfig({
     include: ['react', 'react-dom', 'firebase/app', 'firebase/firestore', 'lucide-react']
   },
   plugins: [
-    react(),
+    react({ jsxRuntime: 'automatic' }),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],

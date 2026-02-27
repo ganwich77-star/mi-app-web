@@ -4,37 +4,37 @@
 
 @layer base {
   :root {
-    /* Paleta Light: Alto Contraste y Limpieza */
-    --bg-main: #F8FAFC;
-    --bg-card: #FFFFFF;
-    --bg-input: #F1F5F9;
-    --text-primary: #0F172A;
-    --text-secondary: #475569;
+    /* Paleta Light: Alto Contraste y Limpieza con toque cálido/premium */
+    --bg-main: #FDFBFA;
+    /* Ligero champagne/marfil */
+    --bg-card: rgba(255, 255, 255, 0.7);
+    /* Semitransparente para ver orbes */
+    --bg-input: rgba(255, 255, 255, 0.6);
+    /* Transparencia para efecto cristal */
+    --text-primary: #1E293B;
+    --text-secondary: #64748B;
     --accent: #6366F1;
-    /* Indigo 500 */
     --accent-hover: #4F46E5;
-    /* Indigo 600 */
-    --border-card: #E2E8F0;
-    --shadow-card: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
-    --glass-blur: blur(12px);
-    --glass-border: rgba(0, 0, 0, 0.05);
+    --border-card: rgba(226, 232, 240, 0.6);
+    --shadow-card: 0 10px 30px -5px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    --glass-blur: blur(24px);
+    --glass-border: rgba(255, 255, 255, 0.7);
   }
 
   [data-theme='dark'] {
     /* Paleta Dark: Premium y Legible */
-    --bg-main: #020617;
-    --bg-card: #0F172A;
-    --bg-input: #1E293B;
+    --bg-main: #0B0E14;
+    /* Más profundo */
+    --bg-card: rgba(15, 23, 42, 0.55);
+    --bg-input: rgba(30, 41, 59, 0.5);
     --text-primary: #F8FAFC;
     --text-secondary: #94A3B8;
     --accent: #818CF8;
-    /* Indigo 400 */
     --accent-hover: #6366F1;
-    /* Indigo 500 */
-    --border-card: #1E293B;
-    --shadow-card: 0 20px 50px -12px rgba(0, 0, 0, 0.5);
-    --glass-blur: blur(20px);
-    --glass-border: rgba(255, 255, 255, 0.05);
+    --border-card: rgba(87, 83, 114, 0.2);
+    --shadow-card: 0 20px 50px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    --glass-blur: blur(30px);
+    --glass-border: rgba(255, 255, 255, 0.06);
   }
 
   * {
@@ -180,7 +180,10 @@
   input,
   select {
     background: var(--bg-input);
-    border: 2px solid var(--glass-border);
+    border: 1px solid var(--border-card);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
     @apply w-full rounded-[18px] text-base font-medium transition-all duration-300;
     padding: 1rem 1.5rem;
     color: var(--text-primary) !important;
@@ -279,4 +282,62 @@
 
 .animate-fade-in {
   animation: fade-in 0.4s ease-out forwards;
+}
+
+@keyframes pulse-slow {
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 6s ease-in-out infinite;
+}
+
+@keyframes float-slow {
+
+  0%,
+  100% {
+    transform: translate(-50%, -50%);
+  }
+
+  50% {
+    transform: translate(-50%, -55%);
+  }
+}
+
+.animate-float-slow {
+  animation: float-slow 8s ease-in-out infinite;
+}
+
+@keyframes soft-pulse {
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.02);
+  }
+}
+
+.animate-soft-pulse {
+  animation: soft-pulse 2s infinite ease-in-out;
+}
+
+.bg-champagne {
+  background-color: #FBF3E4 !important;
+}
+
+[data-theme='dark'] .bg-champagne {
+  background-color: rgba(251, 243, 228, 0.08) !important;
 }

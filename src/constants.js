@@ -3,6 +3,45 @@ export const ADMIN_PIN = "2026";
 export const DRIVE_CLIENT_ID = "218906577322-n8622bj8hrvg7iqpavmiodev14dh61gp.apps.googleusercontent.com";
 export const DRIVE_API_KEY = "AIzaSyCRN41Guw-sSDjF-sEYwuFtQMG8YozBHqs";
 
+export const DEMO_PACKS = [
+    {
+        id: 'basic',
+        name: 'Pack Basic Print',
+        subtitle: 'Solo lo necesario',
+        items: ['1 Orla 40x50', 'Lote 4 Fotos Carteras'],
+        price: 18.00,
+        cost: 5.50,
+        popular: false,
+    },
+    {
+        id: 'combo',
+        name: 'Pack Digital Combo',
+        subtitle: 'Nuestra recomendación',
+        items: ['Pack Basic Print', 'Orla interactiva (App)', 'Lote 8 Fotos Carteras'],
+        price: 28.00,
+        cost: 8.40,
+        popular: true,
+    },
+    {
+        id: 'vip',
+        name: 'Pack VIP Graduation',
+        subtitle: 'Todo incluido',
+        items: ['Pack Digital Combo', 'Álbum Fotográfico 20p', 'Pin de Graduación'],
+        price: 45.00,
+        cost: 20.10,
+        popular: false,
+    },
+];
+
+export const DEMO_EXTRAS = [
+    { id: 'orla_extra', name: 'Copia Orla 40x50', price: 12.00, cost: 4.00, emoji: '📏' },
+    { id: 'app_extra', name: 'Acceso Orla Interactiva', price: 5.00, cost: 0.00, emoji: '📱' },
+    { id: 'lote_extra', name: 'Lote 4 Fotos Extra', price: 4.50, cost: 0.80, emoji: '📸' },
+    { id: 'album_extra', name: 'Álbum Fotográfico 20p', price: 25.00, cost: 12.50, emoji: '📔' },
+    { id: 'marco_madera', name: 'Marco de Madera (Roble)', price: 18.00, cost: 8.50, emoji: '🖼️' },
+    { id: 'pin_extra', name: 'Pin de Graduación', price: 7.00, cost: 2.10, emoji: '🏅' },
+];
+
 export const SCHOOLS = [
     { id: 'cantero', name: 'Maestro Joaquín Cantero', code: 'MJC' },
     { id: 'sanjose', name: 'San José', code: 'SJO' },
