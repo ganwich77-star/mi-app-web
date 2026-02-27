@@ -33,3 +33,5 @@ jobs:
           server-dir: public_html/orlaspujaltefotografia/
           protocol: ftp
           port: 21
+          # FORZAR SOBRESCRITURA Y LIMPIEZA
+          dangerous-clean-slate: true
