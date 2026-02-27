@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
-  base: '/orlaspujaltefotografia/',
+  base: '/graduaciones2026/',
   server: {
     watch: {
       ignored: ['**/backups/**', '**/*.json', '**/*.log', '**/dist/**']

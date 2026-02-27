@@ -4,8 +4,9 @@ import { collection, onSnapshot, doc, updateDoc, setDoc, getDocs } from 'firebas
 import {
     Users, Shield, AlertTriangle, CheckCircle, Globe,
     Settings, Search, ArrowLeft, ExternalLink, Activity, Edit, X, Save,
-    MessageSquare, Copy, Sparkles
+    MessageSquare, Copy, Sparkles, Trash2
 } from 'lucide-react';
+import { deleteDoc } from 'firebase/firestore';
 
 export default function MasterPanel({ onBack }) {
     const [photographers, setPhotographers] = useState([]);
@@ -88,6 +89,22 @@ export default function MasterPanel({ onBack }) {
         } catch (error) {
             console.error("Error guardando cambios:", error);
             alert('❌ Error al guardar');
+        }
+    };
+
+    const handleDelete = async (id) => {
+        if (!window.confirm(`⚠️ ¿Estás seguro de que quieres eliminar a "${id}"? Esta acción borrará la configuración y no se puede deshacer.`)) return;
+
+        try {
+            // Borrar documento raíz
+            await deleteDoc(doc(db, 'orlas2026_photographers', id));
+            // Borrar documento de configuración
+            await deleteDoc(doc(db, 'orlas2026_photographers', id, 'config', 'main'));
+
+            alert('✅ Registro eliminado correctamente');
+        } catch (error) {
+            console.error("Error al eliminar:", error);
+            alert('❌ No se ha podido eliminar el registro');
         }
     };
 
@@ -292,8 +309,8 @@ export default function MasterPanel({ onBack }) {
                                                     <p className="font-black text-lg tracking-tight leading-none uppercase">{p.id}</p>
                                                     <div className="flex items-center gap-2 mt-2">
                                                         <span className={`text-[8px] font-black px-2 py-0.5 rounded-md uppercase tracking-widest ${p.plan === 'starter' ? 'bg-slate-500 text-white' :
-                                                                p.plan === 'flex' ? 'bg-indigo-500 text-white' :
-                                                                    p.plan === 'pro' ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'
+                                                            p.plan === 'flex' ? 'bg-indigo-500 text-white' :
+                                                                p.plan === 'pro' ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'
                                                             }`}>Plan {p.plan || 'starter'}</span>
                                                     </div>
                                                 </div>
@@ -317,8 +334,8 @@ export default function MasterPanel({ onBack }) {
                                             <button
                                                 onClick={() => togglePaidStatus(p.id, p.isPaid)}
                                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all ${p.isPaid
-                                                        ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20'
-                                                        : 'bg-amber-500/10 text-amber-500 border-amber-500/20 hover:bg-amber-500/20'
+                                                    ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20'
+                                                    : 'bg-amber-500/10 text-amber-500 border-amber-500/20 hover:bg-amber-500/20'
                                                     }`}
                                             >
                                                 {p.isPaid ? 'CONFIRMADO' : 'PENDIENTE'}
@@ -349,6 +366,14 @@ export default function MasterPanel({ onBack }) {
                                                     className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg ${p.isSuspended ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'}`}
                                                 >
                                                     {p.isSuspended ? 'Abrir' : 'Cerrar'}
+                                                </button>
+
+                                                <button
+                                                    onClick={() => handleDelete(p.id)}
+                                                    className="p-2 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all border border-red-500/20"
+                                                    title="Eliminar Registro"
+                                                >
+                                                    <Trash2 size={16} />
                                                 </button>
                                             </div>
                                         </td>

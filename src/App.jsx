@@ -21,6 +21,7 @@ import MasterPanel from './MasterPanel.jsx';
 import Onboarding from './Onboarding.jsx';
 import PricingCalculator from './components/PricingCalculator.jsx';
 import PricingTiers from './components/PricingTiers.jsx';
+import Landing from './Landing.jsx';
 
 export default function App() {
     // 1. Detección de Modo Demo y Fotógrafo (Multitenancy)
@@ -49,7 +50,10 @@ export default function App() {
     const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
     const [view, setView] = useState(() => {
         const params = new URLSearchParams(window.location.search);
-        return params.get('view') || 'user'; // 'user' | 'admin' | 'master'
+        const v = params.get('view');
+        if (v) return v;
+        if (params.get('f')) return 'user';
+        return 'landing'; // Landing por defecto para atraer fotógrafos
     });
 
     useEffect(() => {
@@ -823,8 +827,11 @@ export default function App() {
 
     return (
         <div className="min-h-screen transition-colors duration-500">
-            {/* CABECERA (Ocultar en Master/Onboarding/Suspended) */}
-            {view !== 'master' && view !== 'onboarding' && !settings.isSuspended && (
+            {/* Orbes de fondo (incluidos en Landing para mantener la estética definida) */}
+            {view !== 'master' && <BackgroundOrbs />}
+
+            {/* CABECERA (Ocultar en Master/Onboarding/Suspended/Landing) */}
+            {view !== 'master' && view !== 'onboarding' && view !== 'landing' && !settings.isSuspended && (
                 <>
                     <header className="fixed top-0 inset-x-0 z-50 bg-main/80 backdrop-blur-xl border-b border-primary/5 safe-top">
                         <div className="max-w-lg mx-auto px-6 h-20 flex items-center justify-between">
@@ -1041,6 +1048,9 @@ export default function App() {
                 </div>
             ) : (
                 <>
+                    {/* 5.5. Landing Page del Producto */}
+                    {view === 'landing' && <Landing />}
+
                     {/* 6. Vista Maestra (Centro de Control) */}
                     {view === 'master' && <MasterPanel onBack={() => setView('user')} />}
 

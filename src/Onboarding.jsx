@@ -8,6 +8,20 @@ import {
 import PricingTiers from './components/PricingTiers.jsx';
 
 export default function Onboarding({ onComplete }) {
+    // Estilos de animación inyectados
+    const animationStyles = `
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-12px); }
+        }
+        @keyframes pulse-heart {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 0 rgba(255, 255, 255, 0); }
+            50% { transform: scale(1.04); box-shadow: 0 0 30px rgba(255, 255, 255, 0.4); }
+        }
+        .animate-float { animation: float 4s ease-in-out infinite; }
+        .animate-heart { animation: pulse-heart 1.5s ease-in-out infinite; }
+    `;
+
     const [step, setStep] = useState(0); // 0: Welcome, 1: Plans, 2: Brand, 3: Billing, 4: Success
     const [loading, setLoading] = useState(false);
     const [copyStatus, setCopyStatus] = useState(false);
@@ -101,8 +115,8 @@ export default function Onboarding({ onComplete }) {
             });
 
             // 3. Enviar Emails de Notificación
-            const adminUrl = `${window.location.origin}/?f=${formData.id}&view=admin`;
-            const publicUrl = `https://basecode.es/?f=${formData.id}`;
+            const adminUrl = `${window.location.origin}${window.location.pathname}?f=${formData.id}&view=admin`;
+            const publicUrl = `https://basecode.es/graduaciones2026/?f=${formData.id}`;
 
             // Email para el Fotógrafo
             await addDoc(collection(db, 'mail'), {
@@ -173,6 +187,7 @@ export default function Onboarding({ onComplete }) {
 
     return (
         <div className="min-h-screen bg-[#020617] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+            <style>{animationStyles}</style>
             {/* Orbes decorativos de fondo */}
             <div className="fixed inset-0 overflow-hidden pointer-events-none -z-0 opacity-20">
                 <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-500 blur-[120px] rounded-full" />
@@ -180,10 +195,14 @@ export default function Onboarding({ onComplete }) {
             </div>
 
             <div className={`w-full relative z-10 py-10 transition-all duration-700 mx-auto ${step === 1 ? 'max-w-4xl' : 'max-w-xl'}`}>
-                {/* Logo Superior */}
+                {/* Logo Superior (Sustituye a la estrellita) */}
                 <div className="text-center mb-8 animate-in fade-in slide-in-from-top-4 duration-700">
-                    <div className="inline-flex items-center justify-center p-4 bg-indigo-500/10 rounded-3xl mb-4 border border-indigo-500/20 shadow-lg shadow-indigo-500/10">
-                        <Sparkles className="text-indigo-400" size={32} />
+                    <div className="inline-flex items-center justify-center mb-6">
+                        <img
+                            src={`${import.meta.env.BASE_URL}logo.png`}
+                            alt="Pujalte Fotografía"
+                            className="h-14 w-auto brightness-0 invert opacity-90 drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]"
+                        />
                     </div>
                     <h1 className="text-4xl font-black text-white uppercase tracking-tighter leading-tight drop-shadow-2xl">
                         Únete a<br />
@@ -202,41 +221,32 @@ export default function Onboarding({ onComplete }) {
 
                     {step === 0 && (
                         <div className="animate-in fade-in slide-in-from-bottom-8 duration-1000 space-y-10 py-4">
-                            {/* Logo Pujalte Fotografía en Blanco */}
-                            <div className="flex justify-center mb-4">
-                                <img
-                                    src={`${import.meta.env.BASE_URL}logo.png`}
-                                    alt="Pujalte Fotografía"
-                                    className="h-16 w-auto brightness-0 invert opacity-90"
-                                />
-                            </div>
-
                             <div className="space-y-4 text-center">
                                 <h1 className="text-4xl md:text-5xl font-black text-white leading-tight tracking-tighter uppercase italic">
                                     Revoluciona tu <br />
-                                    <span className="text-indigo-400 not-italic">Flujo de Orlas</span>
+                                    <span className="text-indigo-400 not-italic">Flujo de Trabajo</span>
                                 </h1>
                                 <p className="text-slate-400 text-sm md:text-base font-medium max-w-md mx-auto leading-relaxed">
-                                    La plataforma "Todo en Uno" diseñada por fotógrafos para fotógrafos. Digitaliza tus orlas, automatiza registros y maximiza tus beneficios.
+                                    La plataforma "Todo en Uno" diseñada por fotógrafos para fotógrafos. Digitaliza tus trabajos, automatiza registros y maximiza tus beneficios.
                                 </p>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div className="p-6 bg-white/5 rounded-[32px] border border-white/10 text-center space-y-3 hover:bg-white/10 transition-all group">
+                                <div className="p-6 bg-white/5 rounded-[32px] border border-white/10 text-center space-y-3 hover:bg-white/10 transition-all group animate-float" style={{ animationDuration: '3s' }}>
                                     <div className="w-12 h-12 bg-indigo-500/20 rounded-2xl flex items-center justify-center mx-auto text-indigo-400 group-hover:scale-110 transition-transform">
                                         <ShieldCheck size={24} />
                                     </div>
                                     <h3 className="text-white font-black text-xs uppercase tracking-widest">Digitalización 100%</h3>
                                     <p className="text-slate-500 text-[10px] font-bold leading-relaxed uppercase">Adiós a los papeles y errores de escritura manual.</p>
                                 </div>
-                                <div className="p-6 bg-white/5 rounded-[32px] border border-white/10 text-center space-y-3 hover:bg-white/10 transition-all group">
+                                <div className="p-6 bg-white/5 rounded-[32px] border border-white/10 text-center space-y-3 hover:bg-white/10 transition-all group animate-float" style={{ animationDuration: '4.5s' }}>
                                     <div className="w-12 h-12 bg-emerald-500/20 rounded-2xl flex items-center justify-center mx-auto text-emerald-400 group-hover:scale-110 transition-transform">
                                         <CheckCircle size={24} />
                                     </div>
                                     <h3 className="text-white font-black text-xs uppercase tracking-widest">Pagos Garantizados</h3>
                                     <p className="text-slate-500 text-[10px] font-bold leading-relaxed uppercase">Gestión de cobros integrada y control de impagos.</p>
                                 </div>
-                                <div className="p-6 bg-white/5 rounded-[32px] border border-white/10 text-center space-y-3 hover:bg-white/10 transition-all group">
+                                <div className="p-6 bg-white/5 rounded-[32px] border border-white/10 text-center space-y-3 hover:bg-white/10 transition-all group animate-float" style={{ animationDuration: '3.8s' }}>
                                     <div className="w-12 h-12 bg-amber-500/20 rounded-2xl flex items-center justify-center mx-auto text-amber-400 group-hover:scale-110 transition-transform">
                                         <Sparkles size={24} />
                                     </div>
@@ -245,14 +255,13 @@ export default function Onboarding({ onComplete }) {
                                 </div>
                             </div>
 
-                            <div className="pt-6">
+                            <div className="pt-6 text-center">
                                 <button
                                     onClick={() => setStep(1)}
-                                    className="w-full bg-white text-[#020617] font-black text-lg uppercase tracking-[0.2em] rounded-3xl py-6 shadow-2xl hover:bg-indigo-50 transition-all active:scale-95 flex items-center justify-center gap-4 group"
+                                    className="w-full bg-white text-[#020617] font-black text-xs sm:text-sm md:text-base uppercase tracking-[0.25em] rounded-[35px] py-7 shadow-[0_20px_50px_rgba(255,255,255,0.1)] hover:bg-indigo-50 transition-all active:scale-95 flex items-center justify-center gap-4 group animate-heart"
                                 >
-                                    Comenzar ahora <ArrowRight size={24} className="group-hover:translate-x-2 transition-transform" />
+                                    PRUÉBALO GRATIS • SIN PERMANENCIA
                                 </button>
-                                <p className="text-slate-600 text-[10px] font-black uppercase tracking-widest mt-6 opacity-60">Pruébalo gratis • Sin permanencia • Configuración en 2 min</p>
                             </div>
                         </div>
                     )}
@@ -315,13 +324,13 @@ export default function Onboarding({ onComplete }) {
                                                 URL:
                                             </p>
                                             <span className="text-white font-black text-sm whitespace-nowrap overflow-hidden">
-                                                basecode.es/?f=<span className="text-indigo-400">{formData.id || 'tu-identificador'}</span>
+                                                basecode.es/graduaciones2026/?f=<span className="text-indigo-400">{formData.id || 'tu-identificador'}</span>
                                             </span>
                                         </div>
                                         <button
                                             onClick={(e) => {
                                                 e.preventDefault();
-                                                const url = `basecode.es/?f=${formData.id || 'tu-identificador'}`;
+                                                const url = `basecode.es/graduaciones2026/?f=${formData.id || 'tu-identificador'}`;
                                                 navigator.clipboard.writeText(url);
                                                 setCopyStatus(true);
                                                 setTimeout(() => setCopyStatus(false), 2000);
@@ -486,11 +495,11 @@ export default function Onboarding({ onComplete }) {
                                 <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">URL de Administración:</p>
                                 <div className="flex items-center gap-3 bg-black/40 p-4 rounded-2xl border border-indigo-500/20">
                                     <code className="flex-1 text-indigo-400 font-mono text-xs whitespace-nowrap overflow-hidden">
-                                        basecode.es/?f={formData.id}&view=admin
+                                        basecode.es/graduaciones2026/?f={formData.id}&view=admin
                                     </code>
                                     <button
                                         onClick={() => {
-                                            const url = `basecode.es/?f=${formData.id}&view=admin`;
+                                            const url = `basecode.es/graduaciones2026/?f=${formData.id}&view=admin`;
                                             navigator.clipboard.writeText(url);
                                             setCopyStatus(true);
                                             setTimeout(() => setCopyStatus(false), 2000);
@@ -504,7 +513,7 @@ export default function Onboarding({ onComplete }) {
 
                             <div className="pt-4">
                                 <a
-                                    href={`/?f=${formData.id}&view=admin`}
+                                    href={`${window.location.pathname}?f=${formData.id}&view=admin`}
                                     className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white py-5 rounded-3xl font-black uppercase tracking-[0.2em] shadow-2xl transition-all active:scale-95 flex items-center justify-center gap-3"
                                 >
                                     Abrir mi Panel <ArrowRight size={20} />
