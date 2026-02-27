@@ -28,8 +28,8 @@ jobs:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          # IMPORTANTE: Subimos la carpeta 'dist' a la subcarpeta correcta
+          # Ruta simplificada para Hostinger
           local-dir: ./dist/ 
-          server-dir: ./public_html/orlaspujaltefotografia/
+          server-dir: public_html/orlaspujaltefotografia/
           protocol: ftp
           port: 21
