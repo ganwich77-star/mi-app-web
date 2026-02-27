@@ -30,7 +30,7 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           # Ruta absoluta desde la raíz del FTP
           local-dir: ./dist/ 
-          server-dir: /public_html/orlaspujaltefotografia/
+          server-dir: /public_html/graduaciones2026/
           protocol: ftp
           port: 21
           dangerous-clean-slate: true
