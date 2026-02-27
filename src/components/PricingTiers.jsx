@@ -6,30 +6,57 @@ export default function PricingTiers(props) {
     const currentPlan = props.currentPlan || '';
 
     // Lógica de Precios Dinámicos según Plan Actual
-    const getPlanPrice = (planId) => {
-        if (planId === 'pro' && currentPlan === 'starter') return '300 €';
-        if (planId === 'pro' && currentPlan === 'flex') return 'Promo Especial';
+    const getPlanPrice = (id) => {
+        if (id === 'pro') {
+            if (currentPlan === 'starter') {
+                return (
+                    <div className="flex flex-col">
+                        <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm line-through opacity-40">449€</span>
+                            <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-lg border border-emerald-500/20">-149€ STARTER</span>
+                        </div>
+                        <span className="text-4xl font-black">300 €</span>
+                    </div>
+                );
+            }
+            if (currentPlan === 'flex') {
+                return (
+                    <div className="flex flex-col">
+                        <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm line-through opacity-40">449€</span>
+                            <span className="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-lg border border-blue-500/20">CASHBACK 100%</span>
+                        </div>
+                        <span className="text-4xl font-black">449 €*</span>
+                        <span className="text-[9px] opacity-60 font-medium italic mt-1">*Se descontará lo ya pagado en Flex</span>
+                    </div>
+                );
+            }
+            return '449 €';
+        }
 
         const basePrices = {
             flex: '2,50 €',
             starter: '149 €',
-            pro: '449 €',
             custom: 'Desde 850 €'
         };
-        return basePrices[planId];
+        return basePrices[id];
+    };
+
+    const getPlanName = (id) => {
+        if (id === 'pro' && (currentPlan === 'starter' || currentPlan === 'flex')) return 'Promo Especial';
+        return id.toUpperCase();
     };
 
     const getBonusMessage = (planId) => {
-        if (planId === 'pro' && currentPlan === 'starter') return 'Ahorra 149€ ya invertidos';
-        if (planId === 'pro' && currentPlan === 'flex') return 'Cashback 100% uso previo';
-        if (planId === 'pro' && (currentPlan === 'starter' || currentPlan === 'flex')) return 'BORRÓN Y CUENTA NUEVA';
+        if (planId === 'pro' && currentPlan === 'starter') return 'UPGRADE PREFERENTE';
+        if (planId === 'pro' && currentPlan === 'flex') return 'RECUPERA TU INVERSIÓN';
         return null;
     };
 
     const plans = [
         {
             id: 'flex',
-            name: 'FLEX',
+            name: getPlanName('flex'),
             price: getPlanPrice('flex'),
             period: '/ alumno',
             description: 'Ideal para fotógrafos ocasionales o pruebas.',
@@ -42,7 +69,7 @@ export default function PricingTiers(props) {
         },
         {
             id: 'starter',
-            name: 'STARTER',
+            name: getPlanName('starter'),
             price: getPlanPrice('starter'),
             period: '/ campaña',
             description: 'Pequeños estudios (hasta 100 alumnos).',
@@ -55,7 +82,7 @@ export default function PricingTiers(props) {
         },
         {
             id: 'pro',
-            name: 'PRO',
+            name: getPlanName('pro'),
             price: getPlanPrice('pro'),
             period: '/ campaña',
             description: 'Profesionales con volumen (Ilimitado).',
@@ -69,7 +96,7 @@ export default function PricingTiers(props) {
         },
         {
             id: 'custom',
-            name: 'CUSTOM',
+            name: getPlanName('custom'),
             price: getPlanPrice('custom'),
             period: '',
             description: 'Estudios con flujos especiales y Agencias.',
