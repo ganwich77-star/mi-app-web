@@ -1,12 +1,14 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { db } from './firebase.js';
 import { collection, addDoc } from 'firebase/firestore';
 import {
     GraduationCap, User, CreditCard, Plus, Minus, CheckCircle,
     Download, Settings, Search, DollarSign, Euro, BarChart3, Copy,
     MessageSquare, ChevronRight, Lock, Shield, Package, Sparkles, Gift, Mail, Phone,
-    TrendingUp, Users, Trash2, Sun, Moon, ChevronDown, ToggleLeft, ToggleRight, Database, Upload, AlertTriangle, Share,
-    Square, CheckSquare, X, Camera, Check, Tag, FileText, Crown, ArrowRight
+    TrendingUp, Users, Trash2, Sun, Moon, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, Database, Upload, AlertTriangle, Share,
+    Square, CheckSquare, X, Camera, Check, Tag, FileText, Crown, ArrowRight,
+    Settings2, Maximize2, Maximize, ZoomIn, ZoomOut, Move, Type, Layout, Bold, Italic, UserCheck, Eye, Palette,
+    LayoutGrid, UserSquare2, Layers, MoveVertical, GripVertical, Move as MoveIcon
 } from 'lucide-react';
 import { SCHOOLS, PACKS, EXTRAS, CONTACT_PHONE, COURSE_GROUPS, STAFF_ROLES, DRIVE_API_KEY, DRIVE_CLIENT_ID } from './constants.js';
 import { useOrders } from './hooks/useOrders.js';
@@ -22,6 +24,89 @@ import Onboarding from './Onboarding.jsx';
 import PricingCalculator from './components/PricingCalculator.jsx';
 import PricingTiers from './components/PricingTiers.jsx';
 import Landing from './Landing.jsx';
+import CommandCenter from './components/CommandCenter.jsx';
+// --- CONFIGURACIÓN DISEÑO ORLA (ESTABLE - FUERA DE APP PR RENDIMIENTO) ---
+const DPI = 300;
+const mmToPx = (mm) => Math.round((mm * DPI) / 25.4);
+const pxToMm = (px) => Math.round((px * 25.4) / DPI);
+
+// --- COMPONENTES DE CONTROL ESTABLES ---
+const ControlGroup = React.memo(({ title, icon: Icon, children, expandedGroups, setExpandedGroups }) => {
+    const isExpanded = expandedGroups.includes(title);
+    const toggle = () => setExpandedGroups(prev =>
+        isExpanded ? prev.filter(t => t !== title) : [...prev, title]
+    );
+
+    return (
+        <div className="border-b border-primary/10 dark:border-white/10 last:border-0 pb-4">
+            <button
+                onClick={toggle}
+                className="w-full flex items-center justify-between py-2 text-[10px] font-black text-primary dark:text-white uppercase italic tracking-[0.2em] group border-b border-primary/5 dark:border-white/5 mb-2"
+            >
+                <div className="flex items-center gap-2">
+                    <Icon size={14} className="text-violet-500 dark:text-emerald-400" /> {title}
+                </div>
+                <ChevronDown size={14} className={`text-primary dark:text-white transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
+            </button>
+            {isExpanded && <div className="space-y-6 pt-4 animate-fade-in">{children}</div>}
+        </div>
+    );
+});
+
+const HybridInput = React.memo(({ label, value, onChange, min, max, step = 1, unit = "px" }) => {
+    const displayValue = unit === "px" ? pxToMm(value) : value;
+
+    return (
+        <div className="group space-y-3 py-1">
+            <div className="flex justify-between items-center px-1">
+                <label className="text-[10px] font-black text-primary/40 dark:text-white/40 uppercase italic tracking-[0.1em]">{label}</label>
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-primary/5 dark:bg-white/5 border border-transparent">
+                    <span className="text-[12px] font-black text-primary dark:text-white min-w-[2.5rem] text-right">
+                        {displayValue}
+                    </span>
+                    <span className="text-[9px] font-black uppercase text-primary/30 dark:text-white/30">
+                        {unit === "px" ? "MM" : unit === "ud" ? "UD" : unit === "x" ? "X" : unit}
+                    </span>
+                </div>
+            </div>
+            <div className="px-1">
+                <input
+                    type="range"
+                    min={min}
+                    max={max}
+                    step={step}
+                    value={value}
+                    onChange={(e) => onChange(parseFloat(e.target.value))}
+                    className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-primary/10 dark:bg-white/10 accent-violet-600 transition-all hover:bg-primary/20 dark:hover:bg-white/20"
+                />
+            </div>
+        </div>
+    );
+});
+
+// --- ORBES DECORATIVOS ---
+const BackgroundOrbs = () => (
+    <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
+        <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-indigo-500/15 blur-[120px] rounded-full animate-pulse-slow" />
+        <div className="absolute bottom-[10%] right-[-10%] w-[50%] h-[50%] bg-violet-500/15 blur-[140px] rounded-full animate-pulse-slow" style={{ animationDelay: '2s' }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[40%] h-[40%] bg-blue-400/10 blur-[100px] rounded-full animate-float-slow" />
+    </div>
+);
+
+// --- CAMBIO DE TEMA ---
+const ThemeToggle = ({ theme, onClick, className = "" }) => (
+    <button
+        onClick={onClick}
+        className={`w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-primary active:scale-90 transition-all duration-500 overflow-hidden relative ${className}`}
+    >
+        <div className={`transition-all duration-500 transform ${theme === 'light' ? 'translate-y-0 rotate-0' : 'translate-y-12 rotate-90'}`}>
+            <Sun size={20} className="text-amber-500" />
+        </div>
+        <div className={`absolute transition-all duration-500 transform ${theme === 'dark' ? 'translate-y-0 rotate-0' : '-translate-y-12 -rotate-90'}`}>
+            <Moon size={20} className="text-violet-400" />
+        </div>
+    </button>
+);
 
 export default function App() {
     // 1. Detección de Modo Demo y Fotógrafo (Multitenancy)
@@ -35,15 +120,6 @@ export default function App() {
         const defaultId = isDemo ? 'demo_photographer' : 'pujaltecreativestudio';
         return params.get('f') || defaultId;
     });
-
-    // Orbes decorativos de fondo con más color y dinamismo
-    const BackgroundOrbs = () => (
-        <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
-            <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-indigo-500/15 blur-[120px] rounded-full animate-pulse-slow" />
-            <div className="absolute bottom-[10%] right-[-10%] w-[50%] h-[50%] bg-violet-500/15 blur-[140px] rounded-full animate-pulse-slow" style={{ animationDelay: '2s' }} />
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[40%] h-[40%] bg-blue-400/10 blur-[100px] rounded-full animate-float-slow" />
-        </div>
-    );
 
     const { settings, setSettings, paymentMethods, enabledPaymentMethods, schools, packs: allPacks, extras: allExtras, adminPin, togglePaymentMethod, addPaymentMethod, updateAdminPin, addSchool, deleteSchool, updateSettings } = useSettings(photographerId, isDemo);
 
@@ -59,12 +135,51 @@ export default function App() {
 
     useEffect(() => {
         document.documentElement.setAttribute('data-theme', theme);
+        document.body.setAttribute('data-theme', theme);
         localStorage.setItem('theme', theme);
     }, [theme]);
 
+    const [isLoaded, setIsLoaded] = useState(true);
     const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
 
-    const [adminTab, setAdminTab] = useState('shooting');
+    // Primera letra de cada palabra en mayúscula, resto en minúscula
+    const toTitleCase = (str) => {
+        if (!str) return '';
+        const cleanStr = str.trim().replace(/\s+/g, ' ');
+        const lowers = ['de', 'la', 'los', 'las', 'del', 'y'];
+        return cleanStr.toLowerCase().split(' ').map((word, index) => {
+            if (index > 0 && lowers.includes(word)) return word;
+            return word.charAt(0).toUpperCase() + word.slice(1);
+        }).join(' ');
+    };
+
+    // Helpers de procesamiento
+    const firstSurname = (name = '') => {
+        if (!name) return '';
+        const parts = name.trim().split(/\s+/);
+        return parts[1] || parts[0] || '';
+    };
+
+    const getCourseBase = (name = '') => {
+        if (!name) return '';
+        const parts = name.split(' ');
+        const last = parts[parts.length - 1];
+        const isGroupChar = last.length === 1 && last === last.toUpperCase() && isNaN(last);
+        return isGroupChar ? parts.slice(0, -1).join(' ') : name;
+    };
+
+    const getGroup = (name = '') => {
+        if (!name) return '';
+        const parts = name.split(' ');
+        const last = parts[parts.length - 1];
+        return (last.length === 1 && last === last.toUpperCase() && isNaN(last)) ? last : '';
+    };
+
+    const [adminTab, setAdminTab] = useState(() => {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('tab') || 'shooting';
+    });
+
     const [step, setStep] = useState(1);
     const [orderCompleted, setOrderCompleted] = useState(false);
     const [copyStatus, setCopyStatus] = useState('');
@@ -75,7 +190,11 @@ export default function App() {
     const [showLegalModal, setShowLegalModal] = useState(false);
     const [showPrivacyModal, setShowPrivacyModal] = useState(false);
     const [pinError, setPinError] = useState(false);
-    const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
+    const [isAdminUnlocked, setIsAdminUnlocked] = useState(() => {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('unlock') === 'true'; // Atajo para pruebas del agente
+    });
+    const [btnDemo, setBtnDemo] = useState(false);
     const [newMethodLabel, setNewMethodLabel] = useState('');
     const [showExportModal, setShowExportModal] = useState(false);
     const [exportFilters, setExportFilters] = useState({ school: '', course: '', group: '' });
@@ -84,13 +203,17 @@ export default function App() {
     const [shootFilters, setShootFilters] = useState({ course: '', group: '' });
     const [ordersFilters, setOrdersFilters] = useState({ course: '', group: '' });
     const [shootAssigning, setShootAssigning] = useState(null);
-    const [shootMode, setShootMode] = useState('students'); // 'students' | 'staff'
+    const [shootMode, setShootMode] = useState(() => {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('shoot_mode') || 'students';
+    }); // 'students' | 'staff'
     const [orderToEdit, setOrderToEdit] = useState(null); // { order, studentName, packId, packQuantity, photoFile, status, paymentMethod }
-    const [newStaffForm, setNewStaffForm] = useState({ name: '', role: '', photoFile: '', tempCourse: '', tempGroup: '', assignments: [] });
+    const [newStaffForm, setNewStaffForm] = useState({ name: '', role: '', roles: [], tempRole: '', photoFile: '', tempCourse: '', tempGroup: '', assignments: [] });
 
     const [staffAssigning, setStaffAssigning] = useState(null); // { member, tempFile }
     const [selectedOrderIds, setSelectedOrderIds] = useState([]);
     const [selectedStaffIds, setSelectedStaffIds] = useState([]);
+
     const [showNewStudentForm, setShowNewStudentForm] = useState(false);
     const [newStudentForm, setNewStudentForm] = useState({ name: '', course: '', group: '', photoFile: '', status: 'Pendiente', paymentMethod: '' });
 
@@ -105,6 +228,96 @@ export default function App() {
     const [showPlanSuccessModal, setShowPlanSuccessModal] = useState(false);
     const [planTransitionData, setPlanTransitionData] = useState(null);
 
+    const [configOrla, setConfigOrla] = useState(() => {
+        try {
+            const stored = localStorage.getItem(`orlas2026_configOrla`);
+            return stored ? JSON.parse(stored) : {
+                canvasW: 4961, canvasH: 3508, margin: mmToPx(20),
+                numAlumnos: 24, numDocentes: 3,
+                fontFamily: "Montserrat", isBold: false, isItalic: false,
+                fontSizeAlu: 10, fontSizeDoc: 10,
+                dScale: 1.2, dY: mmToPx(60), dTextOffset: mmToPx(12),
+                aW: mmToPx(35), aH: mmToPx(45), aStartY: mmToPx(135),
+                aCols: 8, aGapY: mmToPx(65), aGapX: mmToPx(10), aTextOffset: mmToPx(10)
+            };
+        } catch {
+            return {
+                canvasW: 4961, canvasH: 3508, margin: mmToPx(20),
+                numAlumnos: 24, numDocentes: 3,
+                fontFamily: "Montserrat", isBold: false, isItalic: false,
+                fontSizeAlu: 10, fontSizeDoc: 10,
+                dScale: 1.2, dY: mmToPx(60), dTextOffset: mmToPx(12),
+                aW: mmToPx(35), aH: mmToPx(45), aStartY: mmToPx(135),
+                aCols: 8, aGapY: mmToPx(65), aGapX: mmToPx(10), aTextOffset: mmToPx(10)
+            };
+        }
+    });
+
+    useEffect(() => {
+        localStorage.setItem(`orlas2026_configOrla`, JSON.stringify(configOrla));
+    }, [configOrla]);
+    const [designFilter, setDesignFilter] = useState({ course: '', group: '' });
+    const [isCsvMode, setIsCsvMode] = useState(false);
+    const [isFullScreenDesign, setIsFullScreenDesign] = useState(false);
+    const [canvasZoom, setCanvasZoom] = useState(1);
+    const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+    const [expandedDesignGroups, setExpandedDesignGroups] = useState(['Tipografía', 'Estructura', 'Ejes (Y)', 'Equipo Docente', 'Alumnos']);
+    const [draggedStaffIdx, setDraggedStaffIdx] = useState(null);
+    const [showCustomFont, setShowCustomFont] = useState(false);
+
+
+    // Drag to pan ref
+    const canvasContainerRef = useRef(null);
+    const isDraggingCanvasRef = useRef(false);
+    const dragStartRef = useRef({ x: 0, y: 0 });
+    const scrollStartRef = useRef({ left: 0, top: 0 });
+
+    const handleCanvasMouseDown = (e) => {
+        isDraggingCanvasRef.current = true;
+        dragStartRef.current = { x: e.clientX || e.touches?.[0].clientX, y: e.clientY || e.touches?.[0].clientY };
+        if (canvasContainerRef.current) {
+            scrollStartRef.current = {
+                left: canvasContainerRef.current.scrollLeft,
+                top: canvasContainerRef.current.scrollTop
+            };
+            canvasContainerRef.current.style.cursor = 'grabbing';
+        }
+    };
+
+    const handleCanvasMouseMove = (e) => {
+        if (!isDraggingCanvasRef.current) return;
+        const x = e.clientX || e.touches?.[0].clientX;
+        const y = e.clientY || e.touches?.[0].clientY;
+        const dx = x - dragStartRef.current.x;
+        const dy = y - dragStartRef.current.y;
+
+        if (isFullScreenDesign) {
+            setPanOffset(prev => ({
+                x: prev.x + dx,
+                y: prev.y + dy
+            }));
+            dragStartRef.current = { x, y };
+        } else if (canvasContainerRef.current) {
+            canvasContainerRef.current.scrollLeft = scrollStartRef.current.left - dx;
+            canvasContainerRef.current.scrollTop = scrollStartRef.current.top - dy;
+        }
+    };
+
+    const handleCanvasWheel = (e) => {
+        if (!isFullScreenDesign) return;
+        const zoomSpeed = 0.001;
+        setCanvasZoom(prev => {
+            const newZoom = prev - e.deltaY * zoomSpeed;
+            return Math.min(3, Math.max(0.1, newZoom));
+        });
+    };
+
+    const handleCanvasMouseUp = () => {
+        isDraggingCanvasRef.current = false;
+        if (canvasContainerRef.current) {
+            canvasContainerRef.current.style.cursor = 'grab';
+        }
+    };
     useEffect(() => {
         let interval;
         if (showGiftModal && timeLeft > 0) {
@@ -153,8 +366,31 @@ export default function App() {
     const [extras, setExtras] = useState({});
     const [formError, setFormError] = useState('');
 
-    const { orders, addOrder, updateStatus, deleteOrder, updatePhotoFile, updateOrder } = useOrders(photographerId, adminSchool);
-    const { staff, addStaff, updateStaffPhoto, updateStaffMember, deleteStaff } = useStaff(photographerId, adminSchool);
+    const { orders: realOrders, addOrder, updateStatus, deleteOrder, updatePhotoFile, updateOrder } = useOrders(photographerId, adminSchool);
+    const { staff: realStaff, addStaff, updateStaffPhoto, updateStaffMember, deleteStaff } = useStaff(photographerId, adminSchool);
+
+    // --- SIMULACRO V2.6 (SOLO PARA JESS-PHOTOGRAPHY) ---
+    const simStaff = [
+        { id: '4567', name: 'Estela Mar', role: 'Orientador/a', assignments: [{ course: 'Guardería 2-3 años', group: '' }], photoFile: '4567' },
+        { id: '1256', name: 'Faustino', role: 'Director/a', assignments: [{ course: 'Guardería 2-3 años', group: '' }], photoFile: '1256' },
+        { id: '1234', name: 'Maria Hernandez', role: 'Tutor/a', assignments: [{ course: 'Guardería 2-3 años', group: '' }], photoFile: '1234' }
+    ];
+    const simOrders = [
+        { id: '5566', studentName: 'Alejandro Pérez', photoFile: '5566', course: 'Guardería 2-3 años', schoolId: 'cantero', timestamp: new Date().toISOString() },
+        { id: '7789', studentName: 'Lucía García', photoFile: '7789', course: 'Guardería 2-3 años', schoolId: 'cantero', timestamp: new Date().toISOString() },
+        { id: '9911', studentName: 'Marco Ruiz', photoFile: '9911', course: 'Guardería 2-3 años', schoolId: 'cantero', timestamp: new Date().toISOString() },
+        { id: '2233', studentName: 'Sofía Sanz', photoFile: '2233', course: 'Guardería 2-3 años', schoolId: 'cantero', timestamp: new Date().toISOString() }
+    ];
+
+    const orders = (photographerId === 'jess-photography' && realOrders.length === 0) ? simOrders : realOrders;
+    const staff = (photographerId === 'jess-photography' && realStaff.length === 0) ? simStaff : realStaff;
+
+    // Efecto para autoseleccionar docentes si no hay ninguno seleccionado y hay docentes disponibles
+    useEffect(() => {
+        if (staff && staff.length > 0 && selectedStaffIds.length === 0) {
+            setSelectedStaffIds(staff.map(s => s.id));
+        }
+    }, [staff, selectedStaffIds.length]);
 
     const getStaffAssignments = (m) => m.assignments && m.assignments.length > 0 ? m.assignments : (m.course ? [{ course: m.course, group: m.group }] : []);
 
@@ -680,6 +916,234 @@ export default function App() {
         setShowLegalModal(false);
     };
 
+    const renderDesignControls = () => {
+        const updateConfig = (key, value) => {
+            setConfigOrla(prev => ({ ...prev, [key]: value }));
+        };
+
+        const activeCourses = [...new Set(orders.map(o => getCourseBase(o.course)))].filter(Boolean).sort();
+        const availGroups = designFilter.course ? [...new Set(orders.filter(o => getCourseBase(o.course) === designFilter.course).map(o => getGroup(o.course)))].filter(Boolean).sort() : [];
+
+        const updatePhotoSize = (newWidth) => {
+            const ratio = 45 / 35;
+            setConfigOrla(prev => ({
+                ...prev,
+                aW: newWidth,
+                aH: Math.round(newWidth * ratio)
+            }));
+        };
+
+        const handleDragStart = (idx) => setDraggedStaffIdx(idx);
+        const handleDragOver = (e, idx) => {
+            e.preventDefault();
+            if (draggedStaffIdx === null || draggedStaffIdx === idx) return;
+            const newOrder = [...selectedStaffIds];
+            const draggedId = newOrder[draggedStaffIdx];
+            newOrder.splice(draggedStaffIdx, 1);
+            newOrder.splice(idx, 0, draggedId);
+            setDraggedStaffIdx(idx);
+            setSelectedStaffIds(newOrder);
+        };
+        const handleDragEnd = () => setDraggedStaffIdx(null);
+
+        return (
+            <div className="space-y-4">
+                <ControlGroup title="Docentes y Alumnos" icon={Users} expandedGroups={expandedDesignGroups} setExpandedGroups={setExpandedDesignGroups}>
+                    <div className="space-y-6">
+                        {/* EQUIPO DOCENTE */}
+                        <div className="space-y-4">
+                            {/* SELECCIONADOS (Arrastrables) */}
+                            <div className="space-y-2">
+                                <p className="text-[9px] font-black text-primary dark:text-white uppercase italic tracking-[0.15em] px-1 opacity-80 border-l-2 border-violet-500 pl-3">Equipo Docente</p>
+                                {selectedStaffIds.map((id, idx) => {
+                                    const member = staff.find(m => m.id === id);
+                                    if (!member) return null;
+                                    return (
+                                        <div
+                                            key={id}
+                                            draggable
+                                            onDragStart={() => handleDragStart(idx)}
+                                            onDragOver={(e) => handleDragOver(e, idx)}
+                                            onDragEnd={handleDragEnd}
+                                            className={`group flex items-center gap-3 p-3 bg-primary/5 dark:bg-white/5 border border-primary/5 dark:border-white/5 rounded-2xl cursor-grab active:cursor-grabbing transition-all hover:bg-primary/10 dark:hover:bg-white/10 ${draggedStaffIdx === idx ? 'opacity-40 scale-95 border-violet-500' : ''}`}
+                                        >
+                                            <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center text-violet-500 font-bold shrink-0">
+                                                {idx + 1}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-[11px] font-black truncate uppercase text-primary dark:text-white">{member.name}</p>
+                                                <p className="text-[9px] font-bold text-primary/40 dark:text-white/30 truncate uppercase">{member.role}</p>
+                                            </div>
+                                            <div className="p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <GripVertical size={14} className="text-primary/40 dark:text-white/20" />
+                                            </div>
+                                            <button
+                                                onClick={() => setSelectedStaffIds(prev => prev.filter(sid => sid !== id))}
+                                                className="p-2 text-primary/20 dark:text-white/10 hover:text-red-500 transition-colors"
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+                                {selectedStaffIds.length === 0 && <p className="text-[10px] font-black text-primary/20 dark:text-white/40 text-center py-8 border-2 border-dashed border-primary/10 dark:border-white/10 rounded-2xl uppercase tracking-widest italic bg-primary/[0.01] dark:bg-white/[0.01]">Listado vacío</p>}
+                            </div>
+
+                            {/* DISPONIBLES */}
+                            <div className="space-y-3">
+                                <p className="text-[9px] font-black text-primary dark:text-white uppercase italic tracking-[0.15em] px-1 opacity-80 border-l-2 border-emerald-500 pl-3">Docentes Disponibles</p>
+                                <div className="grid grid-cols-1 gap-2">
+                                    {staff.filter(m => !selectedStaffIds.includes(m.id)).map(member => (
+                                        <button
+                                            key={member.id}
+                                            onClick={() => setSelectedStaffIds(prev => [...prev, member.id])}
+                                            className="group flex items-center gap-4 p-4 bg-primary/5 dark:bg-white/5 border border-primary/5 dark:border-white/10 rounded-3xl hover:bg-violet-500/10 dark:hover:bg-violet-500/10 hover:border-violet-500/30 transition-all text-left"
+                                        >
+                                            <div className="w-10 h-10 rounded-lg bg-primary/5 dark:bg-white/5 flex items-center justify-center text-primary/40 dark:text-white/60 group-hover:bg-violet-500/20 group-hover:text-violet-500 dark:group-hover:text-white transition-all">
+                                                <Plus size={18} />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-[11px] font-black truncate uppercase text-primary dark:text-white group-hover:text-violet-600 dark:group-hover:text-white">{member.name}</p>
+                                                <p className="text-[9px] font-bold text-primary/40 dark:text-white/40 group-hover:text-violet-400 transition-colors uppercase">{member.role}</p>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* ALUMNOS */}
+                        <div className="space-y-4 pt-6 mt-4 border-t border-primary/10 dark:border-white/10">
+                            <div className="flex items-center gap-2 mb-2">
+                                <GraduationCap size={16} className="text-emerald-400" />
+                                <p className="text-[10px] font-black text-primary dark:text-white uppercase italic tracking-[0.2em]">Alumnos</p>
+                            </div>
+                            <div className="p-4 bg-primary/[0.03] dark:bg-white/[0.03] border border-primary/10 dark:border-white/10 rounded-2xl shadow-inner">
+                                <p className="text-[10px] font-black text-violet-400 uppercase italic tracking-widest mb-2 leading-tight text-center">Ordenación Automática</p>
+                                <p className="text-[11px] text-primary dark:text-white uppercase font-black tracking-[0.1em] leading-relaxed text-center">
+                                    POR PRIMER APELLIDO (A-Z)
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </ControlGroup>
+
+                <ControlGroup title="Tipografía" icon={Type} expandedGroups={expandedDesignGroups} setExpandedGroups={setExpandedDesignGroups}>
+                    <div className="p-5 space-y-5">
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase italic tracking-[0.1em] block text-primary/60 dark:text-white/80">Preestablecida</label>
+                            <div className="relative">
+                                <select
+                                    value={showCustomFont ? "custom" : configOrla.fontFamily}
+                                    onChange={(e) => {
+                                        if (e.target.value === "custom") {
+                                            setShowCustomFont(true);
+                                        } else {
+                                            setShowCustomFont(false);
+                                            updateConfig('fontFamily', e.target.value);
+                                        }
+                                    }}
+                                    className="w-full bg-primary/5 dark:bg-white/[0.03] border border-primary/10 dark:border-white/10 rounded-xl px-4 py-3 text-[11px] font-black outline-none appearance-none focus:border-violet-500/40 text-primary dark:text-white cursor-pointer"
+                                >
+                                    <optgroup label="SANS SERIF (Modernas)">
+                                        {['Montserrat', 'Inter', 'Outfit', 'Oswald', 'Bebas Neue'].map(f => <option key={f} value={f}>{f}</option>)}
+                                    </optgroup>
+                                    <optgroup label="SERIF (Elegantes)">
+                                        {['Playfair Display', 'EB Garamond', 'Lora', 'Castoro'].map(f => <option key={f} value={f}>{f}</option>)}
+                                    </optgroup>
+                                    <optgroup label="DISPLAY / OTROS">
+                                        {['Zilla Slab', 'Lobster', 'Roboto Mono'].map(f => <option key={f} value={f}>{f}</option>)}
+                                    </optgroup>
+                                    <option value="custom">✏️ AÑADIR FUENTE PERSONALIZADA...</option>
+                                </select>
+                                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-primary/40 dark:text-white/40 opacity-30 pointer-events-none" />
+                            </div>
+                            {showCustomFont && (
+                                <div className="mt-4 space-y-2 animate-fade-in">
+                                    <label className="text-[10px] font-black uppercase italic tracking-[0.1em] block text-violet-500">Nombre de la fuente (PS NAME)</label>
+                                    <input
+                                        type="text"
+                                        value={configOrla.fontFamily}
+                                        placeholder="Ej: Gotham-Bold o Arial"
+                                        onChange={(e) => updateConfig('fontFamily', e.target.value)}
+                                        className="w-full bg-primary/5 dark:bg-white/[0.03] border border-violet-500/30 rounded-xl px-4 py-3 text-[11px] font-black outline-none focus:border-violet-500 text-primary dark:text-white"
+                                    />
+                                    <p className="text-[9px] text-primary/40 dark:text-white/40 italic">Escribe el nombre exacto de la fuente que tengas instalada.</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </ControlGroup>
+
+                <ControlGroup title="Alumnos" icon={LayoutGrid} expandedGroups={expandedDesignGroups} setExpandedGroups={setExpandedDesignGroups}>
+                    <div className="space-y-6">
+                        <HybridInput label="Columnas" value={configOrla.aCols} onChange={(v) => updateConfig('aCols', v)} min={1} max={20} unit="ud" />
+                        <HybridInput label="Eje Y (Inicio)" value={configOrla.aStartY} onChange={(v) => updateConfig('aStartY', v)} min={mmToPx(50)} max={mmToPx(280)} />
+                        <HybridInput label="Separación Filas" value={configOrla.aGapY} onChange={(v) => updateConfig('aGapY', v)} min={mmToPx(40)} max={mmToPx(120)} />
+                        <HybridInput label="Separación Texto" value={configOrla.aTextOffset} onChange={(v) => updateConfig('aTextOffset', v)} min={mmToPx(2)} max={mmToPx(25)} />
+                        <HybridInput label="Tamaño Texto" value={configOrla.fontSizeAlu} onChange={(v) => updateConfig('fontSizeAlu', v)} min={6} max={18} unit="pt" />
+                    </div>
+                </ControlGroup>
+
+                <ControlGroup title="Docentes" icon={UserSquare2} expandedGroups={expandedDesignGroups} setExpandedGroups={setExpandedDesignGroups}>
+                    <div className="space-y-6">
+                        <HybridInput label="Eje Y (Altura)" value={configOrla.dY} onChange={(v) => updateConfig('dY', v)} min={mmToPx(10)} max={mmToPx(150)} />
+                        <HybridInput label="Escala Fotos" value={configOrla.dScale} onChange={(v) => updateConfig('dScale', v)} min={0.5} max={2.5} step={0.05} unit="x" />
+                        <HybridInput label="Separación Texto" value={configOrla.dTextOffset} onChange={(v) => updateConfig('dTextOffset', v)} min={mmToPx(2)} max={mmToPx(30)} />
+                        <HybridInput label="Tamaño Texto" value={configOrla.fontSizeDoc} onChange={(v) => updateConfig('fontSizeDoc', v)} min={6} max={18} unit="pt" />
+                    </div>
+                </ControlGroup>
+
+                <ControlGroup title="Canvas y Márgenes" icon={Maximize} expandedGroups={expandedDesignGroups} setExpandedGroups={setExpandedDesignGroups}>
+                    <div className="space-y-6">
+                        <HybridInput label="Margen Global" value={configOrla.margin} onChange={(v) => updateConfig('margin', v)} min={mmToPx(5)} max={mmToPx(50)} />
+                        <div className="pt-4 border-t border-primary/5 dark:border-white/5 space-y-3">
+                            <p className="text-[9px] font-black text-primary/40 dark:text-white/40 uppercase italic tracking-widest px-1">Totales (Lectura)</p>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="p-3 bg-primary/5 dark:bg-white/5 rounded-xl border border-primary/5 dark:border-white/5">
+                                    <p className="text-[10px] font-black text-primary dark:text-white">{configOrla.numAlumnos} Alus.</p>
+                                </div>
+                                <div className="p-3 bg-primary/5 dark:bg-white/5 rounded-xl border border-primary/5 dark:border-white/5">
+                                    <p className="text-[10px] font-black text-primary dark:text-white">{configOrla.numDocentes} Doc.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </ControlGroup>
+
+                <div className="pt-4 animate-fade-in">
+                    <button
+                        onClick={() => setView('command')}
+                        className="w-full group relative overflow-hidden p-6 rounded-[24px] bg-gradient-to-br from-violet-600 to-indigo-700 text-white shadow-[0_20px_40px_-15px_rgba(124,58,237,0.5)] transition-all hover:scale-[1.02] active:scale-[0.98] border border-white/10"
+                    >
+                        {/* Efecto de brillo al pasar el ratón */}
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-shine" />
+
+                        <div className="flex items-center justify-between relative z-10">
+                            <div className="text-left">
+                                <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60 mb-1">Producción Senior</p>
+                                <h4 className="text-lg font-black italic uppercase tracking-tighter">Finalizar Diseño</h4>
+                            </div>
+                            <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md group-hover:rotate-12 transition-transform">
+                                <Layers size={22} className="text-white" />
+                            </div>
+                        </div>
+
+                        {/* Footer del botón con indicador Antigravity */}
+                        <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between relative z-10">
+                            <span className="text-[8px] font-black uppercase tracking-widest opacity-40 italic">Command Center V2.6</span>
+                            <div className="flex items-center gap-1.5 px-3 py-1 bg-black/20 rounded-full border border-white/5">
+                                <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+                                <span className="text-[8px] font-black uppercase tracking-widest text-green-400">Ready</span>
+                            </div>
+                        </div>
+                    </button>
+                    <p className="text-[9px] text-center mt-4 text-primary/30 dark:text-white/30 font-bold uppercase tracking-widest italic">Inyecta este diseño directamente en Photoshop</p>
+                </div>
+            </div>
+        );
+    };
+
     const handleAdminClick = () => {
         if (isAdminUnlocked) { setView('admin'); return; }
         setShowPinModal(true); setPinInput(''); setPinError(false);
@@ -774,27 +1238,7 @@ export default function App() {
         a.download = parts.join('_') + '.csv';
         a.click(); URL.revokeObjectURL(url);
         setShowExportModal(false);
-    };
-
-    // Extrae el primer apellido (segunda palabra) para ordenar
-    const firstSurname = (name = '') => {
-        if (!name) return '';
-        const parts = name.trim().split(/\s+/);
-        return parts[1] || parts[0] || '';
-    };
-
-    const getCourseBase = (name = '') => {
-        if (!name) return '';
-        const parts = name.split(' ');
-        const last = parts[parts.length - 1];
-        return (last.length === 1 && last === last.toUpperCase() && isNaN(last)) ? parts.slice(0, -1).join(' ') : name;
-    };
-
-    const getGroup = (name = '') => {
-        if (!name) return '';
-        const parts = name.split(' ');
-        const last = parts[parts.length - 1];
-        return (last.length === 1 && last === last.toUpperCase() && isNaN(last)) ? last : '';
+        return csv;
     };
 
     const filteredOrders = orders
@@ -811,206 +1255,25 @@ export default function App() {
         })
         .sort((a, b) => firstSurname(a.studentName).localeCompare(firstSurname(b.studentName), 'es', { sensitivity: 'base' }));
 
-    // Helpers
-    // Primera letra de cada palabra en mayúscula, resto en minúscula
-    const toTitleCase = (str) => {
-        if (!str) return '';
-        // Limpiar espacios dobles y trim
-        const cleanStr = str.trim().replace(/\s+/g, ' ');
-        // Lista de partículas que deben ir en minúscula (opcional, pero profesional)
-        const lowers = ['de', 'la', 'los', 'las', 'del', 'y'];
-
-        return cleanStr.toLowerCase().split(' ').map((word, index) => {
-            if (index > 0 && lowers.includes(word)) return word;
-            return word.charAt(0).toUpperCase() + word.slice(1);
-        }).join(' ');
-    };
+    if (!isLoaded) return <div className="min-h-screen bg-card flex items-center justify-center animate-pulse"><img src={`${import.meta.env.BASE_URL}logo.png`} className="w-12 h-12 grayscale opacity-20" /></div>;
 
     return (
-        <div className="min-h-screen transition-colors duration-500">
-            {/* Orbes de fondo (incluidos en Landing para mantener la estética definida) */}
-            {view !== 'master' && <BackgroundOrbs />}
+        <div className={`min-h-screen transition-all duration-500 overflow-x-hidden ${theme === 'dark' ? 'dark bg-[#0a0a0c] text-white' : 'bg-[#fafafa] text-slate-900 font-medium'}`}>
+            <style>{`
+                .dark { color-scheme: dark; }
+                .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+                .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+                .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(124, 58, 237, 0.2); border-radius: 10px; }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(124, 58, 237, 0.4); }
+                @keyframes shine {
+                    from { transform: translateX(-100%); }
+                    to { transform: translateX(100%); }
+                }
+                .animate-shine { animation: shine 1.5s infinite; }
+            `}</style>
 
-            {/* CABECERA (Ocultar en Master/Onboarding/Suspended/Landing) */}
-            {view !== 'master' && view !== 'onboarding' && view !== 'landing' && !settings.isSuspended && (
-                <>
-                    <header className="fixed top-0 inset-x-0 z-50 bg-main/80 backdrop-blur-xl border-b border-primary/5 safe-top">
-                        <div className="max-w-lg mx-auto px-6 h-20 flex items-center justify-between">
-                            <button onClick={handleAdminClick} className="flex items-center gap-3 active:scale-95 transition-transform group">
-                                <div className="text-left">
-                                    <h1 className="text-xs font-black tracking-widest leading-none text-primary/80 group-hover:text-primary uppercase transition-colors">Powered by</h1>
-                                    <p className="text-[9px] uppercase font-black tracking-[0.2em] text-primary/40">Creative Studio</p>
-                                </div>
-                            </button>
-                            <div className="flex items-center gap-3">
-                                {view === 'admin' ? (
-                                    <button onClick={() => setView('user')} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-accent/10 border border-accent/20 text-accent text-[10px] font-black uppercase tracking-widest">
-                                        <User size={12} /> Salir Admin
-                                    </button>
-                                ) : (
-                                    <button onClick={toggleTheme} className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-primary active:scale-90 transition-all duration-500 overflow-hidden relative">
-                                        <div className={`transition-all duration-500 transform ${theme === 'light' ? 'translate-y-0 rotate-0' : 'translate-y-12 rotate-90'}`}>
-                                            <Sun size={20} className="text-amber-500" />
-                                        </div>
-                                        <div className={`absolute transition-all duration-500 transform ${theme === 'dark' ? 'translate-y-0 rotate-0' : '-translate-y-12 -rotate-90'}`}>
-                                            <Moon size={20} className="text-accent" />
-                                        </div>
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    </header>
-                    <div className="h-24"></div>
-                </>
-            )}
-
-            {/* MODAL EXPORTAR */}
-            {showExportModal && (() => {
-                const ef = exportFilters;
-                const selSchool = schools.find(s => s.id === ef.school);
-                const selCourseObj = COURSE_GROUPS.flatMap(g => g.courses).find(c => c.name === ef.course);
-                const hasGroups = selCourseObj?.lines?.length > 0;
-
-                // Preview del nombre de archivo
-                const parts = ['Orlas2026'];
-                if (selSchool) parts.push(selSchool.name.replace(/\s+/g, '-'));
-                if (ef.course) parts.push(ef.course.replace(/\s+/g, '-'));
-                if (ef.group) parts.push(`Grupo-${ef.group}`);
-                parts.push(new Date().toISOString().slice(0, 10));
-                const previewName = parts.join('_') + '.csv';
-
-                return (
-                    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in">
-                        <div className="w-full max-w-md bg-card rounded-3xl p-8 border border-primary/10 shadow-2xl animate-slide-up space-y-5">
-                            <div className="flex items-center gap-3 mb-2">
-                                <div className="w-10 h-10 rounded-2xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center">
-                                    <Download size={18} className="text-amber-500" />
-                                </div>
-                                <div>
-                                    <h3 className="text-lg font-black text-primary">Exportar Pedidos</h3>
-                                    <p className="text-xs text-secondary">Filtra antes de exportar</p>
-                                </div>
-                            </div>
-
-                            {/* Centro */}
-                            <div>
-                                <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1.5 block">Centro Educativo</label>
-                                <select value={ef.school} onChange={e => setExportFilters(p => ({ ...p, school: e.target.value, course: '', group: '' }))} className="w-full bg-primary/5 border border-primary/10 text-primary text-sm font-bold rounded-2xl px-4 py-3 cursor-pointer">
-                                    <option value="">— Todos los centros —</option>
-                                    {schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                </select>
-                            </div>
-
-                            {/* Curso */}
-                            <div>
-                                <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1.5 block">Curso</label>
-                                {(() => {
-                                    // Pedidos del centro seleccionado (o todos)
-                                    const baseOrders = ef.school ? orders.filter(o => o.schoolId === ef.school) : orders;
-                                    // Cursos únicos presentes en esos pedidos
-                                    const usedCourses = [...new Set(baseOrders.map(o => o.course?.split(' ').slice(0, -1).join(' ') || o.course))];
-                                    // Curso base sin la letra de grupo al final
-                                    const getCourseBase = (courseName) => {
-                                        const parts = courseName?.split(' ') || [];
-                                        const last = parts[parts.length - 1];
-                                        return (last?.length === 1 && last === last.toUpperCase() && last !== last.toLowerCase())
-                                            ? parts.slice(0, -1).join(' ')
-                                            : courseName;
-                                    };
-                                    const usedBases = [...new Set(baseOrders.map(o => getCourseBase(o.course)))];
-                                    const filtered = COURSE_GROUPS.map(g => ({
-                                        ...g,
-                                        courses: g.courses.filter(c => usedBases.includes(c.name)),
-                                    })).filter(g => g.courses.length > 0);
-
-                                    return (
-                                        <select value={ef.course} onChange={e => setExportFilters(p => ({ ...p, course: e.target.value, group: '' }))} className="w-full bg-primary/5 border border-primary/10 text-primary text-sm font-bold rounded-2xl px-4 py-3 cursor-pointer">
-                                            <option value="">— Todos los cursos —</option>
-                                            {filtered.map(g => {
-                                                const emoji = g.group.split(' ')[0];
-                                                return g.courses.map(c => <option key={c.name} value={c.name}>{emoji} {c.name}</option>);
-                                            })}
-                                        </select>
-                                    );
-                                })()}
-                            </div>
-
-                            {/* Grupo (solo si el curso tiene líneas) */}
-                            {hasGroups && (
-                                <div>
-                                    <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1.5 block">Grupo / Línea</label>
-                                    <div className="flex gap-2 flex-wrap">
-                                        <button onClick={() => setExportFilters(p => ({ ...p, group: '' }))} className={`px-4 py-2 rounded-xl text-xs font-black border transition-all ${!ef.group ? 'bg-accent/10 border-accent text-accent' : 'bg-primary/5 border-primary/10 text-secondary'}`}>Todos</button>
-                                        {selCourseObj.lines.map(l => (
-                                            <button key={l} onClick={() => setExportFilters(p => ({ ...p, group: l }))} className={`px-4 py-2 rounded-xl text-xs font-black border transition-all ${ef.group === l ? 'bg-accent/10 border-accent text-accent' : 'bg-primary/5 border-primary/10 text-secondary'}`}>{l}</button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Preview nombre */}
-                            <div className="bg-primary/5 rounded-2xl px-4 py-3 border border-primary/10">
-                                <p className="text-[9px] font-black text-secondary uppercase tracking-widest mb-1">Nombre del archivo</p>
-                                <p className="text-xs font-mono text-accent truncate">{previewName}</p>
-                            </div>
-
-                            {/* Botones */}
-                            <div className="flex gap-3">
-                                <button onClick={() => setShowExportModal(false)} className="flex-1 py-3 text-sm font-bold text-secondary border border-primary/10 rounded-2xl hover:bg-primary/5 transition-all">Cancelar</button>
-                                <button onClick={() => exportCSV(ef)} className="flex-1 py-3 text-sm font-black bg-gradient-to-r from-amber-500 to-amber-400 text-black rounded-2xl active:scale-95 transition-all flex items-center justify-center gap-2"><Download size={15} /> Descargar</button>
-                            </div>
-                        </div>
-                    </div>
-                );
-            })()}
-
-            {/* MODAL PIN */}
-
-            {showPinModal && (
-                <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-fade-in">
-                    <div className="w-full max-w-sm bg-card rounded-3xl p-8 border border-primary/10 shadow-2xl animate-slide-up">
-                        <div className="text-center mb-8">
-                            <div className="w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-amber-500/20">
-                                <Lock size={28} className="text-amber-500" />
-                            </div>
-                            <h3 className="text-xl font-black text-primary">Panel Admin</h3>
-                            <p className="text-sm text-secondary mt-1">Introduce el código de acceso</p>
-                        </div>
-                        <div className="space-y-4">
-                            <div className="flex justify-center gap-3 mb-6">
-                                {[0, 1, 2, 3].map(i => (
-                                    <div key={i} className={`w-12 h-12 rounded-2xl border-2 flex items-center justify-center text-2xl font-black transition-all ${pinInput.length > i ? 'border-amber-400 bg-amber-400/10 text-amber-500' : 'border-primary/10 text-primary'}`}>
-                                        {pinInput.length > i ? '●' : ''}
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="grid grid-cols-3 gap-3">
-                                {[1, 2, 3, 4, 5, 6, 7, 8, 9, '', 0, '⌫'].map((k, i) => (
-                                    <button key={i} onClick={() => {
-                                        if (k === '⌫') { setPinInput(p => p.slice(0, -1)); setPinError(false); }
-                                        else if (k !== '' && pinInput.length < 4) {
-                                            const next = pinInput + k;
-                                            setPinInput(next);
-                                            if (next.length === 4) {
-                                                setTimeout(() => {
-                                                    if (next === adminPin) {
-                                                        setIsAdminUnlocked(true); setShowPinModal(false); setView('admin');
-                                                    } else { setPinError(true); setPinInput(''); }
-                                                }, 200);
-                                            }
-                                        }
-                                    }} className={`h-16 rounded-2xl text-xl font-black text-primary transition-all active:scale-90 ${k === '' ? 'invisible' : 'bg-primary/5 hover:bg-primary/10 border border-primary/10'}`}>
-                                        {k}
-                                    </button>
-                                ))}
-                            </div>
-                            {pinError && <p className="text-center text-red-500 text-sm font-bold">✗ Código incorrecto</p>}
-                        </div>
-                        <button onClick={() => { setShowPinModal(false); setPinError(false); }} className="w-full mt-6 py-3 text-sm text-secondary hover:text-primary font-semibold transition-colors">
-                            Cancelar
-                        </button>
-                    </div>
-                </div>
+            {isAdminUnlocked && (
+                <div className="fixed top-0 left-0 w-full h-[3px] bg-gradient-to-r from-violet-500 via-fuchsia-500 to-violet-500 z-[100] animate-pulse shadow-[0_0_15px_rgba(139,92,246,0.5)]" />
             )}
 
             {/* Banner de Modo Demo */}
@@ -1025,7 +1288,37 @@ export default function App() {
                 </div>
             )}
 
-            {/* 5. Pantalla de Suspensión (Control Maestro) */}
+            {/* Fondo decorativo */}
+            {view !== 'master' && view !== 'command' && <BackgroundOrbs />}
+
+            {/* CABECERA (Ocultar en Master/Onboarding/Suspended/Landing/Command) */}
+            {view !== 'master' && view !== 'onboarding' && view !== 'landing' && view !== 'command' && !settings.isSuspended && (
+                <>
+                    <header className={`fixed top-0 inset-x-0 z-[700] backdrop-blur-xl border-b transition-all duration-500 safe-top bg-card border-card shadow-glass`}>
+                        <div className="max-w-5xl mx-auto px-6 h-20 flex items-center justify-between">
+                            <button onClick={handleAdminClick} className="flex items-center gap-3 active:scale-95 transition-transform group">
+                                <div className="text-left">
+                                    <h1 className={`text-xs font-black tracking-widest leading-none uppercase transition-colors text-primary/80 group-hover:text-primary`}>Powered by</h1>
+                                    <p className={`text-[9px] uppercase font-black tracking-[0.2em] transition-colors text-primary/40`}>Creative Studio</p>
+                                </div>
+                            </button>
+                            <div className="flex items-center gap-3">
+                                <ThemeToggle theme={theme} onClick={toggleTheme} />
+                                {view === 'admin' && (
+                                    <button
+                                        onClick={() => isFullScreenDesign ? setIsFullScreenDesign(false) : setView('user')}
+                                        className={`flex items-center gap-2 px-6 py-2.5 rounded-xl border transition-all active:scale-95 text-[10px] font-black uppercase tracking-[0.2em] bg-accent/10 border-accent/20 text-accent hover:bg-accent/20`}
+                                    >
+                                        <ArrowRight size={14} className="rotate-180" /> VOLVER
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </header>
+                    <div className="h-24"></div>
+                </>
+            )}
+
             {settings.isSuspended ? (
                 <div className="fixed inset-0 bg-[#020617] flex items-center justify-center p-6 z-[9999]">
                     <div className="fixed inset-0 overflow-hidden pointer-events-none -z-0 opacity-20">
@@ -1054,6 +1347,17 @@ export default function App() {
 
                     {/* 6. Vista Maestra (Centro de Control) */}
                     {view === 'master' && <MasterPanel onBack={() => setView('user')} />}
+
+                    {/* VISTA COMMAND CENTER (PRODUCCIÓN) */}
+                    {view === 'command' && (
+                        <CommandCenter
+                            graduates={orders.filter(o => o.schoolId === adminSchool)}
+                            staff={staff.filter(m => m.schoolId === adminSchool)}
+                            config={settings.designConfig}
+                            onBack={() => setView('admin')}
+                            groupName={schools.find(s => s.id === adminSchool)?.name || 'Grupo de Orla'}
+                        />
+                    )}
 
                     {/* 7. Vista Onboarding (Registro) */}
                     {view === 'onboarding' && <Onboarding onComplete={() => setView('admin')} />}
@@ -1423,29 +1727,27 @@ export default function App() {
                                         </div>
 
                                         <div className="flex-1 flex justify-end">
-                                            <button
-                                                onClick={toggleTheme}
-                                                className="w-12 h-12 rounded-2xl bg-primary/5 flex items-center justify-center text-secondary hover:text-primary hover:bg-primary/10 transition-all active:scale-95 border border-primary/10"
-                                            >
-                                                {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
-                                            </button>
+                                            {/* Eliminado el ThemeToggle duplicado de aquí */}
                                         </div>
                                     </div>
-                                    <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
-                                        <div className="flex gap-1.5 bg-primary/5 p-1.5 rounded-2xl border border-primary/10 backdrop-blur-md">
-                                            <button onClick={() => { setAdminTab('shooting'); setShootSearch(''); }} className={`px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${adminTab === 'shooting' ? 'bg-red-700 text-white shadow-lg shadow-red-700/20' : 'text-secondary hover:text-primary hover:bg-primary/5'}`}>📸 Shooting</button>
-                                            <button onClick={() => setAdminTab('schools')} className={`px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${adminTab === 'schools' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'text-secondary hover:text-primary hover:bg-primary/5'}`}><GraduationCap size={14} className="inline mr-2" /> Centros</button>
-                                            <button onClick={() => setAdminTab('settings')} className={`px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${adminTab === 'settings' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'text-secondary hover:text-primary hover:bg-primary/5'}`}><Settings size={14} className="inline mr-2" /> Ajustes App</button>
-                                            <button onClick={() => setAdminTab('orders')} className={`px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${adminTab === 'orders' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'text-secondary hover:text-primary hover:bg-primary/5'}`}><Users size={14} className="inline mr-2" /> Gestión Pedidos</button>
-                                            <button onClick={() => setAdminTab('precios')} className={`px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${adminTab === 'precios' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'text-secondary hover:text-primary hover:bg-primary/5'}`}><Euro size={14} className="inline mr-2" /> Precios</button>
+                                    <div className="sticky top-24 z-50 py-4 bg-main/80 backdrop-blur-xl -mx-4 px-4 mb-4">
+                                        <div className="max-w-5xl mx-auto">
+                                            <div className="flex flex-wrap items-center justify-between gap-1.5 bg-primary/5 p-1.5 rounded-[2rem] border border-primary/10 backdrop-blur-md w-full shadow-xl shadow-primary/5">
+                                                <button onClick={() => { setAdminTab('shooting'); setShootSearch(''); }} className={`flex-1 min-w-fit px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all ${adminTab === 'shooting' ? 'bg-red-700 text-white shadow-lg shadow-red-700/20' : 'text-secondary hover:text-primary hover:bg-primary/5'}`}>📸 Shooting</button>
+                                                <button onClick={() => setAdminTab('schools')} className={`flex-1 min-w-fit px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all ${adminTab === 'schools' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'text-secondary hover:text-primary hover:bg-primary/5'}`}><GraduationCap size={14} className="inline mr-2" /> Centros</button>
+                                                <button onClick={() => setAdminTab('settings')} className={`flex-1 min-w-fit px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all ${adminTab === 'settings' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'text-secondary hover:text-primary hover:bg-primary/5'}`}><Settings size={14} className="inline mr-2" /> Ajustes App</button>
+                                                <button onClick={() => setAdminTab('orders')} className={`flex-1 min-w-fit px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all ${adminTab === 'orders' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'text-secondary hover:text-primary hover:bg-primary/5'}`}><Users size={14} className="inline mr-2" /> Gestión Pedidos</button>
+                                                <button onClick={() => setAdminTab('precios')} className={`flex-1 min-w-fit px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all ${adminTab === 'precios' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'text-secondary hover:text-primary hover:bg-primary/5'}`}><Euro size={14} className="inline mr-2" /> Precios</button>
+                                                <button onClick={() => setAdminTab('design')} className={`flex-1 min-w-fit px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all ${adminTab === 'design' ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/20' : 'text-secondary hover:text-primary hover:bg-primary/5'}`}><Palette size={14} className="inline mr-2" /> Diseño Orla</button>
+                                            </div>
                                         </div>
                                     </div>
 
                                     {/* Bloque: Mi Plan Master (Siempre Visible) */}
-                                    <div className="card p-6 bg-gradient-to-br from-indigo-900/10 to-transparent border-indigo-500/20 mb-8 border-2">
-                                        <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-                                            <div className="flex items-center gap-6">
-                                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border-2 shadow-lg ${settings.plan === 'starter' ? 'bg-amber-400/10 border-amber-500/30 text-amber-500' :
+                                    <div className="card p-4 bg-gradient-to-br from-indigo-900/10 to-transparent border-indigo-500/20 mb-8 border-2 sticky top-[152px] z-[35] backdrop-blur-xl">
+                                        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                                            <div className="flex items-center gap-4">
+                                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border-2 shadow-lg ${settings.plan === 'starter' ? 'bg-amber-400/10 border-amber-500/30 text-amber-500' :
                                                     settings.plan === 'pro' ? 'bg-blue-400/10 border-blue-500/30 text-blue-500' :
                                                         settings.plan === 'flex' ? 'bg-emerald-400/10 border-emerald-500/30 text-emerald-500' :
                                                             'bg-purple-400/10 border-purple-500/30 text-purple-500'
@@ -1564,7 +1866,7 @@ export default function App() {
                                                                 <option value="D" className="text-primary">D</option>
                                                             </select>
                                                             <input type="text" value={newStudentForm.photoFile} onChange={e => setNewStudentForm(p => ({ ...p, photoFile: e.target.value }))}
-                                                                placeholder="Nº Foto" className="w-[100px] bg-primary/10 border border-primary/20 text-white text-xs font-mono rounded-xl px-3 py-2.5 outline-none placeholder-white/40 focus:border-red-700/50" />
+                                                                placeholder="Nº FOTO (ej: 001)" className="w-[130px] bg-white border border-primary/20 text-primary text-[10px] font-black rounded-xl px-3 py-2.5 outline-none placeholder-primary/40 focus:border-red-700/50 uppercase tracking-tighter" />
                                                             <select value={newStudentForm.status} onChange={e => setNewStudentForm(p => ({ ...p, status: e.target.value }))} className={`w-[110px] text-[10px] font-black rounded-xl px-2 py-2.5 border cursor-pointer outline-none transition-all ${newStudentForm.status === 'Pagado' ? 'bg-emerald-500 text-white border-emerald-600' : 'bg-amber-500 text-white border-amber-600'}`}>
                                                                 <option value="Pendiente">PENDIENTE</option>
                                                                 <option value="Pagado">PAGADO</option>
@@ -1573,7 +1875,6 @@ export default function App() {
                                                                 <option value="" disabled className="text-primary">FORMA DE PAGO</option>
                                                                 <option value="Efectivo" className="text-primary">Efectivo</option>
                                                                 <option value="Bizum" className="text-primary">Bizum</option>
-                                                                <option value="Transferencia" className="text-primary">Transferencia</option>
                                                             </select>
                                                             <button
                                                                 disabled={!newStudentForm.name.trim() || !newStudentForm.course}
@@ -1657,9 +1958,28 @@ export default function App() {
                                                                         </button>
                                                                         <button onClick={() => setShootAssigning({ order, tempFile: order.photoFile || '' })}
                                                                             className="flex-1 flex items-center gap-4 px-3 py-4 text-left">
-                                                                            <span className={`w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0 ${order.photoFile ? 'bg-emerald-500/10 text-emerald-500' : 'bg-primary/5 text-secondary'}`}>
-                                                                                {order.photoFile ? '✅' : '📷'}
-                                                                            </span>
+                                                                            {/* Icono de Estado Interactivo */}
+                                                                            <div className="relative z-20" onClick={e => e.stopPropagation()}>
+                                                                                <select
+                                                                                    value={order.status || 'Pendiente'}
+                                                                                    onChange={e => { e.stopPropagation(); updateStatus(order.id, e.target.value); }}
+                                                                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                                                                >
+                                                                                    <option value="Pendiente">Pendiente 📷</option>
+                                                                                    <option value="Pagado">Pagado ✅</option>
+                                                                                    <option value="Producido">Producido 📦</option>
+                                                                                    <option value="Entregado">Entregado 🏁</option>
+                                                                                </select>
+                                                                                <span className={`w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0 transition-all duration-300 border ${order.status === 'Pagado' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30' :
+                                                                                    order.status === 'Producido' ? 'bg-indigo-500/10 text-indigo-500 border-indigo-500/30' :
+                                                                                        order.status === 'Entregado' ? 'bg-slate-500/10 text-secondary border-slate-500/30' :
+                                                                                            'bg-amber-500/10 text-amber-500 border-amber-500/30'
+                                                                                    }`}>
+                                                                                    {order.status === 'Pagado' ? '✅' :
+                                                                                        order.status === 'Producido' ? '📦' :
+                                                                                            order.status === 'Entregado' ? '🏁' : '📷'}
+                                                                                </span>
+                                                                            </div>
                                                                             <div className="flex-1 min-w-0">
                                                                                 <p className="text-sm font-black text-primary truncate">{order.studentName}</p>
                                                                                 <p className="text-[10px] text-secondary font-semibold">{order.course}</p>
@@ -1724,67 +2044,117 @@ export default function App() {
                                                             )}
                                                         </div>
                                                     </div>
-                                                    <div className="card p-4 bg-indigo-500/3 border-indigo-500/10 mb-4 space-y-3">
-                                                        <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest leading-none">Alta rápida de personal</p>
-                                                        <input type="text" value={newStaffForm.name}
-                                                            onChange={e => setNewStaffForm(p => ({ ...p, name: e.target.value }))}
-                                                            onBlur={e => setNewStaffForm(p => ({ ...p, name: toTitleCase(e.target.value) }))}
-                                                            placeholder="Nombre completo" className="w-full bg-primary/5 border border-primary/10 text-primary text-sm rounded-xl px-4 py-3 outline-none" />
-                                                        <div className="flex flex-wrap gap-3">
-                                                            <div className="flex-1 min-w-[200px] relative">
-                                                                <input type="text" list="roles-list" value={newStaffForm.role} onChange={e => setNewStaffForm(p => ({ ...p, role: e.target.value }))}
-                                                                    placeholder="Puesto (ej: Tutor, Director...)" className="w-full bg-primary/5 border border-primary/10 text-primary text-sm rounded-xl px-4 py-3 outline-none focus:border-indigo-400/50" />
-                                                                <datalist id="roles-list">
-                                                                    {STAFF_ROLES.flatMap(g => g.roles).map(r => <option key={r} value={r} />)}
-                                                                </datalist>
-                                                            </div>
-                                                            <div className="flex flex-col gap-3">
-                                                                {newStaffForm.assignments.length > 0 && (
-                                                                    <div className="flex flex-wrap gap-2 mb-1 p-2 bg-primary/2 rounded-xl border border-primary/5">
-                                                                        {newStaffForm.assignments.map((a, i) => (
-                                                                            <span key={i} className="text-[10px] bg-indigo-500/10 text-indigo-400 font-bold px-2.5 py-1 rounded-lg flex items-center gap-1.5 border border-indigo-500/20">
-                                                                                {a.course} {a.group}
-                                                                                <button onClick={() => setNewStaffForm(p => ({ ...p, assignments: p.assignments.filter((_, idx) => idx !== i) }))} className="hover:text-red-500 transition-colors ml-1">x</button>
-                                                                            </span>
-                                                                        ))}
-                                                                    </div>
-                                                                )}
-                                                                <div className="flex flex-wrap gap-3">
-                                                                    <select value={newStaffForm.tempCourse} onChange={e => setNewStaffForm(p => ({ ...p, tempCourse: e.target.value }))} className="flex-1 min-w-[130px] bg-primary/10 border border-primary/20 text-white text-xs font-bold rounded-xl px-3 py-2 cursor-pointer outline-none focus:border-indigo-400/50 text-center">
-                                                                        <option value="" className="text-primary">CLASE</option>
-                                                                        {availCourses.map(c => <option key={c.name} value={c.name} className="text-primary">{c.name}</option>)}
-                                                                    </select>
-                                                                    <select value={newStaffForm.tempGroup} onChange={e => setNewStaffForm(p => ({ ...p, tempGroup: e.target.value }))} className="w-[95px] bg-primary/10 border border-primary/20 text-white text-xs font-bold rounded-xl px-3 py-2 cursor-pointer uppercase outline-none focus:border-indigo-400/50">
-                                                                        <option value="" className="text-primary">GRUPO</option>
-                                                                        <option value="A" className="text-primary">A</option>
-                                                                        <option value="B" className="text-primary">B</option>
-                                                                        <option value="C" className="text-primary">C</option>
-                                                                        <option value="D" className="text-primary">D</option>
-                                                                    </select>
-                                                                    <button
-                                                                        disabled={!newStaffForm.tempCourse}
-                                                                        onClick={() => setNewStaffForm(p => ({ ...p, assignments: [...p.assignments, { course: p.tempCourse, group: p.tempGroup }], tempCourse: '', tempGroup: '' }))}
-                                                                        className="bg-indigo-500/20 text-indigo-400 font-black text-[10px] rounded-xl px-4 py-2 hover:bg-indigo-500 hover:text-white transition-all active:scale-95 disabled:opacity-30">
-                                                                        + Asignar
-                                                                    </button>
+                                                    <div className="card p-4 bg-indigo-500/5 border-indigo-500/10 mb-8 shadow-sm">
+                                                        <div className="flex items-center gap-2 mb-4">
+                                                            <div className="w-1.5 h-3 bg-indigo-500 rounded-full"></div>
+                                                            <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest leading-none">Alta rápida de personal</p>
+                                                        </div>
+
+                                                        <div className="space-y-3">
+                                                            {/* Fila 1: Nombre y Foto */}
+                                                            <div className="grid grid-cols-[1fr,120px] gap-3">
+                                                                <div>
+                                                                    <label className="text-[8px] font-black text-secondary uppercase mb-1 ml-1 block opacity-60">Nombre completo</label>
+                                                                    <input type="text" value={newStaffForm.name}
+                                                                        onChange={e => setNewStaffForm(p => ({ ...p, name: e.target.value }))}
+                                                                        onBlur={e => setNewStaffForm(p => ({ ...p, name: toTitleCase(e.target.value) }))}
+                                                                        placeholder="Ej: Maria García"
+                                                                        className="w-full bg-white border border-primary/10 text-xs rounded-lg px-3 py-2 outline-none focus:border-indigo-500 transition-all font-medium" />
                                                                 </div>
-                                                                <div className="flex gap-2 w-full mt-2">
+                                                                <div>
+                                                                    <label className="text-[8px] font-black text-secondary uppercase mb-1 ml-1 block opacity-60">Foto (opc.)</label>
                                                                     <input type="text" value={newStaffForm.photoFile} onChange={e => setNewStaffForm(p => ({ ...p, photoFile: e.target.value }))}
-                                                                        placeholder="Nº Foto (opcional)" className="w-1/3 min-w-[120px] bg-primary/5 border border-primary/10 text-primary text-sm rounded-xl px-4 py-3 outline-none font-mono focus:border-indigo-400/50" />
-                                                                    <button
-                                                                        disabled={!newStaffForm.name.trim() || !newStaffForm.role.trim() || newStaffForm.assignments.length === 0}
-                                                                        onClick={() => {
-                                                                            addStaff({
-                                                                                name: newStaffForm.name,
-                                                                                role: newStaffForm.role,
-                                                                                assignments: newStaffForm.assignments,
-                                                                                photoFile: newStaffForm.photoFile
-                                                                            });
-                                                                            setNewStaffForm({ name: '', role: '', photoFile: '', tempCourse: '', tempGroup: '', assignments: [] });
-                                                                        }}
-                                                                        className="flex-1 bg-red-700 text-white font-black text-[10px] rounded-xl px-4 py-3 hover:bg-red-800 transition-all active:scale-95 disabled:opacity-30 shadow-sm shadow-red-700/20 whitespace-nowrap">GUARDAR FICHA</button>
+                                                                        placeholder="DSC_001"
+                                                                        className="w-full bg-white border border-primary/10 text-xs rounded-lg px-3 py-2 outline-none focus:border-indigo-500 transition-all font-mono" />
                                                                 </div>
                                                             </div>
+
+                                                            {/* Fila 2: Puestos y Clases en 2 columnas */}
+                                                            <div className="grid grid-cols-2 gap-3">
+                                                                {/* Puestos y Cargos */}
+                                                                <div className="bg-white/50 border border-primary/10 rounded-xl p-3">
+                                                                    <label className="text-[8px] font-black text-secondary uppercase mb-2 block opacity-60">Puestos / Cargos</label>
+
+                                                                    <div className="flex gap-1.5 mb-2 h-7 overflow-x-auto scrollbar-hide">
+                                                                        {newStaffForm.roles.length === 0 ? (
+                                                                            <span className="text-[8px] text-secondary opacity-40 italic self-center">Ninguno añadido...</span>
+                                                                        ) : (
+                                                                            newStaffForm.roles.map((r, i) => (
+                                                                                <span key={i} className="text-[8px] bg-violet-500/10 text-violet-500 font-black px-2 py-1 rounded-md flex items-center gap-1 border border-violet-500/20 whitespace-nowrap">
+                                                                                    {r}
+                                                                                    <button onClick={() => setNewStaffForm(p => ({ ...p, roles: p.roles.filter((_, idx) => idx !== i) }))} className="text-red-400 hover:text-red-500">✕</button>
+                                                                                </span>
+                                                                            ))
+                                                                        )}
+                                                                    </div>
+
+                                                                    <div className="flex gap-1.5">
+                                                                        <input type="text" list="roles-list-new" value={newStaffForm.tempRole}
+                                                                            onChange={e => setNewStaffForm(p => ({ ...p, tempRole: e.target.value }))}
+                                                                            onKeyDown={e => {
+                                                                                if (e.key === 'Enter' && newStaffForm.tempRole.trim()) {
+                                                                                    e.preventDefault();
+                                                                                    if (!newStaffForm.roles.includes(newStaffForm.tempRole.trim())) {
+                                                                                        setNewStaffForm(p => ({ ...p, roles: [...p.roles, p.tempRole.trim()], tempRole: '' }));
+                                                                                    }
+                                                                                }
+                                                                            }}
+                                                                            placeholder="Añadir..." className="flex-1 bg-white border border-primary/10 text-[10px] rounded-lg px-2 py-1.5 outline-none focus:border-indigo-500" />
+                                                                        <button type="button" onClick={() => {
+                                                                            if (newStaffForm.tempRole.trim() && !newStaffForm.roles.includes(newStaffForm.tempRole.trim())) {
+                                                                                setNewStaffForm(p => ({ ...p, roles: [...p.roles, p.tempRole.trim()], tempRole: '' }));
+                                                                            }
+                                                                        }} className="bg-violet-500 text-white w-7 h-7 rounded-lg flex items-center justify-center font-black shadow-sm">+</button>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Asignación de Clases */}
+                                                                <div className="bg-white/50 border border-primary/10 rounded-xl p-3">
+                                                                    <label className="text-[8px] font-black text-secondary uppercase mb-2 block opacity-60">Asignar Clases</label>
+
+                                                                    <div className="flex gap-1.5 mb-2 h-7 overflow-x-auto scrollbar-hide">
+                                                                        {newStaffForm.assignments.length === 0 ? (
+                                                                            <span className="text-[8px] text-secondary opacity-40 italic self-center">Ninguna...</span>
+                                                                        ) : (
+                                                                            newStaffForm.assignments.map((a, i) => (
+                                                                                <span key={i} className="text-[8px] bg-indigo-500/10 text-indigo-500 font-black px-2 py-1 rounded-md flex items-center gap-1 border border-indigo-500/20 whitespace-nowrap">
+                                                                                    {a.course} {a.group}
+                                                                                    <button onClick={() => setNewStaffForm(p => ({ ...p, assignments: p.assignments.filter((_, idx) => idx !== i) }))} className="text-red-400 hover:text-red-500">✕</button>
+                                                                                </span>
+                                                                            ))
+                                                                        )}
+                                                                    </div>
+
+                                                                    <div className="flex gap-1">
+                                                                        <select value={newStaffForm.tempCourse} onChange={e => setNewStaffForm(p => ({ ...p, tempCourse: e.target.value }))} className="flex-1 bg-white border border-primary/10 text-[9px] font-bold rounded-lg px-1.5 py-1.5 outline-none">
+                                                                            <option value="">CLASE</option>
+                                                                            {availCourses.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                                                                        </select>
+                                                                        <select value={newStaffForm.tempGroup} onChange={e => setNewStaffForm(p => ({ ...p, tempGroup: e.target.value }))} className="w-12 bg-white border border-primary/10 text-[9px] font-bold rounded-lg px-1 py-1.5 outline-none">
+                                                                            <option value="">GRP</option>
+                                                                            <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option>
+                                                                        </select>
+                                                                        <button type="button" disabled={!newStaffForm.tempCourse} onClick={() => setNewStaffForm(p => ({ ...p, assignments: [...p.assignments, { course: p.tempCourse, group: p.tempGroup }], tempCourse: '', tempGroup: '' }))} className="bg-indigo-500 text-white w-7 h-7 rounded-lg flex items-center justify-center font-black shadow-sm disabled:opacity-30">+</button>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Botón Guardar */}
+                                                            <button
+                                                                disabled={!newStaffForm.name.trim() || newStaffForm.roles.length === 0 || newStaffForm.assignments.length === 0}
+                                                                onClick={() => {
+                                                                    addStaff({
+                                                                        name: newStaffForm.name,
+                                                                        role: newStaffForm.roles.join(' • '),
+                                                                        roles: newStaffForm.roles,
+                                                                        assignments: newStaffForm.assignments,
+                                                                        photoFile: newStaffForm.photoFile
+                                                                    });
+                                                                    setNewStaffForm({ name: '', role: '', roles: [], tempRole: '', photoFile: '', tempCourse: '', tempGroup: '', assignments: [] });
+                                                                }}
+                                                                className="w-full bg-red-700 text-white font-black text-[10px] rounded-xl py-2.5 hover:bg-red-800 transition-all active:scale-95 disabled:opacity-30 shadow-lg shadow-red-700/20 uppercase tracking-widest">
+                                                                GUARDAR FICHA PERSONAL
+                                                            </button>
                                                         </div>
                                                     </div>
                                                     <div className="card overflow-hidden">
@@ -1865,7 +2235,19 @@ export default function App() {
                                                                                 <CheckCircle size={12} strokeWidth={3} />
                                                                             </div>
                                                                         </button>
-                                                                        <button onClick={() => setStaffAssigning({ member, name: member.name, role: member.role, assignments: getStaffAssignments(member), tempCourse: '', tempGroup: '', tempFile: member.photoFile || '' })}
+                                                                        <button onClick={() => {
+                                                                            const initialRoles = member.roles || (member.role ? member.role.split(' • ') : []);
+                                                                            setStaffAssigning({
+                                                                                member,
+                                                                                name: member.name,
+                                                                                roles: initialRoles,
+                                                                                tempRole: '',
+                                                                                assignments: getStaffAssignments(member),
+                                                                                tempCourse: '',
+                                                                                tempGroup: '',
+                                                                                tempFile: member.photoFile || ''
+                                                                            });
+                                                                        }}
                                                                             className="flex-1 flex items-center gap-4 px-3 py-4 text-left">
                                                                             <span className={`w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0 ${member.photoFile ? 'bg-emerald-500/10 text-emerald-500' : 'bg-primary/5 text-secondary'}`}>
                                                                                 {member.photoFile ? '✅' : '👤'}
@@ -1925,12 +2307,42 @@ export default function App() {
                                                         </div>
 
                                                         <div>
-                                                            <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1.5 block">Puesto / Cargo</label>
-                                                            <input type="text" list="roles-list-edit" value={staffAssigning.role} onChange={e => setStaffAssigning(p => ({ ...p, role: e.target.value }))}
-                                                                placeholder="Puesto (ej: Tutor)" className="w-full bg-primary/5 border border-primary/10 text-primary text-xs font-bold rounded-xl px-4 py-3 outline-none focus:border-indigo-400/50" />
-                                                            <datalist id="roles-list-edit">
-                                                                {STAFF_ROLES.flatMap(g => g.roles).map(r => <option key={r} value={r} />)}
-                                                            </datalist>
+                                                            <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1.5 block">Puestos / Cargos</label>
+                                                            {staffAssigning.roles.length > 0 && (
+                                                                <div className="flex flex-wrap gap-1.5 mb-2">
+                                                                    {staffAssigning.roles.map((r, i) => (
+                                                                        <span key={i} className="text-[9px] bg-indigo-500/10 text-indigo-400 font-bold px-2 py-0.5 rounded-lg flex items-center gap-1 border border-indigo-500/20">
+                                                                            {r}
+                                                                            <button onClick={() => setStaffAssigning(p => ({ ...p, roles: p.roles.filter((_, idx) => idx !== i) }))} className="hover:text-red-500 transition-colors">×</button>
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                            <div className="flex gap-2">
+                                                                <div className="relative flex-1">
+                                                                    <input type="text" list="roles-list-edit" value={staffAssigning.tempRole}
+                                                                        onChange={e => setStaffAssigning(p => ({ ...p, tempRole: e.target.value }))}
+                                                                        onKeyDown={e => {
+                                                                            if (e.key === 'Enter' && staffAssigning.tempRole.trim()) {
+                                                                                e.preventDefault();
+                                                                                if (!staffAssigning.roles.includes(staffAssigning.tempRole.trim())) {
+                                                                                    setStaffAssigning(p => ({ ...p, roles: [...p.roles, p.tempRole.trim()], tempRole: '' }));
+                                                                                }
+                                                                            }
+                                                                        }}
+                                                                        placeholder="Añadir cargo..." className="w-full bg-primary/5 border border-primary/10 text-primary text-[11px] font-bold rounded-xl px-4 py-2.5 outline-none focus:border-indigo-400/50" />
+                                                                    <datalist id="roles-list-edit">
+                                                                        {STAFF_ROLES.flatMap(g => g.roles).map(r => <option key={r} value={r} />)}
+                                                                    </datalist>
+                                                                </div>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        if (staffAssigning.tempRole.trim() && !staffAssigning.roles.includes(staffAssigning.tempRole.trim())) {
+                                                                            setStaffAssigning(p => ({ ...p, roles: [...p.roles, p.tempRole.trim()], tempRole: '' }));
+                                                                        }
+                                                                    }}
+                                                                    className="bg-indigo-500/10 text-indigo-400 rounded-xl px-3 py-1 hover:bg-indigo-500 hover:text-white transition-all font-black text-lg">+</button>
+                                                            </div>
                                                         </div>
 
                                                         <div className="flex flex-col gap-2">
@@ -1976,11 +2388,12 @@ export default function App() {
                                                     <div className="flex gap-3 pt-4">
                                                         <button onClick={() => setStaffAssigning(null)} className="flex-1 py-3 text-xs font-bold text-secondary border border-primary/10 rounded-2xl hover:bg-primary/5 transition-all">Cancelar</button>
                                                         <button
-                                                            disabled={!staffAssigning.name.trim() || !staffAssigning.role.trim() || staffAssigning.assignments.length === 0}
+                                                            disabled={!staffAssigning.name.trim() || staffAssigning.roles.length === 0 || staffAssigning.assignments.length === 0}
                                                             onClick={() => {
                                                                 updateStaffMember(staffAssigning.member.id, {
                                                                     name: staffAssigning.name,
-                                                                    role: staffAssigning.role,
+                                                                    role: staffAssigning.roles.join(' • '),
+                                                                    roles: staffAssigning.roles,
                                                                     assignments: staffAssigning.assignments,
                                                                     photoFile: staffAssigning.tempFile
                                                                 });
@@ -2289,7 +2702,6 @@ export default function App() {
                                                                     className="w-full bg-primary/5 border border-primary/10 text-primary text-xs font-bold rounded-xl px-4 py-3 outline-none">
                                                                     <option value="Bizum" className="text-slate-900">Bizum</option>
                                                                     <option value="Efectivo" className="text-slate-900">Efectivo</option>
-                                                                    <option value="Transferencia" className="text-slate-900">Transferencia</option>
                                                                 </select>
                                                             </div>
                                                         </div>
@@ -2400,7 +2812,7 @@ export default function App() {
                                                             <h3 className="text-lg font-black text-primary flex items-center gap-2 mb-6"><CreditCard size={18} className="text-accent" /> Pagos y Seguridad</h3>
 
                                                             <div className="grid grid-cols-1 gap-3 mb-4">
-                                                                {paymentMethods.filter(m => m.id !== 'transferencia').map(method => {
+                                                                {paymentMethods.map(method => {
                                                                     return (
                                                                         <div key={method.id} className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${method.enabled ? 'bg-indigo-500/5 border-indigo-500/20 shadow-sm' : 'bg-primary/2 border-primary/5 opacity-60'}`}>
                                                                             <div className="flex items-center gap-3">
@@ -2566,7 +2978,11 @@ export default function App() {
                                                                     <button onClick={downloadMasterBackup} className="w-full py-4 bg-primary/5 border border-primary/10 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-primary/10 transition-all">
                                                                         <Download size={14} /> Descargar Copia JSON
                                                                     </button>
-                                                                    <p className="text-[9px] text-secondary/60 font-medium px-4 text-center leading-tight">Guarda una copia de seguridad con todos tus pedidos y configuraciones actuales.</p>
+                                                                    <button onClick={syncWithDrive} className={`w-full py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${isBackingUp ? 'bg-indigo-500/20 text-indigo-400 cursor-not-allowed' : 'bg-primary/5 border border-primary/10 hover:bg-primary/10'}`}>
+                                                                        <Upload size={14} className={isBackingUp ? 'animate-spin' : ''} />
+                                                                        {isBackingUp ? 'Sincronizando...' : 'Subir a Google Drive (PRO)'}
+                                                                    </button>
+                                                                    <p className="text-[9px] text-secondary/60 font-medium px-4 text-center leading-tight">Guarda una copia de seguridad con todos tus pedidos, diseños y configuraciones actuales.</p>
                                                                 </div>
 
                                                                 <div className="space-y-2">
@@ -2941,6 +3357,255 @@ export default function App() {
                                             </div>
                                         )
                                     }
+
+                                    {/* ── SECCIÓN DISEÑO ORLA ────────────────────────── */}
+                                    {adminTab === 'design' && (
+                                        <div className={`space-y-6 pb-20 animate-fade-in max-w-7xl mx-auto ${isFullScreenDesign ? 'fixed inset-0 z-[600] bg-main p-0 pt-20 flex' : ''}`}>
+
+                                            {/* BARRA LATERAL FIJA (Solo Screen Completa) - MOVIDA A LA DERECHA */}
+                                            {isFullScreenDesign && (
+                                                <div className="w-[300px] h-full bg-card border-l border-card flex flex-col shadow-2xl overflow-y-auto custom-scrollbar shrink-0 order-2 text-left">
+                                                    <div className="p-5 border-b border-card flex items-center justify-between bg-card sticky top-0 z-10 shrink-0">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center text-violet-400">
+                                                                <Settings2 size={16} />
+                                                            </div>
+                                                            <h3 className="text-[10px] font-black text-primary dark:text-white uppercase italic tracking-[0.2em]">
+                                                                Layout Engine V12.1
+                                                            </h3>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => setShowExportModal(true)}
+                                                            className="p-2 bg-primary/5 dark:bg-white/5 hover:bg-primary/10 dark:hover:bg-white/10 rounded-lg text-primary/40 dark:text-white/40 hover:text-primary dark:hover:text-white transition-all border border-primary/5 dark:border-white/5"
+                                                        >
+                                                            <Download size={14} />
+                                                        </button>
+                                                    </div>
+                                                    <div className="p-5 space-y-6 flex-1 overflow-y-auto custom-scrollbar">
+                                                        {renderDesignControls()}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* ÁREA DE TRABAJO (Canvas) */}
+                                            <div className={`flex-1 flex flex-col ${isFullScreenDesign ? 'h-full overflow-hidden bg-main order-1' : ''}`}>
+                                                {/* Header Especial para FullScreen */}
+                                                {isFullScreenDesign && (
+                                                    <div className="p-4 px-8 border-b border-card flex items-center justify-between glass-strong">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="w-8 h-8 bg-violet-500/20 rounded-lg flex items-center justify-center text-primary dark:text-white">
+                                                                <Maximize size={18} />
+                                                            </div>
+                                                            <span className="text-[10px] font-black text-primary dark:text-white uppercase tracking-[0.3em]">Modo Pantalla Completa</span>
+                                                        </div>
+
+                                                        {/* POWERED BY CENTRAL (Nueva Petición) */}
+                                                        <div className="hidden md:flex flex-col items-center text-primary dark:text-white">
+                                                            <span className="text-[8px] font-black uppercase tracking-[0.4em] leading-none mb-1 opacity-60">Powered by</span>
+                                                            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Creative Studio</span>
+                                                        </div>
+
+                                                        <div className="flex items-center gap-6">
+                                                            <div className="flex items-center bg-primary/5 dark:bg-white/10 rounded-xl border border-primary/10 dark:border-white/10 p-1 gap-1">
+                                                                <button onClick={() => setCanvasZoom(z => Math.max(0.1, z - 0.1))} className="p-2 hover:bg-primary/10 dark:hover:bg-white/10 text-primary/60 dark:text-white/60 hover:text-primary dark:hover:text-white transition-all rounded-lg"><ZoomOut size={16} /></button>
+                                                                <span className="text-[10px] font-black text-primary dark:text-white px-2 min-w-[50px] text-center">{Math.round(canvasZoom * 100)}%</span>
+                                                                <button onClick={() => setCanvasZoom(z => Math.min(3, z + 0.1))} className="p-2 hover:bg-primary/10 dark:hover:bg-white/10 text-primary/60 dark:text-white/60 hover:text-primary dark:hover:text-white transition-all rounded-lg"><ZoomIn size={16} /></button>
+                                                                <button onClick={() => { setCanvasZoom(1); setPanOffset({ x: 0, y: 0 }); }} className="p-3 text-[9px] font-black uppercase tracking-tighter text-violet-500 dark:text-violet-400 hover:text-primary dark:hover:text-white transition-colors">RESET</button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                <div className={`card p-8 border-violet-500/20 bg-violet-500/5 relative overflow-hidden ${isFullScreenDesign ? 'border-none bg-transparent h-full p-0 flex flex-col' : ''}`}>
+                                                    {/* Header Previa */}
+                                                    {!isFullScreenDesign && (
+                                                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 mb-8 relative z-10 text-left">
+                                                            <div className="flex items-center gap-4 text-left">
+                                                                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20 text-left">
+                                                                    <Eye size={24} />
+                                                                </div>
+                                                                <div className="text-left">
+                                                                    <h2 className="text-xl font-black text-primary uppercase tracking-tighter text-left">Previsualización Técnica (A3)</h2>
+                                                                    <p className="text-[10px] font-bold text-secondary uppercase tracking-[0.2em] opacity-60 text-left">Escala Visual 1:10 • 300 DPI</p>
+                                                                </div>
+                                                            </div>
+
+                                                            <button
+                                                                onClick={() => setIsFullScreenDesign(true)}
+                                                                className="px-8 py-4 bg-violet-600 hover:bg-violet-500 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] flex items-center gap-3 transition-all shadow-xl shadow-violet-600/20 active:scale-95 group"
+                                                            >
+                                                                <Maximize2 size={18} className="group-hover:rotate-12 transition-transform" /> EDITAR ORLA
+                                                            </button>
+                                                        </div>
+                                                    )}
+
+                                                    <div
+                                                        ref={canvasContainerRef}
+                                                        onMouseDown={handleCanvasMouseDown}
+                                                        onMouseMove={handleCanvasMouseMove}
+                                                        onMouseUp={handleCanvasMouseUp}
+                                                        onMouseLeave={handleCanvasMouseUp}
+                                                        onWheel={handleCanvasWheel}
+                                                        className={`relative select-none overflow-hidden touch-none ${isFullScreenDesign ? 'flex-1 bg-main flex flex-col items-center justify-center p-4 overflow-auto custom-scrollbar' : 'w-full flex items-center justify-center p-8 bg-black/20 rounded-3xl border border-white/5 cursor-grab active:cursor-grabbing min-h-[500px]'}`}
+                                                        style={{ cursor: isFullScreenDesign ? 'grab' : 'grab' }}
+                                                    >
+                                                        {/* Preview del Canvas */}
+                                                        <div className={`transition-all duration-500 select-none ${isFullScreenDesign ? 'w-full' : 'w-full flex justify-center'}`}>
+                                                            <div className="relative bg-white shadow-2xl rounded-sm overflow-hidden"
+                                                                style={{
+                                                                    width: configOrla.canvasW / 10 + 'px',
+                                                                    height: configOrla.canvasH / 10 + 'px',
+                                                                    backgroundImage: `
+                                                                        linear-gradient(to right, #f0f0f0 1px, transparent 1px),
+                                                                        linear-gradient(to bottom, #f0f0f0 1px, transparent 1px)
+                                                                    `,
+                                                                    backgroundSize: '20px 20px',
+                                                                    transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${isFullScreenDesign ? canvasZoom * 1.5 : 1})`,
+                                                                    transformOrigin: 'center center',
+                                                                    transition: isDraggingCanvasRef.current ? 'none' : 'transform 0.1s ease-out',
+                                                                    margin: '0 auto'
+                                                                }}>
+
+                                                                {/* Margen */}
+                                                                <div className="absolute border border-red-500/30 border-dashed pointer-events-none z-50"
+                                                                    style={{
+                                                                        inset: configOrla.margin / 10 + 'px'
+                                                                    }} />
+
+                                                                {/* Docentes */}
+                                                                <div className="absolute top-0 w-full flex justify-center gap-[15px] z-20" style={{ top: configOrla.dY / 10 + 'px' }}>
+                                                                    {selectedStaffIds.map(id => staff.find(m => m.id === id)).filter(Boolean).map((member, i) => {
+                                                                        const staffNameParts = member.name.trim().split(/\s+/);
+                                                                        const staffFirstName = staffNameParts[0] || '';
+                                                                        const staffSurnames = staffNameParts.slice(1).join(' ');
+
+                                                                        return (
+                                                                            <div key={member.id} className="relative flex flex-col items-center">
+                                                                                <div className="bg-slate-200 border border-slate-300 rounded-sm relative flex items-center justify-center overflow-hidden"
+                                                                                    style={{
+                                                                                        width: (configOrla.aW * configOrla.dScale) / 10 + 'px',
+                                                                                        height: (configOrla.aH * configOrla.dScale) / 10 + 'px',
+                                                                                        marginBottom: configOrla.dTextOffset / 10 + 'px'
+                                                                                    }}>
+                                                                                    {member.photoFile ? (
+                                                                                        <div className="w-full h-full bg-slate-400 flex items-center justify-center text-[8px] font-black text-white/50">{member.photoFile}</div>
+                                                                                    ) : (
+                                                                                        <div className="w-full h-full flex items-center justify-center opacity-40"><UserCheck size={configOrla.dScale * 12} /></div>
+                                                                                    )}
+                                                                                </div>
+                                                                                <div className="mt-[4px] text-center" style={{ width: (configOrla.aW * configOrla.dScale) / 10 + 'px' }}>
+                                                                                    <p className="leading-[1.1] uppercase truncate text-black" style={{
+                                                                                        fontFamily: configOrla.fontFamily,
+                                                                                        fontSize: (configOrla.fontSizeAlu / 2) + 'px',
+                                                                                        fontWeight: 'normal',
+                                                                                        fontStyle: 'normal',
+                                                                                        color: '#000000'
+                                                                                    }}>{staffFirstName}</p>
+                                                                                    {staffSurnames && (
+                                                                                        <p className="leading-[1.1] uppercase truncate opacity-70 text-black" style={{
+                                                                                            fontFamily: configOrla.fontFamily,
+                                                                                            fontSize: (configOrla.fontSizeAlu / 2) + 'px',
+                                                                                            fontWeight: 'normal',
+                                                                                            fontStyle: 'normal',
+                                                                                            color: '#000000'
+                                                                                        }}>{staffSurnames}</p>
+                                                                                    )}
+                                                                                    <p className="text-[5px] mt-[1.5px] opacity-40 font-bold uppercase truncate leading-none text-black" style={{ color: '#000000' }}>{member.role}</p>
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+
+                                                                {/* Alumnos Grid */}
+                                                                <div className="absolute w-full px-[20px] z-10" style={{ top: configOrla.aStartY / 10 + 'px', padding: `0 ${configOrla.margin / 10}px` }}>
+                                                                    <div className="grid justify-items-center" style={{
+                                                                        gridTemplateColumns: `repeat(${configOrla.aCols}, 1fr)`,
+                                                                        rowGap: configOrla.aGapY / 10 + 'px'
+                                                                    }}>
+                                                                        {orders.filter(o =>
+                                                                            (!designFilter.course || getCourseBase(o.course) === designFilter.course) &&
+                                                                            (!designFilter.group || getGroup(o.course) === designFilter.group)
+                                                                        ).sort((a, b) => {
+                                                                            const partsA = a.studentName.trim().split(/\s+/);
+                                                                            const partsB = b.studentName.trim().split(/\s+/);
+                                                                            const surA = partsA[1] || partsA[0] || '';
+                                                                            const surB = partsB[1] || partsB[0] || '';
+                                                                            return surA.localeCompare(surB, 'es', { sensitivity: 'base' });
+                                                                        }).map((order, i) => {
+                                                                            const nameParts = order.studentName.trim().split(/\s+/);
+                                                                            const firstName = nameParts[0] || '';
+                                                                            const surnames = nameParts.slice(1).join(' ');
+
+                                                                            return (
+                                                                                <div key={order.id} className="flex flex-col items-center">
+                                                                                    <div className="bg-slate-50 border border-slate-100 rounded-sm relative flex items-center justify-center overflow-hidden"
+                                                                                        style={{
+                                                                                            width: configOrla.aW / 10 + 'px',
+                                                                                            height: configOrla.aH / 10 + 'px',
+                                                                                            marginBottom: configOrla.aTextOffset / 10 + 'px'
+                                                                                        }}>
+                                                                                        {order.photoFile ? (
+                                                                                            <span className="text-[6px] font-mono font-bold opacity-30">{order.photoFile}</span>
+                                                                                        ) : (
+                                                                                            <span className="text-[6px] font-black opacity-[0.05]">{i + 1}</span>
+                                                                                        )}
+                                                                                    </div>
+                                                                                    <p className="leading-[1.1] uppercase truncate text-black" style={{
+                                                                                        fontFamily: configOrla.fontFamily,
+                                                                                        fontSize: (configOrla.fontSizeAlu / 2) + 'px',
+                                                                                        fontWeight: 'normal',
+                                                                                        fontStyle: 'normal',
+                                                                                        color: '#000000'
+                                                                                    }}>{firstName}</p>
+                                                                                    {surnames && (
+                                                                                        <p className="leading-[1.1] uppercase truncate opacity-70 text-black" style={{
+                                                                                            fontFamily: configOrla.fontFamily,
+                                                                                            fontSize: (configOrla.fontSizeAlu / 2) + 'px',
+                                                                                            fontWeight: 'normal',
+                                                                                            fontStyle: 'normal',
+                                                                                            color: '#000000'
+                                                                                        }}>{surnames}</p>
+                                                                                    )}
+                                                                                </div>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Selectores de Curso - AHORA DEBAJO */}
+                                                    {!isFullScreenDesign && (
+                                                        <div className="mt-8 pt-8 border-t border-violet-500/10 flex flex-wrap items-center gap-4 text-left">
+                                                            <div className="flex items-center gap-2 p-1.5 bg-black/20 rounded-2xl border border-white/5">
+                                                                <select
+                                                                    value={designFilter.course}
+                                                                    onChange={e => setDesignFilter(p => ({ ...p, course: e.target.value, group: '' }))}
+                                                                    className="bg-transparent text-white text-[11px] font-black uppercase tracking-wider px-4 py-2 outline-none cursor-pointer hover:text-violet-400 transition-colors"
+                                                                >
+                                                                    <option value="" className="bg-slate-900">— CURSO —</option>
+                                                                    {[...new Set(orders.map(o => getCourseBase(o.course)))].filter(Boolean).sort().map(c => <option key={c} value={c} className="bg-slate-900">{c}</option>)}
+                                                                </select>
+                                                                <div className="w-px h-4 bg-white/10" />
+                                                                <select
+                                                                    value={designFilter.group}
+                                                                    onChange={e => setDesignFilter(p => ({ ...p, group: e.target.value }))}
+                                                                    disabled={!designFilter.course}
+                                                                    className="bg-transparent text-white text-[11px] font-black uppercase tracking-wider px-4 py-2 outline-none cursor-pointer disabled:opacity-30 hover:text-violet-400 transition-colors"
+                                                                >
+                                                                    <option value="" className="bg-slate-900">G</option>
+                                                                    {(designFilter.course ? [...new Set(orders.filter(o => getCourseBase(o.course) === designFilter.course).map(o => getGroup(o.course)))].filter(Boolean).sort() : []).map(g => <option key={g} value={g} className="bg-slate-900">{g}</option>)}
+                                                                </select>
+                                                            </div>
+                                                            <p className="text-[10px] font-bold text-violet-400/60 uppercase tracking-widest italic text-left">Selecciona el curso para cargar los alumnos automáticamente en la previa.</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                     <BackgroundOrbs />
                                 </div>
                             </div>
@@ -3121,160 +3786,166 @@ export default function App() {
             }
 
             {/* MODAL AVISO PAGO PLAN FLEX */}
-            {showFlexPaymentModal && (
-                <div className="fixed inset-0 z-[400] flex items-center justify-center p-6 bg-black/80 backdrop-blur-xl animate-fade-in">
-                    <div className="w-full max-w-lg bg-card border border-indigo-500/30 rounded-[40px] shadow-2xl shadow-indigo-500/10 overflow-hidden animate-slide-up">
-                        <div className="p-8 space-y-6">
-                            <div className="w-16 h-16 bg-indigo-500/10 rounded-3xl flex items-center justify-center mx-auto border-2 border-indigo-500/30 mb-6">
-                                <AlertTriangle className="text-amber-500" size={32} />
-                            </div>
-                            <div className="text-center space-y-2">
-                                <h3 className="text-2xl font-black text-primary uppercase tracking-tighter">Descarga Bloqueada</h3>
-                                <p className="text-secondary text-xs font-bold uppercase tracking-widest leading-relaxed">
-                                    Para descargar el <span className="text-indigo-500">Excel Maestro</span> o realizar <span className="text-indigo-500">Backups</span>, debes completar el pago del plan.
-                                </p>
-                            </div>
-
-                            <div className="bg-primary/5 p-6 rounded-3xl border border-primary/10 space-y-4">
-                                <div>
-                                    <p className="text-[10px] text-secondary font-black uppercase tracking-widest mb-1 opacity-50">Titular</p>
-                                    <p className="text-primary font-bold text-lg uppercase tracking-wider">JOSE PUJALTE MOLINA</p>
+            {
+                showFlexPaymentModal && (
+                    <div className="fixed inset-0 z-[400] flex items-center justify-center p-6 bg-black/80 backdrop-blur-xl animate-fade-in">
+                        <div className="w-full max-w-lg bg-card border border-indigo-500/30 rounded-[40px] shadow-2xl shadow-indigo-500/10 overflow-hidden animate-slide-up">
+                            <div className="p-8 space-y-6">
+                                <div className="w-16 h-16 bg-indigo-500/10 rounded-3xl flex items-center justify-center mx-auto border-2 border-indigo-500/30 mb-6">
+                                    <AlertTriangle className="text-amber-500" size={32} />
                                 </div>
-                                <div>
-                                    <p className="text-[10px] text-secondary font-black uppercase tracking-widest mb-1 opacity-50">IBAN</p>
-                                    <div className="flex items-center justify-between gap-4">
-                                        <p className="text-indigo-400 font-mono font-black text-sm sm:text-base tracking-widest">ES75 0081 1117 1100 0113 4919</p>
-                                        <button
-                                            onClick={() => copyToClipboard("ES7500811117110001134919", 'IBAN copiado')}
-                                            className="p-2.5 bg-indigo-500/20 rounded-xl text-indigo-400 hover:bg-indigo-500 hover:text-white transition-all shrink-0"
-                                        >
-                                            <Copy size={16} />
-                                        </button>
+                                <div className="text-center space-y-2">
+                                    <h3 className="text-2xl font-black text-primary uppercase tracking-tighter">Descarga Bloqueada</h3>
+                                    <p className="text-secondary text-xs font-bold uppercase tracking-widest leading-relaxed">
+                                        Para descargar el <span className="text-indigo-500">Excel Maestro</span> o realizar <span className="text-indigo-500">Backups</span>, debes completar el pago del plan.
+                                    </p>
+                                </div>
+
+                                <div className="bg-primary/5 p-6 rounded-3xl border border-primary/10 space-y-4">
+                                    <div>
+                                        <p className="text-[10px] text-secondary font-black uppercase tracking-widest mb-1 opacity-50">Titular</p>
+                                        <p className="text-primary font-bold text-lg uppercase tracking-wider">JOSE PUJALTE MOLINA</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] text-secondary font-black uppercase tracking-widest mb-1 opacity-50">IBAN</p>
+                                        <div className="flex items-center justify-between gap-4">
+                                            <p className="text-indigo-400 font-mono font-black text-sm sm:text-base tracking-widest">ES75 0081 1117 1100 0113 4919</p>
+                                            <button
+                                                onClick={() => copyToClipboard("ES7500811117110001134919", 'IBAN copiado')}
+                                                className="p-2.5 bg-indigo-500/20 rounded-xl text-indigo-400 hover:bg-indigo-500 hover:text-white transition-all shrink-0"
+                                            >
+                                                <Copy size={16} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="pt-4 border-t border-primary/10">
+                                        <p className="text-[10px] text-secondary font-black uppercase tracking-widest mb-1 opacity-50">Concepto Requerido</p>
+                                        <p className="text-primary font-bold text-sm uppercase tracking-wider">PAGO APP ORLAS - {settings.brandName}</p>
                                     </div>
                                 </div>
-                                <div className="pt-4 border-t border-primary/10">
-                                    <p className="text-[10px] text-secondary font-black uppercase tracking-widest mb-1 opacity-50">Concepto Requerido</p>
-                                    <p className="text-primary font-bold text-sm uppercase tracking-wider">PAGO APP ORLAS - {settings.brandName}</p>
-                                </div>
-                            </div>
 
-                            <div className="pt-4 space-y-3">
-                                <button
-                                    onClick={() => setShowFlexPaymentModal(false)}
-                                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black text-base uppercase tracking-widest rounded-3xl py-5 shadow-2xl shadow-indigo-500/20 transition-all active:scale-95 flex items-center justify-center gap-3"
-                                >
-                                    ENTENDIDO <CheckCircle size={20} />
-                                </button>
-                                <p className="text-center text-[10px] text-secondary font-black uppercase tracking-widest leading-relaxed px-4 opacity-50">
-                                    Una vez realizada la transferencia, activa tu cuenta desde el centro de control o contacta con soporte.
-                                </p>
+                                <div className="pt-4 space-y-3">
+                                    <button
+                                        onClick={() => setShowFlexPaymentModal(false)}
+                                        className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black text-base uppercase tracking-widest rounded-3xl py-5 shadow-2xl shadow-indigo-500/20 transition-all active:scale-95 flex items-center justify-center gap-3"
+                                    >
+                                        ENTENDIDO <CheckCircle size={20} />
+                                    </button>
+                                    <p className="text-center text-[10px] text-secondary font-black uppercase tracking-widest leading-relaxed px-4 opacity-50">
+                                        Una vez realizada la transferencia, activa tu cuenta desde el centro de control o contacta con soporte.
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* MODAL ÉXITO SOLICITUD DE PLAN */}
-            {showPlanSuccessModal && planTransitionData && (
-                <div className="fixed inset-0 z-[600] flex items-center justify-center p-6 bg-black/90 backdrop-blur-2xl animate-fade-in">
-                    <div className="w-full max-w-xl bg-slate-900 border border-indigo-500/30 rounded-[50px] shadow-2xl shadow-indigo-500/10 overflow-hidden animate-slide-up relative">
-                        {/* Cabecera con efecto de luz */}
-                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-indigo-500 to-transparent opacity-50" />
+            {
+                showPlanSuccessModal && planTransitionData && (
+                    <div className="fixed inset-0 z-[600] flex items-center justify-center p-6 bg-black/90 backdrop-blur-2xl animate-fade-in">
+                        <div className="w-full max-w-xl bg-slate-900 border border-indigo-500/30 rounded-[50px] shadow-2xl shadow-indigo-500/10 overflow-hidden animate-slide-up relative">
+                            {/* Cabecera con efecto de luz */}
+                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-indigo-500 to-transparent opacity-50" />
 
-                        <div className="p-10 text-center space-y-8">
-                            {/* Icono Animado */}
-                            <div className="relative mx-auto w-24 h-24">
-                                <div className="absolute inset-0 bg-indigo-500/20 blur-2xl rounded-full animate-pulse" />
-                                <div className="relative w-24 h-24 bg-indigo-600 rounded-[35%] flex items-center justify-center border-4 border-indigo-400 rotate-12 shadow-2xl">
-                                    <Sparkles className="text-white" size={40} />
-                                </div>
-                            </div>
-
-                            <div className="space-y-4">
-                                <h3 className="text-4xl font-black text-white uppercase tracking-tighter leading-none">
-                                    ¡Plan Solicitado!
-                                </h3>
-                                <p className="text-indigo-400 text-xs font-black uppercase tracking-[0.3em]">
-                                    {planTransitionData.condition}
-                                </p>
-                            </div>
-
-                            {/* Detalles de la Transición */}
-                            <div className="bg-white/5 p-8 rounded-[40px] border border-white/5 text-left space-y-6">
-                                <div className="flex justify-between items-center pb-4 border-b border-white/5">
-                                    <span className="text-secondary text-[10px] font-black uppercase tracking-widest opacity-50">Importe a abonar</span>
-                                    <span className="text-3xl font-black text-white">{planTransitionData.amount}</span>
+                            <div className="p-10 text-center space-y-8">
+                                {/* Icono Animado */}
+                                <div className="relative mx-auto w-24 h-24">
+                                    <div className="absolute inset-0 bg-indigo-500/20 blur-2xl rounded-full animate-pulse" />
+                                    <div className="relative w-24 h-24 bg-indigo-600 rounded-[35%] flex items-center justify-center border-4 border-indigo-400 rotate-12 shadow-2xl">
+                                        <Sparkles className="text-white" size={40} />
+                                    </div>
                                 </div>
 
                                 <div className="space-y-4">
-                                    <p className="text-[10px] text-secondary font-black uppercase tracking-widest opacity-50">¿Qué sucede ahora?</p>
-                                    <div className="grid gap-3">
-                                        {planTransitionData.benefits.map((benefit, idx) => (
-                                            <div key={idx} className="flex items-center gap-3">
-                                                <div className="w-6 h-6 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0 border border-emerald-500/20">
-                                                    <Check className="text-emerald-500" size={12} />
+                                    <h3 className="text-4xl font-black text-white uppercase tracking-tighter leading-none">
+                                        ¡Plan Solicitado!
+                                    </h3>
+                                    <p className="text-indigo-400 text-xs font-black uppercase tracking-[0.3em]">
+                                        {planTransitionData.condition}
+                                    </p>
+                                </div>
+
+                                {/* Detalles de la Transición */}
+                                <div className="bg-white/5 p-8 rounded-[40px] border border-white/5 text-left space-y-6">
+                                    <div className="flex justify-between items-center pb-4 border-b border-white/5">
+                                        <span className="text-secondary text-[10px] font-black uppercase tracking-widest opacity-50">Importe a abonar</span>
+                                        <span className="text-3xl font-black text-white">{planTransitionData.amount}</span>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <p className="text-[10px] text-secondary font-black uppercase tracking-widest opacity-50">¿Qué sucede ahora?</p>
+                                        <div className="grid gap-3">
+                                            {planTransitionData.benefits.map((benefit, idx) => (
+                                                <div key={idx} className="flex items-center gap-3">
+                                                    <div className="w-6 h-6 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0 border border-emerald-500/20">
+                                                        <Check className="text-emerald-500" size={12} />
+                                                    </div>
+                                                    <span className="text-sm font-bold text-white/80">{benefit}</span>
                                                 </div>
-                                                <span className="text-sm font-bold text-white/80">{benefit}</span>
-                                            </div>
-                                        ))}
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            {/* Instrucciones de Pago */}
-                            <div className="space-y-6">
-                                <p className="text-secondary text-[11px] font-bold uppercase tracking-widest leading-relaxed opacity-60">
-                                    Para activar el nuevo plan completamente, realiza la transferencia con el concepto:
-                                    <span className="block text-white mt-2 font-black border-2 border-dashed border-indigo-500/30 p-3 rounded-2xl bg-indigo-500/5">
-                                        PAGO APP ORLAS - {settings.brandName?.toUpperCase() || 'ESTUDIO'}
-                                    </span>
-                                </p>
+                                {/* Instrucciones de Pago */}
+                                <div className="space-y-6">
+                                    <p className="text-secondary text-[11px] font-bold uppercase tracking-widest leading-relaxed opacity-60">
+                                        Para activar el nuevo plan completamente, realiza la transferencia con el concepto:
+                                        <span className="block text-white mt-2 font-black border-2 border-dashed border-indigo-500/30 p-3 rounded-2xl bg-indigo-500/5">
+                                            PAGO APP ORLAS - {settings.brandName?.toUpperCase() || 'ESTUDIO'}
+                                        </span>
+                                    </p>
 
-                                <button
-                                    onClick={() => {
-                                        sendAdminNotification('PLAN_REQUEST', {
-                                            brandName: settings.brandName,
-                                            email: settings.email,
-                                            plan: planTransitionData.to,
-                                            condition: planTransitionData.condition,
-                                            amount: planTransitionData.amount
-                                        });
-                                        setShowPlanSuccessModal(false);
-                                    }}
-                                    className="w-full bg-indigo-600 hover:bg-white hover:text-indigo-600 text-white font-black text-lg uppercase tracking-widest rounded-3xl py-6 shadow-2xl shadow-indigo-600/30 transition-all active:scale-95 flex items-center justify-center gap-4 group"
-                                >
-                                    Cerrar y Continuar <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
-                                </button>
+                                    <button
+                                        onClick={() => {
+                                            sendAdminNotification('PLAN_REQUEST', {
+                                                brandName: settings.brandName,
+                                                email: settings.email,
+                                                plan: planTransitionData.to,
+                                                condition: planTransitionData.condition,
+                                                amount: planTransitionData.amount
+                                            });
+                                            setShowPlanSuccessModal(false);
+                                        }}
+                                        className="w-full bg-indigo-600 hover:bg-white hover:text-indigo-600 text-white font-black text-lg uppercase tracking-widest rounded-3xl py-6 shadow-2xl shadow-indigo-600/30 transition-all active:scale-95 flex items-center justify-center gap-4 group"
+                                    >
+                                        Cerrar y Continuar <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+                                    </button>
 
-                                <p className="text-[9px] text-secondary font-black uppercase tracking-widest opacity-40">
-                                    *Las funciones de descarga se habilitarán tras la validación manual.
-                                </p>
+                                    <p className="text-[9px] text-secondary font-black uppercase tracking-widest opacity-40">
+                                        *Las funciones de descarga se habilitarán tras la validación manual.
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* MODAL SELECTOR DE PLAN */}
-            {showPlanSelector && (
-                <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 sm:p-10 bg-black/90 backdrop-blur-2xl animate-fade-in">
-                    <div className="w-full max-w-5xl bg-slate-900 border border-white/10 rounded-[50px] shadow-[0_40px_100px_rgba(0,0,0,0.8)] overflow-hidden animate-scale-in relative">
-                        <button
-                            onClick={() => setShowPlanSelector(false)}
-                            className="absolute top-8 right-8 w-12 h-12 flex items-center justify-center rounded-full bg-white/5 text-white/40 hover:text-white hover:bg-white/10 transition-all z-20"
-                        >
-                            <X size={24} />
-                        </button>
+            {
+                showPlanSelector && (
+                    <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 sm:p-10 bg-black/90 backdrop-blur-2xl animate-fade-in">
+                        <div className="w-full max-w-5xl bg-slate-900 border border-white/10 rounded-[50px] shadow-[0_40px_100px_rgba(0,0,0,0.8)] overflow-hidden animate-scale-in relative">
+                            <button
+                                onClick={() => setShowPlanSelector(false)}
+                                className="absolute top-8 right-8 w-12 h-12 flex items-center justify-center rounded-full bg-white/5 text-white/40 hover:text-white hover:bg-white/10 transition-all z-20"
+                            >
+                                <X size={24} />
+                            </button>
 
-                        <div className="p-8 md:p-16 max-h-[90vh] overflow-y-auto custom-scrollbar">
-                            <PricingTiers
-                                onSelectPlan={handlePlanChange}
-                                currentPlan={settings.plan}
-                            />
+                            <div className="p-8 md:p-16 max-h-[90vh] overflow-y-auto custom-scrollbar">
+                                <PricingTiers
+                                    onSelectPlan={handlePlanChange}
+                                    currentPlan={settings.plan}
+                                />
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* MODAL POLÍTICA DE PRIVACIDAD */}
             {

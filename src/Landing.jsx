@@ -40,35 +40,73 @@ const Landing = () => {
         0%, 100% { box-shadow: 0 0 20px rgba(79, 70, 229, 0.2); }
         50% { box-shadow: 0 0 50px rgba(79, 70, 229, 0.5); }
       }
-      @keyframes slide-reveal {
-        from { transform: translateY(20px); opacity: 0; }
-        to { transform: translateY(0); opacity: 1; }
+      @keyframes slide-reveal-premium {
+        from { transform: translateY(30px); opacity: 0; filter: blur(10px); }
+        to { transform: translateY(0); opacity: 1; filter: blur(0); }
       }
       .animate-float-gentle { animation: float-gentle 6s ease-in-out infinite; }
       .animate-glow-pulse { animation: glow-pulse 4s ease-in-out infinite; }
-      .animate-reveal { animation: slide-reveal 1s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+      .reveal { opacity: 0; transition: all 1s cubic-bezier(0.16, 1, 0.3, 1); }
+      .reveal.active { opacity: 1; animation: slide-reveal-premium 1s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+      
+      .gradient-text-white {
+        background: linear-gradient(to bottom, #ffffff 30%, #a5b4fc 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .glass-card {
+        background: rgba(255, 255, 255, 0.03);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+      .glass-card-dark {
+        background: rgba(11, 14, 20, 0.6);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+      }
+      
       .text-glow { text-shadow: 0 0 15px rgba(255,255,255,0.2); }
+      
       input[type=range]::-webkit-slider-thumb {
         -webkit-appearance: none;
-        height: 20px;
-        width: 20px;
+        height: 24px;
+        width: 24px;
         border-radius: 50%;
-        background: #4f46e5;
+        background: #6366f1;
         cursor: pointer;
-        box-shadow: 0 0 10px rgba(79, 70, 229, 0.3);
-        border: 3px solid #fff;
-        transition: all 0.2s;
+        box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
+        border: 4px solid #fff;
+        transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
       }
       input[type=range]::-webkit-slider-thumb:hover {
-        transform: scale(1.15);
-        box-shadow: 0 0 20px rgba(79, 70, 229, 0.5);
+        transform: scale(1.2) rotate(90deg);
+        box-shadow: 0 0 25px rgba(99, 102, 241, 0.6);
       }
-      .shadow-glow-orange { box-shadow: 0 0 40px rgba(249, 115, 22, 0.3); }
-      .shadow-glow-indigo { box-shadow: 0 0 40px rgba(79, 70, 229, 0.3); }
-      .shadow-glow-emerald { box-shadow: 0 0 40px rgba(16, 185, 129, 0.3); }
+      .shadow-glow-orange { box-shadow: 0 15px 40px rgba(249, 115, 22, 0.2); }
+      .shadow-glow-indigo { box-shadow: 0 15px 40px rgba(79, 70, 229, 0.2); }
+      .shadow-glow-emerald { box-shadow: 0 15px 40px rgba(16, 185, 129, 0.2); }
     `;
         document.head.appendChild(style);
-        return () => document.head.removeChild(style);
+
+        // Intersection Observer para animaciones de Reveal
+        const observerOptions = { threshold: 0.1 };
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('active');
+                }
+            });
+        }, observerOptions);
+
+        setTimeout(() => {
+            document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+        }, 100);
+
+        return () => {
+            document.head.removeChild(style);
+            observer.disconnect();
+        };
     }, []);
 
     const plans = [
@@ -154,15 +192,15 @@ const Landing = () => {
             {/* HERO SECTION */}
             <header className="relative pt-44 pb-32 overflow-hidden px-8">
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[100%] h-[100%] bg-gradient-to-b from-indigo-600/20 via-transparent to-transparent blur-[120px] -z-10 animate-pulse" />
-                <div className="max-w-7xl mx-auto relative z-10 text-center animate-reveal">
+                <div className="max-w-7xl mx-auto relative z-10 text-center reveal">
                     <span className="inline-block px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[9px] font-black tracking-[0.4em] mb-8 uppercase">v8.3 integral precision</span>
                     <h1 className="text-6xl md:text-[110px] font-black tracking-tighter mb-8 leading-[0.85] text-glow">
-                        EL FIN DE <br /> <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 via-indigo-600 to-indigo-300">LAS ERRATAS.</span>
+                        <span className="gradient-text-white">EL FIN DE </span> <br /> <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 via-indigo-600 to-indigo-300">LAS ERRATAS.</span>
                     </h1>
-                    <p className="max-w-2xl mx-auto text-slate-400 text-lg md:text-xl font-medium mb-12 lowercase italic tracking-tight leading-relaxed">
+                    <p className="max-w-2xl mx-auto text-slate-400 text-lg md:text-xl font-medium mb-12 lowercase italic tracking-tight leading-relaxed reveal">
                         automatización <span className="text-white font-black underline decoration-indigo-500 decoration-3">real</span> para fotógrafos que no perdonan un minuto de su tiempo.
                     </p>
-                    <div className="flex justify-center gap-5">
+                    <div className="flex justify-center gap-5 reveal">
                         <a href="#dashboard" className="bg-white text-black px-8 py-4 rounded-[24px] font-black text-[12px] uppercase tracking-widest hover:bg-indigo-50 transition-all shadow-2xl shadow-indigo-500/20 flex items-center gap-3 active:scale-95 group">
                             CALCULAR MI MARGEN <ArrowRight size={18} className="group-hover:translate-x-1.5 transition-transform" />
                         </a>
@@ -176,8 +214,8 @@ const Landing = () => {
                     <div className="flex flex-col xl:flex-row gap-10 items-stretch">
 
                         {/* 1. CONFIGURACIÓN */}
-                        <div className="xl:w-[25%] flex flex-col gap-6 shrink-0">
-                            <div className="bg-[#0b0e14] border border-white/10 rounded-[40px] p-8 shadow-2xl relative overflow-hidden flex-1 flex flex-col justify-between backdrop-blur-xl">
+                        <div className="xl:w-[25%] flex flex-col gap-6 shrink-0 reveal">
+                            <div className="glass-card-dark border border-white/10 rounded-[40px] p-8 shadow-2xl relative overflow-hidden flex-1 flex flex-col justify-between backdrop-blur-xl">
                                 <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-indigo-600 to-violet-600"></div>
                                 <div className="mb-8 relative z-10">
                                     <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-500 mb-1 flex items-center gap-2">
@@ -224,17 +262,17 @@ const Landing = () => {
                         <div className="xl:flex-1 flex flex-col md:flex-row gap-10">
 
                             {/* BLOQUE HERO - MEJOR OPCIÓN */}
-                            <div className={`md:w-1/2 aspect-square rounded-[60px] bg-gradient-to-br ${bestPlan.color} p-12 flex flex-col justify-between ${bestPlan.glowClass} relative overflow-hidden transition-all duration-700 hover:scale-[1.01] animate-glow-pulse`}>
+                            <div className={`md:w-1/2 aspect-square rounded-[60px] bg-gradient-to-br ${bestPlan.color} p-12 flex flex-col justify-between ${bestPlan.glowClass} relative overflow-hidden transition-all duration-700 hover:scale-[1.01] animate-glow-pulse reveal shadow-2xl`}>
                                 <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-white/10 rounded-full blur-[100px] -mr-32 -mt-32"></div>
 
                                 <div className="relative z-10 flex justify-between items-start text-white">
                                     <div className="flex items-center gap-6">
-                                        <div className="bg-black/30 p-6 rounded-[28px] backdrop-blur-xl border border-white/20 shadow-xl text-white">
+                                        <div className="glass-card p-6 rounded-[28px] border border-white/20 shadow-xl text-white">
                                             {bestPlan.icon}
                                         </div>
                                         <div>
                                             <p className="text-[11px] font-black tracking-[0.4em] text-white/50 leading-none mb-2 uppercase italic">mejor opción</p>
-                                            <p className="text-4xl font-black tracking-tighter uppercase leading-none italic">{bestPlan.label}</p>
+                                            <p className="text-4xl font-black tracking-tighter uppercase leading-none italic gradient-text-white">{bestPlan.label}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -261,7 +299,7 @@ const Landing = () => {
                             {/* 3. LISTADO DETALLE */}
                             <div className="md:w-1/2 flex flex-col gap-4 justify-between">
                                 {results.map((plan) => (
-                                    <div key={plan.id} className={`flex-1 min-h-0 border-2 rounded-[40px] overflow-hidden transition-all duration-500 relative ${plan.isDisabled ? 'opacity-5 grayscale scale-[0.98] pointer-events-none' : bestPlan.id === plan.id ? 'bg-white border-white shadow-2xl z-20 scale-[1.03]' : 'bg-[#0c0f14] border-white/5 hover:border-indigo-500/30'}`}>
+                                    <div key={plan.id} className={`flex-1 min-h-0 border-2 rounded-[40px] overflow-hidden transition-all duration-500 relative reveal ${plan.isDisabled ? 'opacity-5 grayscale scale-[0.98] pointer-events-none' : bestPlan.id === plan.id ? 'bg-white border-white shadow-2xl z-20 scale-[1.03]' : 'glass-card border-white/5 hover:border-indigo-500/30'}`}>
                                         <div className="flex h-full items-stretch">
                                             <div className={`w-24 lg:w-32 flex flex-col items-center justify-center border-r ${bestPlan.id === plan.id ? 'border-sky-50 bg-sky-50/10' : 'border-white/5 bg-white/5'}`}>
                                                 <div className={`mb-2 ${plan.accentColor}`}>{plan.miniIcon}</div>
@@ -312,17 +350,17 @@ const Landing = () => {
             </section>
 
             {/* SECCIÓN SOBRE EL CREADOR */}
-            <section id="nosotros" className="py-28 px-8 max-w-6xl mx-auto" >
+            <section id="nosotros" className="py-28 px-8 max-w-6xl mx-auto reveal" >
                 <div className="flex flex-col lg:flex-row items-center gap-20">
-                    <div className="lg:w-[45%] relative group">
+                    <div className="lg:w-[45%] relative group reveal">
                         <div className="absolute inset-0 bg-indigo-600 rounded-[60px] rotate-2 -z-10 opacity-10" />
                         <div className="aspect-[4/5] rounded-[60px] overflow-hidden border-[12px] border-[#0c0f14] shadow-2xl grayscale group-hover:grayscale-0 transition-all duration-1000 transform group-hover:scale-[1.01]">
                             <img src="https://images.unsplash.com/photo-1554048612-b6a482bc67e5?q=80&w=1470" alt="Pujalte" className="w-full h-full object-cover" />
                         </div>
-                        <div className="absolute -bottom-10 -right-10 bg-white text-black p-8 rounded-[40px] shadow-xl border-4 border-[#020408] animate-float-gentle">
-                            <Camera size={32} className="mb-4 text-indigo-600" />
-                            <h4 className="text-3xl font-black italic mb-1 tracking-tighter">15 AÑOS</h4>
-                            <p className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-500">en el sector</p>
+                        <div className="absolute -bottom-10 -right-10 glass-card bg-white/10 text-white p-8 rounded-[40px] shadow-xl border border-white/20 animate-float-gentle backdrop-blur-xl">
+                            <Camera size={32} className="mb-4 text-indigo-400" />
+                            <h4 className="text-3xl font-black italic mb-1 tracking-tighter gradient-text-white">15 AÑOS</h4>
+                            <p className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400">en el sector</p>
                         </div>
                     </div>
                     <div className="lg:w-[55%]">
@@ -354,9 +392,9 @@ const Landing = () => {
             < footer id="contacto" className="bg-[#05070a] border-t border-white/5 pt-40 pb-16 text-center px-8 relative overflow-hidden" >
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-indigo-600/10 blur-[140px] rounded-full pointer-events-none animate-pulse"></div>
 
-                <div className="max-w-4xl mx-auto relative z-10">
+                <div className="max-w-4xl mx-auto relative z-10 reveal">
                     <h2 className="text-5xl md:text-[90px] font-black italic tracking-tighter text-white mb-16 leading-[0.9] uppercase text-glow italic">
-                        ¿HACEMOS <br /> <span className="text-indigo-500 underline decoration-white/10">HISTORIA?</span>
+                        ¿HACEMOS <br /> <span className="gradient-text-white underline decoration-white/10">HISTORIA?</span>
                     </h2>
 
                     <div className="flex justify-center mb-24">
