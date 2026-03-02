@@ -8,7 +8,7 @@ import {
     TrendingUp, Users, Trash2, Edit, Sun, Moon, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, Database, Upload, AlertTriangle, Share,
     Square, CheckSquare, X, Camera, Check, Tag, FileText, Crown, ArrowRight,
     Settings2, Maximize2, Maximize, ZoomIn, ZoomOut, Move, Type, Layout, Bold, Italic, UserCheck, Eye, Palette,
-    LayoutGrid, UserSquare2, Layers, MoveVertical, GripVertical, Move as MoveIcon, ArrowUpDown, Grid, Box
+    LayoutGrid, UserSquare2, Layers, MoveVertical, GripVertical, Move as MoveIcon, ArrowUpDown, Grid, Box, ChevronsUpDown, Baseline
 } from 'lucide-react';
 import { SCHOOLS, PACKS, EXTRAS, CONTACT_PHONE, COURSE_GROUPS, STAFF_ROLES, DRIVE_API_KEY, DRIVE_CLIENT_ID } from './constants.js';
 import { useOrders } from './hooks/useOrders.js';
@@ -3604,21 +3604,10 @@ export default function App() {
                                     {adminTab === 'design' && (
                                         <div className={`animate-fade-in max-w-7xl mx-auto ${isFullScreenDesign ? 'fixed inset-0 z-[600] bg-card p-0 flex flex-col overflow-hidden' : 'space-y-6 pb-20'}`}>
 
-                                            {/* BARRA LATERAL (Desktop Only - Responsive) */}
+                                            {/* BARRA LATERAL (Desktop Only) — oculta en fullscreen, usa barra inferior en su lugar */}
                                             {isFullScreenDesign && (
-                                                <div className={`hidden md:flex h-full bg-card border-l border-card flex-col shadow-2xl overflow-y-auto custom-scrollbar shrink-0 order-2 text-left transition-all duration-500 ease-in-out ${isDesignSidebarOpen ? 'md:w-[320px] translate-x-0' : 'md:w-0 opacity-0 pointer-events-none'}`}>
-                                                    <div className="p-5 border-b border-card flex items-center justify-between bg-card sticky top-0 z-10 shrink-0">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="w-9 h-9 rounded-xl bg-violet-500/10 flex items-center justify-center text-violet-400 border border-violet-500/10">
-                                                                <Settings2 size={18} />
-                                                            </div>
-                                                            <h3 className="text-[11px] md:text-[10px] font-black text-primary dark:text-white uppercase italic tracking-[0.2em] leading-tight">Layout Engine <span className="text-violet-500">V12.1</span></h3>
-                                                        </div>
-                                                        <button onClick={() => setShowExportModal(true)} className="w-10 h-10 bg-primary/5 dark:bg-white/5 hover:bg-primary/10 dark:hover:bg-white/10 rounded-xl text-primary/60 dark:text-white/40 border border-primary/5 flex items-center justify-center active:scale-90"><Download size={18} /></button>
-                                                    </div>
-                                                    <div className="p-5 space-y-6 flex-1 overflow-y-auto custom-scrollbar">
-                                                        {renderDesignControls()}
-                                                    </div>
+                                                <div className="hidden">
+                                                    {/* Sidebar desactivada en fullscreen — controles en barra inferior Snapseed */}
                                                 </div>
                                             )}
 
@@ -3666,11 +3655,13 @@ export default function App() {
                                                         { icon: Maximize, label: 'Escala Doc', key: 'dScale', min: 0.5, max: 2.5, step: 0.05, unit: 'x' },
                                                         { icon: Type, label: 'Texto Alu', key: 'fontSizeAlu', min: 6, max: 18, unit: 'pt' },
                                                         { icon: Type, label: 'Texto Doc', key: 'fontSizeDoc', min: 6, max: 18, unit: 'pt' },
+                                                        { icon: ChevronsUpDown, label: 'Sep.Txt Alu', key: 'aTextOffset', min: 0, max: mmToPx(20) },
+                                                        { icon: Baseline, label: 'Sep.Txt Doc', key: 'dTextOffset', min: 0, max: mmToPx(25) },
                                                         { icon: Box, label: 'Margen', key: 'margin', min: mmToPx(5), max: mmToPx(50) }
                                                     ];
                                                     return (
                                                         <div
-                                                            className={`md:hidden fixed bottom-0 left-0 right-0 z-[200] backdrop-blur-xl border-t select-none ${barBg}`}
+                                                            className={`fixed bottom-0 left-0 right-0 z-[200] backdrop-blur-xl border-t select-none ${barBg}`}
                                                             style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
                                                             onTouchStart={e => e.stopPropagation()}
                                                             onTouchMove={e => e.stopPropagation()}
@@ -3850,7 +3841,7 @@ export default function App() {
                                                                                 <div className="mt-[4px] text-center" style={{ width: (configOrla.aW * configOrla.dScale) / 10 + 'px' }}>
                                                                                     <p className="leading-[1.1] uppercase truncate text-black" style={{
                                                                                         fontFamily: configOrla.fontFamily,
-                                                                                        fontSize: (configOrla.fontSizeAlu / 2) + 'px',
+                                                                                        fontSize: (configOrla.fontSizeDoc / 2) + 'px',
                                                                                         fontWeight: 'normal',
                                                                                         fontStyle: 'normal',
                                                                                         color: '#000000'
@@ -3858,7 +3849,7 @@ export default function App() {
                                                                                     {staffSurnames && (
                                                                                         <p className="leading-[1.1] uppercase truncate opacity-70 text-black" style={{
                                                                                             fontFamily: configOrla.fontFamily,
-                                                                                            fontSize: (configOrla.fontSizeAlu / 2) + 'px',
+                                                                                            fontSize: (configOrla.fontSizeDoc / 2) + 'px',
                                                                                             fontWeight: 'normal',
                                                                                             fontStyle: 'normal',
                                                                                             color: '#000000'
