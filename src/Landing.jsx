@@ -120,23 +120,23 @@ const Landing = () => {
             glowClass: 'shadow-glow-orange',
             icon: <Zap size={48} />,
             miniIcon: <Zap size={20} />,
-            conditions: "Sin inversión inicial. Pago por uso.",
-            description: "Ideal para inicios sin riesgos."
+            conditions: "0€ Inversión. 2,50€ por alumno.",
+            description: "Ideal para menos de 60 alumnos."
         },
         {
             id: 'starter',
             label: 'STARTER',
             basePrice: 149,
             isFixed: true,
-            studentLimit: 100,
+            studentLimit: 150,
             schoolLimit: 2,
             color: 'from-indigo-500 to-blue-700',
             accentColor: 'text-indigo-400',
             glowClass: 'shadow-glow-indigo',
             icon: <Target size={48} />,
             miniIcon: <Target size={20} />,
-            conditions: "Hasta 100 alumnos. 2 centros.",
-            description: "La opción preferida local."
+            conditions: "Tarifa Plana. Máx 150 alumnos / 2 centros.",
+            description: "Más rentable a partir de 60 alumnos."
         },
         {
             id: 'pro',
@@ -150,8 +150,8 @@ const Landing = () => {
             glowClass: 'shadow-glow-emerald',
             icon: <Crown size={48} />,
             miniIcon: <Crown size={20} />,
-            conditions: "ILIMITADO. Soporte VIP.",
-            description: "Máximo rendimiento de estudio."
+            conditions: "Ilimitado. Máximo ahorro por volumen.",
+            description: "La inversión deja de ser un gasto variable."
         }
     ];
 
@@ -167,164 +167,231 @@ const Landing = () => {
             const isDisabled = (plan.studentLimit && numStudents > plan.studentLimit) ||
                 (plan.schoolLimit && numSchools > plan.schoolLimit);
 
-            return { ...plan, planCost, netProfit, costPerStudent, isDisabled };
+            return {
+                ...plan,
+                planCost,
+                netProfit,
+                costPerStudent,
+                isDisabled,
+                grossIncome
+            };
         });
     }, [numStudents, numSchools, avgTicket]);
 
-    const bestPlan = [...results].filter(p => !p.isDisabled).sort((a, b) => b.netProfit - a.netProfit)[0] || results[0];
+    const filteredResults = useMemo(() => {
+        // Regla: Si supera 150 alumnos, Starter desaparece del DOM
+        return results.filter(p => !(p.id === 'starter' && numStudents > 150));
+    }, [results, numStudents]);
+
+    const bestPlan = useMemo(() => {
+        // Regla: Solo puede seleccionar planesEnabled
+        const enabledPlans = filteredResults.filter(p => !p.isDisabled);
+        if (enabledPlans.length === 0) return filteredResults[0];
+
+        return [...enabledPlans].sort((a, b) => b.netProfit - a.netProfit)[0];
+    }, [filteredResults]);
 
     return (
         <div className="min-h-screen bg-[#020408] font-sans text-white uppercase italic selection:bg-indigo-500/30 overflow-x-hidden">
 
-            {/* NAVEGACIÓN */}
-            <nav className="fixed top-0 w-full z-[100] border-b border-white/5 bg-black/60 backdrop-blur-2xl px-6 h-16 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-violet-700 rounded-lg flex items-center justify-center font-black text-white shadow-lg shadow-indigo-500/20">P</div>
-                    <span className="font-black tracking-tighter text-lg">Pujalte <span className="text-indigo-500">Studio</span></span>
+            {/* NAVEGACIÓN - LOGO CENTRADO */}
+            <nav className="fixed top-0 w-full z-[100] border-b border-white/5 bg-black/60 backdrop-blur-2xl px-4 md:px-6 h-14 md:h-16 flex items-center justify-center">
+                {/* Links Izquierda (solo escritorio) */}
+                <div className="absolute left-4 md:left-8 hidden md:flex gap-6 text-[9px] font-black tracking-[0.2em] text-slate-400 uppercase italic">
+                    <a href="#dashboard" className="hover:text-indigo-400 transition-colors">roi dashboard</a>
+                    <a href="#nosotros" className="hover:text-indigo-400 transition-colors">estudio</a>
                 </div>
-                <div className="hidden md:flex gap-8 text-[10px] font-black tracking-[0.25em] text-slate-400">
-                    <a href="#dashboard" className="hover:text-indigo-400 transition-colors uppercase">roi dashboard</a>
-                    <a href="#nosotros" className="hover:text-white transition-colors uppercase">estudio</a>
-                    <a href="#contacto" className="bg-indigo-600 px-5 py-1.5 rounded-full text-white hover:bg-indigo-500 transition-all active:scale-95 shadow-lg shadow-indigo-600/20 uppercase">contacto</a>
+
+                {/* Logo Central */}
+                <div className="flex items-center">
+                    <img
+                        src={`${import.meta.env.BASE_URL || '/'}logo.png`}
+                        alt="Pujalte Studio"
+                        className="h-10 md:h-14 w-auto brightness-0 invert"
+                    />
+                </div>
+
+                {/* Botón Derecha */}
+                <div className="absolute right-4 md:right-8">
+                    <a href="#contacto" className="bg-indigo-600/20 border border-indigo-500/30 px-4 py-1.5 rounded-full text-indigo-400 text-[9px] font-black tracking-widest hover:bg-indigo-600 hover:text-white transition-all active:scale-95 shadow-lg shadow-indigo-600/10 uppercase italic">contacto</a>
                 </div>
             </nav>
 
-            {/* HERO SECTION */}
-            <header className="relative pt-44 pb-32 overflow-hidden px-8">
+            {/* HERO SECTION - COMPACTO EN MÓVIL */}
+            <header className="relative pt-20 md:pt-44 pb-12 md:pb-32 overflow-hidden px-6 md:px-8">
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[100%] h-[100%] bg-gradient-to-b from-indigo-600/20 via-transparent to-transparent blur-[120px] -z-10 animate-pulse" />
                 <div className="max-w-7xl mx-auto relative z-10 text-center reveal">
-                    <span className="inline-block px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[9px] font-black tracking-[0.4em] mb-8 uppercase">v8.3 integral precision</span>
-                    <h1 className="text-6xl md:text-[110px] font-black tracking-tighter mb-8 leading-[0.85] text-glow">
+                    <span className="inline-block px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[8px] md:text-[9px] font-black tracking-[0.4em] mb-4 md:mb-8 uppercase">v8.3 integral precision</span>
+                    <h1 className="text-3xl sm:text-5xl md:text-[110px] font-black tracking-tighter mb-4 md:mb-8 leading-[0.9] md:leading-[0.85] text-glow px-4">
                         <span className="gradient-text-white">EL FIN DE </span> <br /> <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 via-indigo-600 to-indigo-300">LAS ERRATAS.</span>
                     </h1>
-                    <p className="max-w-2xl mx-auto text-slate-400 text-lg md:text-xl font-medium mb-12 lowercase italic tracking-tight leading-relaxed reveal">
-                        automatización <span className="text-white font-black underline decoration-indigo-500 decoration-3">real</span> para fotógrafos que no perdonan un minuto de su tiempo.
+                    <p className="max-w-xl mx-auto text-slate-400 text-sm md:text-xl font-medium mb-8 md:pb-12 italic tracking-tight leading-relaxed reveal px-4">
+                        Automatización <span className="relative inline-block px-2 group">
+                            <span className="absolute inset-0 bg-indigo-600/30 blur-lg rounded-full animate-pulse -z-10" />
+                            <span className="relative z-10 text-white font-black italic tracking-widest drop-shadow-[0_0_10px_rgba(99,102,241,0.8)]">real</span>
+                        </span> para fotógrafos que no perdonan un minuto de su tiempo.
                     </p>
                     <div className="flex justify-center gap-5 reveal">
-                        <a href="#dashboard" className="bg-white text-black px-8 py-4 rounded-[24px] font-black text-[12px] uppercase tracking-widest hover:bg-indigo-50 transition-all shadow-2xl shadow-indigo-500/20 flex items-center gap-3 active:scale-95 group">
-                            CALCULAR MI MARGEN <ArrowRight size={18} className="group-hover:translate-x-1.5 transition-transform" />
+                        <a href="#dashboard" className="bg-white text-black px-6 py-3.5 rounded-[20px] font-black text-[10px] md:text-[12px] uppercase tracking-widest hover:bg-indigo-50 transition-all shadow-2xl shadow-indigo-500/20 flex items-center gap-3 active:scale-95 group">
+                            CALCULAR MI MARGEN <ArrowRight size={16} className="group-hover:translate-x-1.5 transition-transform" />
                         </a>
                     </div>
                 </div>
             </header>
 
             {/* DASHBOARD DE INVERSIÓN */}
-            <section id="dashboard" className="py-24 px-8 bg-[#05070a] border-y border-white/5 relative">
+            <section id="dashboard" className="py-8 md:py-24 px-3 md:px-8 bg-[#05070a] border-y border-white/5 relative">
                 <div className="max-w-[1500px] mx-auto w-full">
-                    <div className="flex flex-col xl:flex-row gap-10 items-stretch">
+                    <div className="flex flex-col xl:flex-row gap-6 md:gap-10 items-stretch">
 
-                        {/* 1. CONFIGURACIÓN */}
-                        <div className="xl:w-[25%] flex flex-col gap-6 shrink-0 reveal">
-                            <div className="glass-card-dark border border-white/10 rounded-[40px] p-8 shadow-2xl relative overflow-hidden flex-1 flex flex-col justify-between backdrop-blur-xl">
-                                <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-indigo-600 to-violet-600"></div>
-                                <div className="mb-8 relative z-10">
+                        {/* 1. CONFIGURACIÓN - ULTRA COMPACTA EN MÓVIL */}
+                        <div className="xl:w-[28%] flex flex-col gap-4 reveal">
+                            <div className="glass-card-dark border border-white/10 rounded-[24px] md:rounded-[40px] p-4 md:p-8 shadow-2xl relative overflow-hidden flex-1 flex flex-col justify-between backdrop-blur-xl">
+                                <div className="absolute top-0 left-0 w-1 md:w-1.5 h-full bg-gradient-to-b from-indigo-600 to-violet-600"></div>
+                                <div className="mb-4 md:mb-8 relative z-10 hidden md:block">
                                     <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-500 mb-1 flex items-center gap-2">
                                         <Wallet size={14} /> CONFIGURACIÓN
                                     </h3>
                                     <p className="text-slate-500 text-[9px] font-black uppercase tracking-widest">Ajusta los parámetros reales</p>
                                 </div>
 
-                                <div className="space-y-12 relative z-10">
+                                <div className="grid grid-cols-2 xl:grid-cols-1 gap-4 md:gap-12 relative z-10">
                                     <div>
-                                        <div className="flex justify-between mb-3 items-end">
-                                            <label className="text-[10px] font-black text-slate-300 tracking-widest uppercase">Nº de centros</label>
-                                            <span className="text-5xl font-black text-white leading-none tracking-tighter">{numSchools}</span>
+                                        <div className="flex justify-between mb-2 md:mb-3 items-end">
+                                            <label className="text-[8px] md:text-[10px] font-black text-slate-300 tracking-widest uppercase">Centros</label>
+                                            <span className="text-2xl md:text-5xl font-black text-white leading-none tracking-tighter">{numSchools}</span>
                                         </div>
-                                        <input type="range" min="1" max="25" step="1" value={numSchools} onChange={(e) => setNumSchools(parseInt(e.target.value))} className="w-full h-2 bg-white/5 rounded-full appearance-none cursor-pointer" />
+                                        <input
+                                            type="range"
+                                            min="1"
+                                            max="25"
+                                            step="1"
+                                            value={numSchools}
+                                            onChange={(e) => setNumSchools(parseInt(e.target.value))}
+                                            className="w-full h-1.5 md:h-2 bg-white/5 rounded-full appearance-none cursor-pointer"
+                                            style={{
+                                                background: `linear-gradient(to right, #6366f1 0%, #6366f1 ${(numSchools - 1) / (25 - 1) * 100}%, rgba(255, 255, 255, 0.05) ${(numSchools - 1) / (25 - 1) * 100}%, rgba(255, 255, 255, 0.05) 100%)`
+                                            }}
+                                        />
                                     </div>
                                     <div>
-                                        <div className="flex justify-between mb-3 items-end">
-                                            <label className="text-[10px] font-black text-slate-300 tracking-widest uppercase">Alumnos totales</label>
-                                            <span className="text-5xl font-black text-white leading-none tracking-tighter">{numStudents}</span>
+                                        <div className="flex justify-between mb-2 md:mb-3 items-end">
+                                            <label className="text-[8px] md:text-[10px] font-black text-slate-300 tracking-widest uppercase">Alumnos</label>
+                                            <span className="text-2xl md:text-5xl font-black text-white leading-none tracking-tighter">{numStudents}</span>
                                         </div>
-                                        <input type="range" min="10" max="2000" step="5" value={numStudents} onChange={(e) => setNumStudents(parseInt(e.target.value))} className="w-full h-2 bg-white/5 rounded-full appearance-none cursor-pointer" />
-                                    </div>
-                                    <div>
-                                        <div className="flex justify-between mb-3 items-end">
-                                            <label className="text-[10px] font-black text-slate-300 tracking-widest uppercase">PVP Pack Medio</label>
-                                            <span className="text-5xl font-black text-white leading-none tracking-tighter">{avgTicket}€</span>
-                                        </div>
-                                        <input type="range" min="10" max="100" step="1" value={avgTicket} onChange={(e) => setAvgTicket(parseInt(e.target.value))} className="w-full h-2 bg-white/5 rounded-full appearance-none cursor-pointer" />
-                                    </div>
-                                </div>
-                            </div>
+                                        <input
+                                            type="range"
+                                            min="10"
+                                            max="5000"
+                                            step="1"
+                                            value={numStudents}
+                                            onChange={(e) => {
+                                                const rawVal = parseInt(e.target.value);
+                                                let val = rawVal;
 
-                            <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-[40px] p-8 shadow-xl flex items-center justify-between border-b-4 border-indigo-950 relative overflow-hidden group">
-                                <div className="flex flex-col relative z-10">
-                                    <span className="text-[10px] font-black text-indigo-200 mb-1 uppercase tracking-widest">volumen negocio</span>
-                                    <span className="text-4xl font-black italic tracking-tighter leading-none">{(numStudents * avgTicket).toLocaleString()}€</span>
+                                                // Lógica no lineal (Tramo A, B, C)
+                                                if (rawVal > 1000) {
+                                                    // Tramo C: 1.001 - 5.000 (500 en 500)
+                                                    val = Math.round(rawVal / 500) * 500;
+                                                } else if (rawVal > 500) {
+                                                    // Tramo B: 501 - 1.000 (50 en 50)
+                                                    val = Math.round(rawVal / 50) * 50;
+                                                }
+                                                // Tramo A: 1 - 500 (1 en 1) - valor por defecto
+
+                                                if (val < 10) val = 10;
+                                                setNumStudents(val);
+                                            }}
+                                            className="w-full h-1.5 md:h-2 bg-white/5 rounded-full appearance-none cursor-pointer"
+                                            style={{
+                                                background: `linear-gradient(to right, #6366f1 0%, #6366f1 ${(numStudents - 10) / (5000 - 10) * 100}%, rgba(255, 255, 255, 0.05) ${(numStudents - 10) / (5000 - 10) * 100}%, rgba(255, 255, 255, 0.05) 100%)`
+                                            }}
+                                        />
+                                    </div>
                                 </div>
-                                <TrendingUp size={40} className="text-white opacity-20 relative z-10" />
                             </div>
                         </div>
 
                         {/* 2. MAESTRO 1:1 + LISTA */}
-                        <div className="xl:flex-1 flex flex-col md:flex-row gap-10">
+                        <div className="xl:flex-1 flex flex-col md:flex-row gap-6 md:gap-10">
 
-                            {/* BLOQUE HERO - MEJOR OPCIÓN */}
-                            <div className={`md:w-1/2 aspect-square rounded-[60px] bg-gradient-to-br ${bestPlan.color} p-12 flex flex-col justify-between ${bestPlan.glowClass} relative overflow-hidden transition-all duration-700 hover:scale-[1.01] animate-glow-pulse reveal shadow-2xl`}>
+                            {/* BLOQUE HERO - MEJOR OPCIÓN (Muy compacto en móvil) */}
+                            <div className={`md:w-1/2 aspect-auto md:aspect-square rounded-[24px] md:rounded-[60px] bg-gradient-to-br ${bestPlan.color} p-5 md:p-12 flex flex-col justify-between ${bestPlan.glowClass} relative overflow-hidden transition-all duration-700 hover:scale-[1.01] animate-glow-pulse shadow-2xl`}>
                                 <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-white/10 rounded-full blur-[100px] -mr-32 -mt-32"></div>
 
                                 <div className="relative z-10 flex justify-between items-start text-white">
-                                    <div className="flex items-center gap-6">
-                                        <div className="glass-card p-6 rounded-[28px] border border-white/20 shadow-xl text-white">
-                                            {bestPlan.icon}
+                                    <div className="flex items-center gap-3 md:gap-6">
+                                        <div className="glass-card p-3 md:p-6 rounded-xl md:rounded-[28px] border border-white/20 shadow-xl text-white">
+                                            {React.cloneElement(bestPlan.icon, { size: window.innerWidth < 768 ? 24 : 48 })}
                                         </div>
                                         <div>
-                                            <p className="text-[11px] font-black tracking-[0.4em] text-white/50 leading-none mb-2 uppercase italic">mejor opción</p>
-                                            <p className="text-4xl font-black tracking-tighter uppercase leading-none italic gradient-text-white">{bestPlan.label}</p>
+                                            <p className="text-[8px] md:text-[11px] font-black tracking-[0.4em] text-white/50 leading-none mb-1 md:mb-2 uppercase italic">mejor opción</p>
+                                            <p className="text-xl md:text-4xl font-black tracking-tighter uppercase leading-none italic gradient-text-white">{bestPlan.label}</p>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="relative z-10 py-6 text-center md:text-left">
-                                    <p className="text-[12px] font-black tracking-[0.6em] text-white/30 mb-1 ml-4 uppercase italic">coste / alumno</p>
-                                    <div className="flex items-baseline justify-center md:justify-start gap-3">
-                                        <span className="text-[100px] lg:text-[140px] font-black leading-[0.8] tracking-tighter text-white drop-shadow-2xl italic">
+                                <div className="relative z-10 py-2 md:py-10 text-center md:text-left">
+                                    <p className="text-[8px] md:text-[12px] font-black tracking-[0.6em] text-white/30 mb-0 md:mb-2 md:ml-4 uppercase italic">coste / alumno</p>
+                                    <div className="flex items-baseline justify-center md:justify-start gap-1 md:gap-3">
+                                        <span className="text-[44px] md:text-[100px] lg:text-[140px] font-black leading-[0.8] tracking-tighter text-white drop-shadow-2xl italic">
                                             {bestPlan.costPerStudent.toFixed(2)}
                                         </span>
-                                        <span className="text-4xl font-black text-white/40 italic">€</span>
+                                        <span className="text-base md:text-4xl font-black text-white/40 italic">€</span>
                                     </div>
+
+                                    {bestPlan.id === 'pro' && (
+                                        <div className="mt-2 md:mt-8 p-3 md:p-5 bg-black/20 rounded-xl md:rounded-[30px] border border-white/10 backdrop-blur-md animate-reveal hidden md:block">
+                                            <p className="text-[8px] md:text-[10px] font-bold text-indigo-100 uppercase tracking-[0.15em] leading-relaxed italic">
+                                                <span className="text-white font-black">Veredicto Senior:</span> El software deja de ser un gasto variable para convertirse en una inversión marginal frente al beneficio de la orla.
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
 
-                                <div className="relative z-10 pt-8 border-t border-white/20 flex items-center justify-between text-white uppercase font-black text-[11px] tracking-[0.2em]">
-                                    <div className="flex items-center gap-4">
-                                        <TrendingDown size={20} />
+                                <div className="relative z-10 pt-4 md:pt-8 border-t border-white/20 flex items-center justify-between text-white uppercase font-black text-[9px] md:text-[11px] tracking-[0.2em]">
+                                    <div className="flex items-center gap-2">
+                                        <TrendingDown size={14} className="md:size-5" />
                                         <span>Máxima rentabilidad</span>
                                     </div>
-                                    <Award size={28} className="text-white/30" />
+                                    <Award size={20} className="text-white/30 md:size-7" />
                                 </div>
                             </div>
 
-                            {/* 3. LISTADO DETALLE */}
-                            <div className="md:w-1/2 flex flex-col gap-4 justify-between">
-                                {results.map((plan) => (
-                                    <div key={plan.id} className={`flex-1 min-h-0 border-2 rounded-[40px] overflow-hidden transition-all duration-500 relative reveal ${plan.isDisabled ? 'opacity-5 grayscale scale-[0.98] pointer-events-none' : bestPlan.id === plan.id ? 'bg-white border-white shadow-2xl z-20 scale-[1.03]' : 'glass-card border-white/5 hover:border-indigo-500/30'}`}>
+                            {/* 3. LISTADO DETALLE (Muy compacto en móvil) */}
+                            <div className="md:w-1/2 flex flex-col gap-2 md:gap-4 justify-between">
+                                {filteredResults.map((plan) => (
+                                    <div key={plan.id} className={`flex-1 min-h-0 border-2 rounded-2xl md:rounded-[40px] overflow-hidden transition-all duration-500 relative ${plan.isDisabled ? 'opacity-20 grayscale scale-[0.98]' : bestPlan.id === plan.id ? 'bg-white border-white shadow-2xl z-20 scale-[1.01] md:scale-[1.03]' : 'glass-card border-white/5 hover:border-indigo-500/30'}`}>
                                         <div className="flex h-full items-stretch">
-                                            <div className={`w-24 lg:w-32 flex flex-col items-center justify-center border-r ${bestPlan.id === plan.id ? 'border-sky-50 bg-sky-50/10' : 'border-white/5 bg-white/5'}`}>
-                                                <div className={`mb-2 ${plan.accentColor}`}>{plan.miniIcon}</div>
-                                                <div className="flex items-baseline gap-1">
-                                                    <p className={`text-3xl lg:text-4xl font-black tracking-tighter leading-none ${plan.accentColor}`}>{plan.costPerStudent.toFixed(2)}</p>
-                                                    <span className={`text-sm font-black italic ${plan.accentColor}`}>€</span>
-                                                </div>
-                                                <span className="text-[9px] font-black text-slate-500 mt-2 tracking-[0.1em] uppercase">unitario</span>
+                                            <div className={`w-20 lg:w-32 flex flex-col items-center justify-center border-r ${bestPlan.id === plan.id ? 'border-sky-50 bg-sky-50/10' : 'border-white/5 bg-white/5'}`}>
+                                                <div className={`mb-1 ${plan.accentColor} scale-75 md:scale-100`}>{plan.miniIcon}</div>
+                                                {!plan.isDisabled ? (
+                                                    <>
+                                                        <div className="flex items-baseline gap-0.5">
+                                                            <p className={`text-xl md:text-2xl lg:text-4xl font-black tracking-tighter leading-none ${plan.accentColor}`}>{plan.costPerStudent.toFixed(2)}</p>
+                                                            <span className={`text-[10px] font-black italic ${plan.accentColor}`}>€</span>
+                                                        </div>
+                                                        <span className="text-[7px] md:text-[9px] font-black text-slate-500 mt-1 tracking-[0.1em] uppercase">unitario</span>
+                                                    </>
+                                                ) : (
+                                                    <div className="flex flex-col items-center opacity-40">
+                                                        <Shield size={20} className="text-slate-500 mb-1" />
+                                                        <span className="text-[7px] font-black uppercase">N/A</span>
+                                                    </div>
+                                                )}
                                             </div>
-                                            <div className="flex-1 p-6 flex flex-col justify-center gap-4">
+                                            <div className="flex-1 p-3 md:p-6 flex flex-col justify-center gap-1 md:gap-4">
                                                 <div className="flex items-center justify-between">
                                                     <div>
-                                                        <h4 className={`text-2xl font-black tracking-tighter italic leading-none ${bestPlan.id === plan.id ? 'text-black' : 'text-white'}`}>{plan.label}</h4>
-                                                        <p className={`text-[10px] font-black italic mt-1.5 tracking-widest ${bestPlan.id === plan.id ? 'opacity-40 text-black' : 'text-slate-500'}`}>TOTAL: {plan.planCost.toFixed(0)}€</p>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <p className="text-[9px] font-black text-slate-400 tracking-[0.2em] mb-1 italic uppercase">beneficio</p>
-                                                        <p className={`text-3xl font-black tracking-tighter leading-none ${bestPlan.id === plan.id ? 'text-indigo-600' : 'text-white'}`}>{plan.netProfit.toLocaleString(undefined, { maximumFractionDigits: 0 })}€</p>
+                                                        <h4 className={`text-sm md:text-2xl font-black tracking-tighter italic leading-none ${bestPlan.id === plan.id ? 'text-black' : 'text-white'}`}>{plan.label}</h4>
+                                                        {!plan.isDisabled && <p className={`text-[7px] md:text-[10px] font-black italic mt-0.5 md:mt-1.5 tracking-widest ${bestPlan.id === plan.id ? 'opacity-40 text-black' : 'text-slate-500'}`}>SOFTWARE: {plan.planCost.toFixed(0)}€</p>}
                                                     </div>
                                                 </div>
-                                                <div className={`p-3 rounded-2xl border flex items-start gap-3 ${bestPlan.id === plan.id ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg' : 'bg-white/5 border-white/10 text-slate-400'}`}>
-                                                    <Info size={14} className="shrink-0 mt-0.5" />
+                                                <div className={`p-2 rounded-xl border flex items-start gap-2 ${plan.isDisabled ? 'bg-red-500/5 border-red-500/10 text-red-500/60' : bestPlan.id === plan.id ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white/5 border-white/10 text-slate-400'}`}>
+                                                    <Info size={12} className="shrink-0 mt-0.5" />
                                                     <div>
-                                                        <p className="text-[9px] font-black uppercase tracking-widest mb-0.5 leading-none">{plan.conditions}</p>
-                                                        <p className="text-[9px] font-medium opacity-70 italic leading-tight lowercase">{plan.description}</p>
+                                                        <p className="text-[7px] md:text-[9px] font-black uppercase tracking-widest mb-0.5 leading-none">{plan.isDisabled ? 'Límite técnico excedido' : plan.conditions}</p>
+                                                        <p className="text-[7px] md:text-[9px] font-medium opacity-70 italic leading-tight lowercase line-clamp-1">{plan.description}</p>
                                                     </div>
                                                 </div>
                                             </div>
@@ -336,41 +403,41 @@ const Landing = () => {
                     </div>
 
                     {/* CTA de contacto directo post-calculadora - POSICIONADO DEBAJO */}
-                    <div className="mt-16 flex flex-col md:flex-row items-center justify-between p-12 bg-indigo-600 rounded-[50px] shadow-[0_30px_60px_-15px_rgba(79,70,229,0.5)] gap-8 relative overflow-hidden group animate-reveal">
+                    < div className="mt-12 md:mt-16 flex flex-col md:flex-row items-center justify-between p-8 md:p-12 bg-indigo-600 rounded-[30px] md:rounded-[50px] shadow-[0_30px_60px_-15px_rgba(79,70,229,0.5)] gap-6 md:gap-8 relative overflow-hidden group animate-reveal" >
                         <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-white/10 rounded-full blur-[80px] -mr-32 -mt-32"></div>
                         <div className="relative z-10 text-center md:text-left">
-                            <h4 className="text-4xl font-black tracking-tighter italic leading-none mb-3">¿ESTO ES LO QUE BUSCABAS?</h4>
-                            <p className="text-indigo-100 text-lg font-bold uppercase tracking-widest opacity-90 max-w-xl">No pierdas más tiempo en gestión. Hablemos por WhatsApp y activamos tu cuenta en minutos.</p>
+                            <h4 className="text-2xl md:text-4xl font-black tracking-tighter italic leading-none mb-3 uppercase">¿ES LO QUE BUSCABAS?</h4>
+                            <p className="text-indigo-100 text-sm md:text-lg font-bold uppercase tracking-widest opacity-90 max-w-xl">No pierdas más tiempo en gestión. Hablemos por WhatsApp y activamos tu cuenta en minutos.</p>
                         </div>
-                        <a href="https://wa.me/34650494728" className="relative z-10 bg-white text-indigo-600 px-12 py-6 rounded-[30px] font-black text-base uppercase tracking-[0.2em] hover:scale-105 active:scale-95 transition-all flex items-center gap-4 shadow-2xl italic whitespace-nowrap">
-                            <MessageCircle size={24} className="fill-indigo-600" /> ¡QUIERO EMPEZAR YA!
+                        <a href="https://wa.me/34650494728" className="relative z-10 bg-white text-indigo-600 px-8 md:px-12 py-4 md:py-6 rounded-[20px] md:rounded-[30px] font-black text-sm md:text-base uppercase tracking-[0.2em] hover:scale-105 active:scale-95 transition-all flex items-center gap-4 shadow-2xl italic whitespace-nowrap">
+                            <MessageCircle size={24} className="fill-indigo-600" /> ¡EMPEZAR YA!
                         </a>
-                    </div>
-                </div>
-            </section>
+                    </div >
+                </div >
+            </section >
 
             {/* SECCIÓN SOBRE EL CREADOR */}
-            <section id="nosotros" className="py-28 px-8 max-w-6xl mx-auto reveal" >
-                <div className="flex flex-col lg:flex-row items-center gap-20">
-                    <div className="lg:w-[45%] relative group reveal">
-                        <div className="absolute inset-0 bg-indigo-600 rounded-[60px] rotate-2 -z-10 opacity-10" />
-                        <div className="aspect-[4/5] rounded-[60px] overflow-hidden border-[12px] border-[#0c0f14] shadow-2xl grayscale group-hover:grayscale-0 transition-all duration-1000 transform group-hover:scale-[1.01]">
+            < section id="nosotros" className="py-16 md:py-28 px-6 md:px-8 max-w-6xl mx-auto reveal" >
+                <div className="flex flex-col lg:flex-row items-center gap-12 md:gap-20">
+                    <div className="lg:w-[45%] relative group reveal w-full max-w-[400px] lg:max-w-none mx-auto">
+                        <div className="absolute inset-0 bg-indigo-600 rounded-[40px] md:rounded-[60px] rotate-2 -z-10 opacity-10" />
+                        <div className="aspect-[4/5] rounded-[40px] md:rounded-[60px] overflow-hidden border-[8px] md:border-[12px] border-[#0c0f14] shadow-2xl grayscale group-hover:grayscale-0 transition-all duration-1000 transform group-hover:scale-[1.01]">
                             <img src="https://images.unsplash.com/photo-1554048612-b6a482bc67e5?q=80&w=1470" alt="Pujalte" className="w-full h-full object-cover" />
                         </div>
-                        <div className="absolute -bottom-10 -right-10 glass-card bg-white/10 text-white p-8 rounded-[40px] shadow-xl border border-white/20 animate-float-gentle backdrop-blur-xl">
-                            <Camera size={32} className="mb-4 text-indigo-400" />
-                            <h4 className="text-3xl font-black italic mb-1 tracking-tighter gradient-text-white">15 AÑOS</h4>
-                            <p className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400">en el sector</p>
+                        <div className="absolute -bottom-6 md:-bottom-10 -right-4 md:-right-10 glass-card bg-white/10 text-white p-5 md:p-8 rounded-[30px] md:rounded-[40px] shadow-xl border border-white/20 animate-float-gentle backdrop-blur-xl">
+                            <Camera size={24} className="mb-3 text-indigo-400 md:size-[32px]" />
+                            <h4 className="text-2xl md:text-3xl font-black italic mb-1 tracking-tighter gradient-text-white">15 AÑOS</h4>
+                            <p className="text-[8px] md:text-[9px] font-black uppercase tracking-[0.3em] text-slate-400">en el sector</p>
                         </div>
                     </div>
-                    <div className="lg:w-[55%]">
-                        <div className="inline-flex items-center gap-3 bg-indigo-500/10 px-4 py-1 rounded-full border border-indigo-500/20 text-indigo-400 text-[9px] font-black tracking-[0.3em] mb-8 uppercase italic">insight fotográfico</div>
-                        <h2 className="text-5xl md:text-[70px] font-black italic tracking-tighter mb-8 leading-[0.85] text-white uppercase text-glow">SOFTWARE <br /> <span className="text-indigo-600">ARTESANAL.</span></h2>
-                        <div className="space-y-6">
-                            <p className="text-slate-300 text-xl md:text-2xl font-medium italic leading-relaxed lowercase">
+                    <div className="lg:w-[55%] text-center lg:text-left">
+                        <div className="inline-flex items-center gap-3 bg-indigo-500/10 px-4 py-1 rounded-full border border-indigo-500/20 text-indigo-400 text-[8px] md:text-[9px] font-black tracking-[0.3em] mb-6 md:mb-8 uppercase italic">insight fotográfico</div>
+                        <h2 className="text-4xl md:text-[70px] font-black italic tracking-tighter mb-6 md:mb-8 leading-[0.9] md:leading-[0.85] text-white uppercase text-glow">SOFTWARE <br /> <span className="text-indigo-600">ARTESANAL.</span></h2>
+                        <div className="space-y-4 md:space-y-6">
+                            <p className="text-slate-300 text-lg md:text-2xl font-medium italic leading-relaxed lowercase">
                                 soy <span className="text-white font-black underline decoration-indigo-600 uppercase tracking-widest text-glow">fotógrafo</span> hoy, igual que tú.
                             </p>
-                            <p className="text-slate-500 text-base italic leading-relaxed lowercase">
+                            <p className="text-slate-500 text-sm md:text-base italic leading-relaxed lowercase px-4 lg:px-0">
                                 He construido esta herramienta para eliminar las 48 horas de gestión manual que matan la creatividad de nuestro estudio cada temporada. lo que ves es eficiencia bruta aplicada a nuestra realidad.
                             </p>
                         </div>
@@ -389,31 +456,31 @@ const Landing = () => {
             </section >
 
             {/* FOOTER / CONTACTO */}
-            < footer id="contacto" className="bg-[#05070a] border-t border-white/5 pt-40 pb-16 text-center px-8 relative overflow-hidden" >
+            < footer id="contacto" className="bg-[#05070a] border-t border-white/5 pt-24 md:pt-40 pb-12 md:pb-16 text-center px-6 md:px-8 relative overflow-hidden" >
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-indigo-600/10 blur-[140px] rounded-full pointer-events-none animate-pulse"></div>
 
                 <div className="max-w-4xl mx-auto relative z-10 reveal">
-                    <h2 className="text-5xl md:text-[90px] font-black italic tracking-tighter text-white mb-16 leading-[0.9] uppercase text-glow italic">
+                    <h2 className="text-4xl md:text-[90px] font-black italic tracking-tighter text-white mb-10 md:mb-16 leading-[0.9] uppercase text-glow italic">
                         ¿HACEMOS <br /> <span className="gradient-text-white underline decoration-white/10">HISTORIA?</span>
                     </h2>
 
-                    <div className="flex justify-center mb-24">
-                        <a href="https://wa.me/34650494728" className="inline-flex items-center gap-8 p-4 bg-white/5 border border-white/10 rounded-[40px] pr-16 hover:bg-white/10 transition-all hover:scale-105 group shadow-[0_0_50px_rgba(79,70,229,0.2)] hover:shadow-[0_0_60px_rgba(79,70,229,0.4)] relative">
+                    <div className="flex justify-center mb-16 md:mb-24 px-2">
+                        <a href="https://wa.me/34650494728" className="inline-flex items-center gap-4 md:gap-8 p-3 md:p-4 bg-white/5 border border-white/10 rounded-[30px] md:rounded-[40px] pr-8 md:pr-16 hover:bg-white/10 transition-all hover:scale-105 group shadow-[0_0_50px_rgba(79,70,229,0.2)] hover:shadow-[0_0_60px_rgba(79,70,229,0.4)] relative">
                             {/* Indicador de "Clickeable" pulsante */}
-                            <div className="absolute -top-3 -right-3 bg-indigo-600 text-[10px] font-black px-4 py-1.5 rounded-full shadow-lg animate-bounce border-2 border-[#05070a] uppercase tracking-widest">
+                            <div className="absolute -top-3 -right-2 md:-top-3 md:-right-3 bg-indigo-600 text-[8px] md:text-[10px] font-black px-3 md:px-4 py-1.5 rounded-full shadow-lg animate-bounce border-2 border-[#05070a] uppercase tracking-widest">
                                 ¡Escríbeme!
                             </div>
 
-                            <div className="w-20 h-20 bg-indigo-600 rounded-[28px] flex items-center justify-center text-white shadow-xl group-hover:rotate-12 transition-transform duration-500 relative">
-                                <MessageCircle size={36} />
-                                <div className="absolute inset-0 bg-white rounded-[28px] animate-ping opacity-20"></div>
+                            <div className="w-16 h-16 md:w-20 md:h-20 bg-indigo-600 rounded-[22px] md:rounded-[28px] flex items-center justify-center text-white shadow-xl group-hover:rotate-12 transition-transform duration-500 relative shrink-0">
+                                <MessageCircle className="size-8 md:size-9" />
+                                <div className="absolute inset-0 bg-white rounded-[22px] md:rounded-[28px] animate-ping opacity-20"></div>
                             </div>
                             <div className="text-left">
-                                <p className="text-[11px] font-black text-indigo-400 uppercase tracking-[0.3em] mb-1 italic">habla conmigo ahora</p>
-                                <p className="text-4xl font-black italic tracking-tighter text-white leading-none mb-2">WHATSAPP DIRECTO</p>
+                                <p className="text-[9px] md:text-[11px] font-black text-indigo-400 uppercase tracking-[0.3em] mb-0.5 md:mb-1 italic">habla conmigo ahora</p>
+                                <p className="text-2xl md:text-4xl font-black italic tracking-tighter text-white leading-none mb-1 md:mb-2 italic">WHATSAPP DIRECTO</p>
                                 <div className="flex items-center gap-2">
-                                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Disponible para soporte estratégico</p>
+                                    <div className="w-1.5 h-1.5 md:w-2 md:h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                                    <p className="text-[8px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Soporte estratégico activo</p>
                                 </div>
                             </div>
                         </a>

@@ -117,94 +117,98 @@ if (inputFolder != null) {
     }
 
     return (
-        <div className="min-h-screen bg-[#050505] text-white p-8 animate-fade-in relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-violet-600/10 rounded-full blur-[120px] -z-1" />
+        <div className="min-h-screen bg-[#050505] text-white p-4 md:p-8 animate-fade-in relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-[300px] md:w-[500px] h-[300px] md:h-[500px] bg-violet-600/10 rounded-full blur-[80px] md:blur-[120px] -z-1" />
 
-            <div className="max-w-5xl mx-auto space-y-12 relative z-10">
-                <div className="flex items-center justify-between border-b border-white/10 pb-8">
-                    <div className="space-y-2">
-                        <div className="flex items-center gap-3">
-                            <button onClick={onBack} className="p-2 hover:bg-white/5 rounded-xl transition-colors text-white/40 hover:text-white">
-                                <ArrowLeft size={20} />
-                            </button>
-                            <h1 className="text-3xl font-black italic tracking-tighter uppercase flex items-center gap-4">
-                                <span className="text-violet-500">Command</span> Center
-                                <span className="text-[10px] bg-violet-500/20 text-violet-400 px-3 py-1 rounded-full border border-violet-500/30 tracking-widest not-italic">V2.6 READY</span>
-                            </h1>
+            <div className="max-w-5xl mx-auto space-y-6 md:space-y-12 relative z-10">
+                <div className="flex items-center justify-between border-b border-white/10 pb-6 md:pb-8">
+                    <div className="space-y-4 md:space-y-2 w-full">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="flex items-center gap-2 md:gap-3">
+                                <button onClick={onBack} className="p-2 hover:bg-white/5 rounded-xl transition-colors text-white/40 hover:text-white">
+                                    <ArrowLeft size={20} />
+                                </button>
+                                <h1 className="text-2xl md:text-3xl font-black italic tracking-tighter uppercase flex items-center gap-2 md:gap-4">
+                                    <span className="text-violet-500">Command</span> Center
+                                </h1>
+                            </div>
+                            <div className="md:block">
+                                <span className="text-[9px] md:text-[10px] bg-violet-500/20 text-violet-400 px-3 py-1.5 md:py-1 rounded-full border border-violet-500/30 tracking-widest font-black uppercase inline-block">V2.6 READY</span>
+                            </div>
                         </div>
-                        <p className="text-white/40 text-[11px] font-bold uppercase tracking-[0.3em] pl-12 flex items-center gap-2">
-                            <Binary size={12} className="text-violet-500" /> Puente de Producción Directa (Antigravity Ready)
+                        <p className="text-white/40 text-[9px] md:text-[11px] font-black uppercase tracking-[0.2em] md:tracking-[0.3em] md:pl-12 flex items-center gap-2">
+                            <Binary size={12} className="text-violet-500" /> Puente de Producción Directa
                         </p>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
                     {/* PASO 01 */}
-                    <div className="group bg-white/[0.03] border border-white/10 rounded-[32px] p-8 space-y-6 hover:bg-white/[0.05] hover:border-violet-500/30 transition-all duration-500">
-                        <div className="w-14 h-14 bg-violet-500/20 rounded-2xl flex items-center justify-center text-violet-400 group-hover:scale-110 transition-transform">
-                            <Camera size={28} />
+                    <div className="group bg-white/[0.03] border border-white/10 rounded-[28px] md:rounded-[32px] p-6 md:p-8 space-y-4 md:space-y-6 hover:bg-white/[0.05] hover:border-violet-500/30 transition-all duration-500">
+                        <div className="w-12 h-12 md:w-14 md:h-14 bg-violet-500/20 rounded-2xl flex items-center justify-center text-violet-400 group-hover:scale-110 transition-transform">
+                            <Camera size={24} className="md:size-[28px]" />
                         </div>
-                        <div className="space-y-2">
-                            <h3 className="text-lg font-black italic uppercase tracking-wider text-left">01. Puente Lightroom</h3>
-                            <p className="text-white/40 text-xs leading-relaxed text-left">Filtra la biblioteca para exportar JPEGs de un solo clic.</p>
+                        <div className="space-y-1 md:space-y-2">
+                            <h3 className="text-base md:text-lg font-black italic uppercase tracking-wider text-left">01. Puente Lightroom</h3>
+                            <p className="text-white/40 text-[11px] md:text-xs leading-relaxed text-left">Filtra la biblioteca para exportar JPEGs de un solo clic.</p>
                         </div>
-                        <button onClick={() => copyToClipboard(lrString)} className="w-full flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/10 group/btn transition-all hover:bg-violet-500 hover:text-white">
-                            <span className="text-[10px] font-black uppercase tracking-widest">Copiar IDs ({Array.isArray(graduates) ? graduates.length : 0})</span>
+                        <button onClick={() => copyToClipboard(lrString)} className="w-full flex items-center justify-between p-3.5 md:p-4 bg-white/5 rounded-2xl border border-white/10 group/btn transition-all hover:bg-violet-500 hover:text-white">
+                            <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest">Copiar IDs ({Array.isArray(graduates) ? graduates.length : 0})</span>
                             {copiedStep1 ? <CheckCircle2 size={16} /> : <Copy size={16} className="opacity-40 group-hover/btn:opacity-100" />}
                         </button>
                     </div>
 
                     {/* PASO 02 */}
-                    <div className="group bg-white/[0.03] border border-white/10 rounded-[32px] p-8 space-y-6 hover:bg-white/[0.05] hover:border-violet-500/30 transition-all duration-500">
-                        <div className="w-14 h-14 bg-blue-500/20 rounded-2xl flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
-                            <Layers size={28} />
+                    <div className="group bg-white/[0.03] border border-white/10 rounded-[28px] md:rounded-[32px] p-6 md:p-8 space-y-4 md:space-y-6 hover:bg-white/[0.05] hover:border-violet-500/30 transition-all duration-500">
+                        <div className="w-12 h-12 md:w-14 md:h-14 bg-blue-500/20 rounded-2xl flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
+                            <Layers size={24} className="md:size-[28px]" />
                         </div>
-                        <div className="space-y-2">
-                            <h3 className="text-lg font-black italic uppercase tracking-wider text-left">02. Constructor PSD</h3>
-                            <p className="text-white/40 text-xs leading-relaxed text-left">Genera el lienzo, carpetas y tipografía en Photoshop.</p>
+                        <div className="space-y-1 md:space-y-2">
+                            <h3 className="text-base md:text-lg font-black italic uppercase tracking-wider text-left">02. Constructor PSD</h3>
+                            <p className="text-white/40 text-[11px] md:text-xs leading-relaxed text-left">Genera el lienzo, carpetas y tipografía en Photoshop.</p>
                         </div>
-                        <button onClick={() => downloadScript('CONSTRUCTOR')} className="w-full flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/10 group/btn transition-all hover:bg-blue-500 hover:text-white">
-                            <span className="text-[10px] font-black uppercase tracking-widest">Bajar Script Estructura</span>
+                        <button onClick={() => downloadScript('CONSTRUCTOR')} className="w-full flex items-center justify-between p-3.5 md:p-4 bg-white/5 rounded-2xl border border-white/10 group/btn transition-all hover:bg-blue-500 hover:text-white">
+                            <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest">Bajar Script Estructura</span>
                             <Download size={16} className="opacity-40 group-hover/btn:opacity-100" />
                         </button>
                     </div>
 
                     {/* PASO 03 */}
-                    <div className="group bg-white/[0.03] border border-white/10 rounded-[32px] p-8 space-y-6 hover:bg-white/[0.05] hover:border-violet-500/30 transition-all duration-500 relative overflow-hidden">
-                        <div className="w-14 h-14 bg-amber-500/20 rounded-2xl flex items-center justify-center text-amber-400 group-hover:scale-110 transition-transform">
-                            <Zap size={28} />
+                    <div className="group bg-white/[0.03] border border-white/10 rounded-[28px] md:rounded-[32px] p-6 md:p-8 space-y-4 md:space-y-6 hover:bg-white/[0.05] hover:border-violet-500/30 transition-all duration-500 relative overflow-hidden">
+                        <div className="w-12 h-12 md:w-14 md:h-14 bg-amber-500/20 rounded-2xl flex items-center justify-center text-amber-400 group-hover:scale-110 transition-transform">
+                            <Zap size={24} className="md:size-[28px]" />
                         </div>
-                        <div className="space-y-2">
-                            <h3 className="text-lg font-black italic uppercase tracking-wider text-left">03. Inyección Rápida</h3>
-                            <p className="text-white/40 text-xs leading-relaxed text-left">Vuelca fotos finales con rasterización pre-pego optimizada.</p>
+                        <div className="space-y-1 md:space-y-2">
+                            <h3 className="text-base md:text-lg font-black italic uppercase tracking-wider text-left">03. Inyección Rápida</h3>
+                            <p className="text-white/40 text-[11px] md:text-xs leading-relaxed text-left">Vuelca fotos finales con rasterización pre-pego optimizada.</p>
                         </div>
-                        <button onClick={() => downloadScript('RASTER')} className="w-full flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/10 group/btn transition-all hover:bg-amber-500 hover:text-white">
-                            <span className="text-[10px] font-black uppercase tracking-widest">Bajar Motor Raster</span>
+                        <button onClick={() => downloadScript('RASTER')} className="w-full flex items-center justify-between p-3.5 md:p-4 bg-white/5 rounded-2xl border border-white/10 group/btn transition-all hover:bg-amber-500 hover:text-white">
+                            <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest">Bajar Motor Raster</span>
                             <Download size={16} className="opacity-40 group-hover/btn:opacity-100" />
                         </button>
                     </div>
                 </div>
 
-                <div className="bg-white/[0.01] border border-white/5 rounded-[40px] p-10 flex flex-wrap items-center justify-between gap-8">
-                    <div className="flex items-center gap-8">
-                        <div className="space-y-1 text-left">
-                            <p className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em]">Grupo Activo</p>
-                            <p className="text-sm font-black uppercase text-violet-400 truncate max-w-[200px]">{groupName}</p>
+                <div className="bg-white/[0.01] border border-white/5 rounded-[30px] md:rounded-[40px] p-6 md:p-10 flex flex-col md:flex-row items-center justify-between gap-6 md:gap-8">
+                    <div className="flex items-center gap-4 md:gap-8 w-full md:w-auto">
+                        <div className="space-y-1 text-left flex-1 md:flex-none">
+                            <p className="text-[8px] md:text-[9px] font-black text-white/30 uppercase tracking-[0.2em]">Grupo Activo</p>
+                            <p className="text-xs md:text-sm font-black uppercase text-violet-400 truncate max-w-[150px] md:max-w-[200px]">{groupName}</p>
                         </div>
                         <div className="w-px h-10 bg-white/10" />
-                        <div className="space-y-1 text-left">
-                            <p className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em]">Carga de Datos</p>
-                            <p className="text-sm font-black uppercase text-white">{(Array.isArray(graduates) ? graduates.length : 0) + (Array.isArray(staff) ? staff.length : 0)} Protagonistas</p>
+                        <div className="space-y-1 text-left flex-1 md:flex-none">
+                            <p className="text-[8px] md:text-[9px] font-black text-white/30 uppercase tracking-[0.2em]">Carga de Datos</p>
+                            <p className="text-xs md:text-sm font-black uppercase text-white">{(Array.isArray(graduates) ? graduates.length : 0) + (Array.isArray(staff) ? staff.length : 0)} Protagonistas</p>
                         </div>
                     </div>
-                    <div className="px-6 py-3 bg-green-500/10 rounded-2xl border border-green-500/20">
-                        <p className="text-[10px] font-black text-green-400 uppercase tracking-[0.2em] flex items-center gap-2">
-                            <CheckCircle2 size={12} /> Status: Optimized for Firestore
+                    <div className="w-full md:w-auto px-6 py-3 bg-green-500/10 rounded-2xl border border-green-500/20 flex justify-center">
+                        <p className="text-[9px] md:text-[10px] font-black text-green-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                            <CheckCircle2 size={12} /> Status: Firestore Ready
                         </p>
                     </div>
                 </div>
 
-                <p className="text-[10px] font-black text-white/10 uppercase tracking-[0.5em] text-center">Pujalte Creative Studio &copy; 2026 — High Speed Production Flow</p>
+                <p className="text-[8px] md:text-[10px] font-black text-white/10 uppercase tracking-[0.3em] md:tracking-[0.5em] text-center px-4">Pujalte Creative Studio &copy; 2026 — High Speed Production Flow</p>
             </div>
         </div>
     );

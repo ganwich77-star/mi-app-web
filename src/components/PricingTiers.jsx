@@ -37,7 +37,12 @@ export default function PricingTiers(props) {
         const basePrices = {
             flex: '2,50 €',
             starter: '149 €',
-            custom: 'Desde 850 €'
+            custom: (
+                <div className="flex flex-col">
+                    <span className="text-2xl font-black">Desde 850 €</span>
+                    <span className="text-[10px] text-indigo-400 font-bold uppercase mt-1 tracking-tighter">White Label: 1.250 €</span>
+                </div>
+            )
         };
         return basePrices[id];
     };
@@ -112,61 +117,59 @@ export default function PricingTiers(props) {
     return (
         <div className="space-y-6">
             <div className="text-center space-y-2 mb-8">
-                <h2 className="text-3xl font-black text-white uppercase tracking-tight">Elige tu Plan</h2>
-                <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Sin riesgo. Paga solo por lo que necesitas.</p>
+                <h2 className="text-2xl sm:text-3xl font-black text-white uppercase tracking-tight">Elige tu Plan</h2>
+                <p className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider">Sin riesgo. Paga solo por lo que necesitas.</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 {plans.map((plan) => (
                     <button
                         key={plan.id}
                         disabled={plan.id === currentPlan}
                         onClick={() => onSelectPlan(plan.id)}
-                        className={`relative w-full text-left p-6 rounded-[30px] border-2 transition-all duration-300 hover:scale-105 hover:shadow-2xl group overflow-hidden bg-slate-900/40 backdrop-blur-xl ${plan.id === currentPlan ? 'opacity-50 cursor-not-allowed border-indigo-500/50 bg-indigo-500/5' : plan.highlight ? 'border-blue-500 shadow-[0_0_30px_rgba(59,130,246,0.2)] hover:border-blue-400' : 'border-white/5 hover:border-white/20'}`}
+                        className={`relative w-full text-left p-3 sm:p-5 rounded-2xl sm:rounded-[30px] border-2 transition-all duration-300 active:scale-95 sm:hover:scale-105 group overflow-hidden bg-slate-900/40 backdrop-blur-xl ${plan.id === currentPlan ? 'opacity-50 cursor-not-allowed border-indigo-500/50 bg-indigo-500/5' : plan.highlight ? 'border-blue-500/50 shadow-lg hover:border-blue-400' : 'border-white/5 hover:border-white/10'}`}
                     >
-                        {/* Background Effects */}
-                        <div className={`absolute -top-10 -right-10 w-32 h-32 rounded-full blur-[50px] pointer-events-none transition-all group-hover:blur-[60px] ${plan.bg}`} />
-
+                        {/* Status Badge */}
                         {plan.id === currentPlan ? (
-                            <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-indigo-500 text-white text-[9px] font-black uppercase tracking-widest px-4 py-1 rounded-b-xl shadow-lg">
-                                TU PLAN ACTUAL
+                            <div className="absolute top-0 right-0 bg-indigo-500 text-white text-[7px] font-black uppercase px-2 py-0.5 rounded-bl-lg">
+                                ACTUAL
                             </div>
                         ) : plan.badge ? (
-                            <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-[9px] font-black uppercase tracking-widest px-4 py-1 rounded-b-xl shadow-lg">
-                                {plan.badge}
+                            <div className="absolute top-0 right-0 bg-blue-500 text-white text-[7px] font-black uppercase px-2 py-0.5 rounded-bl-lg">
+                                {plan.badge === 'MÁS POPULAR' ? 'POPULAR' : plan.badge}
                             </div>
                         ) : null}
 
-                        <div className="relative z-10">
-                            <div className="flex justify-between items-start mb-4">
-                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border ${plan.bg} ${plan.color} ${plan.border}`}>
-                                    <plan.icon size={24} />
+                        <div className="relative z-10 space-y-2">
+                            <div className="flex items-center justify-between">
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${plan.bg} ${plan.color} ${plan.border}`}>
+                                    <plan.icon size={16} />
                                 </div>
-                                <div className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border ${plan.bg} ${plan.color} ${plan.border}`}>
+                                <span className={`text-[8px] font-black uppercase tracking-tighter ${plan.color}`}>
                                     {plan.name}
+                                </span>
+                            </div>
+
+                            <div>
+                                <div className="text-lg sm:text-2xl font-black text-white leading-none">
+                                    {plan.price}
+                                </div>
+                                <div className="text-[8px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-tighter opacity-70">
+                                    {plan.period}
                                 </div>
                             </div>
 
-                            <div className="mb-4">
-                                <p className="text-3xl font-black text-white drop-shadow-md">
-                                    {plan.price}
-                                </p>
-                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
-                                    {plan.period}
-                                </p>
-                            </div>
-
-                            <p className="text-sm text-slate-300 font-semibold mb-6 h-10">
+                            <p className="text-[9px] sm:text-xs text-slate-400 font-medium leading-tight h-6 sm:h-8 overflow-hidden line-clamp-2">
                                 {plan.description}
                             </p>
 
-                            <ul className="space-y-3">
-                                {plan.features.map((feat, idx) => (
-                                    <li key={idx} className="flex items-center gap-3 text-xs font-bold text-slate-400 group-hover:text-slate-200 transition-colors">
-                                        <div className={`rounded-full p-1 ${plan.bg} ${plan.color}`}>
-                                            <Check size={12} strokeWidth={4} />
+                            <ul className="space-y-1 sm:space-y-2 pt-1">
+                                {plan.features.slice(0, 3).map((feat, idx) => (
+                                    <li key={idx} className="flex items-start gap-1.5 text-[8px] sm:text-[10px] font-bold text-slate-300 leading-none">
+                                        <div className={`mt-0.5 rounded-full p-0.5 ${plan.bg} ${plan.color}`}>
+                                            <Check size={6} strokeWidth={5} />
                                         </div>
-                                        {feat}
+                                        <span className="line-clamp-1">{feat}</span>
                                     </li>
                                 ))}
                             </ul>
@@ -175,12 +178,6 @@ export default function PricingTiers(props) {
                 ))}
             </div>
 
-            <div className="mt-8 text-center p-6 rounded-3xl bg-indigo-500/5 border border-indigo-500/20 backdrop-blur-sm">
-                <Sparkles size={20} className="text-indigo-400 mx-auto mb-2 animate-pulse" />
-                <p className="text-xs font-bold text-indigo-300 uppercase tracking-widest leading-relaxed max-w-sm mx-auto">
-                    Si te interesa el <span className="text-white">White Label</span> propio (1.250€), selecciona el Plan Custom y te contactaremos.
-                </p>
-            </div>
         </div>
     );
 }

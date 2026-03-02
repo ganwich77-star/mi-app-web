@@ -91,46 +91,49 @@ export default function OrderRow({ order, onStatusChange, onDelete, onEdit }) {
             </div>
 
             {/* ── VISTA MÓVIL ───────────────────────────────────────────── */}
-            <div className="sm:hidden flex items-start gap-3 px-4 py-4 hover:bg-primary/3 transition-colors group">
+            <div className="sm:hidden flex items-center gap-3 px-3 py-3 hover:bg-primary/3 transition-colors group border-b border-primary/5 last:border-0">
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 min-w-0">
-                        <p className="font-black text-sm text-primary truncate">{order.studentName}</p>
+                        <p className="font-black text-[13px] text-primary truncate leading-tight">{order.studentName}</p>
                         {order.photoFile && (
-                            <span className="text-[9px] font-mono text-emerald-500 bg-emerald-500/8 border border-emerald-500/20 px-1.5 py-0.5 rounded-md flex-shrink-0">{order.photoFile}</span>
+                            <span className="text-[8px] font-mono text-emerald-500 bg-emerald-500/8 border border-emerald-500/10 px-1 py-0.5 rounded flex-shrink-0">{order.photoFile}</span>
                         )}
                     </div>
-                    <p className="text-[10px] text-secondary font-semibold mt-0.5 truncate">{order.course} · {order.schoolName}</p>
-                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                        <span className="bg-primary/8 text-secondary text-[9px] font-black px-2 py-0.5 rounded-md uppercase border border-primary/10">
+                    <p className="text-[9px] text-secondary font-bold mt-0.5 truncate opacity-60">
+                        {order.course} · <span className="opacity-50">{order.schoolName}</span>
+                    </p>
+                    <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                        <span className="bg-primary/5 text-secondary text-[8px] font-black px-1.5 py-0.5 rounded border border-primary/5 uppercase tracking-tighter">
                             {order.packQuantity > 1 && <span className="text-indigo-400 mr-1">{order.packQuantity}x</span>}
                             {typeof order.pack === 'object' ? order.pack.label : order.pack?.replace('Pack ', '')}
                         </span>
-                        {order.extrasDesc && <span className="text-[9px] text-secondary">{order.extrasDesc}</span>}
-                        <span className="text-[9px] font-black text-accent uppercase">{order.paymentMethod}</span>
+                        {order.paymentMethod && <span className="text-[8px] font-black text-accent/60 uppercase tracking-widest">{order.paymentMethod}</span>}
                     </div>
                 </div>
                 <div className="flex flex-col items-end gap-2 flex-shrink-0">
                     <div className="relative">
-                        <select value={status} onChange={e => onStatusChange(e.target.value)} className={`text-[9px] font-black px-2 py-1 rounded-xl border cursor-pointer outline-none appearance-none pr-5 transition-all ${sc.bg}`}>
+                        <select value={status} onChange={e => onStatusChange(e.target.value)} className={`text-[9px] font-black px-2 py-1.5 rounded-lg border cursor-pointer outline-none appearance-none pr-5 transition-all ${sc.bg} min-h-[32px]`}>
                             {Object.keys(STATUS_CONFIG).map(s => <option key={s} value={s} className="bg-slate-900 text-white">{s}</option>)}
                         </select>
-                        <ChevronDown size={9} className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-60" />
+                        <ChevronDown size={8} className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-60" />
                     </div>
-                    {confirmDelete ? (
-                        <div className="flex gap-1">
-                            <button onClick={() => { onDelete(); setConfirmDelete(false); }} className="text-[9px] font-black text-red-400 bg-red-500/10 border border-red-500/30 px-2 py-1 rounded-lg">Sí</button>
-                            <button onClick={() => setConfirmDelete(false)} className="text-[9px] font-black text-secondary bg-primary/5 border border-primary/10 px-2 py-1 rounded-lg">No</button>
-                        </div>
-                    ) : (
-                        <div className="flex gap-1">
-                            <button onClick={() => onEdit && onEdit(order)} className="w-7 h-7 rounded-xl hover:bg-blue-500/10 border border-transparent hover:border-blue-500/30 flex items-center justify-center text-secondary hover:text-blue-400 transition-all opacity-0 group-hover:opacity-100">
-                                <Edit2 size={13} />
-                            </button>
-                            <button onClick={() => setConfirmDelete(true)} className="w-7 h-7 rounded-xl hover:bg-red-500/10 border border-transparent hover:border-red-500/30 flex items-center justify-center text-secondary hover:text-red-400 transition-all opacity-0 group-hover:opacity-100">
-                                <Trash2 size={13} />
-                            </button>
-                        </div>
-                    )}
+                    <div className="flex gap-1">
+                        {confirmDelete ? (
+                            <>
+                                <button onClick={() => { onDelete(); setConfirmDelete(false); }} className="text-[8px] font-black text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-1 rounded-md">SI</button>
+                                <button onClick={() => setConfirmDelete(false)} className="text-[8px] font-black text-secondary bg-primary/5 border border-primary/10 px-2 py-1 rounded-md">NO</button>
+                            </>
+                        ) : (
+                            <>
+                                <button onClick={() => onEdit && onEdit(order)} className="w-8 h-8 rounded-lg bg-primary/5 border border-primary/10 flex items-center justify-center text-secondary active:scale-90 transition-all">
+                                    <Edit2 size={12} />
+                                </button>
+                                <button onClick={() => setConfirmDelete(true)} className="w-8 h-8 rounded-lg bg-red-500/5 border border-red-500/10 flex items-center justify-center text-red-400 active:scale-90 transition-all">
+                                    <Trash2 size={12} />
+                                </button>
+                            </>
+                        )}
+                    </div>
                 </div>
             </div>
         </>

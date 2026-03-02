@@ -148,6 +148,44 @@ export const EXTRAS = [
     { id: 'foam_extra', name: 'Cuadro Foam 20×25', price: 20.00, cost: 11.79, emoji: '🎨' },
     { id: 'iman_extra', name: 'Imán Brillante', price: 6.00, cost: 1.79, emoji: '🧲' },
 ];
+// Packs con precios inventados para nuevos registros
+export const NEW_PHOTOGRAPHER_PACKS = [
+    {
+        id: 'esencial_2026',
+        name: 'Pack Digital + Orla',
+        subtitle: 'El inicio perfecto',
+        items: ['1 Orla A3+ Premium', 'Descarga Digital HD', '8 Fotos de Carnet'],
+        price: 22.00,
+        cost: 6.50,
+        popular: false,
+    },
+    {
+        id: 'recuerdo_2026',
+        name: 'Pack Recuerdo Oro',
+        subtitle: 'Nuestra mejor relación calidad/precio',
+        items: ['Pack Digital + Orla', '2 Copias Orla A4', '1 Retrato 15×20', 'Imán de nevera'],
+        price: 35.00,
+        cost: 12.00,
+        popular: true,
+    },
+    {
+        id: 'premium_2026',
+        name: 'Pack Luxury Total',
+        subtitle: 'Para no olvidar ningún detalle',
+        items: ['Pack Recuerdo Oro', 'Cuadro Foam 20×25', 'Álbum Digital 10p'],
+        price: 55.00,
+        cost: 24.50,
+        popular: false,
+    },
+];
+
+export const NEW_PHOTOGRAPHER_EXTRAS = [
+    { id: 'extra_orla', name: 'Copia Orla A3+ Extra', price: 12.00, cost: 4.20, emoji: '🖼️' },
+    { id: 'extra_retrato', name: 'Retrato 15×20 Extra', price: 6.00, cost: 1.10, emoji: '🧑' },
+    { id: 'extra_iman', name: 'Imán Flexible Extra', price: 5.00, cost: 1.50, emoji: '🧲' },
+    { id: 'extra_foam', name: 'Cuadro Foam 20×25', price: 22.00, cost: 12.00, emoji: '🎨' },
+    { id: 'extra_digital', name: 'Enlace Descarga Digital', price: 10.00, cost: 0.00, emoji: '📲' },
+];
 
 // Puestos del personal docente y de gestión (LOMLOE, centros públicos España)
 export const STAFF_ROLES = [

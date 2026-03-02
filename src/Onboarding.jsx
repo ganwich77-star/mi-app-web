@@ -6,6 +6,7 @@ import {
     CheckCircle, ArrowRight, ShieldCheck, Sparkles, Copy, ChevronLeft
 } from 'lucide-react';
 import PricingTiers from './components/PricingTiers.jsx';
+import { NEW_PHOTOGRAPHER_PACKS, NEW_PHOTOGRAPHER_EXTRAS } from './constants.js';
 
 export default function Onboarding({ onComplete }) {
     // Estilos de animación inyectados
@@ -111,7 +112,9 @@ export default function Onboarding({ onComplete }) {
                 paymentMethods: [
                     { id: 'efectivo', label: 'Efectivo', enabled: true },
                     { id: 'bizum', label: 'Bizum', enabled: true }
-                ]
+                ],
+                packs: NEW_PHOTOGRAPHER_PACKS,
+                extras: NEW_PHOTOGRAPHER_EXTRAS
             });
 
             // 3. Enviar Emails de Notificación
@@ -194,7 +197,7 @@ export default function Onboarding({ onComplete }) {
                 <div className="absolute bottom-[20%] right-[-5%] w-[35%] h-[35%] bg-blue-500 blur-[100px] rounded-full" />
             </div>
 
-            <div className={`w-full relative z-10 py-10 transition-all duration-700 mx-auto ${step === 1 ? 'max-w-4xl' : 'max-w-xl'}`}>
+            <div className={`w-full relative z-10 pt-4 pb-10 md:py-10 transition-all duration-700 mx-auto ${step === 1 ? 'max-w-4xl' : 'max-w-xl'}`}>
                 {/* Logo Superior (Sustituye a la estrellita) */}
                 <div className="text-center mb-8 animate-in fade-in slide-in-from-top-4 duration-700">
                     <div className="inline-flex items-center justify-center mb-6">
@@ -213,7 +216,7 @@ export default function Onboarding({ onComplete }) {
                     </p>
                 </div>
 
-                <div className="bg-slate-900/50 border border-white/10 rounded-[40px] p-8 md:p-10 backdrop-blur-3xl shadow-2xl relative overflow-hidden">
+                <div className="bg-slate-900/50 border border-white/10 rounded-[40px] px-6 py-8 md:p-10 backdrop-blur-3xl shadow-2xl relative overflow-hidden">
                     {/* Progress Bar */}
                     {step > 0 && (
                         <div className="absolute top-0 left-0 h-1.5 bg-indigo-500 transition-all duration-500 shadow-[0_0_15px_rgba(99,102,241,0.5)]" style={{ width: `${(step / 4) * 100}%` }} />
@@ -222,36 +225,36 @@ export default function Onboarding({ onComplete }) {
                     {step === 0 && (
                         <div className="animate-in fade-in slide-in-from-bottom-8 duration-1000 space-y-10 py-4">
                             <div className="space-y-4 text-center">
-                                <h1 className="text-4xl md:text-5xl font-black text-white leading-tight tracking-tighter uppercase italic">
+                                <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-white leading-tight tracking-tighter uppercase italic">
                                     Revoluciona tu <br />
                                     <span className="text-indigo-400 not-italic">Flujo de Trabajo</span>
                                 </h1>
-                                <p className="text-slate-400 text-sm md:text-base font-medium max-w-md mx-auto leading-relaxed">
+                                <p className="text-slate-400 text-xs sm:text-sm md:text-base font-medium max-w-md mx-auto leading-relaxed px-4">
                                     La plataforma "Todo en Uno" diseñada por fotógrafos para fotógrafos. Digitaliza tus trabajos, automatiza registros y maximiza tus beneficios.
                                 </p>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div className="p-6 bg-white/5 rounded-[32px] border border-white/10 text-center space-y-3 hover:bg-white/10 transition-all group animate-float" style={{ animationDuration: '3s' }}>
-                                    <div className="w-12 h-12 bg-indigo-500/20 rounded-2xl flex items-center justify-center mx-auto text-indigo-400 group-hover:scale-110 transition-transform">
-                                        <ShieldCheck size={24} />
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+                                <div className="p-5 md:p-6 bg-white/5 rounded-[32px] border border-white/10 text-center space-y-3 hover:bg-white/10 transition-all group animate-float" style={{ animationDuration: '3s' }}>
+                                    <div className="w-10 h-10 md:w-12 md:h-12 bg-indigo-500/20 rounded-2xl flex items-center justify-center mx-auto text-indigo-400 group-hover:scale-110 transition-transform">
+                                        <ShieldCheck size={22} className="md:w-6 md:h-6" />
                                     </div>
-                                    <h3 className="text-white font-black text-xs uppercase tracking-widest">Digitalización 100%</h3>
-                                    <p className="text-slate-500 text-[10px] font-bold leading-relaxed uppercase">Adiós a los papeles y errores de escritura manual.</p>
+                                    <h3 className="text-white font-black text-[10px] md:text-xs uppercase tracking-widest">Digitalización 100%</h3>
+                                    <p className="text-slate-500 text-[9px] md:text-[10px] font-bold leading-relaxed uppercase">Adiós a los papeles y errores de escritura manual.</p>
                                 </div>
-                                <div className="p-6 bg-white/5 rounded-[32px] border border-white/10 text-center space-y-3 hover:bg-white/10 transition-all group animate-float" style={{ animationDuration: '4.5s' }}>
-                                    <div className="w-12 h-12 bg-emerald-500/20 rounded-2xl flex items-center justify-center mx-auto text-emerald-400 group-hover:scale-110 transition-transform">
-                                        <CheckCircle size={24} />
+                                <div className="p-5 md:p-6 bg-white/5 rounded-[32px] border border-white/10 text-center space-y-3 hover:bg-white/10 transition-all group animate-float" style={{ animationDuration: '4.5s' }}>
+                                    <div className="w-10 h-10 md:w-12 md:h-12 bg-emerald-500/20 rounded-2xl flex items-center justify-center mx-auto text-emerald-400 group-hover:scale-110 transition-transform">
+                                        <CheckCircle size={22} className="md:w-6 md:h-6" />
                                     </div>
-                                    <h3 className="text-white font-black text-xs uppercase tracking-widest">Pagos Garantizados</h3>
-                                    <p className="text-slate-500 text-[10px] font-bold leading-relaxed uppercase">Gestión de cobros integrada y control de impagos.</p>
+                                    <h3 className="text-white font-black text-[10px] md:text-xs uppercase tracking-widest">Pagos Garantizados</h3>
+                                    <p className="text-slate-500 text-[9px] md:text-[10px] font-bold leading-relaxed uppercase">Gestión de cobros integrada y control de impagos.</p>
                                 </div>
-                                <div className="p-6 bg-white/5 rounded-[32px] border border-white/10 text-center space-y-3 hover:bg-white/10 transition-all group animate-float" style={{ animationDuration: '3.8s' }}>
-                                    <div className="w-12 h-12 bg-amber-500/20 rounded-2xl flex items-center justify-center mx-auto text-amber-400 group-hover:scale-110 transition-transform">
-                                        <Sparkles size={24} />
+                                <div className="p-5 md:p-6 bg-white/5 rounded-[32px] border border-white/10 text-center space-y-3 hover:bg-white/10 transition-all group animate-float" style={{ animationDuration: '3.8s' }}>
+                                    <div className="w-10 h-10 md:w-12 md:h-12 bg-amber-500/20 rounded-2xl flex items-center justify-center mx-auto text-amber-400 group-hover:scale-110 transition-transform">
+                                        <Sparkles size={22} className="md:w-6 md:h-6" />
                                     </div>
-                                    <h3 className="text-white font-black text-xs uppercase tracking-widest">Marca Propia</h3>
-                                    <p className="text-slate-500 text-[10px] font-bold leading-relaxed uppercase">App personalizada con tu logo y colores corporativos.</p>
+                                    <h3 className="text-white font-black text-[10px] md:text-xs uppercase tracking-widest">Marca Propia</h3>
+                                    <p className="text-slate-500 text-[9px] md:text-[10px] font-bold leading-relaxed uppercase">App personalizada con tu logo.</p>
                                 </div>
                             </div>
 
@@ -300,7 +303,7 @@ export default function Onboarding({ onComplete }) {
                                             value={formData.brandName}
                                             onChange={handleChange}
                                             placeholder="Ej: Pujalte Creative Studio"
-                                            className="w-full bg-slate-950/50 border-2 border-white/5 rounded-2xl pl-12 pr-6 py-4 !text-white font-bold text-lg placeholder:text-slate-600 shadow-inner focus:border-indigo-500/50 outline-none transition-all"
+                                            className="w-full bg-slate-950/50 border-2 border-white/5 rounded-2xl pl-12 pr-6 py-3 sm:py-4 !text-white font-bold text-base sm:text-lg placeholder:text-slate-600 shadow-inner focus:border-indigo-500/50 outline-none transition-all"
                                         />
                                     </div>
 
@@ -353,13 +356,13 @@ export default function Onboarding({ onComplete }) {
                     )}
 
                     {step === 3 && (
-                        <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+                        <div className="space-y-5 sm:space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
                             <div className="space-y-2">
-                                <h2 className="text-2xl font-black text-white uppercase tracking-tight text-left">Datos de Facturación</h2>
-                                <p className="text-slate-400 text-xs font-bold uppercase tracking-wider leading-relaxed text-left">Información administrativa para la gestión.</p>
+                                <h2 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight text-left">Datos de Facturación</h2>
+                                <p className="text-slate-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider leading-relaxed text-left opacity-70">Información administrativa para la gestión.</p>
                             </div>
 
-                            <div className="space-y-6">
+                            <div className="space-y-4 sm:space-y-6">
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-indigo-300 uppercase ml-2 tracking-widest opacity-100">Nombre o Razón Social</label>
                                     <div className="relative">
@@ -369,12 +372,12 @@ export default function Onboarding({ onComplete }) {
                                             value={formData.legalName}
                                             onChange={handleChange}
                                             placeholder="Nombre completo o Empresa SL"
-                                            className="w-full bg-slate-950/50 border-2 border-white/5 rounded-2xl pl-12 pr-6 py-4 !text-white font-bold placeholder:text-slate-700 outline-none focus:border-indigo-500/50 transition-all"
+                                            className="w-full bg-slate-950/50 border-2 border-white/5 rounded-2xl pl-12 pr-6 py-3 sm:py-4 !text-white font-bold text-base placeholder:text-slate-700 outline-none focus:border-indigo-500/50 transition-all"
                                         />
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black text-indigo-300 uppercase ml-2 tracking-widest opacity-100">CIF / NIF</label>
                                         <input
@@ -382,19 +385,19 @@ export default function Onboarding({ onComplete }) {
                                             value={formData.cif}
                                             onChange={handleChange}
                                             placeholder="B12345678"
-                                            className="w-full bg-slate-950/50 border-2 border-white/5 rounded-2xl px-6 py-4 !text-white font-bold placeholder:text-slate-700 outline-none focus:border-indigo-500/50 transition-all"
+                                            className="w-full bg-slate-950/50 border-2 border-white/5 rounded-2xl px-4 py-3 sm:py-4 !text-white font-bold text-sm sm:text-base placeholder:text-slate-700 outline-none focus:border-indigo-500/50 transition-all uppercase"
                                         />
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black text-indigo-300 uppercase ml-2 tracking-widest opacity-100">Teléfono</label>
                                         <div className="relative">
-                                            <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-400" size={18} />
+                                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400/50 hidden sm:block" size={16} />
                                             <input
                                                 name="phone"
                                                 value={formData.phone}
                                                 onChange={handleChange}
-                                                placeholder="600 000 000"
-                                                className="w-full bg-slate-950/50 border-2 border-white/5 rounded-2xl pl-12 pr-6 py-4 !text-white font-bold placeholder:text-slate-700 outline-none focus:border-indigo-500/50 transition-all"
+                                                placeholder="600000000"
+                                                className="w-full bg-slate-950/50 border-2 border-white/5 rounded-2xl px-4 sm:pl-12 py-3 sm:py-4 !text-white font-bold text-sm sm:text-base placeholder:text-slate-700 outline-none focus:border-indigo-500/50 transition-all font-mono"
                                             />
                                         </div>
                                     </div>
@@ -407,29 +410,29 @@ export default function Onboarding({ onComplete }) {
                                         value={formData.address}
                                         onChange={handleChange}
                                         placeholder="Calle, número, piso..."
-                                        className="w-full bg-slate-950/50 border-2 border-white/5 rounded-2xl px-6 py-4 !text-white font-bold placeholder:text-slate-700 outline-none focus:border-indigo-500/50 transition-all"
+                                        className="w-full bg-slate-950/50 border-2 border-white/5 rounded-2xl px-6 py-3 sm:py-4 !text-white font-bold text-base placeholder:text-slate-700 outline-none focus:border-indigo-500/50 transition-all"
                                     />
                                 </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-indigo-300 uppercase ml-2 tracking-widest opacity-100">Código Postal</label>
+                                        <label className="text-[10px] font-black text-indigo-300 uppercase ml-2 tracking-widest opacity-100">C.P.</label>
                                         <input
                                             name="zip"
                                             value={formData.zip}
                                             onChange={handleChange}
-                                            placeholder="XXXXX"
-                                            className="w-full bg-slate-950/50 border-2 border-white/5 rounded-2xl px-6 py-4 !text-white font-bold placeholder:text-slate-700 outline-none focus:border-indigo-500/50 transition-all"
+                                            placeholder="28001"
+                                            className="w-full bg-slate-950/50 border-2 border-white/5 rounded-2xl px-4 py-3 sm:py-4 !text-white font-bold text-sm sm:text-base placeholder:text-slate-700 outline-none focus:border-indigo-500/50 transition-all font-mono"
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-indigo-300 uppercase ml-2 tracking-widest opacity-100">Localidad / Provincia</label>
+                                        <label className="text-[10px] font-black text-indigo-300 uppercase ml-2 tracking-widest opacity-100">Localidad / Prov.</label>
                                         <input
                                             name="province"
                                             value={formData.province}
                                             onChange={handleChange}
-                                            placeholder="Ciudad, Provincia"
-                                            className="w-full bg-slate-950/50 border-2 border-white/5 rounded-2xl px-6 py-4 !text-white font-bold placeholder:text-slate-700 outline-none focus:border-indigo-500/50 transition-all"
+                                            placeholder="Madrid"
+                                            className="w-full bg-slate-950/50 border-2 border-white/5 rounded-2xl px-4 py-3 sm:py-4 !text-white font-bold text-sm sm:text-base placeholder:text-slate-700 outline-none focus:border-indigo-500/50 transition-all"
                                         />
                                     </div>
                                 </div>
@@ -443,7 +446,7 @@ export default function Onboarding({ onComplete }) {
                                             value={formData.email}
                                             onChange={handleChange}
                                             placeholder="hola@tuestudio.com"
-                                            className="w-full bg-slate-950/50 border-2 border-white/5 rounded-2xl pl-12 pr-6 py-4 !text-white font-bold placeholder:text-slate-700 outline-none focus:border-indigo-500/50 transition-all"
+                                            className="w-full bg-slate-950/50 border-2 border-white/5 rounded-2xl pl-12 pr-6 py-3 sm:py-4 !text-white font-bold text-base placeholder:text-slate-700 outline-none focus:border-indigo-500/50 transition-all"
                                         />
                                     </div>
                                 </div>

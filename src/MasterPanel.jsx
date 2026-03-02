@@ -169,87 +169,87 @@ export default function MasterPanel({ onBack }) {
             <div className="max-w-6xl mx-auto space-y-8">
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                    <div className="flex items-center gap-5">
-                        <button onClick={onBack} className="p-4 bg-slate-900 rounded-2xl hover:bg-slate-800 transition-all active:scale-95 border border-white/5 shadow-xl">
-                            <ArrowLeft size={22} className="text-white" />
+                    <div className="flex items-center gap-3 md:gap-5">
+                        <button onClick={onBack} className="p-3 md:p-4 bg-slate-900 rounded-2xl hover:bg-slate-800 transition-all active:scale-95 border border-white/5 shadow-xl shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center">
+                            <ArrowLeft size={20} className="text-white md:size-[22px]" />
                         </button>
-                        <div>
-                            <div className="flex items-center gap-3">
-                                <Shield className="text-indigo-400" size={24} />
-                                <h1 className="text-3xl font-black uppercase tracking-tighter">Centro de Control</h1>
+                        <div className="min-w-0">
+                            <div className="flex items-center gap-2 md:gap-3">
+                                <Shield className="text-indigo-400 shrink-0" size={20} />
+                                <h1 className="text-xl md:text-3xl font-black uppercase tracking-tighter truncate">Centro de Control</h1>
                             </div>
-                            <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em] mt-2">Gestión Global de Fotógrafos</p>
+                            <p className="text-slate-500 text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] md:tracking-[0.3em] mt-1 md:mt-2 truncate">Gestión Global de Fotógrafos</p>
                         </div>
                     </div>
 
-                    <div className="relative min-w-[320px]">
+                    <div className="relative w-full md:min-w-[320px]">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
                         <input
                             type="text"
                             placeholder="Buscar fotógrafo..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="bg-slate-900 border-2 border-white/10 rounded-2xl pl-12 pr-6 py-4 outline-none focus:border-indigo-500/50 transition-all w-full font-bold text-white placeholder:text-slate-600 shadow-inner"
+                            className="bg-slate-900 border-2 border-white/10 rounded-2xl pl-12 pr-6 py-4 outline-none focus:border-indigo-500/50 transition-all w-full font-bold text-white placeholder:text-slate-600 shadow-inner text-sm md:text-base"
                         />
                     </div>
                 </div>
 
                 {/* Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="bg-white/5 border border-white/10 p-6 rounded-[30px] flex items-center gap-4">
-                        <div className="w-12 h-12 bg-amber-500/10 rounded-2xl flex items-center justify-center text-amber-500">
-                            <Users size={24} />
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6">
+                    <div className="bg-white/5 border border-white/10 p-4 md:p-6 rounded-[24px] md:rounded-[30px] flex items-center gap-3 md:gap-4">
+                        <div className="w-10 h-10 md:w-12 md:h-12 bg-amber-500/10 rounded-xl md:rounded-2xl flex items-center justify-center text-amber-500 shrink-0">
+                            <Users size={20} className="md:size-[24px]" />
                         </div>
-                        <div>
-                            <p className="text-white/40 text-[10px] font-black uppercase tracking-widest">Total Clientes</p>
-                            <p className="text-2xl font-black">{photographers.length}</p>
-                        </div>
-                    </div>
-                    <div className="bg-white/5 border border-white/10 p-6 rounded-[30px] flex items-center gap-4">
-                        <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-500">
-                            <Activity size={24} />
-                        </div>
-                        <div>
-                            <p className="text-white/40 text-[10px] font-black uppercase tracking-widest">Activos Ahora</p>
-                            <p className="text-2xl font-black">{photographers.filter(p => !p.isSuspended).length}</p>
+                        <div className="min-w-0">
+                            <p className="text-white/40 text-[8px] md:text-[10px] font-black uppercase tracking-widest truncate">Clientes</p>
+                            <p className="text-lg md:text-2xl font-black">{photographers.length}</p>
                         </div>
                     </div>
-                    <div className="bg-white/5 border border-white/10 p-6 rounded-[30px] flex items-center gap-4">
-                        <div className="w-12 h-12 bg-red-500/10 rounded-2xl flex items-center justify-center text-red-500">
-                            <AlertTriangle size={24} />
+                    <div className="bg-white/5 border border-white/10 p-4 md:p-6 rounded-[24px] md:rounded-[30px] flex items-center gap-3 md:gap-4">
+                        <div className="w-10 h-10 md:w-12 md:h-12 bg-emerald-500/10 rounded-xl md:rounded-2xl flex items-center justify-center text-emerald-500 shrink-0">
+                            <Activity size={20} className="md:size-[24px]" />
                         </div>
-                        <div>
-                            <p className="text-white/40 text-[10px] font-black uppercase tracking-widest">Suspendidos</p>
-                            <p className="text-2xl font-black">{photographers.filter(p => p.isSuspended).length}</p>
+                        <div className="min-w-0">
+                            <p className="text-white/40 text-[8px] md:text-[10px] font-black uppercase tracking-widest truncate">Activos</p>
+                            <p className="text-lg md:text-2xl font-black">{photographers.filter(p => !p.isSuspended).length}</p>
+                        </div>
+                    </div>
+                    <div className="col-span-2 lg:col-span-1 bg-white/5 border border-white/10 p-4 md:p-6 rounded-[24px] md:rounded-[30px] flex items-center gap-3 md:gap-4">
+                        <div className="w-10 h-10 md:w-12 md:h-12 bg-red-500/10 rounded-xl md:rounded-2xl flex items-center justify-center text-red-500 shrink-0">
+                            <AlertTriangle size={20} className="md:size-[24px]" />
+                        </div>
+                        <div className="min-w-0">
+                            <p className="text-white/40 text-[8px] md:text-[10px] font-black uppercase tracking-widest truncate">Suspendidos</p>
+                            <p className="text-lg md:text-2xl font-black">{photographers.filter(p => p.isSuspended).length}</p>
                         </div>
                     </div>
                 </div>
 
                 {/* Demo Sharing Section */}
-                <div className="bg-gradient-to-r from-indigo-600/20 to-violet-600/20 border border-indigo-500/30 p-8 rounded-[40px] flex flex-col md:flex-row items-center justify-between gap-8 backdrop-blur-xl relative overflow-hidden group">
+                <div className="bg-gradient-to-r from-indigo-600/20 to-violet-600/20 border border-indigo-500/30 p-6 md:p-8 rounded-[32px] md:rounded-[40px] flex flex-col lg:flex-row items-center justify-between gap-6 md:gap-8 backdrop-blur-xl relative overflow-hidden group">
                     <div className="absolute -top-24 -right-24 w-64 h-64 bg-indigo-500/10 rounded-full blur-[80px] group-hover:bg-indigo-500/20 transition-all duration-700" />
-                    <div className="flex items-center gap-6 relative z-10 text-center md:text-left">
-                        <div className="w-16 h-16 bg-white rounded-[24px] flex items-center justify-center shadow-2xl shadow-indigo-500/20 text-indigo-600">
-                            <Sparkles size={32} />
+                    <div className="flex flex-col md:flex-row items-center gap-4 md:gap-6 relative z-10 text-center md:text-left">
+                        <div className="w-14 h-14 md:w-16 md:h-16 bg-white rounded-[20px] md:rounded-[24px] flex items-center justify-center shadow-2xl shadow-indigo-500/20 text-indigo-600 shrink-0">
+                            <Sparkles size={28} className="md:size-[32px]" />
                         </div>
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <h3 className="text-2xl font-black tracking-tight leading-none">Compartir Demo</h3>
+                        <div className="min-w-0">
+                            <div className="flex items-center justify-center md:justify-start gap-2">
+                                <h3 className="text-lg md:text-2xl font-black tracking-tight leading-none uppercase md:normal-case">Compartir Demo</h3>
                                 <span className="px-2 py-0.5 rounded-md bg-indigo-500 text-[8px] font-black uppercase tracking-widest">Nuevo</span>
                             </div>
-                            <p className="text-slate-400 text-sm font-bold mt-2">Envía el acceso de prueba a otros compañeros fotógrafos</p>
+                            <p className="text-slate-400 text-xs md:text-sm font-bold mt-2 max-w-[280px] md:max-w-none">Envía el acceso de prueba a otros compañeros fotógrafos</p>
                         </div>
                     </div>
 
-                    <div className="flex justify-center gap-4 relative z-10 w-full md:w-auto">
+                    <div className="grid grid-cols-2 md:flex md:justify-center gap-3 md:gap-4 relative z-10 w-full lg:w-auto">
                         <button
                             onClick={() => {
                                 const url = `${window.location.origin}${window.location.pathname}?demo=true`;
                                 window.open(url, '_blank');
                             }}
-                            className="bg-indigo-600 px-6 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-indigo-500/20 hover:bg-indigo-500 transition-all active:scale-95"
+                            className="bg-indigo-600 px-4 md:px-6 py-4 rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl shadow-indigo-500/20 hover:bg-indigo-500 transition-all active:scale-95 min-h-[48px]"
                         >
-                            <ExternalLink size={16} /> Ver App
+                            <ExternalLink size={14} className="md:size-[16px]" /> Ver App
                         </button>
 
                         <button
@@ -258,9 +258,9 @@ export default function MasterPanel({ onBack }) {
                                 navigator.clipboard.writeText(url);
                                 alert('✅ Enlace de demo copiado al portapapeles');
                             }}
-                            className="bg-slate-900 border border-white/10 px-6 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-slate-800 transition-all active:scale-95"
+                            className="bg-slate-900 border border-white/10 px-4 md:px-6 py-4 rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-slate-800 transition-all active:scale-95 min-h-[48px]"
                         >
-                            <Copy size={16} /> Copiar Enlace
+                            <Copy size={14} className="md:size-[16px]" /> Copiar
                         </button>
 
                         <button
@@ -269,9 +269,9 @@ export default function MasterPanel({ onBack }) {
                                 const msg = `¡Hola! He pensado que te gustaría probar la nueva app de gestión de orlas que estoy usando. Te paso el enlace a la versión demo para que le eches un vistazo:\n\n🔗 ${url}\n\n¡Ya me dirás qué te parece!`;
                                 window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
                             }}
-                            className="bg-emerald-600 px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-emerald-500/20 hover:bg-emerald-500 transition-all active:scale-95"
+                            className="col-span-2 md:col-auto bg-emerald-600 px-6 md:px-8 py-4 rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl shadow-emerald-500/20 hover:bg-emerald-500 transition-all active:scale-95 min-h-[48px]"
                         >
-                            <MessageSquare size={16} /> Enviar WhatsApp
+                            <MessageSquare size={14} className="md:size-[16px]" /> Enviar WhatsApp
                         </button>
                     </div>
                 </div>
@@ -352,7 +352,7 @@ export default function MasterPanel({ onBack }) {
                                                 </button>
 
                                                 <a
-                                                    href={`/?f=${p.id}`}
+                                                    href={`${window.location.pathname}?f=${p.id}`}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
                                                     className="flex items-center gap-2 px-3 py-2 bg-white/5 rounded-xl hover:bg-white/10 text-white/60 hover:text-emerald-400 transition-all border border-white/5"

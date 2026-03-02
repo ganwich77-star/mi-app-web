@@ -130,58 +130,62 @@ export function useSettings(photographerId, isDemo = false) {
     };
 
     const addSchool = (name) => {
-        // Formatear nombre: Primera Mayúscula, resto minúsculas por cada palabra
-        const formattedName = name.trim().split(/\s+/).map(word =>
-            word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-        ).join(' ');
+        const upperName = name.trim().toUpperCase();
 
-        const normalizedNew = formattedName.toLowerCase();
-        const currentSchools = settings.schools || SCHOOLS;
-        const exists = currentSchools.some(s => s.name.toLowerCase() === normalizedNew);
-        if (exists) return;
+        updateSettings(prev => {
+            const currentSchools = prev.schools || SCHOOLS;
+            const exists = currentSchools.some(s => s.name.toUpperCase() === upperName);
+            if (exists) return prev;
 
-        const id = formattedName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '') + '_' + Date.now();
-        const words = formattedName.split(/\s+/).filter(w => w.length > 2 || words.length === 1);
-        let code = '';
-        if (words.length > 1) {
-            code = words.map(w => w[0]).join('').toUpperCase();
-        } else {
-            code = formattedName.substring(0, 3).toUpperCase();
-        }
+            const id = upperName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '') + '_' + Date.now();
+            const schoolWords = upperName.split(/\s+/);
+            const filteredWords = schoolWords.filter(w => w.length > 2 || schoolWords.length === 1);
+            let code = '';
+            if (filteredWords.length > 1) {
+                code = filteredWords.map(w => w[0]).join('').toUpperCase();
+            } else {
+                code = upperName.substring(0, 3).toUpperCase();
+            }
 
-        const updated = {
-            ...settings,
-            schools: [...currentSchools, { id, name: formattedName, code }],
-        };
-        setSettings(updated);
-        saveToFirebase(updated);
+            return {
+                ...prev,
+                schools: [...currentSchools, { id, name: upperName, code }]
+            };
+        });
+    };
+
+    const updateSchool = (id, updates) => {
+        updateSettings(prev => ({
+            ...prev,
+            schools: (prev.schools || SCHOOLS).map(s =>
+                s.id === id ? { ...s, ...updates, name: updates.name?.toUpperCase() || s.name } : s
+            )
+        }));
     };
 
     const deleteSchool = (id) => {
-        const updated = {
-            ...settings,
-            schools: (settings.schools || SCHOOLS).filter(s => s.id !== id),
-        };
-        setSettings(updated);
-        saveToFirebase(updated);
+        updateSettings(prev => ({
+            ...prev,
+            schools: (prev.schools || SCHOOLS).filter(s => s.id !== id)
+        }));
     };
 
     const updateAdminPin = (newPin) => {
-        const updated = { ...settings, adminPin: newPin };
-        setSettings(updated);
-        saveToFirebase(updated);
+        updateSettings({ adminPin: newPin });
     };
 
-    const updateSettings = async (updates) => {
-        // Actualización funcional para evitar estado stale
+
+    const updateSettings = async (payload) => {
         setSettings(prev => {
+            const updates = typeof payload === 'function' ? payload(prev) : payload;
             const updated = { ...prev, ...updates };
-            // Guardar en Firebase de forma asíncrona pero con los datos completos
+
             saveToFirebase(updated);
             localStorage.setItem(SETTINGS_KEY, JSON.stringify(updated));
             return updated;
         });
     };
+
 
     const enabledPaymentMethods = settings.paymentMethods.filter(m => m.enabled);
     const availableSchools = (settings.schools || SCHOOLS).filter(s => s.id !== 'otros');
@@ -202,6 +206,7 @@ export function useSettings(photographerId, isDemo = false) {
         togglePaymentMethod,
         addPaymentMethod,
         addSchool,
+        updateSchool,
         deleteSchool,
         updateAdminPin,
         updateSettings,
