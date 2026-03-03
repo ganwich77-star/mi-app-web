@@ -16,7 +16,22 @@ export function useStaff(photographerId, schoolId) {
 
     // ESCUCHAR CAMBIOS EN FIREBASE (Sincronización en tiempo real)
     useEffect(() => {
-        if (!schoolId) return;
+        if (!schoolId) {
+            setStaff([]);
+            return;
+        }
+
+        // Cargar desde el caché local inmediatamente para evitar ver datos del centro previo
+        try {
+            const stored = localStorage.getItem(key);
+            if (stored) {
+                setStaff(JSON.parse(stored));
+            } else {
+                setStaff([]);
+            }
+        } catch (e) {
+            setStaff([]);
+        }
 
         const docRef = doc(db, 'orlas2026_photographers', photographerId, 'staff', schoolId);
 
@@ -34,7 +49,7 @@ export function useStaff(photographerId, schoolId) {
         });
 
         return () => unsubscribe();
-    }, [schoolId]);
+    }, [schoolId, photographerId]);
 
     const saveToFirebase = async (newStaff) => {
         if (!schoolId) return;

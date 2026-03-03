@@ -17,7 +17,22 @@ export function useOrders(photographerId, schoolId) {
 
     // ESCUCHAR CAMBIOS EN FIREBASE (Sincronización en tiempo real)
     useEffect(() => {
-        if (!schoolId) return;
+        if (!schoolId) {
+            setOrders([]);
+            return;
+        }
+
+        // Cargar desde el caché local inmediatamente para evitar ver datos del centro previo
+        try {
+            const stored = localStorage.getItem(key);
+            if (stored) {
+                setOrders(JSON.parse(stored));
+            } else {
+                setOrders([]);
+            }
+        } catch (e) {
+            setOrders([]);
+        }
 
         const docRef = doc(db, 'orlas2026_photographers', photographerId, 'orders', schoolId);
 
@@ -37,7 +52,7 @@ export function useOrders(photographerId, schoolId) {
         });
 
         return () => unsubscribe();
-    }, [schoolId]);
+    }, [schoolId, photographerId]); // Añadido photographerId como dependencia por seguridad
 
     // Función para guardar en Firebase
     const saveToFirebase = async (newOrders) => {
@@ -87,5 +102,13 @@ export function useOrders(photographerId, schoolId) {
         saveToFirebase(updated);
     };
 
-    return { orders, addOrder, updateStatus, deleteOrder, updatePhotoFile, updateOrder };
+    // Actualización en lote — un solo setOrders+saveToFirebase para evitar race conditions
+    const bulkUpdateStatus = (ids, changes) => {
+        const idSet = new Set(ids);
+        const updated = orders.map(o => idSet.has(o.id) ? { ...o, ...changes } : o);
+        setOrders(updated);
+        saveToFirebase(updated);
+    };
+
+    return { orders, addOrder, updateStatus, deleteOrder, updatePhotoFile, updateOrder, bulkUpdateStatus };
 }

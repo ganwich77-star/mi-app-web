@@ -1,13 +1,23 @@
 import React, { useState } from 'react';
 import { Camera, Layers, Zap, Copy, Download, ArrowLeft, CheckCircle2, Binary, X, FileCode } from 'lucide-react';
 
-const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "ORLA-GENERICA", onBack }) => {
+const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "ORLA-GENERICA", course = "", group = "", onBack }) => {
     const [copiedStep1, setCopiedStep1] = useState(false);
     const [scriptModal, setScriptModal] = useState(null);
 
-    const lrString = Array.isArray(graduates)
-        ? graduates.map(g => g.id || g.studentName?.split(' ')[0]).filter(Boolean).join(',')
-        : '';
+    // Construcción del nombre de la carpeta: ORLA + CENTRO + CURSO + GRUPO
+    const folderName = `ORLA ${groupName} ${course} ${group}`.trim().toUpperCase();
+
+    // Combinamos alumnos + profesores (solo los que tienen photoFile asignado)
+    const graduateIds = Array.isArray(graduates)
+        ? graduates.map(g => g.photoFile || g.id || g.studentName?.split(' ')[0]).filter(Boolean)
+        : [];
+    const staffIds = Array.isArray(staff)
+        ? staff.map(s => s.photoFile || s.id).filter(Boolean)
+        : [];
+    // Unión sin duplicados
+    const allIds = [...new Set([...graduateIds, ...staffIds])];
+    const lrString = allIds.join(',');
 
     const copyToClipboard = (text) => {
         navigator.clipboard.writeText(text);
@@ -16,96 +26,188 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
     };
 
     const downloadScript = (type) => {
+        const cleanCenter = groupName.replace(/ORLA/gi, '').trim();
+        const folderName = `ORLA ${cleanCenter} ${course} ${group}`.trim().toUpperCase();
         const timestamp = new Date().getTime();
-        const filename = `${groupName}_${type}_${timestamp}.jsx`;
+        const filename = `${cleanCenter}_${type}_${timestamp}.jsx`.replace(/\s+/g, '_').toUpperCase();
         let content = '';
 
         if (type === 'CONSTRUCTOR') {
-            const staffLines = Array.isArray(staff) && staff.length > 0 ? staff.map((s, i) => {
-                const space = (design.canvasW - (design.margin * 2)) / Math.max(staff.length, 1);
-                const x = design.margin + (i * space) + (space / 2) - ((design.aW * design.dScale) / 2);
-                const displayName = s.name || s.studentName || 'DOCENTE';
-                return `createItem("${displayName}", "staff_${s.id}", ${x}, ${design.dY}, ${design.aW * design.dScale}, ${design.aH * design.dScale}, ${design.fontSizeDoc}, true);`;
-            }).join('\n') : '// Sin docentes';
+            const staffLines = Array.isArray(staff) && staff.length > 0 ? (() => {
+                const docW = (design.aW * design.dScale);
+                const dGap = 150; // Match perfectly with React gap-[15px] (150px at real scale)
+                const totalStaffWidth = (staff.length * docW) + ((staff.length - 1) * dGap);
+                const startX = (design.canvasW / 2) - (totalStaffWidth / 2);
+
+                return staff.map((s, i) => {
+                    const x = startX + i * (docW + dGap);
+                    const nameParts = (s.name || s.studentName || 'DOCENTE').trim().split(/\s+/);
+                    const firstName = nameParts[0] || '';
+                    const surnames = nameParts.slice(1).join(' ');
+                    const role = s.role || '';
+                    let psText = firstName;
+                    if (surnames) psText += "\\r" + surnames;
+                    if (role) psText += "\\r" + role;
+                    return `createItem(docentesGroup, "${psText}", "staff_${s.id}", ${x}, ${design.dY}, ${docW}, ${design.aH * design.dScale}, ${design.fontSizeDoc}, true);`;
+                }).join('\n');
+            })() : '// Sin docentes';
 
 
-            const aluLines = Array.isArray(graduates) ? graduates.map((g, i) => {
-                const col = i % design.aCols;
-                const row = Math.floor(i / design.aCols);
-                const x = design.margin + (col * (design.aW + (design.aGapX || 10)));
-                const y = design.aStartY + (row * (design.aH + design.aGapY));
-                return `createItem("${g.studentName}", "${g.id}", ${x}, ${y}, ${design.aW}, ${design.aH}, ${design.fontSizeAlu}, false);`;
-            }).join('\n') : '';
+            const aluLines = Array.isArray(graduates) ? (() => {
+                const colWidth = (design.canvasW - (design.margin * 2)) / design.aCols;
+
+                return graduates
+                    .filter(o => o.schoolId === graduates[0]?.schoolId)
+                    .sort((a, b) => {
+                        const partsA = a.studentName.trim().split(/\s+/);
+                        const partsB = b.studentName.trim().split(/\s+/);
+                        const surA = partsA[1] || partsA[0] || '';
+                        const surB = partsB[1] || partsB[0] || '';
+                        return surA.localeCompare(surB, 'es', { sensitivity: 'base' });
+                    })
+                    .map((g, i) => {
+                        const col = i % design.aCols;
+                        const row = Math.floor(i / design.aCols);
+
+                        // Centrado dentro de la columna del grid
+                        const x = design.margin + (col * colWidth) + (colWidth / 2) - (design.aW / 2);
+                        const y = design.aStartY + (row * (design.aH + design.aGapY));
+
+                        const nameParts = g.studentName.trim().split(/\s+/);
+                        const firstName = nameParts[0] || '';
+                        const surnames = nameParts.slice(1).join(' ');
+                        let psText = firstName;
+                        if (surnames) psText += "\\r" + surnames;
+
+                        return `createItem(alumnosGroup, "${psText}", "${g.id}", ${x}, ${y}, ${design.aW}, ${design.aH}, ${design.fontSizeAlu}, false);`;
+                    }).join('\n');
+            })() : '';
 
             content = [
-                '/* COMMAND CENTER V2.6 - CONSTRUCTOR PSD */',
+                '/* FINALIZAR ORLA V2.9 - CONSTRUCTOR PSD */',
                 'app.preferences.rulerUnits = Units.PIXELS;',
+                'app.preferences.typeUnits = TypeUnits.POINTS;',
                 `var doc = app.documents.add(${design.canvasW}, ${design.canvasH}, 300, "${groupName}", NewDocumentMode.RGB);`,
                 '',
-                '// Guías de referencia: centros y márgenes',
-                `doc.guides.add(Direction.VERTICAL,   ${design.canvasW / 2});   // Centro H`,
-                `doc.guides.add(Direction.HORIZONTAL, ${design.canvasH / 2});   // Centro V`,
-                `doc.guides.add(Direction.VERTICAL,   ${design.margin});         // Margen izq`,
-                `doc.guides.add(Direction.VERTICAL,   ${design.canvasW - design.margin}); // Margen der`,
-                `doc.guides.add(Direction.HORIZONTAL, ${design.margin});         // Margen sup`,
-                `doc.guides.add(Direction.HORIZONTAL, ${design.canvasH - design.margin}); // Margen inf`,
-                '',
-                'function createItem(name, id, x, y, w, h, fontSize, isStaff) {',
-                '    var group = doc.layerSets.add();',
+                '// Función: crea item dentro del grupo padre dado',
+                'function createItem(parentGroup, name, id, x, y, w, h, fontSize, isStaff) {',
+                '    var group = parentGroup.layerSets.add();',
                 '    group.name = id;',
+                '',
+                '    // 1. Crear el placeholder primero para que quede debajo',
+                '    doc.selection.select([[x, y], [x + w, y], [x + w, y + h], [x, y + h]]);',
+                '    var fillLayer = group.artLayers.add();',
+                '    fillLayer.name = "PLACEHOLDER";',
+                '    var fillColor = new SolidColor();',
+                '    fillColor.rgb.hexValue = "F0F0F0";',
+                '    doc.selection.fill(fillColor);',
+                '    doc.selection.deselect();',
+                '',
+                '    // 2. Crear el texto después para que quede encima',
                 '    var textLayer = group.artLayers.add();',
                 '    textLayer.kind = LayerKind.TEXT;',
                 '    var textItem = textLayer.textItem;',
                 '    textItem.contents = name.toUpperCase();',
-                `    textItem.size = fontSize;`,
-                `    textItem.font = "${design.fontFamily}";`,
+                '',
+                '    // Ajuste de tamaño para fidelidad absoluta (El navegador renderiza más grande)',
+                '    var fSize = (fontSize || 10) * 1.65;',
+                '    textItem.size = new UnitValue(fSize, "pt");',
+                '    textItem.leading = new UnitValue(fSize * 1.3, "pt");',
+                '    textItem.antiAliasMethod = AntiAlias.STRONG;',
+                '',
+                '    var psFont = "MyriadPro-Regular";',
+                `    var reactFont = "${design.fontFamily}";`,
+                '    // Forced for testing Myriad Pro',
+                '    try { textItem.font = psFont; } catch(e) {',
+                '        try { textItem.font = "Myriad Pro"; } catch(e2) { textItem.font = "ArialMT"; }',
+                '    }',
+                '',
                 '    textItem.justification = Justification.CENTER;',
+                '',
                 '    var textColor = new SolidColor();',
-                '    textColor.rgb.red = 0; textColor.rgb.green = 0; textColor.rgb.blue = 0;',
+                '    textColor.rgb.hexValue = "000000";',
                 '    textItem.color = textColor;',
-                `    textItem.position = [x + (w/2), y + h + (isStaff ? ${design.dTextOffset} : ${design.aTextOffset})];`,
-                '    doc.selection.select([[x, y], [x + w, y], [x + w, y + h], [x, y + h]]);',
-                '    var fillLayer = group.artLayers.add();',
-                '    fillLayer.name = "PLACEHOLDER";',
-                '    var color = new SolidColor();',
-                '    color.rgb.red = 240; color.rgb.green = 240; color.rgb.blue = 240;',
-                '    doc.selection.fill(color);',
-                '    doc.selection.deselect();',
+                '',
+                '    // Posición del texto (centro del ancho, debajo del alto + offset)',
+                '    // Se calibra la línea base al 68% del tamaño de fuente real en píxeles.',
+                '    var fSizePx = fSize * (300 / 72); ',
+                `    var textY = y + h + (isStaff ? ${design.dTextOffset} : ${design.aTextOffset}) + (fSizePx * 0.68);`,
+                '    textItem.position = [x + (w/2), textY];',
                 '}',
                 '',
-                '// Staff',
+                '// Grupo DOCENTES',
+                'var docentesGroup = doc.layerSets.add();',
+                'docentesGroup.name = "DOCENTES";',
                 staffLines,
                 '',
-                '// Alumnos',
+                '// Grupo ALUMNOS',
+                'var alumnosGroup = doc.layerSets.add();',
+                'alumnosGroup.name = "ALUMNOS";',
                 aluLines,
+                '',
+                '// CONFIGURACIÓN FINAL DE GUÍAS EN MM Y REGLAS',
+                'app.preferences.rulerUnits = Units.MM;',
+                'app.preferences.typeUnits = TypeUnits.POINTS;',
+                `doc.guides.add(Direction.VERTICAL,   ${(design.canvasW / 300 * 25.4 / 2).toFixed(2)}); // Centro V`,
+                `doc.guides.add(Direction.HORIZONTAL, ${(design.canvasH / 300 * 25.4 / 2).toFixed(2)}); // Centro H`,
+                `doc.guides.add(Direction.VERTICAL,   ${(design.margin / 300 * 25.4).toFixed(2)});`,
+                `doc.guides.add(Direction.VERTICAL,   ${((design.canvasW - design.margin) / 300 * 25.4).toFixed(2)});`,
+                `doc.guides.add(Direction.HORIZONTAL, ${(design.margin / 300 * 25.4).toFixed(2)});`,
+                `doc.guides.add(Direction.HORIZONTAL, ${((design.canvasH - design.margin) / 300 * 25.4).toFixed(2)});`,
+                'alert("Estructura V2.9 Generada.\\nReglas configuradas en MM.");',
             ].join('\n');
+
 
         } else {
             content = [
-                '/* COMMAND CENTER V2.6 - RASTER FAST INJECTION */',
+                '/* FINALIZAR ORLA V2.6 - RASTER FAST INJECTION */',
                 'var doc = app.activeDocument;',
                 'var inputFolder = Folder.selectDialog("Selecciona carpeta con fotos (nombre = ID_ALUMNO.jpg)");',
                 'if (inputFolder != null) {',
-                '    var files = inputFolder.getFiles(/\\.(jpg|jpeg|png|tif)$/i);',
+                '    var files = inputFolder.getFiles(/\.(jpg|jpeg|png|tif)$/i);',
+                '    var count = 0;',
+                '    ',
+                '    function findGroupRecursive(parent, name) {',
+                '        try { return parent.layerSets.getByName(name); } catch(e) {',
+                '            for (var j = 0; j < parent.layerSets.length; j++) {',
+                '                var found = findGroupRecursive(parent.layerSets[j], name);',
+                '                if (found) return found;',
+                '            }',
+                '        }',
+                '        return null;',
+                '    }',
+                '',
                 '    for (var i = 0; i < files.length; i++) {',
                 '        var file = files[i];',
                 '        var id = file.name.split(".")[0];',
-                '        try {',
-                '            var targetGroup = doc.layerSets.getByName(id);',
-                '            app.open(file);',
-                '            var photoDoc = app.activeDocument;',
-                '            var isStaff = id.indexOf("staff_") !== -1;',
-                `            var targetW = isStaff ? ${design.aW * design.dScale} : ${design.aW};`,
-                `            var targetH = isStaff ? ${design.aH * design.dScale} : ${design.aH};`,
-                '            photoDoc.resizeImage(targetW, targetH, 300, ResampleMethod.BICUBICSHARPER);',
-                '            photoDoc.selection.selectAll();',
-                '            photoDoc.selection.copy();',
-                '            photoDoc.close(SaveOptions.DONOTSAVECHANGES);',
-                '            doc.activeLayer = targetGroup.artLayers.getByName("PLACEHOLDER");',
-                '            doc.paste();',
-                '            doc.activeLayer.name = "FOTO_FINAL";',
-                '        } catch(e) { }',
+                '        var targetGroup = findGroupRecursive(doc, id);',
+                '        ',
+                '        if (targetGroup) {',
+                '            try {',
+                '                app.open(file);',
+                '                var photoDoc = app.activeDocument;',
+                '                var isStaff = id.indexOf("staff_") !== -1;',
+                '                var placeholder = targetGroup.artLayers.getByName("PLACEHOLDER");',
+                '                ',
+                '                // Tomamos dimensiones del placeholder para el escalado perfecto',
+                '                doc.activeLayer = placeholder;',
+                '                var targetW = placeholder.bounds[2] - placeholder.bounds[0];',
+                '                var targetH = placeholder.bounds[3] - placeholder.bounds[1];',
+                '                ',
+                '                photoDoc.resizeImage(targetW, targetH, 300, ResampleMethod.BICUBICSHARPER);',
+                '                photoDoc.selection.selectAll();',
+                '                photoDoc.selection.copy();',
+                '                photoDoc.close(SaveOptions.DONOTSAVECHANGES);',
+                '                ',
+                '                doc.activeLayer = placeholder;',
+                '                var pastedLayer = doc.paste();',
+                '                pastedLayer.name = "FOTO_FINAL";',
+                '                pastedLayer.move(placeholder, ElementPlacement.PLACEBEFORE);',
+                '                count++;',
+                '            } catch(e) { }',
+                '        }',
                 '    }',
+                '    alert("Proceso finalizado.\\rFotos inyectadas: " + count);',
                 '}',
             ].join('\n');
         }
@@ -114,7 +216,7 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
         fetch('/graduaciones2026/api/download-script', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content, filename })
+            body: JSON.stringify({ content, filename, folderName })
         })
             .then(r => r.json())
             .then(data => {
@@ -148,7 +250,7 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                                         <ArrowLeft size={20} />
                                     </button>
                                     <h1 className="text-2xl md:text-3xl font-black italic tracking-tighter uppercase flex items-center gap-2 md:gap-4">
-                                        <span className="text-violet-500">Command</span> Center
+                                        <span className="text-violet-500">Finalizar</span> Orla
                                     </h1>
                                 </div>
                                 <div className="md:block">
@@ -172,7 +274,7 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                                 <p className="text-white/40 text-[11px] md:text-xs leading-relaxed text-left">Filtra la biblioteca para exportar JPEGs de un solo clic.</p>
                             </div>
                             <button onClick={() => copyToClipboard(lrString)} className="w-full flex items-center justify-between p-3.5 md:p-4 bg-white/5 rounded-2xl border border-white/10 group/btn transition-all hover:bg-violet-500 hover:text-white">
-                                <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest">Copiar IDs ({Array.isArray(graduates) ? graduates.length : 0})</span>
+                                <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest">Copiar IDs ({allIds.length}) — {graduateIds.length} alu + {staffIds.length} doc</span>
                                 {copiedStep1 ? <CheckCircle2 size={16} /> : <Copy size={16} className="opacity-40 group-hover/btn:opacity-100" />}
                             </button>
                         </div>
@@ -269,13 +371,13 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                                 </div>
                             )}
                             <div className="bg-white/5 rounded-2xl p-4 space-y-3">
-                                <p className="text-white/60 text-[11px] font-black uppercase tracking-widest">Guardar como .jsx:</p>
+                                <p className="text-white/60 text-[11px] font-black uppercase tracking-widest">Cómo ejecutarlo:</p>
                                 <ol className="space-y-3">
                                     {[
-                                        'Abre TextEdit → Formato → Convertir a texto simple',
-                                        'Pega (⌘V)',
-                                        `Guarda como: "${scriptModal.filename}"`,
-                                        'Photoshop: Archivo → Scripts → Examinar → selecciona el .jsx',
+                                        'Ve a la carpeta Descargas en el Finder',
+                                        `Busca el archivo: "${scriptModal.filename}"`,
+                                        'Haz clic derecho → Abrir con → Otra app...',
+                                        'Selecciona Adobe Photoshop y marca "Usar siempre esta aplicación" → Abrir',
                                     ].map((txt, i) => (
                                         <li key={i} className="flex items-start gap-3">
                                             <span className="w-6 h-6 bg-violet-500/30 rounded-lg flex items-center justify-center text-violet-400 text-[10px] font-black flex-shrink-0 mt-0.5">{i + 1}</span>

@@ -18,12 +18,19 @@ function downloadScriptPlugin() {
         req.on('data', chunk => { body += chunk.toString(); });
         req.on('end', () => {
           try {
-            const { content, filename } = JSON.parse(body);
-            const filePath = path.join(os.homedir(), 'Downloads', filename);
+            const { content, filename, folderName } = JSON.parse(body);
+            let targetDir = path.join(os.homedir(), 'Downloads');
+            if (folderName) {
+              targetDir = path.join(targetDir, folderName);
+              if (!fs.existsSync(targetDir)) {
+                fs.mkdirSync(targetDir, { recursive: true });
+              }
+            }
+            const filePath = path.join(targetDir, filename);
             fs.writeFileSync(filePath, content, 'utf8');
             res.setHeader('Content-Type', 'application/json');
             res.setHeader('Access-Control-Allow-Origin', '*');
-            res.end(JSON.stringify({ success: true, filename, path: filePath }));
+            res.end(JSON.stringify({ success: true, filename, path: filePath, folder: folderName }));
           } catch (e) {
             res.statusCode = 500;
             res.setHeader('Content-Type', 'application/json');

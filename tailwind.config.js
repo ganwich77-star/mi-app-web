@@ -34,12 +34,9 @@ export default {
                 'mesh': 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%)',
             },
             colors: {
-                primary: '#1E293B',
-                secondary: '#64748B',
-                main: {
-                    DEFAULT: '#FDFBFA',
-                    dark: '#0B0E14'
-                }
+                primary: 'var(--text-primary)',
+                secondary: 'var(--text-secondary)',
+                main: 'var(--bg-main)',
             }
         },
     },

@@ -7,7 +7,7 @@ import {
     MessageSquare, ChevronRight, Lock, Shield, Package, Sparkles, Gift, Mail, Phone,
     TrendingUp, Users, Trash2, Edit, Sun, Moon, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, Database, Upload, AlertTriangle, Share,
     Square, CheckSquare, X, Camera, Check, Tag, FileText, Crown, ArrowRight,
-    Settings2, Maximize2, Maximize, ZoomIn, ZoomOut, Move, Layout, Bold, Italic, UserCheck, Eye, Palette,
+    Settings2, Maximize2, Maximize, ZoomIn, ZoomOut, Move, Type, Layout, Bold, Italic, UserCheck, Eye, Palette,
     LayoutGrid, UserSquare2, Layers, MoveVertical, GripVertical, Move as MoveIcon, ArrowUpDown, Grid, Box, ChevronsUpDown, Baseline, AlignCenterVertical, AlignCenterHorizontal
 } from 'lucide-react';
 
@@ -275,7 +275,7 @@ export default function App() {
         const defaults = {
             canvasW: 4961, canvasH: 3508, margin: mmToPx(20),
             numAlumnos: 24, numDocentes: 3,
-            fontFamily: "Myriad Pro", isBold: false, isItalic: false,
+            fontFamily: "Montserrat", isBold: false, isItalic: false,
             fontSizeAlu: 10, fontSizeDoc: 10,
             dScale: 1.2, dY: mmToPx(60), dTextOffset: mmToPx(12),
             aW: mmToPx(35), aH: mmToPx(45), aStartY: mmToPx(135),
@@ -283,11 +283,7 @@ export default function App() {
         };
         try {
             const stored = localStorage.getItem(`orlas2026_configOrla`);
-            if (stored) {
-                const parsed = JSON.parse(stored);
-                return { ...defaults, ...parsed, fontFamily: "Myriad Pro" };
-            }
-            return defaults;
+            return stored ? { ...defaults, ...JSON.parse(stored) } : defaults;
         } catch {
             return defaults;
         }
@@ -303,9 +299,9 @@ export default function App() {
     const [canvasZoom, setCanvasZoom] = useState(1);
     const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
     const [showZoomBar, setShowZoomBar] = useState(false);
-    const [expandedDesignGroups, setExpandedDesignGroups] = useState(['Estructura', 'Ejes (Y)', 'Equipo Docente', 'Alumnos']);
+    const [expandedDesignGroups, setExpandedDesignGroups] = useState(['Tipografía', 'Estructura', 'Ejes (Y)', 'Equipo Docente', 'Alumnos']);
     const [draggedStaffIdx, setDraggedStaffIdx] = useState(null);
-
+    const [showCustomFont, setShowCustomFont] = useState(false);
     const [newSchoolName, setNewSchoolName] = useState('');
     const [schoolToEdit, setSchoolToEdit] = useState(null);
 
@@ -1091,6 +1087,52 @@ export default function App() {
                     </div>
                 </ControlGroup>
 
+                <ControlGroup title="Tipografía" icon={Type} expandedGroups={expandedDesignGroups} setExpandedGroups={setExpandedDesignGroups}>
+                    <div className="p-5 space-y-5">
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase italic tracking-[0.1em] block text-primary/60 dark:text-white/80">Preestablecida</label>
+                            <div className="relative">
+                                <select
+                                    value={showCustomFont ? "custom" : configOrla.fontFamily}
+                                    onChange={(e) => {
+                                        if (e.target.value === "custom") {
+                                            setShowCustomFont(true);
+                                        } else {
+                                            setShowCustomFont(false);
+                                            updateConfig('fontFamily', e.target.value);
+                                        }
+                                    }}
+                                    className="w-full bg-primary/5 dark:bg-white/[0.03] border border-primary/10 dark:border-white/10 rounded-xl px-4 py-3 text-[11px] font-black outline-none appearance-none focus:border-violet-500/40 text-primary dark:text-white cursor-pointer"
+                                >
+                                    <optgroup label="SANS SERIF (Modernas)">
+                                        {['Montserrat', 'Inter', 'Outfit', 'Oswald', 'Bebas Neue'].map(f => <option key={f} value={f}>{f}</option>)}
+                                    </optgroup>
+                                    <optgroup label="SERIF (Elegantes)">
+                                        {['Playfair Display', 'EB Garamond', 'Lora', 'Castoro'].map(f => <option key={f} value={f}>{f}</option>)}
+                                    </optgroup>
+                                    <optgroup label="DISPLAY / OTROS">
+                                        {['Zilla Slab', 'Lobster', 'Roboto Mono'].map(f => <option key={f} value={f}>{f}</option>)}
+                                    </optgroup>
+                                    <option value="custom">✏️ AÑADIR FUENTE PERSONALIZADA...</option>
+                                </select>
+                                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-primary/40 dark:text-white/40 opacity-30 pointer-events-none" />
+                            </div>
+                            {showCustomFont && (
+                                <div className="mt-4 space-y-2 animate-fade-in">
+                                    <label className="text-[10px] font-black uppercase italic tracking-[0.1em] block text-violet-500">Nombre de la fuente (PS NAME)</label>
+                                    <input
+                                        type="text"
+                                        value={configOrla.fontFamily}
+                                        placeholder="Ej: Gotham-Bold o Arial"
+                                        onChange={(e) => updateConfig('fontFamily', e.target.value)}
+                                        className="w-full bg-primary/5 dark:bg-white/[0.03] border border-violet-500/30 rounded-xl px-4 py-3 text-[11px] font-black outline-none focus:border-violet-500 text-primary dark:text-white"
+                                    />
+                                    <p className="text-[9px] text-primary/40 dark:text-white/40 italic">Escribe el nombre exacto de la fuente que tengas instalada.</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </ControlGroup>
 
                 <ControlGroup title="Alumnos" icon={LayoutGrid} expandedGroups={expandedDesignGroups} setExpandedGroups={setExpandedDesignGroups}>
                     <div className="space-y-6">
@@ -3638,7 +3680,9 @@ export default function App() {
                                                         { icon: Baseline, label: 'Tamaño Texto', key: 'fontSizeDoc', min: 6, max: 18, unit: 'pt', group: 'Docentes' },
                                                         { icon: Baseline, label: 'Sep. Texto', key: 'dTextOffset', min: 0, max: mmToPx(25), group: 'Docentes' },
 
-                                                        { icon: Box, label: 'Margen', key: 'margin', min: mmToPx(5), max: mmToPx(50), group: 'General' }
+                                                        { icon: Box, label: 'Margen', key: 'margin', min: mmToPx(5), max: mmToPx(50), group: 'General' },
+
+                                                        { icon: Type, label: 'Fuentes', key: 'fontFamily', type: 'select', options: ['Montserrat', 'Inter', 'Outfit', 'Oswald', 'Bebas Neue', 'Playfair Display', 'EB Garamond', 'Lora', 'Castoro', 'Zilla Slab', 'Lobster', 'Roboto Mono'], group: 'Tipografía' }
                                                     ];
                                                     return (
                                                         <div
@@ -4004,7 +4048,7 @@ export default function App() {
                                                                                                         color: '#000000'
                                                                                                     }}>{staffSurnames}</p>
                                                                                                 )}
-                                                                                                <p className="text-[5px] mt-[1.5px] font-bold uppercase truncate leading-none text-black" style={{ fontFamily: configOrla.fontFamily, color: '#000000' }}>{member.role}</p>
+                                                                                                <p className="text-[5px] mt-[1.5px] font-bold uppercase truncate leading-none text-black" style={{ color: '#000000' }}>{member.role}</p>
                                                                                             </div>
                                                                                         </div>
                                                                                     );

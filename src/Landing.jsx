@@ -23,7 +23,7 @@ import {
  * LANDING PAGE INTEGRAL V8.3 - FULL COLOR RESTORED
  * Diseño equilibrado (comedido) pero con todos los colores, brillos y orbes restaurados.
  */
-const Landing = () => {
+const Landing = ({ onAdminAccess }) => {
     const [numStudents, setNumStudents] = useState(160);
     const [numSchools, setNumSchools] = useState(1);
     const [avgTicket, setAvgTicket] = useState(25);
@@ -207,7 +207,8 @@ const Landing = () => {
                     <img
                         src={`${import.meta.env.BASE_URL || '/'}logo.png`}
                         alt="Pujalte Studio"
-                        className="h-10 md:h-14 w-auto brightness-0 invert"
+                        className="h-10 md:h-14 w-auto brightness-0 invert cursor-pointer active:scale-95 transition-transform"
+                        onClick={onAdminAccess}
                     />
                 </div>
 

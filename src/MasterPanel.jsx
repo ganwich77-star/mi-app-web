@@ -93,18 +93,25 @@ export default function MasterPanel({ onBack }) {
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm(`⚠️ ¿Estás seguro de que quieres eliminar a "${id}"? Esta acción borrará la configuración y no se puede deshacer.`)) return;
+        if (!window.confirm(`⚠️ ¿Estás SEGURO de que quieres eliminar a "${id}"?\n\nEsta acción borrará el acceso y la configuración del fotógrafo. Los pedidos y datos en subcolecciones permanecerán en la base de datos (por seguridad), pero el fotógrafo ya no aparecerá en esta lista ni podrá entrar.`)) return;
 
         try {
-            // Borrar documento raíz
-            await deleteDoc(doc(db, 'orlas2026_photographers', id));
-            // Borrar documento de configuración
-            await deleteDoc(doc(db, 'orlas2026_photographers', id, 'config', 'main'));
+            console.log("Intentando eliminar fotógrafo:", id);
 
-            alert('✅ Registro eliminado correctamente');
+            // 1. Borrar documento de configuración primero
+            const configRef = doc(db, 'orlas2026_photographers', id, 'config', 'main');
+            await deleteDoc(configRef);
+            console.log("Configuración borrada");
+
+            // 2. Borrar documento raíz (esto es lo que lo quita de la lista)
+            const rootRef = doc(db, 'orlas2026_photographers', id);
+            await deleteDoc(rootRef);
+            console.log("Documento raíz borrado");
+
+            alert('✅ Registro eliminado correctamente de la lista maestra.');
         } catch (error) {
-            console.error("Error al eliminar:", error);
-            alert('❌ No se ha podido eliminar el registro');
+            console.error("Error crítico al eliminar:", error);
+            alert(`❌ Error al eliminar: ${error.message}`);
         }
     };
 
