@@ -7,8 +7,8 @@ import {
     MessageSquare, ChevronRight, Lock, Shield, Package, Sparkles, Gift, Mail, Phone,
     TrendingUp, Users, Trash2, Edit, Sun, Moon, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, Database, Upload, AlertTriangle, Share,
     Square, CheckSquare, X, Camera, Check, Tag, FileText, Crown, ArrowRight,
-    Settings2, Maximize2, Maximize, ZoomIn, ZoomOut, Move, Layout, Bold, Italic, UserCheck, Eye, Palette,
-    LayoutGrid, UserSquare2, Layers, MoveVertical, GripVertical, Move as MoveIcon, ArrowUpDown, Grid, Box, ChevronsUpDown, Baseline, AlignCenterVertical, AlignCenterHorizontal
+    Settings2, Maximize2, Maximize, ZoomIn, ZoomOut, Move, Layout, Bold, Italic, UserCheck, Eye, Palette, History,
+    LayoutGrid, UserSquare2, Layers, MoveVertical, MoveHorizontal, GripVertical, Move as MoveIcon, ArrowUpDown, Grid, Box, ChevronsUpDown, Baseline, AlignCenterVertical, AlignCenterHorizontal
 } from 'lucide-react';
 
 import { SCHOOLS, PACKS, EXTRAS, CONTACT_PHONE, COURSE_GROUPS, STAFF_ROLES, DRIVE_API_KEY, DRIVE_CLIENT_ID } from './constants.js';
@@ -277,8 +277,8 @@ export default function App() {
             numAlumnos: 24, numDocentes: 3,
             fontFamily: "Myriad Pro", isBold: false, isItalic: false,
             fontSizeAlu: 10, fontSizeDoc: 10,
-            dScale: 1.2, dY: mmToPx(60), dTextOffset: mmToPx(12),
-            aW: mmToPx(35), aH: mmToPx(45), aStartY: mmToPx(135),
+            dScale: 1.2, dY: mmToPx(60), dGapX: mmToPx(15), dTextOffset: mmToPx(12),
+            aScale: 1.0, aW: mmToPx(35), aH: mmToPx(45), aStartY: mmToPx(135), aStartX: mmToPx(20),
             aCols: 8, aGapY: mmToPx(65), aGapX: mmToPx(10), aTextOffset: mmToPx(10)
         };
         try {
@@ -311,6 +311,7 @@ export default function App() {
 
     // Snapseed Mobile Style States
     const [activeDesignParam, setActiveDesignParam] = useState(null); // { key, label, min, max, unit, step }
+    const [activeToolGroup, setActiveToolGroup] = useState(null); // 'Alumnos' | 'Docentes' | 'General' | null
     const [isMobileToolsOpen, setIsMobileToolsOpen] = useState(false);
 
 
@@ -3627,18 +3628,72 @@ export default function App() {
                                                     const textLabel = isDark ? 'text-white/40' : 'text-black/50';
                                                     const dividerColor = isDark ? 'border-white/5' : 'border-black/5';
                                                     const TOOLS = [
-                                                        { icon: LayoutGrid, label: 'Columnas', key: 'aCols', min: 1, max: 20, unit: 'UD', group: 'Alumnos' },
+                                                        // ALUMNOS
+                                                        { icon: LayoutGrid, label: 'Filas', key: 'aCols', min: 1, max: 12, step: 1, unit: 'UD', group: 'Alumnos' },
+                                                        { icon: Maximize, label: 'Escala', key: 'aScale', min: 0.5, max: 2.0, step: 0.05, unit: 'x', group: 'Alumnos' },
+                                                        { icon: MoveHorizontal, label: 'Separación Fotos', key: 'aGapX', min: 0, max: mmToPx(100), group: 'Alumnos' },
                                                         { icon: ArrowUpDown, label: 'Eje Y', key: 'aStartY', min: mmToPx(50), max: mmToPx(280), group: 'Alumnos' },
-                                                        { icon: MoveVertical, label: 'Sep. Filas', key: 'aGapY', min: mmToPx(2), max: mmToPx(150), group: 'Alumnos' },
+                                                        { icon: MoveVertical, label: 'Separación Filas', key: 'aGapY', min: mmToPx(2), max: mmToPx(150), group: 'Alumnos' },
                                                         { icon: Baseline, label: 'Tamaño Texto', key: 'fontSizeAlu', min: 6, max: 18, unit: 'pt', group: 'Alumnos' },
-                                                        { icon: ChevronsUpDown, label: 'Sep. Texto', key: 'aTextOffset', min: 0, max: mmToPx(20), group: 'Alumnos' },
+                                                        { icon: ChevronsUpDown, label: 'Separación Texto', key: 'aTextOffset', min: 0, max: mmToPx(20), group: 'Alumnos' },
+                                                        {
+                                                            icon: AlignCenterHorizontal, label: 'Centrar Alu', key: 'centrar-alu', group: 'Alumnos', action: () => {
+                                                                const dynamicW = configOrla.aW * (configOrla.aScale || 1.0);
+                                                                const totalW = configOrla.aCols * dynamicW + (configOrla.aCols - 1) * configOrla.aGapX;
+                                                                const centeredX = (configOrla.canvasW - totalW) / 2;
+                                                                updateConfig('aStartX', Math.max(0, centeredX));
+                                                            }
+                                                        },
+                                                        {
+                                                            icon: AlignCenterHorizontal, label: 'Auto-Ancho', key: 'auto-ancho', group: 'Alumnos', action: () => {
+                                                                const dynamicW = configOrla.aW * (configOrla.aScale || 1.0);
+                                                                const totalW = configOrla.aCols * dynamicW;
+                                                                const availableW = configOrla.canvasW - (configOrla.margin * 2);
+                                                                const idealGap = (availableW - totalW) / (configOrla.aCols - 1);
+                                                                updateConfig('aGapX', Math.max(0, idealGap));
+                                                            }
+                                                        },
 
+                                                        // DOCENTES
                                                         { icon: UserSquare2, label: 'Eje Y', key: 'dY', min: mmToPx(10), max: mmToPx(150), group: 'Docentes' },
                                                         { icon: Maximize, label: 'Escala', key: 'dScale', min: 0.5, max: 2.5, step: 0.05, unit: 'x', group: 'Docentes' },
+                                                        { icon: MoveHorizontal, label: 'Separación Fotos', key: 'dGapX', min: 0, max: mmToPx(100), group: 'Docentes' },
                                                         { icon: Baseline, label: 'Tamaño Texto', key: 'fontSizeDoc', min: 6, max: 18, unit: 'pt', group: 'Docentes' },
-                                                        { icon: Baseline, label: 'Sep. Texto', key: 'dTextOffset', min: 0, max: mmToPx(25), group: 'Docentes' },
+                                                        { icon: Baseline, label: 'Separación Texto', key: 'dTextOffset', min: 0, max: mmToPx(25), group: 'Docentes' },
+                                                        {
+                                                            icon: AlignCenterHorizontal, label: 'Centrar Doc', key: 'centrar-doc', group: 'Docentes', action: () => {
+                                                                // Los docentes ya se centran automáticamente al eje X mediante justify-center en preview
+                                                                // y cálculo matemático en el script. Esta acción simplemente confirma el estado.
+                                                                const btn = document.getElementById('btn-guardar-orla');
+                                                                if (btn) { btn.classList.add('text-blue-400'); setTimeout(() => btn.classList.remove('text-blue-400'), 1000); }
+                                                            }
+                                                        },
 
-                                                        { icon: Box, label: 'Margen', key: 'margin', min: mmToPx(5), max: mmToPx(50), group: 'General' }
+                                                        // GENERAL
+                                                        { icon: Box, label: 'Margen', key: 'margin', min: mmToPx(5), max: mmToPx(50), group: 'General' },
+                                                        {
+                                                            icon: Download, label: 'Descargar Config', key: 'download-config', group: 'General', action: () => {
+                                                                const data = JSON.stringify(configOrla, null, 2);
+                                                                const blob = new Blob([data], { type: 'application/json' });
+                                                                const url = URL.createObjectURL(blob);
+                                                                const a = document.createElement('a');
+                                                                a.href = url;
+                                                                a.download = `config_orla_${new Date().getTime()}.json`;
+                                                                a.click();
+                                                            }
+                                                        },
+                                                        {
+                                                            icon: History, label: 'Restaurar', key: 'restore-config', group: 'General', action: () => {
+                                                                const backup = localStorage.getItem('configOrla_backup');
+                                                                if (backup) {
+                                                                    if (confirm('¿Restaurar la última copia guardada?')) {
+                                                                        setConfigOrla(JSON.parse(backup));
+                                                                    }
+                                                                } else {
+                                                                    alert('No hay ninguna copia de seguridad guardada.');
+                                                                }
+                                                            }
+                                                        }
                                                     ];
                                                     return (
                                                         <div
@@ -3654,11 +3709,11 @@ export default function App() {
                                                                     <div className="flex items-center justify-between mb-2">
                                                                         <span className={`text-[9px] font-black uppercase tracking-widest ${textLabel}`}>{activeDesignParam.label}</span>
                                                                         <span className="text-[13px] font-black text-violet-400 tabular-nums">
-                                                                            {activeDesignParam.key.includes('Scale')
-                                                                                ? configOrla[activeDesignParam.key].toFixed(2)
-                                                                                : Math.round(activeDesignParam.key.includes('fontSize')
-                                                                                    ? configOrla[activeDesignParam.key]
-                                                                                    : pxToMm(configOrla[activeDesignParam.key]))}
+                                                                            {
+                                                                                activeDesignParam.key.includes('Scale') || activeDesignParam.unit === 'UD' || activeDesignParam.key.includes('fontSize')
+                                                                                    ? activeDesignParam.key.includes('Scale') ? configOrla[activeDesignParam.key].toFixed(2) : Math.round(configOrla[activeDesignParam.key])
+                                                                                    : Math.round(pxToMm(configOrla[activeDesignParam.key]))
+                                                                            }
                                                                             <span className="text-[9px] text-violet-300 ml-0.5">{activeDesignParam.unit || 'MM'}</span>
                                                                         </span>
                                                                     </div>
@@ -3682,18 +3737,7 @@ export default function App() {
                                                                             step={activeDesignParam.step || (activeDesignParam.key.includes('fontSize') ? 0.5 : 1)}
                                                                             value={configOrla[activeDesignParam.key]}
                                                                             onChange={(e) => updateConfig(activeDesignParam.key, parseFloat(e.target.value))}
-                                                                            onTouchStart={e => e.stopPropagation()}
-                                                                            onTouchMove={e => {
-                                                                                e.stopPropagation();
-                                                                                const touch = e.touches[0];
-                                                                                const rect = e.target.getBoundingClientRect();
-                                                                                const ratio = Math.max(0, Math.min(1, (touch.clientX - rect.left) / rect.width));
-                                                                                const val = activeDesignParam.min + ratio * (activeDesignParam.max - activeDesignParam.min);
-                                                                                const step = activeDesignParam.step || (activeDesignParam.key.includes('fontSize') ? 0.5 : 1);
-                                                                                updateConfig(activeDesignParam.key, Math.round(val / step) * step);
-                                                                            }}
-                                                                            onTouchEnd={e => e.stopPropagation()}
-                                                                            className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+                                                                            className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-violet-500/20"
                                                                             style={{ accentColor: '#7c3aed' }}
                                                                         />
                                                                     )}
@@ -3717,127 +3761,111 @@ export default function App() {
                                                                 </button>
 
                                                                 {/* ZOOM CONTROLS — BOTÓN + POPOVER VERTICAL */}
-                                                                <div className="relative ml-2 flex-shrink-0">
-                                                                    {showZoomBar && (
-                                                                        <div className={`absolute bottom-full mb-4 left-1/2 -translate-x-1/2 p-3 rounded-[24px] border flex flex-col items-center gap-4 animate-in fade-in slide-in-from-bottom-4 duration-300 z-[100] ${isDark ? 'bg-[#0f0f0f]/95 border-white/10 backdrop-blur-2xl shadow-2xl shadow-black' : 'bg-white/95 border-black/10 backdrop-blur-2xl shadow-xl'}`}>
-                                                                            <button onClick={() => { setCanvasZoom(1); setPanOffset({ x: 0, y: 0 }); setShowZoomBar(false); }} className="text-[9px] font-black uppercase text-violet-500 hover:text-violet-400 mb-1 py-1 px-2 hover:bg-violet-500/10 rounded-lg transition-colors">RESET</button>
-
-                                                                            <button onClick={() => setCanvasZoom(z => Math.min(3, z + 0.1))} className={`w-10 h-10 flex items-center justify-center rounded-xl active:scale-90 transition-all ${isDark ? 'bg-white/5 text-white hover:bg-white/10' : 'bg-black/5 text-black hover:bg-black/10'}`}>
-                                                                                <ZoomIn size={20} />
-                                                                            </button>
-
-                                                                            <div className="h-32 w-10 flex items-center justify-center relative py-4">
-                                                                                <input
-                                                                                    type="range"
-                                                                                    min="10"
-                                                                                    max="300"
-                                                                                    value={Math.round(canvasZoom * 100)}
-                                                                                    onChange={e => setCanvasZoom(parseInt(e.target.value) / 100)}
-                                                                                    className="absolute w-24 h-1.5 -rotate-90 bg-violet-500/20 rounded-lg appearance-none cursor-pointer accent-violet-500"
-                                                                                />
-                                                                            </div>
-
-                                                                            <button onClick={() => setCanvasZoom(z => Math.max(0.1, z - 0.1))} className={`w-10 h-10 flex items-center justify-center rounded-xl active:scale-90 transition-all ${isDark ? 'bg-white/5 text-white hover:bg-white/10' : 'bg-black/5 text-black hover:bg-black/10'}`}>
-                                                                                <ZoomOut size={20} />
-                                                                            </button>
-
-                                                                            <div className={`mt-1 text-[10px] font-black tracking-tighter ${isDark ? 'text-white' : 'text-black'}`}>
-                                                                                {Math.round(canvasZoom * 100)}%
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
-
+                                                                {/* ZOOM CONTROLS — DESPLIEGUE HORIZONTAL */}
+                                                                <div className="flex items-center ml-2 flex-shrink-0">
                                                                     <button
-                                                                        onClick={() => setShowZoomBar(!showZoomBar)}
-                                                                        className={`flex flex-col items-center justify-center gap-1 w-14 h-14 rounded-2xl transition-all active:scale-90 ${showZoomBar ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/30' : isDark ? 'bg-white/5 text-white/50 border border-white/5 hover:bg-white/10' : 'bg-black/5 text-black/50 border border-black/5 hover:bg-black/10'}`}
+                                                                        onClick={() => {
+                                                                            const nextState = !showZoomBar;
+                                                                            setShowZoomBar(nextState);
+                                                                            if (nextState) {
+                                                                                setActiveToolGroup(null);
+                                                                                setActiveDesignParam(null);
+                                                                            }
+                                                                        }}
+                                                                        className={`flex flex-col items-center justify-center gap-1 w-14 h-14 rounded-2xl transition-all active:scale-90 z-10 ${showZoomBar ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/30' : isDark ? 'bg-white/5 text-white/50 border border-white/5 hover:bg-white/10' : 'bg-black/5 text-black/50 border border-black/5 hover:bg-black/10'}`}
                                                                     >
-                                                                        <Search size={22} />
+                                                                        <Search size={20} />
                                                                         <span className="text-[7px] font-black uppercase tracking-tighter">{Math.round(canvasZoom * 100)}%</span>
                                                                     </button>
+
+                                                                    <div
+                                                                        className={`flex items-center gap-4 transition-all duration-500 ease-out overflow-hidden h-14 ${showZoomBar ? 'max-w-[300px] opacity-100 ml-3 px-4 bg-violet-500/5 rounded-2xl border border-violet-500/10' : 'max-w-0 opacity-0 ml-0 pointer-events-none'}`}
+                                                                    >
+                                                                        <button
+                                                                            onClick={() => { setCanvasZoom(1); setPanOffset({ x: 0, y: 0 }); }}
+                                                                            className="text-[8px] font-black uppercase text-violet-500 hover:text-white hover:bg-violet-500 px-2 py-1 rounded-md transition-all flex-shrink-0"
+                                                                        >
+                                                                            RESET
+                                                                        </button>
+
+                                                                        <div className="w-32 flex items-center flex-shrink-0 mr-2">
+                                                                            <input
+                                                                                type="range"
+                                                                                min="10"
+                                                                                max="300"
+                                                                                value={Math.round(canvasZoom * 100)}
+                                                                                onChange={e => setCanvasZoom(parseInt(e.target.value) / 100)}
+                                                                                className="w-full h-1.5 bg-violet-500/20 rounded-lg appearance-none cursor-pointer accent-violet-500"
+                                                                            />
+                                                                        </div>
+                                                                    </div>
                                                                 </div>
 
                                                                 <div className={`w-px h-8 mx-2 flex-shrink-0 ${isDark ? 'bg-white/10' : 'bg-black/10'}`} />
 
                                                                 {/* Tira de herramientas */}
-                                                                <div className="flex-1 overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
-                                                                    <div className="flex items-center gap-1 px-2 py-2" style={{ minWidth: 'max-content' }}>
-                                                                        {(() => {
-                                                                            let lastGroup = null;
-                                                                            return TOOLS.map(tool => {
-                                                                                const showLabel = tool.group !== lastGroup;
-                                                                                lastGroup = tool.group;
-                                                                                const isActive = activeDesignParam?.key === tool.key;
-                                                                                return (
-                                                                                    <div key={tool.key} className="flex items-center gap-1">
-                                                                                        {showLabel && (
-                                                                                            <div className="flex flex-col items-center justify-center px-2 mr-1">
-                                                                                                <span className="text-[7px] font-black text-indigo-400 uppercase tracking-tighter opacity-50 mb-0.5">{tool.group}</span>
-                                                                                                <div className="w-4 h-0.5 bg-indigo-500/20 rounded-full"></div>
-                                                                                            </div>
-                                                                                        )}
-                                                                                        <button
-                                                                                            onClick={() => setActiveDesignParam(isActive ? null : tool)}
-                                                                                            className={`flex flex-col items-center gap-1.5 px-3 py-2.5 rounded-2xl transition-all active:scale-90 flex-shrink-0 ${isActive
-                                                                                                ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/30'
-                                                                                                : isDark ? 'text-white/40 hover:text-white hover:bg-white/5' : 'text-black/40 hover:text-black hover:bg-black/5'
-                                                                                                }`}
-                                                                                        >
-                                                                                            <tool.icon size={20} />
-                                                                                            <span className={`text-[8px] font-black uppercase tracking-tight whitespace-nowrap ${isActive ? 'text-white' : isDark ? 'text-white/40' : 'text-black/50'}`}>
-                                                                                                {tool.label}
-                                                                                            </span>
-                                                                                        </button>
+                                                                <div className="flex-1 overflow-x-auto scrollbar-hide" style={{ WebkitOverflowScrolling: 'touch' }}>
+                                                                    <div className="flex items-center gap-4 px-4 py-2" style={{ minWidth: 'max-content' }}>
+                                                                        {['Alumnos', 'Docentes', 'General'].map(groupName => {
+                                                                            const isGroupActive = activeToolGroup === groupName;
+                                                                            const groupTools = TOOLS.filter(t => t.group === groupName);
+
+                                                                            return (
+                                                                                <div key={groupName} className="flex items-center">
+                                                                                    {/* BOTÓN DEL GRUPO */}
+                                                                                    <button
+                                                                                        onClick={() => {
+                                                                                            const nextState = !isGroupActive;
+                                                                                            setActiveToolGroup(nextState ? groupName : null);
+                                                                                            setActiveDesignParam(null);
+                                                                                            if (nextState) setShowZoomBar(false);
+                                                                                        }}
+                                                                                        className={`flex flex-col items-center justify-center min-w-[60px] px-3 py-2 transition-all active:scale-95 ${isGroupActive ? 'opacity-100' : 'opacity-40 hover:opacity-100'}`}
+                                                                                    >
+                                                                                        <span className={`text-[9px] font-black uppercase tracking-widest ${isGroupActive ? 'text-violet-500' : isDark ? 'text-white' : 'text-black'}`}>
+                                                                                            {groupName}
+                                                                                        </span>
+                                                                                        <div className={`w-full h-0.5 mt-1.5 rounded-full transition-all duration-500 ${isGroupActive ? 'bg-violet-600' : 'bg-transparent'}`} />
+                                                                                    </button>
+
+                                                                                    {/* HIJOS (DESPLEGABLE HACIA LA DERECHA) */}
+                                                                                    <div
+                                                                                        className={`flex items-center gap-1 transition-all duration-500 ease-out overflow-hidden ${isGroupActive ? 'max-w-[1000px] opacity-100 ml-4 pointer-events-auto' : 'max-w-0 opacity-0 ml-0 pointer-events-none'}`}
+                                                                                    >
+                                                                                        {groupTools.map(tool => {
+                                                                                            const isParamActive = activeDesignParam?.key === tool.key;
+                                                                                            return (
+                                                                                                <button
+                                                                                                    key={tool.key}
+                                                                                                    onClick={() => {
+                                                                                                        if (tool.action) {
+                                                                                                            tool.action();
+                                                                                                        } else {
+                                                                                                            setActiveDesignParam(isParamActive ? null : tool);
+                                                                                                        }
+                                                                                                    }}
+                                                                                                    className={`flex flex-col items-center gap-1.5 px-3 py-2.5 rounded-2xl transition-all active:scale-90 flex-shrink-0 ${isParamActive
+                                                                                                        ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/30'
+                                                                                                        : tool.action ? (isDark ? 'text-cyan-400/70 hover:text-cyan-300 hover:bg-cyan-500/10' : 'text-cyan-600/70 hover:text-cyan-700 hover:bg-cyan-500/10')
+                                                                                                            : (isDark ? 'text-white/40 hover:text-white hover:bg-white/5' : 'text-black/40 hover:text-black hover:bg-black/5')
+                                                                                                        }`}
+                                                                                                >
+                                                                                                    <tool.icon size={18} />
+                                                                                                    <span className={`text-[8px] font-black uppercase tracking-tight whitespace-nowrap ${isParamActive ? 'text-white' : isDark ? 'text-white/40' : 'text-black/50'}`}>
+                                                                                                        {tool.label}
+                                                                                                    </span>
+                                                                                                </button>
+                                                                                            );
+                                                                                        })}
                                                                                     </div>
-                                                                                );
-                                                                            });
-                                                                        })()}
 
-                                                                        {/* Separador */}
-                                                                        <div className={`w-px h-8 mx-1 flex-shrink-0 ${isDark ? 'bg-white/10' : 'bg-black/10'}`} />
-
-                                                                        {/* Centrar Alumnos verticalmente */}
-                                                                        <button
-                                                                            onClick={() => {
-                                                                                // Total alto bloque alumnos
-                                                                                const numRows = Math.ceil((selectedOrderIds?.length || configOrla.numAlumnos || 1) / configOrla.aCols);
-                                                                                const blockH = numRows * configOrla.aH + (numRows - 1) * configOrla.aGapY + configOrla.aTextOffset + 16;
-                                                                                const centeredY = (configOrla.canvasH - blockH) / 2;
-                                                                                updateConfig('aStartY', Math.max(configOrla.margin, centeredY));
-                                                                            }}
-                                                                            className={`flex flex-col items-center gap-1.5 px-3 py-2.5 rounded-2xl transition-all active:scale-90 flex-shrink-0 ${isDark ? 'text-cyan-400/70 hover:text-cyan-300 hover:bg-cyan-500/10' : 'text-cyan-600/70 hover:text-cyan-700 hover:bg-cyan-500/10'}`}
-                                                                        >
-                                                                            <AlignCenterVertical size={20} />
-                                                                            <span className="text-[8px] font-black uppercase tracking-tight whitespace-nowrap">Centrar Alu</span>
-                                                                        </button>
-
-                                                                        {/* Centrar Docentes verticalmente */}
-                                                                        <button
-                                                                            onClick={() => {
-                                                                                const numDoc = selectedStaffIds?.length || configOrla.numDocentes || 1;
-                                                                                const blockH = (configOrla.aH * configOrla.dScale) + configOrla.dTextOffset + 16;
-                                                                                const centeredY = (configOrla.canvasH / 2) - (blockH / 2);
-                                                                                updateConfig('dY', Math.max(configOrla.margin, centeredY));
-                                                                            }}
-                                                                            className={`flex flex-col items-center gap-1.5 px-3 py-2.5 rounded-2xl transition-all active:scale-90 flex-shrink-0 ${isDark ? 'text-amber-400/70 hover:text-amber-300 hover:bg-amber-500/10' : 'text-amber-600/70 hover:text-amber-700 hover:bg-amber-500/10'}`}
-                                                                        >
-                                                                            <AlignCenterVertical size={20} />
-                                                                            <span className="text-[8px] font-black uppercase tracking-tight whitespace-nowrap">Centrar Doc</span>
-                                                                        </button>
-
-                                                                        {/* Centrar Horizontal Alumnos (GapX) */}
-                                                                        <button
-                                                                            onClick={() => {
-                                                                                const totalW = configOrla.aCols * configOrla.aW;
-                                                                                const availableW = configOrla.canvasW - (configOrla.margin * 2);
-                                                                                const idealGap = (availableW - totalW) / (configOrla.aCols - 1);
-                                                                                updateConfig('aGapX', Math.max(0, idealGap));
-                                                                            }}
-                                                                            className={`flex flex-col items-center gap-1.5 px-3 py-2.5 rounded-2xl transition-all active:scale-90 flex-shrink-0 ${isDark ? 'text-emerald-400/70 hover:text-emerald-300 hover:bg-emerald-500/10' : 'text-emerald-600/70 hover:text-emerald-700 hover:bg-emerald-700/10'}`}
-                                                                        >
-                                                                            <AlignCenterHorizontal size={20} />
-                                                                            <span className="text-[8px] font-black uppercase tracking-tight whitespace-nowrap">Auto-Ancho</span>
-                                                                        </button>
-
+                                                                                    {/* SEPARADOR ENTRE GRUPOS */}
+                                                                                    {!isGroupActive && groupName !== 'General' && (
+                                                                                        <div className={`w-px h-6 mx-3 flex-shrink-0 ${isDark ? 'bg-white/10' : 'bg-black/10'}`} />
+                                                                                    )}
+                                                                                </div>
+                                                                            );
+                                                                        })}
                                                                     </div>
                                                                 </div>
 
@@ -3967,7 +3995,7 @@ export default function App() {
                                                                     return (
                                                                         <>
                                                                             {/* Docentes */}
-                                                                            <div className="absolute top-0 w-full flex justify-center gap-[15px] z-20" style={{ top: configOrla.dY / 10 + 'px' }}>
+                                                                            <div className="absolute top-0 w-full flex justify-center z-20" style={{ top: configOrla.dY / 10 + 'px', columnGap: (configOrla.dGapX || 150) / 10 + 'px' }}>
                                                                                 {selectedStaffIds.map(id => staff.find(m => m.id === id)).filter(Boolean).map((member, i) => {
                                                                                     const staffNameParts = (member.name || '').trim().split(/\s+/);
                                                                                     const staffFirstName = staffNameParts[0] || '';
@@ -4012,11 +4040,11 @@ export default function App() {
                                                                             </div>
 
                                                                             {/* Alumnos Grid */}
-                                                                            <div className="absolute w-full z-10" style={{ top: configOrla.aStartY / 10 + 'px', padding: `0 ${configOrla.margin / 10}px` }}>
+                                                                            <div className="absolute w-full z-10" style={{ top: configOrla.aStartY / 10 + 'px', left: 0, paddingLeft: configOrla.aStartX / 10 + 'px', paddingRight: configOrla.aStartX / 10 + 'px' }}>
                                                                                 <div className="grid justify-items-center" style={{
-                                                                                    gridTemplateColumns: `repeat(${configOrla.aCols}, 1fr)`,
+                                                                                    gridTemplateColumns: `repeat(${configOrla.aCols}, ${(configOrla.aW * (configOrla.aScale || 1.0)) / 10}px)`,
                                                                                     rowGap: configOrla.aGapY / 10 + 'px',
-                                                                                    gap: `${configOrla.aGapY / 10}px 0`
+                                                                                    columnGap: configOrla.aGapX / 10 + 'px'
                                                                                 }}>
                                                                                     {orders.filter(o =>
                                                                                         (!designFilter.course || getCourseBase(o.course) === designFilter.course) &&
@@ -4036,14 +4064,14 @@ export default function App() {
                                                                                             <div key={order.id} className="flex flex-col items-center">
                                                                                                 <div className="bg-slate-50 border border-slate-100 rounded-sm relative flex items-center justify-center overflow-hidden"
                                                                                                     style={{
-                                                                                                        width: configOrla.aW / 10 + 'px',
-                                                                                                        height: configOrla.aH / 10 + 'px',
+                                                                                                        width: (configOrla.aW * (configOrla.aScale || 1.0)) / 10 + 'px',
+                                                                                                        height: (configOrla.aH * (configOrla.aScale || 1.0)) / 10 + 'px',
                                                                                                         marginBottom: configOrla.aTextOffset / 10 + 'px'
                                                                                                     }}>
                                                                                                     {order.photoFile ? (
                                                                                                         <span className="text-[8px] font-black text-slate-600">{order.photoFile}</span>
                                                                                                     ) : (
-                                                                                                        <span className="text-[6px] font-black opacity-[0.2]">{i + 1}</span>
+                                                                                                        <span className="font-black opacity-[0.2]" style={{ fontSize: (6 * (configOrla.aScale || 1.0)) + 'px' }}>{i + 1}</span>
                                                                                                     )}
                                                                                                 </div>
                                                                                                 <p className="leading-[1.1] uppercase truncate text-black" style={{
@@ -4066,6 +4094,30 @@ export default function App() {
                                                                                         );
                                                                                     })}
                                                                                 </div>
+                                                                            </div>
+
+                                                                            {/* Pie de Orla (Nombre Centro y Promoción) */}
+                                                                            <div className="absolute w-full flex flex-col items-center z-10" style={{
+                                                                                bottom: configOrla.margin / 10 + 'px',
+                                                                                left: 0,
+                                                                                padding: `0 ${configOrla.margin / 10}px`
+                                                                            }}>
+                                                                                <h2 className="uppercase font-black leading-none text-black" style={{
+                                                                                    fontFamily: configOrla.fontFamily,
+                                                                                    fontSize: '18px',
+                                                                                    letterSpacing: '0.05em',
+                                                                                    marginBottom: '2px'
+                                                                                }}>
+                                                                                    {schools.find(s => s.id === designFilter.school)?.name || 'NOMBRE DEL CENTRO'}
+                                                                                </h2>
+                                                                                <p className="uppercase font-medium text-black" style={{
+                                                                                    fontFamily: configOrla.fontFamily,
+                                                                                    fontSize: '10px',
+                                                                                    letterSpacing: '0.2em',
+                                                                                    opacity: 0.8
+                                                                                }}>
+                                                                                    PROMOCIÓN 2026
+                                                                                </p>
                                                                             </div>
                                                                         </>
                                                                     );

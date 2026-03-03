@@ -251,7 +251,7 @@ export default function MasterPanel({ onBack }) {
                     <div className="grid grid-cols-2 md:flex md:justify-center gap-3 md:gap-4 relative z-10 w-full lg:w-auto">
                         <button
                             onClick={() => {
-                                const url = `${window.location.origin}${window.location.pathname}?demo=true`;
+                                const url = `${window.location.origin}${window.location.pathname}?f=demo_photographer&view=user&demo=true`;
                                 window.open(url, '_blank');
                             }}
                             className="bg-indigo-600 px-4 md:px-6 py-4 rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl shadow-indigo-500/20 hover:bg-indigo-500 transition-all active:scale-95 min-h-[48px]"
@@ -261,7 +261,7 @@ export default function MasterPanel({ onBack }) {
 
                         <button
                             onClick={() => {
-                                const url = `${window.location.origin}${window.location.pathname}?demo=true`;
+                                const url = `${window.location.origin}${window.location.pathname}?f=demo_photographer&view=user&demo=true`;
                                 navigator.clipboard.writeText(url);
                                 alert('✅ Enlace de demo copiado al portapapeles');
                             }}
@@ -272,7 +272,7 @@ export default function MasterPanel({ onBack }) {
 
                         <button
                             onClick={() => {
-                                const url = `${window.location.origin}${window.location.pathname}?demo=true`;
+                                const url = `${window.location.origin}${window.location.pathname}?f=demo_photographer&view=user&demo=true`;
                                 const msg = `¡Hola! He pensado que te gustaría probar la nueva app de gestión de orlas que estoy usando. Te paso el enlace a la versión demo para que le eches un vistazo:\n\n🔗 ${url}\n\n¡Ya me dirás qué te parece!`;
                                 window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
                             }}
@@ -284,7 +284,7 @@ export default function MasterPanel({ onBack }) {
                 </div>
 
                 {/* Table */}
-                <div className="bg-white/5 border border-white/10 rounded-[35px] overflow-hidden backdrop-blur-xl">
+                < div className="bg-white/5 border border-white/10 rounded-[35px] overflow-hidden backdrop-blur-xl" >
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
                             <thead className="bg-white/5">
@@ -359,7 +359,7 @@ export default function MasterPanel({ onBack }) {
                                                 </button>
 
                                                 <a
-                                                    href={`${window.location.pathname}?f=${p.id}`}
+                                                    href={`${window.location.pathname}?f=${p.id}&view=user`}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
                                                     className="flex items-center gap-2 px-3 py-2 bg-white/5 rounded-xl hover:bg-white/10 text-white/60 hover:text-emerald-400 transition-all border border-white/5"
@@ -389,8 +389,8 @@ export default function MasterPanel({ onBack }) {
                             </tbody>
                         </table>
                     </div>
-                </div>
-            </div>
+                </div >
+            </div >
 
             {/* Modal de Edición */}
             {

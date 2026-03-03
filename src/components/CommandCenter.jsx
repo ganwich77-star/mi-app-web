@@ -35,7 +35,7 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
         if (type === 'CONSTRUCTOR') {
             const staffLines = Array.isArray(staff) && staff.length > 0 ? (() => {
                 const docW = (design.aW * design.dScale);
-                const dGap = 150; // Match perfectly with React gap-[15px] (150px at real scale)
+                const dGap = design.dGapX || 150;
                 const totalStaffWidth = (staff.length * docW) + ((staff.length - 1) * dGap);
                 const startX = (design.canvasW / 2) - (totalStaffWidth / 2);
 
@@ -55,8 +55,6 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
 
 
             const aluLines = Array.isArray(graduates) ? (() => {
-                const colWidth = (design.canvasW - (design.margin * 2)) / design.aCols;
-
                 return graduates
                     .filter(o => o.schoolId === graduates[0]?.schoolId)
                     .sort((a, b) => {
@@ -69,10 +67,12 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                     .map((g, i) => {
                         const col = i % design.aCols;
                         const row = Math.floor(i / design.aCols);
+                        const dynamicW = design.aW * (design.aScale || 1.0);
+                        const dynamicH = design.aH * (design.aScale || 1.0);
 
-                        // Centrado dentro de la columna del grid
-                        const x = design.margin + (col * colWidth) + (colWidth / 2) - (design.aW / 2);
-                        const y = design.aStartY + (row * (design.aH + design.aGapY));
+                        // Posición absoluta basada en margin (aStartX) y gaps
+                        const x = design.aStartX + (col * (dynamicW + design.aGapX));
+                        const y = design.aStartY + (row * (dynamicH + design.aGapY));
 
                         const nameParts = g.studentName.trim().split(/\s+/);
                         const firstName = nameParts[0] || '';
@@ -81,7 +81,7 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                         if (surnames) psText += "\\r" + surnames;
                         const containerId = g.photoFile || g.id;
 
-                        return `createItem(alumnosGroup, "${psText}", "${containerId}", ${x}, ${y}, ${design.aW}, ${design.aH}, ${design.fontSizeAlu}, false);`;
+                        return `createItem(alumnosGroup, "${psText}", "${containerId}", ${x}, ${y}, ${dynamicW}, ${dynamicH}, ${design.fontSizeAlu}, false);`;
                     }).join('\n');
             })() : '';
 
@@ -146,6 +146,27 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                 'var alumnosGroup = doc.layerSets.add();',
                 'alumnosGroup.name = "ALUMNOS";',
                 aluLines,
+                '',
+                '// PIE DE ORLA',
+                'var footerGroup = doc.layerSets.add();',
+                'footerGroup.name = "PIE DE ORLA";',
+                'var schoolLayer = footerGroup.artLayers.add();',
+                'schoolLayer.kind = LayerKind.TEXT;',
+                'var schoolText = schoolLayer.textItem;',
+                `schoolText.contents = "${groupName.toUpperCase()}";`,
+                'schoolText.size = 36;',
+                `schoolText.font = "${design.fontFamily}";`,
+                'schoolText.justification = Justification.CENTER;',
+                `schoolText.position = [${design.canvasW / 2}, ${design.canvasH - design.margin - 40}];`,
+                '',
+                'var promoLayer = footerGroup.artLayers.add();',
+                'promoLayer.kind = LayerKind.TEXT;',
+                'var promoText = promoLayer.textItem;',
+                'promoText.contents = "PROMOCIÓN 2026";',
+                'promoText.size = 20;',
+                `promoText.font = "${design.fontFamily}";`,
+                'promoText.justification = Justification.CENTER;',
+                `promoText.position = [${design.canvasW / 2}, ${design.canvasH - design.margin}];`,
                 '',
                 '// CONFIGURACIÓN FINAL DE GUÍAS EN MM Y REGLAS',
                 'app.preferences.rulerUnits = Units.MM;',
@@ -346,7 +367,7 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                         </div>
                     </div>
 
-                    <p className="text-[8px] md:text-[10px] font-black text-white/10 uppercase tracking-[0.3em] md:tracking-[0.5em] text-center px-4">
+                    <p className="text-[8px] md:text-[10px] font-black text-white/40 uppercase tracking-[0.3em] md:tracking-[0.5em] text-center px-4">
                         Pujalte Creative Studio &copy; 2026 — High Speed Production Flow
                     </p>
                 </div>
@@ -401,7 +422,7 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                                     ))}
                                 </ol>
                             </div>
-                            <div className="flex flex-col gap-2">
+                            <div className="flex flex-col gap-3">
                                 {scriptModal.saved && (
                                     <button
                                         onClick={() => fetch('/graduaciones2026/api/reveal-file', {
@@ -409,21 +430,15 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                                             headers: { 'Content-Type': 'application/json' },
                                             body: JSON.stringify({ path: scriptModal.savedPath })
                                         })}
-                                        className="w-full py-3.5 bg-white/10 hover:bg-white/20 text-white rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 border border-white/10"
+                                        className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-emerald-900/20"
                                     >
-                                        📁 Mostrar en carpeta
+                                        📁 MOSTRAR EN CARPETA (DESCARGAS)
                                     </button>
                                 )}
-                                <div className="flex gap-3">
-                                    <button onClick={() => { navigator.clipboard.writeText(scriptModal.content); }}
-                                        className="flex-1 py-3.5 bg-violet-600 hover:bg-violet-500 text-white rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95">
-                                        <Copy size={14} /> Copiar Script
-                                    </button>
-                                    <button onClick={() => setScriptModal(null)}
-                                        className="px-6 py-3.5 bg-white/5 hover:bg-white/10 text-white/60 rounded-2xl font-black text-xs uppercase tracking-wider transition-all active:scale-95">
-                                        Cerrar
-                                    </button>
-                                </div>
+                                <button onClick={() => setScriptModal(null)}
+                                    className="w-full py-4 bg-white/10 hover:bg-white/20 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 border border-white/10">
+                                    CERRAR VENTANA
+                                </button>
                             </div>
                         </div>
                     </div>
