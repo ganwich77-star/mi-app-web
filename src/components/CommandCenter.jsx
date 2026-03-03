@@ -156,7 +156,7 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                 `doc.guides.add(Direction.VERTICAL,   ${((design.canvasW - design.margin) / 300 * 25.4).toFixed(2)});`,
                 `doc.guides.add(Direction.HORIZONTAL, ${(design.margin / 300 * 25.4).toFixed(2)});`,
                 `doc.guides.add(Direction.HORIZONTAL, ${((design.canvasH - design.margin) / 300 * 25.4).toFixed(2)});`,
-                'alert("Estructura V2.9 Generada.\\nReglas configuradas en MM.");',
+                'alert("Estructura V2.9 Generada.\\rby PUJALTE CREATIVE STUDIO");',
             ].join('\n');
 
 
@@ -208,18 +208,21 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                 '                var pastedLayer = doc.paste();',
                 '                pastedLayer.name = "FOTO_FINAL";',
                 '                ',
-                '                // ALINEACIÓN EXACTA: Photoshop pega en el centro, lo movemos a la esquina del placeholder',
+                '                // ALINEACIÓN EXACTA',
                 '                var deltaX = pBounds[0] - pastedLayer.bounds[0];',
                 '                var deltaY = pBounds[1] - pastedLayer.bounds[1];',
                 '                pastedLayer.translate(deltaX, deltaY);',
                 '                ',
                 '                pastedLayer.move(placeholder, ElementPlacement.PLACEBEFORE);',
-                '                placeholder.visible = false;',
+                '                ',
+                '                // CREAR MÁSCARA DE RECORTE (Clipping Mask)',
+                '                pastedLayer.grouped = true;',
+                '                placeholder.visible = true;',
                 '                count++;',
                 '            } catch(e) { }',
                 '        }',
                 '    }',
-                '    alert("Proceso finalizado.\\rFotos inyectadas: " + count);',
+                '    alert("Proceso finalizado.\\rby PUJALTE CREATIVE STUDIO\\r\\rFotos inyectadas: " + count);',
                 '}',
             ].join('\n');
         }
