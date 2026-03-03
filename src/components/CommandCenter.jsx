@@ -48,7 +48,8 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                     let psText = firstName;
                     if (surnames) psText += "\\r" + surnames;
                     if (role) psText += "\\r" + role;
-                    return `createItem(docentesGroup, "${psText}", "staff_${s.id}", ${x}, ${design.dY}, ${docW}, ${design.aH * design.dScale}, ${design.fontSizeDoc}, true);`;
+                    const containerId = s.photoFile || s.id;
+                    return `createItem(docentesGroup, "${psText}", "${containerId}", ${x}, ${design.dY}, ${docW}, ${design.aH * design.dScale}, ${design.fontSizeDoc}, true);`;
                 }).join('\n');
             })() : '// Sin docentes';
 
@@ -78,8 +79,9 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                         const surnames = nameParts.slice(1).join(' ');
                         let psText = firstName;
                         if (surnames) psText += "\\r" + surnames;
+                        const containerId = g.photoFile || g.id;
 
-                        return `createItem(alumnosGroup, "${psText}", "${g.id}", ${x}, ${y}, ${design.aW}, ${design.aH}, ${design.fontSizeAlu}, false);`;
+                        return `createItem(alumnosGroup, "${psText}", "${containerId}", ${x}, ${y}, ${design.aW}, ${design.aH}, ${design.fontSizeAlu}, false);`;
                     }).join('\n');
             })() : '';
 
@@ -184,25 +186,35 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                 '        ',
                 '        if (targetGroup) {',
                 '            try {',
-                '                app.open(file);',
-                '                var photoDoc = app.activeDocument;',
                 '                var isStaff = id.indexOf("staff_") !== -1;',
                 '                var placeholder = targetGroup.artLayers.getByName("PLACEHOLDER");',
                 '                ',
-                '                // Tomamos dimensiones del placeholder para el escalado perfecto',
+                '                // Tomamos dimensiones y POSICIÓN del placeholder ANTES de abrir la foto',
+                '                app.activeDocument = doc;',
                 '                doc.activeLayer = placeholder;',
-                '                var targetW = placeholder.bounds[2] - placeholder.bounds[0];',
-                '                var targetH = placeholder.bounds[3] - placeholder.bounds[1];',
+                '                var pBounds = placeholder.bounds;',
+                '                var targetW = pBounds[2] - pBounds[0];',
+                '                var targetH = pBounds[3] - pBounds[1];',
                 '                ',
+                '                app.open(file);',
+                '                var photoDoc = app.activeDocument;',
                 '                photoDoc.resizeImage(targetW, targetH, 300, ResampleMethod.BICUBICSHARPER);',
                 '                photoDoc.selection.selectAll();',
                 '                photoDoc.selection.copy();',
                 '                photoDoc.close(SaveOptions.DONOTSAVECHANGES);',
                 '                ',
+                '                app.activeDocument = doc;',
                 '                doc.activeLayer = placeholder;',
                 '                var pastedLayer = doc.paste();',
                 '                pastedLayer.name = "FOTO_FINAL";',
+                '                ',
+                '                // ALINEACIÓN EXACTA: Photoshop pega en el centro, lo movemos a la esquina del placeholder',
+                '                var deltaX = pBounds[0] - pastedLayer.bounds[0];',
+                '                var deltaY = pBounds[1] - pastedLayer.bounds[1];',
+                '                pastedLayer.translate(deltaX, deltaY);',
+                '                ',
                 '                pastedLayer.move(placeholder, ElementPlacement.PLACEBEFORE);',
+                '                placeholder.visible = false;',
                 '                count++;',
                 '            } catch(e) { }',
                 '        }',
