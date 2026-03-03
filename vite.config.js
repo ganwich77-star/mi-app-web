@@ -2,6 +2,58 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import obfuscator from 'vite-plugin-javascript-obfuscator';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import { execSync } from 'child_process';
+
+// Plugin: escribe el script JSX directamente en ~/Downloads (evita restricciones del navegador)
+function downloadScriptPlugin() {
+  return {
+    name: 'download-script-api',
+    configureServer(server) {
+      server.middlewares.use('/graduaciones2026/api/download-script', (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end('Method not allowed'); return; }
+        let body = '';
+        req.on('data', chunk => { body += chunk.toString(); });
+        req.on('end', () => {
+          try {
+            const { content, filename } = JSON.parse(body);
+            const filePath = path.join(os.homedir(), 'Downloads', filename);
+            fs.writeFileSync(filePath, content, 'utf8');
+            res.setHeader('Content-Type', 'application/json');
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.end(JSON.stringify({ success: true, filename, path: filePath }));
+          } catch (e) {
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ success: false, error: e.message }));
+          }
+        });
+      });
+
+      // Endpoint 2: revela el fichero en Finder (macOS: open -R)
+      server.middlewares.use('/graduaciones2026/api/reveal-file', (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end('Method not allowed'); return; }
+        let body = '';
+        req.on('data', chunk => { body += chunk.toString(); });
+        req.on('end', () => {
+          try {
+            const { path: filePath } = JSON.parse(body);
+            execSync(`open -R "${filePath}"`);
+            res.setHeader('Content-Type', 'application/json');
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.end(JSON.stringify({ success: true }));
+          } catch (e) {
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ success: false, error: e.message }));
+          }
+        });
+      });
+    }
+  };
+}
 
 export default defineConfig(({ mode }) => ({
   base: '/graduaciones2026/',
@@ -15,6 +67,7 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [
     react({ jsxRuntime: 'automatic' }),
+    downloadScriptPlugin(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
