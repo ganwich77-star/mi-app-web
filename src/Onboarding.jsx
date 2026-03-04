@@ -3,7 +3,7 @@ import { db } from './firebase.js';
 import { doc, setDoc, collection, addDoc } from 'firebase/firestore';
 import {
     GraduationCap, User, Mail, Phone, Building,
-    CheckCircle, ArrowRight, ShieldCheck, Sparkles, Copy, ChevronLeft
+    CheckCircle, ArrowRight, ShieldCheck, Sparkles, Copy, ChevronLeft, CreditCard
 } from 'lucide-react';
 import PricingTiers from './components/PricingTiers.jsx';
 import { NEW_PHOTOGRAPHER_PACKS, NEW_PHOTOGRAPHER_EXTRAS } from './constants.js';
@@ -53,14 +53,18 @@ export default function Onboarding({ onComplete }) {
                 .trim()
                 .replace(/\s+/g, '-')
                 .replace(/[^a-z0-9-]/g, '');
-            setFormData(prev => ({ ...prev, brandName: value, id: slug }));
+            setFormData(prev => ({ ...prev, brandName: value.toUpperCase(), id: slug }));
         } else if (name === 'id') {
             const cleanId = normalizeString(value).toLowerCase()
                 .replace(/\s+/g, '-')
                 .replace(/[^a-z0-9-]/g, '');
             setFormData(prev => ({ ...prev, id: cleanId }));
+        } else if (name === 'email') {
+            setFormData(prev => ({ ...prev, [name]: value.toLowerCase().trim() }));
+        } else if (name === 'phone' || name === 'zip') {
+            setFormData(prev => ({ ...prev, [name]: value.replace(/[^0-9\s+]/g, '') }));
         } else {
-            setFormData(prev => ({ ...prev, [name]: value }));
+            setFormData(prev => ({ ...prev, [name]: value.toUpperCase() }));
         }
     };
 
@@ -175,11 +179,7 @@ export default function Onboarding({ onComplete }) {
                 }
             });
 
-            if (formData.plan !== 'starter') {
-                setShowPaymentModal(true);
-            } else {
-                setStep(4);
-            }
+            setShowPaymentModal(true);
         } catch (error) {
             console.error("Error en registro:", error);
             alert("Hubo un error al registrar. Inténtalo de nuevo.");
@@ -527,7 +527,7 @@ export default function Onboarding({ onComplete }) {
                 </div>
             </div>
 
-            {/* Modal de Pago por Transferencia */}
+            {/* Modal de Pago / Aviso Plan */}
             {showPaymentModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-xl animate-fade-in">
                     <div className="w-full max-w-lg bg-slate-900 border border-indigo-500/30 rounded-[40px] shadow-2xl shadow-indigo-500/10 overflow-hidden animate-slide-up">
@@ -536,51 +536,53 @@ export default function Onboarding({ onComplete }) {
                                 <ShieldCheck className="text-indigo-400" size={32} />
                             </div>
                             <div className="text-center space-y-2">
-                                <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Último paso: Pago</h3>
-                                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest leading-relaxed">
-                                    Para activar tu suscripción, realiza una transferencia bancaria.
+                                <h3 className="text-2xl font-black text-white uppercase tracking-tighter">PLAN {formData.plan.toUpperCase()}</h3>
+                                <p className="text-slate-400 text-[10px] sm:text-xs font-bold uppercase tracking-widest leading-relaxed">
+                                    Has seleccionado el plan <span className="text-indigo-400 font-black">{formData.plan.toUpperCase()}</span>
                                 </p>
                             </div>
 
-                            <div className="bg-slate-950/50 p-6 rounded-3xl border border-white/5 space-y-4">
-                                <div>
-                                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">Titular</p>
-                                    <p className="text-white font-bold text-lg uppercase tracking-wider">JOSE PUJALTE MOLINA</p>
+                            {formData.plan === 'flex' ? (
+                                <div className="bg-slate-950/50 p-6 rounded-3xl border border-white/5 space-y-4 text-center">
+                                    <p className="text-slate-300 text-sm font-bold leading-relaxed px-2">
+                                        Con este plan podrás usar la plataforma <span className="text-emerald-400">sin restricciones</span>, excepto entrar a la sección de edición de orla, hasta que pagues por los niños listados.
+                                    </p>
                                 </div>
-                                <div>
-                                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">IBAN</p>
-                                    <div className="flex items-center justify-between gap-4">
-                                        <p className="text-indigo-400 font-mono font-black text-[15px] sm:text-lg tracking-widest">ES75 0081 1117 1100 0113 4919</p>
-                                        <button
-                                            onClick={() => {
-                                                navigator.clipboard.writeText("ES7500811117110001134919");
-                                                setCopyStatus(true);
-                                                setTimeout(() => setCopyStatus(false), 2000);
-                                            }}
-                                            className="p-2.5 bg-indigo-500/20 rounded-xl text-indigo-400 hover:bg-indigo-500 hover:text-white transition-all shrink-0"
-                                        >
-                                            {copyStatus ? <CheckCircle size={16} /> : <Copy size={16} />}
-                                        </button>
-                                    </div>
+                            ) : (
+                                <div className="bg-slate-950/50 p-6 rounded-3xl border border-white/5 space-y-4 text-center">
+                                    <p className="text-slate-300 text-sm font-bold leading-relaxed px-2">
+                                        El importe total de tu plan <span className="text-indigo-400 font-black">{formData.plan.toUpperCase()}</span> es de <span className="text-white font-black text-lg">{formData.plan === 'starter' ? '149€' : formData.plan === 'pro' ? '449€' : '0€'}</span>.
+                                    </p>
+                                    <p className="text-emerald-400 text-xs font-black uppercase tracking-widest">
+                                        Puedes realizar el pago por la pasarela segura directamente
+                                    </p>
                                 </div>
-                                <div className="pt-4 border-t border-white/5">
-                                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">Concepto Recomendado</p>
-                                    <p className="text-white font-bold text-sm uppercase tracking-wider">PAGO APP ORLAS - {formData.brandName}</p>
-                                </div>
-                            </div>
+                            )}
 
                             <div className="pt-4 space-y-3">
-                                <button
-                                    onClick={() => {
-                                        setShowPaymentModal(false);
-                                        setStep(4);
-                                    }}
-                                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black text-base uppercase tracking-widest rounded-3xl py-5 shadow-2xl shadow-emerald-500/20 transition-all active:scale-95 flex items-center justify-center gap-3"
-                                >
-                                    He realizado el pago <CheckCircle size={20} />
-                                </button>
+                                {formData.plan === 'flex' ? (
+                                    <button
+                                        onClick={() => {
+                                            setShowPaymentModal(false);
+                                            setStep(4);
+                                        }}
+                                        className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black text-base uppercase tracking-widest rounded-3xl py-5 shadow-2xl shadow-indigo-500/20 transition-all active:scale-95 flex items-center justify-center gap-3"
+                                    >
+                                        ACTIVAR GRATIS <CheckCircle size={20} />
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={() => {
+                                            setShowPaymentModal(false);
+                                            setStep(4);
+                                        }}
+                                        className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[13px] sm:text-sm uppercase tracking-widest rounded-3xl py-5 shadow-2xl shadow-emerald-500/20 transition-all active:scale-95 flex items-center justify-center gap-3"
+                                    >
+                                        PAGAR POR PASARELA SEGURA <CreditCard size={20} />
+                                    </button>
+                                )}
                                 <p className="text-center text-[10px] text-slate-500 font-black uppercase tracking-widest leading-relaxed px-4 opacity-70">
-                                    Una vez validemos el cobro, tu cuenta quedará al día.
+                                    {formData.plan === 'flex' ? 'Sin pago inicial requerido. Pagas por alumno.' : 'Conexión 100% segura y cifrada para tu plataforma.'}
                                 </p>
                             </div>
                         </div>
