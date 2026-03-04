@@ -284,7 +284,7 @@ export default function MasterPanel({ onBack }) {
                     <div className="grid grid-cols-2 md:flex md:justify-center gap-3 md:gap-4 relative z-10 w-full lg:w-auto">
                         <button
                             onClick={() => {
-                                const url = `https://basecode.es/graduaciones2026/?f=demo_photographer&view=user&demo=true`;
+                                const url = `${window.location.origin}${import.meta.env.BASE_URL}?f=demo_photographer&view=user&demo=true`;
                                 window.open(url, '_blank');
                             }}
                             className="bg-indigo-600 px-4 md:px-6 py-4 rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl shadow-indigo-500/20 hover:bg-indigo-500 transition-all active:scale-95 min-h-[48px]"
@@ -294,7 +294,7 @@ export default function MasterPanel({ onBack }) {
 
                         <button
                             onClick={() => {
-                                const url = `https://basecode.es/graduaciones2026/?f=demo_photographer&view=user&demo=true`;
+                                const url = `${window.location.origin}${import.meta.env.BASE_URL}?f=demo_photographer&view=user&demo=true`;
                                 navigator.clipboard.writeText(url);
                             }}
                             className="bg-slate-900 border border-white/10 px-4 md:px-6 py-4 rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-slate-800 transition-all active:scale-95 min-h-[48px]"
@@ -304,7 +304,7 @@ export default function MasterPanel({ onBack }) {
 
                         <button
                             onClick={() => {
-                                const url = `https://basecode.es/graduaciones2026/?f=demo_photographer&view=user&demo=true`;
+                                const url = `${window.location.origin}${import.meta.env.BASE_URL}?f=demo_photographer&view=user&demo=true`;
                                 const msg = `¡Hola! He pensado que te gustaría probar la nueva app de gestión de orlas que estoy usando. Te paso el enlace a la versión demo para que le eches un vistazo:\n\n🔗 ${url}\n\n¡Ya me dirás qué te parece!`;
                                 window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
                             }}
