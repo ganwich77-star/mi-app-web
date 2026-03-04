@@ -671,6 +671,11 @@ export default function App() {
     const getSchoolName = (schoolId) => schools.find(s => s.id === schoolId)?.name || '';
 
     const handleFinalize = async () => {
+        if (settings?.plan === 'starter' && orders.length >= 100) {
+            alert('El PLAN STARTER permite un máximo de 100 alumnos. Pásate al plan PRO si necesitas alumnos ilimitados.');
+            return;
+        }
+
         const extrasDesc = getExtrasDesc();
         const packsDesc = getPacksDesc();
         const mainPackId = Object.keys(selectedPacks)[0];
@@ -2193,6 +2198,10 @@ export default function App() {
                                                             <button
                                                                 disabled={!newStudentForm.name.trim() || !newStudentForm.course || (newStudentForm.phone && newStudentForm.phone.length < 9)}
                                                                 onClick={() => {
+                                                                    if (settings?.plan === 'starter' && orders.length >= 100) {
+                                                                        alert('El PLAN STARTER permite un máximo de 100 alumnos. Pásate al plan PRO si necesitas alumnos ilimitados.');
+                                                                        return;
+                                                                    }
                                                                     const fullCourse = `${newStudentForm.course}${newStudentForm.group ? ' ' + newStudentForm.group.toUpperCase() : ''}`;
                                                                     const sid = newStudentForm.schoolId || adminSchool;
                                                                     const newOrder = {
@@ -3138,6 +3147,10 @@ export default function App() {
                                                                 placeholder="Escribe o elige un centro..."
                                                                 onKeyDown={e => {
                                                                     if (e.key === 'Enter' && newSchoolName.trim()) {
+                                                                        if (settings?.plan === 'starter' && sortedSchools.length >= 2) {
+                                                                            alert('El PLAN STARTER permite un máximo de 2 centros/colegios. Pásate al plan PRO si necesitas colegios ilimitados.');
+                                                                            return;
+                                                                        }
                                                                         addSchool(newSchoolName.trim());
                                                                         setNewSchoolName('');
                                                                     }
@@ -3151,6 +3164,10 @@ export default function App() {
                                                             <button
                                                                 onClick={() => {
                                                                     if (newSchoolName.trim()) {
+                                                                        if (settings?.plan === 'starter' && sortedSchools.length >= 2) {
+                                                                            alert('El PLAN STARTER permite un máximo de 2 centros/colegios. Pásate al plan PRO si necesitas colegios ilimitados.');
+                                                                            return;
+                                                                        }
                                                                         addSchool(newSchoolName.trim());
                                                                         setNewSchoolName('');
                                                                     }

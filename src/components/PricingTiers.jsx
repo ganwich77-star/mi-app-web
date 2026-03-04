@@ -69,7 +69,7 @@ export default function PricingTiers(props) {
             color: 'text-emerald-400',
             bg: 'bg-emerald-400/10',
             border: 'border-emerald-500/30',
-            features: ['Pago por uso real', 'Todas las funciones pro', 'Sin compromiso anual'],
+            features: ['Soporte Estándar (Email)', 'Todas las funciones pro', 'Sin permanencia'],
             highlight: false
         },
         {
@@ -82,7 +82,7 @@ export default function PricingTiers(props) {
             color: 'text-amber-400',
             bg: 'bg-amber-400/10',
             border: 'border-amber-500/30',
-            features: ['Hasta 100 alumnos', 'Ahorro: 1,49€ media/alumno', 'Soporte prioritario'],
+            features: ['Máximo 100 Alumnos', 'Máximo 2 Colegios/Centros', 'Soporte Prioritario WhatsApp'],
             highlight: false
         },
         {
@@ -95,7 +95,7 @@ export default function PricingTiers(props) {
             color: 'text-blue-400',
             bg: 'bg-blue-400/10',
             border: 'border-blue-500/50',
-            features: ['Alumnos ilimitados', 'Ahorro: 0,89€ media/alumno', 'Gestión multi-colegio avanzada'],
+            features: ['Alumnos Ilimitados', 'Colegios Ilimitados', 'Gestión Multicolegio Avanzada'],
             highlight: true,
             badge: getBonusMessage('pro') || 'MÁS POPULAR'
         },
@@ -140,12 +140,12 @@ export default function PricingTiers(props) {
                             </div>
                         ) : null}
 
-                        <div className="relative z-10 space-y-2">
+                        <div className="relative z-10 space-y-4">
                             <div className="flex items-center justify-between">
-                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${plan.bg} ${plan.color} ${plan.border}`}>
-                                    <plan.icon size={16} />
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${plan.bg} ${plan.color} ${plan.border}`}>
+                                    <plan.icon size={20} />
                                 </div>
-                                <span className={`text-[8px] font-black uppercase tracking-tighter ${plan.color}`}>
+                                <span className={`text-xl sm:text-2xl font-black uppercase tracking-tight ${plan.color}`}>
                                     {plan.name}
                                 </span>
                             </div>
