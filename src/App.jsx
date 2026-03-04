@@ -3,7 +3,7 @@ import { db, functions } from './firebase.js';
 import { collection, addDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import {
-    GraduationCap, User, CreditCard, Plus, Minus, CheckCircle,
+    GraduationCap, User, CreditCard, Smartphone, Plus, Minus, CheckCircle,
     Download, Settings, Search, DollarSign, Euro, BarChart3, Copy,
     MessageSquare, ChevronRight, Lock, Shield, Package, Sparkles, Gift, Mail, Phone,
     TrendingUp, Users, Trash2, Edit, Sun, Moon, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, Database, Upload, AlertTriangle, Share,
@@ -235,6 +235,8 @@ export default function App() {
     const [pinInput, setPinInput] = useState('');
     const [showLegalModal, setShowLegalModal] = useState(false);
     const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+    const [showConditionsModal, setShowConditionsModal] = useState(false);
+    const [showAvisoLegalModal, setShowAvisoLegalModal] = useState(false);
     const [pinError, setPinError] = useState(false);
     const [isAdminUnlocked, setIsAdminUnlocked] = useState(() => {
         const params = new URLSearchParams(window.location.search);
@@ -1734,14 +1736,18 @@ export default function App() {
                                                         <h3 className="text-[10px] font-black text-primary/30 uppercase tracking-[0.25em] text-center italic">Elige método de pago</h3>
                                                         {enabledPaymentMethods.length > 0 ? (
                                                             <div className="flex flex-wrap justify-center gap-3">
-                                                                {enabledPaymentMethods.map(m => (
+                                                                {enabledPaymentMethods.filter(m => m.id !== 'efectivo').map(m => (
                                                                     <button
                                                                         key={m.id}
                                                                         onClick={() => setFormData({ ...formData, paymentMethod: m.id })}
-                                                                        className={`flex items-center gap-3 px-6 py-4 rounded-[28px] border-2 transition-all duration-300 active:scale-95 ${formData.paymentMethod === m.id ? 'border-accent bg-accent/5 text-accent shadow-xl shadow-accent/10 scale-105' : 'border-primary/5 bg-primary/5 text-secondary/60 hover:bg-primary/10'}`}
+                                                                        className={`flex items-center gap-3 px-6 py-4 rounded-full border-2 transition-all duration-300 active:scale-95 ${formData.paymentMethod === m.id ? 'border-blue-600 bg-blue-50/20 text-blue-600 shadow-xl shadow-blue-500/10 scale-105' : 'border-primary/5 bg-primary/5 text-secondary/60 hover:bg-primary/10'}`}
                                                                     >
-                                                                        <span className="text-2xl">{m.icon || (m.id === 'bizum' ? '📲' : '💳')}</span>
-                                                                        <span className="text-[11px] font-black uppercase tracking-widest">{m.label}</span>
+                                                                        {m.id === 'card' ? <CreditCard size={18} className={formData.paymentMethod === m.id ? 'text-blue-600' : 'text-slate-400'} /> :
+                                                                            m.id === 'bizum' ? <Smartphone size={18} className={formData.paymentMethod === m.id ? 'text-blue-600' : 'text-slate-400'} /> :
+                                                                                <span className="text-xl">{m.icon}</span>}
+                                                                        <span className="text-[11px] font-black uppercase tracking-widest leading-none">
+                                                                            {m.id === 'card' ? 'TARJETA' : m.label.replace('💳', '').replace('📲', '').trim().toUpperCase()}
+                                                                        </span>
                                                                     </button>
                                                                 ))}
                                                             </div>
@@ -1749,25 +1755,24 @@ export default function App() {
                                                     </div>
 
                                                     {/* Información Legal Integrada (Muy sutil) */}
-                                                    {/* Información Legal Integrada (Muy sutil) */}
-                                                    {(formData.paymentMethod === 'card' || formData.paymentMethod === 'bizum' || formData.paymentMethod === 'tarjeta') && (
-                                                        <div className="pt-5 border-t border-primary/10 animate-fade-in text-center space-y-4">
-                                                            <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 opacity-30 grayscale saturate-0">
-                                                                <img src="https://upload.wikimedia.org/wikipedia/commons/5/5e/Visa_Inc._logo.svg" alt="Visa" className="h-3" />
-                                                                <img src="https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg" alt="Mastercard" className="h-5" />
-                                                                <div className="flex items-center gap-1 border border-primary/20 px-1.5 rounded text-[8px] font-bold">
-                                                                    <Shield size={10} /> SECURE WEB
+                                                    {(formData.paymentMethod === 'card' || formData.paymentMethod === 'bizum') && (
+                                                        <div className="pt-6 pb-2 border-t border-blue-500/10 animate-fade-in text-center space-y-5 bg-gradient-to-b from-blue-500/[0.02] to-transparent rounded-[32px]">
+                                                            <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-4">
+                                                                <img src="/graduaciones2026/visa.png" alt="Visa" className="h-7 hover:scale-110 transition-transform cursor-help" />
+                                                                <img src="https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg" alt="Mastercard" className="h-7 hover:scale-110 transition-transform cursor-help" />
+                                                                <div className="flex items-center gap-1.5 border-2 border-green-500/20 px-2 py-1 rounded-lg text-[9px] font-black text-green-600 bg-green-500/5 shadow-sm">
+                                                                    <Shield size={12} /> SECURE WEB
                                                                 </div>
-                                                                <span className="text-[9px] font-bold uppercase tracking-tighter">
-                                                                    {(settings.fiscalName || 'Pujalte Fotografía').toUpperCase()} · CIF: {settings.cif || '48443916M'}
+                                                                <span className="text-[10px] font-black uppercase tracking-tighter text-slate-500">
+                                                                    {(settings.fiscalName || 'JOSE PUJALTE MOLINA').toUpperCase()} · CIF: {settings.cif || '48427310M'}
                                                                 </span>
                                                             </div>
-                                                            <div className="text-[9px] font-bold opacity-40">
-                                                                {settings.address || 'Calle Mayor 1'}, {settings.city || 'Elche'} · España
+                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                                                {settings.address || 'C/ CHILE, 21, LAS TORRES DE COTILLAS'} · ESPAÑA
                                                             </div>
-                                                            <div className="flex justify-center gap-6 text-[10px] font-bold opacity-50">
-                                                                <span className="underline cursor-pointer hover:text-primary transition-colors">Aviso Legal</span>
-                                                                <span className="underline cursor-pointer hover:text-primary transition-colors">Condiciones</span>
+                                                            <div className="flex justify-center gap-10 text-[10px] font-black tracking-[0.25em] pt-1">
+                                                                <span onClick={() => setShowAvisoLegalModal(true)} className="text-blue-600 underline underline-offset-4 cursor-pointer hover:text-blue-400 transition-all decoration-blue-500/30 uppercase">Aviso Legal</span>
+                                                                <span onClick={() => setShowConditionsModal(true)} className="text-indigo-600 underline underline-offset-4 cursor-pointer hover:text-indigo-400 transition-all decoration-indigo-500/30 uppercase">Condiciones</span>
                                                             </div>
                                                         </div>
                                                     )}
@@ -1930,9 +1935,11 @@ export default function App() {
                                             <div className="flex items-center justify-center md:justify-start gap-2 mb-1">
                                                 <Shield size={10} className="text-amber-500 md:size-[14px]" />
                                                 <span className="text-[7px] md:text-[10px] font-black text-amber-500 uppercase tracking-widest leading-none">Panel de Control</span>
-                                                <div className="px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/20 rounded text-[6px] md:text-[8px] font-black text-amber-600 uppercase tracking-tighter ml-1 leading-none shadow-sm">
-                                                    MASTER
-                                                </div>
+                                                {isCreator && (
+                                                    <div className="px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/20 rounded text-[6px] md:text-[8px] font-black text-amber-600 uppercase tracking-tighter ml-1 leading-none shadow-sm">
+                                                        MASTER
+                                                    </div>
+                                                )}
                                             </div>
                                             <h2 className="text-xl md:text-3xl font-black tracking-tight uppercase md:normal-case mt-1 text-primary">Gestión Estratégica</h2>
                                         </div>
@@ -2181,6 +2188,7 @@ export default function App() {
                                                                 <option value="" disabled className="text-primary">FORMA DE PAGO</option>
                                                                 <option value="Efectivo" className="text-primary">Efectivo</option>
                                                                 <option value="Bizum" className="text-primary">Bizum</option>
+                                                                <option value="Tarjeta de Crédito / TPV" className="text-primary">Tarjeta de Crédito / TPV</option>
                                                             </select>
                                                             <button
                                                                 disabled={!newStudentForm.name.trim() || !newStudentForm.course || (newStudentForm.phone && newStudentForm.phone.length < 9)}
@@ -3075,6 +3083,7 @@ export default function App() {
                                                                     className="w-full bg-primary/5 border border-primary/10 text-primary text-xs font-bold rounded-xl px-4 py-3 outline-none">
                                                                     <option value="Bizum" className="text-slate-900">Bizum</option>
                                                                     <option value="Efectivo" className="text-slate-900">Efectivo</option>
+                                                                    <option value="Tarjeta de Crédito / TPV" className="text-slate-900">Tarjeta de Crédito / TPV</option>
                                                                 </select>
                                                             </div>
                                                         </div>
@@ -4243,48 +4252,50 @@ export default function App() {
                                                             position: 'relative'
                                                         }}>
                                                             {/* COTAS (INDICADORES DE TAMAÑO) */}
-                                                            {/* COTA ANCHO (W) */}
-                                                            <div className="absolute pointer-events-none flex flex-col items-center"
-                                                                style={{
-                                                                    left: '50%',
-                                                                    bottom: 'calc(50% + ' + (configOrla.canvasH / 20 * (isFullScreenDesign ? (window.innerWidth < 1024 ? canvasZoom * 0.75 : canvasZoom * 1.5) : Math.min(1, ((canvasContainerRef?.current?.offsetWidth || window.innerWidth) - 80) / (configOrla.canvasW / 10)))) + 'px + 10px)',
-                                                                    transform: isFullScreenDesign ? `translate(calc(-50% + ${panOffset.x}px), ${panOffset.y}px)` : 'translateX(-50%)',
-                                                                    width: isFullScreenDesign ? (configOrla.canvasW / 10 * (window.innerWidth < 1024 ? canvasZoom * 0.75 : canvasZoom * 1.5)) + 'px' : (configOrla.canvasW / 10 * Math.min(1, ((canvasContainerRef?.current?.offsetWidth || window.innerWidth) - 80) / (configOrla.canvasW / 10))) + 'px',
-                                                                    zIndex: 60
-                                                                }}>
-                                                                <div className="flex items-center w-full">
-                                                                    <div className="w-0 h-0 border-y-[4px] border-y-transparent border-r-[8px] border-r-violet-600/60" />
-                                                                    <div className="h-[1px] flex-1 bg-violet-600/30" />
-                                                                    <span className="text-[10px] font-black text-white bg-violet-600 px-2 py-0.5 rounded-full shadow-lg whitespace-nowrap mx-2">
-                                                                        W: {(pxToMm(configOrla.canvasW, configOrla.dpi) / 10).toFixed(1)} CM
-                                                                    </span>
-                                                                    <div className="h-[1px] flex-1 bg-violet-600/30" />
-                                                                    <div className="w-0 h-0 border-y-[4px] border-y-transparent border-l-[8px] border-l-violet-600/60" />
-                                                                </div>
-                                                            </div>
+                                                            {isFullScreenDesign && (
+                                                                <>
+                                                                    {/* COTA ANCHO (W) */}
+                                                                    <div className="absolute pointer-events-none flex flex-col items-center"
+                                                                        style={{
+                                                                            left: '50%',
+                                                                            bottom: 'calc(50% + ' + (configOrla.canvasH / 20 * (isFullScreenDesign ? (window.innerWidth < 1024 ? canvasZoom * 0.75 : canvasZoom * 1.5) : Math.min(1, ((canvasContainerRef?.current?.offsetWidth || window.innerWidth) - 80) / (configOrla.canvasW / 10)))) + 'px + 10px)',
+                                                                            transform: `translate(calc(-50% + ${panOffset.x}px), ${panOffset.y}px)`,
+                                                                            width: (configOrla.canvasW / 10 * (window.innerWidth < 1024 ? canvasZoom * 0.75 : canvasZoom * 1.5)) + 'px',
+                                                                            zIndex: 60
+                                                                        }}>
+                                                                        <div className="flex items-center w-full">
+                                                                            <div className="w-0 h-0 border-y-[4px] border-y-transparent border-r-[8px] border-r-violet-600/60" />
+                                                                            <div className="h-[1px] flex-1 bg-violet-600/30" />
+                                                                            <span className="text-[10px] font-black text-white bg-violet-600 px-2 py-0.5 rounded-full shadow-lg whitespace-nowrap mx-2">
+                                                                                W: {(pxToMm(configOrla.canvasW, configOrla.dpi) / 10).toFixed(1)} CM
+                                                                            </span>
+                                                                            <div className="h-[1px] flex-1 bg-violet-600/30" />
+                                                                            <div className="w-0 h-0 border-y-[4px] border-y-transparent border-l-[8px] border-l-violet-600/60" />
+                                                                        </div>
+                                                                    </div>
 
-                                                            {/* COTA ALTO (H) */}
-                                                            <div className="absolute pointer-events-none flex items-center justify-center"
-                                                                style={{
-                                                                    top: '50%',
-                                                                    right: 'calc(50% + ' + (configOrla.canvasW / 20 * (isFullScreenDesign ? (window.innerWidth < 1024 ? canvasZoom * 0.75 : canvasZoom * 1.5) : Math.min(1, ((canvasContainerRef?.current?.offsetWidth || window.innerWidth) - 80) / (configOrla.canvasW / 10)))) + 'px + 10px)',
-                                                                    transformOrigin: 'right center',
-                                                                    transform: isFullScreenDesign
-                                                                        ? `translate(${panOffset.x}px, calc(-50% + ${panOffset.y}px)) rotate(-90deg)`
-                                                                        : 'translateY(-50%) rotate(-90deg)',
-                                                                    width: isFullScreenDesign ? (configOrla.canvasH / 10 * (window.innerWidth < 1024 ? canvasZoom * 0.75 : canvasZoom * 1.5)) + 'px' : (configOrla.canvasH / 10 * Math.min(1, ((canvasContainerRef?.current?.offsetWidth || window.innerWidth) - 80) / (configOrla.canvasW / 10))) + 'px',
-                                                                    zIndex: 60
-                                                                }}>
-                                                                <div className="flex items-center w-full">
-                                                                    <div className="w-0 h-0 border-y-[4px] border-y-transparent border-r-[8px] border-r-violet-600/60" />
-                                                                    <div className="h-[1px] flex-1 bg-violet-600/30" />
-                                                                    <span className="text-[10px] font-black text-white bg-violet-600 px-2 py-0.5 rounded-full shadow-lg whitespace-nowrap mx-2">
-                                                                        H: {(pxToMm(configOrla.canvasH, configOrla.dpi) / 10).toFixed(1)} CM
-                                                                    </span>
-                                                                    <div className="h-[1px] flex-1 bg-violet-600/30" />
-                                                                    <div className="w-0 h-0 border-y-[4px] border-y-transparent border-l-[8px] border-l-violet-600/60" />
-                                                                </div>
-                                                            </div>
+                                                                    {/* COTA ALTO (H) */}
+                                                                    <div className="absolute pointer-events-none flex items-center justify-center"
+                                                                        style={{
+                                                                            top: '50%',
+                                                                            left: 'calc(50% - ' + (configOrla.canvasW / 20 * (isFullScreenDesign ? (window.innerWidth < 1024 ? canvasZoom * 0.75 : canvasZoom * 1.5) : Math.min(1, ((canvasContainerRef?.current?.offsetWidth || window.innerWidth) - 80) / (configOrla.canvasW / 10)))) + 'px - 15px)',
+                                                                            transformOrigin: 'center center',
+                                                                            transform: `translate(calc(-50% + ${panOffset.x}px), calc(-50% + ${panOffset.y}px)) rotate(-90deg)`,
+                                                                            width: (configOrla.canvasH / 10 * (window.innerWidth < 1024 ? canvasZoom * 0.75 : canvasZoom * 1.5)) + 'px',
+                                                                            zIndex: 60
+                                                                        }}>
+                                                                        <div className="flex items-center w-full">
+                                                                            <div className="w-0 h-0 border-y-[4px] border-y-transparent border-r-[8px] border-r-violet-600/60" />
+                                                                            <div className="h-[1px] flex-1 bg-violet-600/30" />
+                                                                            <span className="text-[10px] font-black text-white bg-violet-600 px-2 py-0.5 rounded-full shadow-lg whitespace-nowrap mx-2">
+                                                                                H: {(pxToMm(configOrla.canvasH, configOrla.dpi) / 10).toFixed(1)} CM
+                                                                            </span>
+                                                                            <div className="h-[1px] flex-1 bg-violet-600/30" />
+                                                                            <div className="w-0 h-0 border-y-[4px] border-y-transparent border-l-[8px] border-l-violet-600/60" />
+                                                                        </div>
+                                                                    </div>
+                                                                </>
+                                                            )}
                                                             <div className="relative bg-white shadow-[0_0_100px_rgba(0,0,0,0.5)] rounded-sm overflow-hidden"
                                                                 style={{
                                                                     width: configOrla.canvasW / 10 + 'px',
@@ -4320,8 +4331,12 @@ export default function App() {
                                                                     if (!isSelectionComplete) {
                                                                         return (
                                                                             <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-50/50 backdrop-blur-[2px] z-50">
-                                                                                <div className="w-16 h-16 bg-violet-500/10 rounded-full flex items-center justify-center text-violet-500 mb-4 animate-bounce">
-                                                                                    <LayoutGrid size={32} />
+                                                                                <div className="w-24 h-24 bg-violet-500/10 rounded-full flex items-center justify-center mb-4 animate-bounce p-4 border border-violet-500/20 shadow-[0_0_30px_rgba(139,92,246,0.2)]">
+                                                                                    {settings?.logoUrl ? (
+                                                                                        <img src={settings.logoUrl} alt="Logo" className="w-full h-full object-contain drop-shadow-md" />
+                                                                                    ) : (
+                                                                                        <LayoutGrid size={32} className="text-violet-500" />
+                                                                                    )}
                                                                                 </div>
                                                                                 <p className="text-[10px] font-black text-violet-600 uppercase tracking-[0.2em] animate-pulse px-10 text-center">
                                                                                     {!designFilter.school ? "Selecciona el Centro" : !designFilter.course ? "Selecciona el Curso" : "Selecciona el Grupo"}
@@ -4907,6 +4922,115 @@ export default function App() {
                                     </div>
                                     <div className="p-8 bg-primary/2 border-t border-primary/5">
                                         <button onClick={() => setShowPrivacyModal(false)} className="w-full h-[60px] bg-accent text-card font-black rounded-2xl hover:shadow-xl hover:shadow-accent/20 transition-all active:scale-[0.98] uppercase tracking-[0.2em] text-sm">Entendido y Cerrar</button>
+                                    </div>
+                                </div>
+                            </div>
+                        )
+                    }
+                    {/* MODAL CONDICIONES DE VENTA Y DEVOLUCIONES */}
+                    {
+                        showConditionsModal && (
+                            <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-fade-in text-left">
+                                <div className="relative w-full max-w-[600px] bg-champagne rounded-[40px] border border-white/20 overflow-hidden shadow-[0_30px_100px_rgba(0,0,0,0.8)] animate-scale-in">
+                                    <div className="p-8 md:p-10 max-h-[80vh] overflow-y-auto custom-scrollbar">
+                                        <div className="flex items-center justify-between mb-8 sticky top-0 bg-transparent backdrop-blur-md pb-4 z-10 border-b border-primary/5">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-12 h-12 bg-indigo-600/10 rounded-2xl flex items-center justify-center text-indigo-600"><FileText size={24} /></div>
+                                                <div>
+                                                    <h3 className="text-lg font-black text-primary uppercase tracking-tighter">Condiciones de Venta</h3>
+                                                    <p className="text-[10px] text-secondary font-black uppercase tracking-widest opacity-60">Política de Devoluciones Incluida</p>
+                                                </div>
+                                            </div>
+                                            <button onClick={() => setShowConditionsModal(false)} className="w-10 h-10 flex items-center justify-center rounded-full bg-primary/5 text-secondary hover:text-primary transition-all active:scale-90"><X size={20} /></button>
+                                        </div>
+
+                                        <div className="space-y-8 text-[12px] text-secondary leading-relaxed font-medium">
+                                            <div className="space-y-2 border-l-4 border-indigo-600 pl-4 py-1">
+                                                <h4 className="font-black text-primary uppercase tracking-widest text-[13px]">Pujalte Creative Studio</h4>
+                                                <p>Este documento establece las condiciones que regulan la compra de los packs fotográficos de graduación a través de la plataforma www.pujaltefotografia.es.</p>
+                                            </div>
+
+                                            <section className="space-y-3">
+                                                <h5 className="font-black text-primary uppercase tracking-tighter flex items-center gap-2 text-[11px]"><span className="w-5 h-5 bg-primary/5 rounded flex items-center justify-center text-[10px]">1</span> Identificación del Responsable</h5>
+                                                <ul className="space-y-1.5 list-none pl-1">
+                                                    <li><strong>Titular:</strong> {settings.fiscalName || 'JOSE PUJALTE MOLINA'}</li>
+                                                    <li><strong>CIF/NIF:</strong> {settings.cif || '48427310M'}</li>
+                                                    <li><strong>Domicilio Social:</strong> {settings.address || 'C/ CHILE, 21, LAS TORRES DE COTILLAS'}</li>
+                                                    <li><strong>Email de contacto:</strong> hola@pujaltefotografia.es</li>
+                                                    <li><strong>Teléfono:</strong> +34 650 494 728</li>
+                                                </ul>
+                                            </section>
+
+                                            <section className="space-y-3">
+                                                <h5 className="font-black text-primary uppercase tracking-tighter flex items-center gap-2 text-[11px]"><span className="w-5 h-5 bg-primary/5 rounded flex items-center justify-center text-[10px]">2</span> Naturaleza del Producto</h5>
+                                                <p>Los productos ofrecidos consisten en packs de fotografía de graduación (Orlas, Retratos, Soportes en Foam e Imanes) que se confeccionan de forma exclusiva y personalizada con la imagen y los datos del alumno/a indicados por el cliente.</p>
+                                            </section>
+
+                                            <section className="space-y-3">
+                                                <h5 className="font-black text-primary uppercase tracking-tighter flex items-center gap-2 text-[11px]"><span className="w-5 h-5 bg-primary/5 rounded flex items-center justify-center text-[10px]">3</span> Precios e Impuestos</h5>
+                                                <p>Todos los precios indicados en nuestra aplicación incluyen el IVA aplicable (21%). El precio final visualizado antes de realizar el pago es el importe total de la operación.</p>
+                                            </section>
+
+                                            <section className="space-y-3">
+                                                <h5 className="font-black text-primary uppercase tracking-tighter flex items-center gap-2 text-[11px]"><span className="w-5 h-5 bg-primary/5 rounded flex items-center justify-center text-[10px]">4</span> Métodos de Pago</h5>
+                                                <p>Se aceptan pagos mediante Tarjeta de Crédito/Débito y Bizum a través de plataformas bancarias seguras.</p>
+                                            </section>
+
+                                            <div className="p-6 bg-red-500/5 border border-red-500/10 rounded-[30px] space-y-4">
+                                                <h5 className="font-black text-red-600 uppercase tracking-tighter flex items-center gap-2 text-[11px] leading-tight">⚖️ Política de Devoluciones y Desistimiento</h5>
+                                                <p className="text-[11px] font-bold">De acuerdo con el Artículo 103 de la Ley 3/2014, el derecho de desistimiento no será aplicable a bienes confeccionados conforme a las especificaciones del consumidor o claramente personalizados.</p>
+                                                <p className="text-[11px]">Al tratarse de productos fotográficos personalizados, no se admitirá la devolución una vez el pedido haya pasado a producción.</p>
+                                                <div className="pt-3 border-t border-red-500/10 space-y-2">
+                                                    <p className="font-black text-red-600 text-[10px] uppercase">Excepciones:</p>
+                                                    <ul className="list-disc pl-4 text-[10px] space-y-1">
+                                                        <li>Defectos de Fabricación (14 días naturales para reclamar).</li>
+                                                        <li>Errores en el Nombre: La responsabilidad recae en el cliente al introducirlo.</li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+
+                                            <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 text-center pt-4">Pujalte Creative Studio — Campaña Graduaciones 2026</p>
+                                        </div>
+                                    </div>
+                                    <div className="p-8 bg-white/20 border-t border-white/30 backdrop-blur-md">
+                                        <button onClick={() => setShowConditionsModal(false)} className="w-full h-[60px] bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-500 transition-all active:scale-[0.98] uppercase tracking-[0.2em] shadow-xl shadow-indigo-600/20">Aceptar y Cerrar</button>
+                                    </div>
+                                </div>
+                            </div>
+                        )
+                    }
+
+                    {/* MODAL AVISO LEGAL */}
+                    {
+                        showAvisoLegalModal && (
+                            <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-fade-in text-left">
+                                <div className="relative w-full max-w-[500px] bg-card rounded-[40px] border border-primary/10 overflow-hidden shadow-[0_30px_100px_rgba(0,0,0,0.8)] animate-scale-in">
+                                    <div className="p-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                                        <div className="flex items-center justify-between mb-8">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 bg-blue-600/10 rounded-xl flex items-center justify-center text-blue-600"><Shield size={20} /></div>
+                                                <h3 className="text-lg font-black text-primary uppercase tracking-[0.2em]">Aviso Legal</h3>
+                                            </div>
+                                            <button onClick={() => setShowAvisoLegalModal(false)} className="w-10 h-10 flex items-center justify-center rounded-full bg-primary/5 text-secondary hover:text-primary transition-all active:scale-90"><X size={20} /></button>
+                                        </div>
+
+                                        <div className="space-y-6 text-[11px] text-secondary/80 leading-relaxed font-bold uppercase tracking-widest">
+                                            <div className="p-6 bg-primary/2 rounded-3xl border border-primary/5 space-y-4">
+                                                <p className="text-primary border-b border-primary/5 pb-2">1. INFORMACIÓN GENERAL</p>
+                                                <p>En cumplimiento de la Ley 34/2002, se informa que este sitio web es propiedad de <strong>{settings.fiscalName || 'JOSE PUJALTE MOLINA'}</strong>.</p>
+                                                <ul className="space-y-2">
+                                                    <li>CIF: {settings.cif || '48427310M'}</li>
+                                                    <li>Domicilio: {settings.address || 'C/ CHILE, 21, LAS TORRES DE COTILLAS'}</li>
+                                                </ul>
+                                                <p className="pt-2 text-primary border-b border-primary/5 pb-2">2. PROPIEDAD INTELECTUAL</p>
+                                                <p>Los derechos de propiedad intelectual de las imágenes y diseños contenidos en esta plataforma pertenecen a Pujalte Creative Studio. Queda prohibida la reproducción parcial o total sin autorización.</p>
+                                                <p className="pt-2 text-primary border-b border-primary/5 pb-2">3. USO DE LA PLATAFORMA</p>
+                                                <p>El usuario se compromete a hacer un uso lícito de la herramienta, proporcionando datos veraces para la gestión de los pedidos de graduación.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="p-8 bg-primary/2 border-t border-primary/5">
+                                        <button onClick={() => setShowAvisoLegalModal(false)} className="w-full h-[60px] bg-blue-600 text-white font-black rounded-2xl transition-all active:scale-[0.98] uppercase tracking-[0.2em] text-sm">Cerrar</button>
                                     </div>
                                 </div>
                             </div>

@@ -64,13 +64,13 @@ export function useSettings(photographerId, isDemo = false) {
 
                 if (!hasEfectivo) updatedPM.push({ id: 'efectivo', label: 'Efectivo', enabled: false });
                 if (!hasBizum) updatedPM.push({ id: 'bizum', label: 'Bizum', enabled: false });
-                if (!hasCard) updatedPM.push({ id: 'card', label: 'Tarjeta', enabled: false });
+                if (!hasCard) updatedPM.push({ id: 'card', label: 'Tarjeta / TPV', enabled: true });
 
                 // Mapeo forzado de iconos para consistencia premium
                 const pmConfig = {
                     'efectivo': { icon: '💶', label: 'Efectivo' },
                     'bizum': { icon: '📲', label: 'Bizum' },
-                    'card': { icon: '💳', label: 'Tarjeta' }
+                    'card': { icon: '💳', label: 'Tarjeta / TPV' }
                 };
 
                 updatedPM = updatedPM.map(m => ({

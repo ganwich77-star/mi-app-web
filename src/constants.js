@@ -145,6 +145,7 @@ export const COURSE_GROUPS = [
 // Métodos de pago por defecto (guardados/editados desde Admin)
 export const DEFAULT_PAYMENT_METHODS = [
     { id: 'bizum', label: '📲 Bizum', enabled: true },
+    { id: 'card', label: '💳 Tarjeta / TPV', enabled: true },
     { id: 'efectivo', label: '💶 Efectivo', enabled: true },
 ];
 

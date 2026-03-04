@@ -4,7 +4,7 @@ import { collection, onSnapshot, doc, updateDoc, setDoc, getDocs } from 'firebas
 import {
     Users, Shield, AlertTriangle, CheckCircle, Globe,
     Settings, Search, ArrowLeft, ExternalLink, Activity, Edit, X, Save,
-    MessageSquare, Copy, Sparkles, Trash2, QrCode, Download
+    MessageSquare, Copy, Sparkles, Trash2, QrCode, Download, Mail
 } from 'lucide-react';
 import { deleteDoc } from 'firebase/firestore';
 
@@ -15,7 +15,39 @@ export default function MasterPanel({ onBack }) {
     const [editingPhotographer, setEditingPhotographer] = useState(null);
     const [editData, setEditData] = useState({});
     const [qrPhotographer, setQrPhotographer] = useState(null);
+    const [mailModal, setMailModal] = useState(null);
     const [deleteConfirm, setDeleteConfirm] = useState(null); // Nuevo estado para el modal de borrado
+
+    const emailTemplates = [
+        {
+            title: "Bienvenida y Accesos",
+            subject: "¡Bienvenido a tu nueva App de Orlas Interactivas! 🎉",
+            body: (brand) => `¡Hola equipo de ${brand}! 👋\n\nBienvenidos a vuestra nueva plataforma integral de gestión de orlas escolares. Nos alegra comunicaros que vuestra cuenta ya está activada y lista para usarse.\n\nPodéis acceder a vuestro panel de control desde el enlace proporcionado y comenzar a dar de alta vuestros primeros centros y alumnos.\n\nSi tenéis cualquier duda o consulta durante los primeros pasos, estamos a vuestra entera disposición para ayudaros.\n\nUn saludo y mucho éxito en esta campaña,\nEl equipo técnico 🚀.`
+        },
+        {
+            title: "Recordatorio de Pago",
+            subject: "Recordatorio: Pago Pendiente - Suscripción App Orlas 🔔",
+            body: (brand) => `Hola ${brand} 👋,\n\nOs escribimos desde el departamento de cobros para recordaros amistosamente que tenéis pendiente el abono de vuestra suscripción actual en la App de Orlas.\n\nPor favor, os rogamos que realicéis el ingreso a la mayor brevedad posible para que todo siga funcionando con normalidad y sin interrupciones en el servicio a vuestros clientes.\n\nQuedamos a la espera, muchas gracias.\nEquipo Administrativo.`
+        },
+        {
+            title: "Aviso de Cierre de Cuenta",
+            subject: "AVISO IMPORTANTE: Suspensión inminente de cuenta por impago ⚠️",
+            body: (brand) => `Hola ${brand},\n\nLamentamos tener que informarte que, tras varios avisos sobre el estado irregular de vuestra cuenta y debido a la falta de pago prolongada, nos veremos en la obligación de suspender de forma cautelar y temporal el acceso a la plataforma.\n\nSi no se regulariza la situación en las próximas horas, el acceso será denegado automáticamente por el servidor.\n\nPor favor, contacta con nosotros si ha habido algún error.\n\nUn saludo.`
+        },
+        {
+            title: "Novedades y Actualizaciones",
+            subject: "¡Nuevas funciones disponibles en tu App! 🛠️",
+            body: (brand) => `Hola ${brand} 👋,\n\nDesde el equipo de desarrollo no paramos de trabajar para que tengas la mejor herramienta. Te escribimos para avisarte de que hemos lanzado una nueva actualización automática en tu App con novedades muy interesantes.\n\nTe invitamos a entrar y descubrirlas en tu panel de control.\n\nUn saludo,\nEquipo de Desarrollo.`
+        }
+    ];
+
+    const handleSendMail = (p, template) => {
+        const dest = p.notificationEmail || p.email || 'correo@ejemplo.com';
+        const subject = encodeURIComponent(template.subject);
+        const body = encodeURIComponent(template.body(p.brandName || p.id).trim());
+        window.open(`mailto:${dest}?subject=${subject}&body=${body}`, '_blank');
+        setMailModal(null);
+    };
 
     useEffect(() => {
         const colRef = collection(db, 'orlas2026_photographers');
@@ -351,6 +383,14 @@ export default function MasterPanel({ onBack }) {
                                         <td className="px-6 py-6 text-right">
                                             <div className="flex items-center justify-end gap-2">
                                                 <button
+                                                    onClick={() => setMailModal(p)}
+                                                    className="flex items-center gap-2 px-3 py-2 bg-white/5 rounded-xl hover:bg-white/10 text-white/60 hover:text-blue-400 transition-all border border-white/5"
+                                                    title="Enviar Email (Plantillas)"
+                                                >
+                                                    <Mail size={14} />
+                                                </button>
+
+                                                <button
                                                     onClick={() => handleEdit(p)}
                                                     className="flex items-center gap-2 px-3 py-2 bg-white/5 rounded-xl hover:bg-white/10 text-white/60 hover:text-indigo-400 transition-all border border-white/5"
                                                     title="Editar Datos"
@@ -655,6 +695,45 @@ export default function MasterPanel({ onBack }) {
                                 >
                                     Sí, Eliminar
                                 </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Modal de Plantillas de Email */}
+            {mailModal && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/80 backdrop-blur-xl animate-fade-in">
+                    <div className="w-full max-w-2xl bg-slate-900 border border-white/10 rounded-[40px] shadow-2xl overflow-hidden animate-slide-up">
+                        <div className="p-8 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+                            <div className="flex items-center gap-3">
+                                <Mail className="text-blue-400" size={20} />
+                                <h2 className="text-xl font-black uppercase tracking-tighter">Comunicación Rápida</h2>
+                            </div>
+                            <button onClick={() => setMailModal(null)} className="p-2 text-white/40 hover:text-white transition-colors">
+                                <X size={24} />
+                            </button>
+                        </div>
+
+                        <div className="p-6 md:p-8">
+                            <p className="text-slate-400 text-xs md:text-sm mb-6">
+                                Selecciona una plantilla para abrirla directamente en tu gestor de correo predeterminado, dirigida a <strong className="text-white">{mailModal.notificationEmail || mailModal.email || 'el correo principal'}</strong>:
+                            </p>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {emailTemplates.map((template, idx) => (
+                                    <button
+                                        key={idx}
+                                        onClick={() => handleSendMail(mailModal, template)}
+                                        className="text-left bg-white/5 border border-white/10 p-5 rounded-[24px] hover:bg-white/10 hover:border-blue-500/50 transition-all group"
+                                    >
+                                        <h4 className="text-blue-400 font-black uppercase text-xs md:text-sm mb-2 group-hover:text-blue-300 transition-colors">
+                                            {template.title}
+                                        </h4>
+                                        <p className="text-slate-500 text-[10px] md:text-xs leading-relaxed line-clamp-3">
+                                            {template.body(mailModal.brandName || mailModal.id).replace(/\n/g, ' ')}
+                                        </p>
+                                    </button>
+                                ))}
                             </div>
                         </div>
                     </div>
