@@ -148,20 +148,16 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                 '    textItem.color = textColor;',
                 '',
                 '    // Posición del texto (centro del ancho, debajo del alto + offset)',
-                '    // Se calibra la línea base al 68% del tamaño de fuente real en píxeles.',
-                '    var fSizePx = fSize * (300 / 72); ',
-                `    var textY = y + h + (isStaff ? ${design.dTextOffset} : ${design.aTextOffset}) + (fSizePx * 0.68);`,
-                '    textItem.position = [x + (w/2), textY];',
+                '    var textY = y + h + (isStaff ? fontSize * 1.2 : fontSize * 1.5);',
+                '    textItem.position = [x + w/2, textY];',
                 '}',
                 '',
-                '// Grupo DOCENTES',
-                'var docentesGroup = doc.layerSets.add();',
-                'docentesGroup.name = "DOCENTES";',
+                '// CREAR GRUPOS PRINCIPALES',
+                'var docentesGroup = doc.layerSets.add(); docentesGroup.name = "DOCENTES";',
+                'var alumnosGroup = doc.layerSets.add(); alumnosGroup.name = "ALUMNOS";',
+                '',
                 staffLines,
                 '',
-                '// Grupo ALUMNOS',
-                'var alumnosGroup = doc.layerSets.add();',
-                'alumnosGroup.name = "ALUMNOS";',
                 aluLines,
                 '',
                 '// PIE DE ORLA',
@@ -198,31 +194,25 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
             ].join('\n');
 
 
-        } else {
+        } else if (type === 'RASTER') {
+            const idsList = allIds.join('","'); // Use allIds for raster injection
             content = [
-                '/* FINALIZAR ORLA V2.6 - RASTER FAST INJECTION */',
-                'var doc = app.activeDocument;',
-                'var inputFolder = Folder.selectDialog("Selecciona carpeta con fotos (nombre = ID_ALUMNO.jpg)");',
-                'if (inputFolder != null) {',
-                '    var files = inputFolder.getFiles(/\.(jpg|jpeg|png|tif)$/i);',
+                '/* INYECCIÓN RÁPIDA V2.0 - Pujalte Studio */',
+                'var fileIds = ["' + idsList + '"];',
+                'function main() {',
+                '    var doc = app.activeDocument;',
+                '    var alumnosGroup = doc.layerSets.getByName("ALUMNOS");',
                 '    var count = 0;',
-                '    ',
-                '    function findGroupRecursive(parent, name) {',
-                '        try { return parent.layerSets.getByName(name); } catch(e) {',
-                '            for (var j = 0; j < parent.layerSets.length; j++) {',
-                '                var found = findGroupRecursive(parent.layerSets[j], name);',
-                '                if (found) return found;',
-                '            }',
-                '        }',
-                '        return null;',
-                '    }',
-                '',
-                '    for (var i = 0; i < files.length; i++) {',
-                '        var file = files[i];',
-                '        var id = file.name.split(".")[0];',
-                '        var targetGroup = findGroupRecursive(doc, id);',
+                '    for(var i=0; i<fileIds.length; i++) {',
+                '        var targetId = fileIds[i];',
+                '        var layerGroup;',
+                '        try { layerGroup = alumnosGroup.layerSets.getByName(targetId); } catch(e) { continue; }',
                 '        ',
-                '        if (targetGroup) {',
+                '        var placeholder;',
+                '        try { placeholder = layerGroup.artLayers.getByName("PLACEHOLDER"); } catch(e) { continue; }',
+                '        ',
+                '        var file = File.openDialog("Selecciona FOTO para: " + targetId);',
+                '        if(file) {',
                 '            try {',
                 '                var isStaff = id.indexOf("staff_") !== -1;',
                 '                var placeholder = targetGroup.artLayers.getByName("PLACEHOLDER");',
@@ -265,37 +255,34 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
             ].join('\n');
         }
 
-        // Intentar usar File System Access API para elegir ruta (Navegadores modernos)
-        if ('showSaveFilePicker' in window) {
-            const opts = {
-                suggestedName: filename,
-                types: [{
-                    description: 'Adobe Photoshop Script',
-                    accept: { 'text/javascript': ['.jsx'] },
-                }],
-            };
-
-            window.showSaveFilePicker(opts)
-                .then(handle => handle.createWritable())
-                .then(writable => {
-                    writable.write(content);
-                    writable.close();
-                    setScriptModal({ content, filename, copied: false, saved: true, savedPath: 'Ruta seleccionada por usuario' });
-                })
-                .catch(err => {
-                    if (err.name !== 'AbortError') {
-                        // Si falla o se cancela, intentar fallback habitual
-                        console.error('Error guardando archivo:', err);
-                        fallbackDownload(content, filename, folderName);
-                    }
-                });
-        } else {
-            fallbackDownload(content, filename, folderName);
-        }
+        // Intentar usar el diálogo de guardado nativo del servidor (macOS Only + Local Dev)
+        // Esto permite que el usuario elija cualquier carpeta y nosotros sepamos cuál es para el botón "Mostrar en carpeta"
+        fetch('/graduaciones2026/api/save-as', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content, filename })
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    // Si el servidor pudo abrir el diálogo y guardar, tenemos la ruta real completa
+                    setScriptModal({ content, filename: data.filename, copied: false, saved: true, savedPath: data.path });
+                } else if (data.cancelled) {
+                    // El usuario canceló el diálogo, no hacemos nada
+                    return;
+                } else {
+                    // Si falló el endpoint nativo (ej. en producción), ir al fallback tradicional del navegador
+                    fallbackDownload(content, filename, folderName);
+                }
+            })
+            .catch(() => {
+                // Si el endpoint no existe o falla, ir al fallback tradicional
+                fallbackDownload(content, filename, folderName);
+            });
     };
 
     const fallbackDownload = (content, filename, folderName) => {
-        // POST al endpoint Vite → escribe el .jsx directamente en ~/Downloads
+        // Opción 1: POST al endpoint Vite → escribe el .jsx directamente en ~/Downloads (si existe la API de backup)
         fetch('/graduaciones2026/api/download-script', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -306,20 +293,21 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                 if (data.success) {
                     setScriptModal({ content, filename, copied: false, saved: true, savedPath: data.path });
                 } else {
-                    navigator.clipboard.writeText(content).catch(() => { });
-                    setScriptModal({ content, filename, copied: true, saved: false });
+                    // Opción 2: Fallback navegador estándar (descarga a carpeta Downloads por defecto de Chrome/Safari)
+                    const blob = new Blob([content], { type: 'text/javascript' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    setScriptModal({ content, filename, copied: false, saved: true, savedPath: 'Carpeta de Descargas' });
                 }
             })
             .catch(() => {
-                // Sin endpoint (producción): copia al portapapeles o descarga normal
-                const blob = new Blob([content], { type: 'text/javascript' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = filename;
-                a.click();
-                URL.revokeObjectURL(url);
-                setScriptModal({ content, filename, copied: false, saved: true, savedPath: 'Descargas' });
+                // Opción 3: Copia al portapapeles si todo lo anterior falla (entorno web puro sin APIs de servidor)
+                navigator.clipboard.writeText(content).catch(() => { });
+                setScriptModal({ content, filename, copied: true, saved: false });
             });
     };
 
@@ -588,8 +576,8 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                                 <div className="flex items-center gap-3 bg-green-500/10 border border-green-500/30 rounded-2xl p-4">
                                     <CheckCircle2 size={20} className="text-green-400 flex-shrink-0" />
                                     <div>
-                                        <p className="text-green-400 text-xs font-black uppercase tracking-wider">✅ Archivo guardado en Descargas</p>
-                                        <p className="text-green-300/60 text-[10px] font-mono mt-1">~/Downloads/{scriptModal.filename}</p>
+                                        <p className="text-green-400 text-xs font-black uppercase tracking-wider">✅ Archivo guardado correctamente</p>
+                                        <p className="text-green-300/60 text-[10px] font-mono mt-1 italic opacity-80 break-all">{scriptModal.savedPath.includes('/') || scriptModal.savedPath.includes('\\') ? scriptModal.savedPath : `Ubicación seleccionada / ${scriptModal.filename}`}</p>
                                     </div>
                                 </div>
                             ) : (
@@ -602,8 +590,8 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                                 <p className="text-white/60 text-[11px] font-black uppercase tracking-widest">Cómo ejecutarlo:</p>
                                 <ol className="space-y-3">
                                     {[
-                                        'Ve a la carpeta Descargas en el Finder',
-                                        `Busca el archivo: "${scriptModal.filename}"`,
+                                        'Localiza el archivo en la ubicación seleccionada',
+                                        `Archivo: "${scriptModal.filename}"`,
                                         'Haz clic derecho → Abrir con → Otra app...',
                                         'Selecciona Adobe Photoshop y marca "Usar siempre esta aplicación" → Abrir',
                                     ].map((txt, i) => (
@@ -624,7 +612,7 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                                         })}
                                         className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-emerald-900/20"
                                     >
-                                        📁 MOSTRAR EN CARPETA (DESCARGAS)
+                                        📁 MOSTRAR EN CARPETA
                                     </button>
                                 )}
                                 <button onClick={() => setScriptModal(null)}

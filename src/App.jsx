@@ -258,7 +258,7 @@ export default function App() {
     const [selectedStaffIds, setSelectedStaffIds] = useState([]);
 
     const [showNewStudentForm, setShowNewStudentForm] = useState(false);
-    const [newStudentForm, setNewStudentForm] = useState({ schoolId: '', name: '', course: '', group: '', photoFile: '', status: 'Pendiente', paymentMethod: '' });
+    const [newStudentForm, setNewStudentForm] = useState({ schoolId: '', name: '', course: '', group: '', phone: '', photoFile: '', status: 'Pendiente', paymentMethod: '' });
 
     // Regalo
     const [showGiftModal, setShowGiftModal] = useState(false);
@@ -1949,10 +1949,33 @@ export default function App() {
 
                                                     <div className="card p-4 bg-red-700/3 border-red-700/10 mb-4 space-y-3 animate-fade-in">
                                                         <p className="text-[10px] font-black text-red-700 uppercase tracking-widest leading-none">Alta rápida (Sin pedido previo)</p>
-                                                        <input type="text" value={newStudentForm.name}
-                                                            onChange={e => setNewStudentForm(p => ({ ...p, name: e.target.value }))}
-                                                            onBlur={e => setNewStudentForm(p => ({ ...p, name: toTitleCase(e.target.value) }))}
-                                                            placeholder="Nombre completo del alumno" className="w-full bg-primary/5 border border-primary/10 text-primary text-sm rounded-xl px-4 py-3 outline-none focus:border-red-500/50 transition-all font-bold" />
+                                                        <div className="flex gap-2">
+                                                            <input type="text" value={newStudentForm.name}
+                                                                onChange={e => setNewStudentForm(p => ({ ...p, name: e.target.value }))}
+                                                                onBlur={e => setNewStudentForm(p => ({ ...p, name: toTitleCase(e.target.value) }))}
+                                                                placeholder="Nombre completo del alumno" className="flex-1 bg-primary/5 border border-primary/10 text-primary text-sm rounded-xl px-4 py-3 outline-none focus:border-red-500/50 transition-all font-bold" />
+                                                            <div className="relative w-full sm:w-[220px]">
+                                                                <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-red-500 opacity-50" />
+                                                                <input type="tel" value={newStudentForm.phone}
+                                                                    onChange={e => {
+                                                                        const val = e.target.value.replace(/\D/g, '').slice(0, 9);
+                                                                        setNewStudentForm(p => ({ ...p, phone: val }));
+                                                                    }}
+                                                                    placeholder="Teléfono móvil"
+                                                                    className="w-full bg-primary/5 border border-primary/10 text-primary text-sm rounded-xl pl-9 pr-12 py-3 outline-none focus:border-red-500/50 transition-all font-bold" />
+                                                                {newStudentForm.phone.length === 9 && (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            const msg = `Hola ${newStudentForm.name} 👋\n\nConfirmación de Pedido - Pujalte Studio\n\n¡En breve te enviaremos los detalles! 📷`;
+                                                                            window.open(`https://wa.me/34${newStudentForm.phone}?text=${encodeURIComponent(msg)}`, '_blank');
+                                                                        }}
+                                                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 hover:text-emerald-600 transition-colors"
+                                                                    >
+                                                                        <MessageSquare size={16} />
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </div>
                                                         <div className="flex flex-wrap items-center gap-2">
                                                             <select value={newStudentForm.schoolId || adminSchool} onChange={e => {
                                                                 const sid = e.target.value;
@@ -1960,13 +1983,13 @@ export default function App() {
                                                                 setAdminSchool(sid);
                                                             }} className="flex-1 min-w-[150px] bg-primary/5 border border-primary/10 text-primary text-xs font-bold rounded-xl px-3 py-2.5 cursor-pointer outline-none transition-colors focus:border-red-500/50">
                                                                 <option value="" className="text-primary">— Centro —</option>
-                                                                {schools.map(s => <option key={s.id} value={s.id} className="text-primary">{s.name}</option>)}
+                                                                {sortedSchools.map(s => <option key={s.id} value={s.id} className="text-primary">{s.name}</option>)}
                                                             </select>
                                                             <select value={newStudentForm.course} onChange={e => setNewStudentForm(p => ({ ...p, course: e.target.value }))} className="flex-1 min-w-[140px] bg-primary/5 border border-primary/10 text-primary text-xs font-bold rounded-xl px-3 py-2.5 cursor-pointer outline-none transition-colors focus:border-red-500/50">
                                                                 <option value="" className="text-primary">— Curso —</option>
                                                                 {availCourses.map(c => <option key={c.name} value={c.name} className="text-primary">{c.name}</option>)}
                                                             </select>
-                                                            <select value={newStudentForm.group} onChange={e => setNewStudentForm(p => ({ ...p, group: e.target.value }))} className="w-[95px] bg-primary/5 border border-primary/10 text-primary text-xs font-bold rounded-xl px-2 py-2.5 cursor-pointer uppercase outline-none focus:border-red-500/50">
+                                                            <select value={newStudentForm.group} onChange={e => setNewStudentForm(p => ({ ...p, group: e.target.value }))} className="w-[85px] bg-primary/5 border border-primary/10 text-primary text-xs font-bold rounded-xl px-2 py-2.5 cursor-pointer uppercase outline-none focus:border-red-500/50">
                                                                 <option value="" className="text-primary">GRUPO</option>
                                                                 <option value="A" className="text-primary">A</option>
                                                                 <option value="B" className="text-primary">B</option>
@@ -1985,7 +2008,7 @@ export default function App() {
                                                                 <option value="Bizum" className="text-primary">Bizum</option>
                                                             </select>
                                                             <button
-                                                                disabled={!newStudentForm.name.trim() || !newStudentForm.course}
+                                                                disabled={!newStudentForm.name.trim() || !newStudentForm.course || (newStudentForm.phone && newStudentForm.phone.length < 9)}
                                                                 onClick={() => {
                                                                     const fullCourse = `${newStudentForm.course}${newStudentForm.group ? ' ' + newStudentForm.group.toUpperCase() : ''}`;
                                                                     const sid = newStudentForm.schoolId || adminSchool;
@@ -2002,11 +2025,12 @@ export default function App() {
                                                                         total: 0,
                                                                         cost: 0,
                                                                         photoFile: newStudentForm.photoFile,
+                                                                        phone: newStudentForm.phone,
                                                                         id: `MANUAL_${Date.now()}`,
                                                                         timestamp: Date.now()
                                                                     };
                                                                     addOrder(newOrder);
-                                                                    setNewStudentForm({ schoolId: '', name: '', course: '', group: '', photoFile: '', status: 'Pendiente', paymentMethod: '' });
+                                                                    setNewStudentForm({ schoolId: '', name: '', course: '', group: '', phone: '', photoFile: '', status: 'Pendiente', paymentMethod: '' });
                                                                     setShowNewStudentForm(false);
                                                                 }}
                                                                 className="flex-1 sm:flex-none bg-red-700 text-white font-black text-[10px] rounded-xl px-6 py-2.5 hover:bg-red-800 transition-all active:scale-95 disabled:opacity-30 shadow-sm shadow-red-700/20 whitespace-nowrap">GUARDAR ALUMNO</button>
@@ -2065,20 +2089,9 @@ export default function App() {
                                                                                 <CheckCircle size={14} strokeWidth={3} />
                                                                             </div>
                                                                         </button>
-                                                                        <button onClick={() => setOrderToEdit({
-                                                                            ...order,
-                                                                            tempPhotoFile: order.photoFile || '',
-                                                                            tempStatus: order.status || 'Pendiente',
-                                                                            tempPayment: order.paymentMethod || 'Efectivo',
-                                                                            tempCourse: getCourseBase(order.course),
-                                                                            tempGroup: getGroup(order.course),
-                                                                            packId: order.pack?.id || order.packId || (typeof order.pack === 'string' ? order.pack : 'esencial'),
-                                                                            packQuantity: order.packQuantity || 1,
-                                                                            schoolName: order.schoolName || getSchoolName(order.schoolId)
-                                                                        })}
-                                                                            className="flex-1 flex items-center gap-4 px-3 py-4 text-left">
+                                                                        <div className="flex-1 flex items-center gap-4 px-3 py-4">
                                                                             {/* Icono de Estado Interactivo */}
-                                                                            <div className="relative z-20" onClick={e => e.stopPropagation()}>
+                                                                            <div className="relative z-20 shrink-0">
                                                                                 <select
                                                                                     value={order.status || 'Pendiente'}
                                                                                     onChange={e => { e.stopPropagation(); updateStatus(order.id, e.target.value); }}
@@ -2099,24 +2112,64 @@ export default function App() {
                                                                                             order.status === 'Entregado' ? '🏁' : '📷'}
                                                                                 </span>
                                                                             </div>
-                                                                            <div className="flex-1 min-w-0">
-                                                                                <div className="flex items-center gap-2">
-                                                                                    <p className="text-sm font-black text-primary truncate leading-none">{order.studentName}</p>
-                                                                                    <span className="text-[9px] font-black text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 uppercase tracking-tighter shrink-0">{order.total || 0}€</span>
+
+                                                                            {/* Botón WhatsApp independiente */}
+                                                                            {order.phone && (
+                                                                                <button
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        const packsDesc = typeof order.pack === 'object' ? order.pack.label : (PACKS.find(p => p.id === order.pack)?.name || order.pack || 'Personalizado');
+                                                                                        const msg = `Hola ${order.studentName} 👋\n\n` +
+                                                                                            `🎓 *Confirmación de Pedido - Pujalte Studio*\n\n` +
+                                                                                            `🏫 *Centro:* ${order.schoolName}\n` +
+                                                                                            `📚 *Curso:* ${order.course}\n` +
+                                                                                            `📦 *Pack:* ${packsDesc}\n` +
+                                                                                            `💰 *Estado:* ${order.status.toUpperCase()}\n` +
+                                                                                            `💳 *Pago:* ${order.paymentMethod || 'Efectivo'}\n\n` +
+                                                                                            `¡Gracias por confiar en nosotros! 📷`;
+                                                                                        window.open(`https://wa.me/34${order.phone}?text=${encodeURIComponent(msg)}`, '_blank');
+                                                                                    }}
+                                                                                    className="w-9 h-9 rounded-xl flex items-center justify-center bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 hover:bg-emerald-500 hover:text-white transition-all active:scale-90 shrink-0"
+                                                                                    title="Enviar recibo por WhatsApp"
+                                                                                >
+                                                                                    <MessageSquare size={16} />
+                                                                                </button>
+                                                                            )}
+
+                                                                            {/* Botón de Edición (Cuerpo principal) */}
+                                                                            <button
+                                                                                onClick={() => setOrderToEdit({
+                                                                                    ...order,
+                                                                                    tempPhotoFile: order.photoFile || '',
+                                                                                    tempStatus: order.status || 'Pendiente',
+                                                                                    tempPayment: order.paymentMethod || 'Efectivo',
+                                                                                    tempCourse: getCourseBase(order.course),
+                                                                                    tempGroup: getGroup(order.course),
+                                                                                    packId: order.pack?.id || order.packId || (typeof order.pack === 'string' ? order.pack : 'esencial'),
+                                                                                    packQuantity: order.packQuantity || 1,
+                                                                                    schoolName: order.schoolName || getSchoolName(order.schoolId)
+                                                                                })}
+                                                                                className="flex-1 flex items-center justify-between gap-4 text-left"
+                                                                            >
+                                                                                <div className="flex-1 min-w-0">
+                                                                                    <div className="flex items-center gap-2">
+                                                                                        <p className="text-sm font-black text-primary truncate leading-none">{order.studentName}</p>
+                                                                                        <span className="text-[9px] font-black text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 uppercase tracking-tighter shrink-0">{order.total || 0}€</span>
+                                                                                    </div>
+                                                                                    <p className="text-[10px] font-bold text-secondary flex items-center gap-2 mt-1">
+                                                                                        <span className="text-indigo-400 uppercase tracking-widest text-[9px]">{order.schoolName || getSchoolName(order.schoolId)}</span>
+                                                                                        <span className="w-1 h-1 bg-secondary/20 rounded-full"></span>
+                                                                                        <span className="opacity-70">{order.course}</span>
+                                                                                        <span className="w-1 h-1 bg-secondary/20 rounded-full"></span>
+                                                                                        <span className="text-[8px] font-black text-indigo-400 bg-indigo-400/10 px-1 py-0.5 rounded border border-indigo-400/20 uppercase truncate max-w-[80px]">{(typeof order.pack === 'object' ? order.pack.label : order.pack) || 'SIN PACK'}</span>
+                                                                                    </p>
                                                                                 </div>
-                                                                                <p className="text-[10px] font-bold text-secondary flex items-center gap-2 mt-1">
-                                                                                    <span className="text-indigo-400 uppercase tracking-widest text-[9px]">{order.schoolName || getSchoolName(order.schoolId)}</span>
-                                                                                    <span className="w-1 h-1 bg-secondary/20 rounded-full"></span>
-                                                                                    <span className="opacity-70">{order.course}</span>
-                                                                                    <span className="w-1 h-1 bg-secondary/20 rounded-full"></span>
-                                                                                    <span className="text-[8px] font-black text-indigo-400 bg-indigo-400/10 px-1 py-0.5 rounded border border-indigo-400/20 uppercase truncate max-w-[80px]">{(typeof order.pack === 'object' ? order.pack.label : order.pack) || 'SIN PACK'}</span>
-                                                                                </p>
-                                                                            </div>
-                                                                            {order.photoFile
-                                                                                ? <span className="text-xs font-mono text-emerald-500 bg-emerald-500/8 border border-emerald-500/20 px-3 py-1.5 rounded-xl flex-shrink-0">{order.photoFile}</span>
-                                                                                : <span className="text-[10px] font-black text-secondary opacity-0 group-hover:opacity-40 transition-all">TAP →</span>
-                                                                            }
-                                                                        </button>
+                                                                                {order.photoFile
+                                                                                    ? <span className="text-xs font-mono text-emerald-500 bg-emerald-500/8 border border-emerald-500/20 px-3 py-1.5 rounded-xl flex-shrink-0">{order.photoFile}</span>
+                                                                                    : <span className="text-[10px] font-black text-secondary opacity-0 group-hover:opacity-40 transition-all shrink-0">TAP →</span>
+                                                                                }
+                                                                            </button>
+                                                                        </div>
                                                                     </div>
                                                                 ))}
                                                         </div>
@@ -4630,6 +4683,6 @@ export default function App() {
                     {isCreator && <DevNav view={view} setView={setView} />}
                 </>
             )}
-        </div>
+        </div >
     );
 }

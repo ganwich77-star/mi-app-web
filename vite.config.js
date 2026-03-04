@@ -58,6 +58,53 @@ function downloadScriptPlugin() {
           }
         });
       });
+
+      // Endpoint 3: Diálogo "Guardar como" nativo de macOS (vía AppleScript)
+      server.middlewares.use('/graduaciones2026/api/save-as', (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end('Method not allowed'); return; }
+        let body = '';
+        req.on('data', chunk => { body += chunk.toString(); });
+        req.on('end', () => {
+          try {
+            const { content, filename } = JSON.parse(body);
+
+            // Ejecutamos AppleScript para abrir el diálogo de macOS "Guardar como"
+            const appleScript = `osascript -e 'POSIX path of (choose file name with prompt "Selecciona dónde guardar el script:" default name "${filename}")'`;
+
+            let chosenPath;
+            try {
+              chosenPath = execSync(appleScript).toString().trim();
+            } catch (err) {
+              // El usuario canceló el diálogo
+              res.setHeader('Content-Type', 'application/json');
+              res.setHeader('Access-Control-Allow-Origin', '*');
+              res.end(JSON.stringify({ success: false, cancelled: true }));
+              return;
+            }
+
+            if (chosenPath) {
+              // Asegurar extensión .jsx si el usuario la borró
+              if (!chosenPath.toLowerCase().endsWith('.jsx')) {
+                chosenPath += '.jsx';
+              }
+
+              fs.writeFileSync(chosenPath, content, 'utf8');
+
+              res.setHeader('Content-Type', 'application/json');
+              res.setHeader('Access-Control-Allow-Origin', '*');
+              res.end(JSON.stringify({
+                success: true,
+                path: chosenPath,
+                filename: path.basename(chosenPath)
+              }));
+            }
+          } catch (e) {
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ success: false, error: e.message }));
+          }
+        });
+      });
     }
   };
 }
