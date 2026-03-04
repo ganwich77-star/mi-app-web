@@ -1522,7 +1522,7 @@ export default function App() {
                         <div className="pb-safe min-h-[calc(100vh-120px)] animate-fade-in">
                             <div className={`relative px-4 transition-all duration-500 text-center ${(step === 0 || step === 1) ? 'pt-8 pb-10' : 'pt-4 pb-4'}`}>
                                 <button
-                                    onClick={handleSecretAdminAccess}
+                                    onClick={handleAdminClick}
                                     className={`flex items-center justify-center mx-auto active:scale-95 transition-all duration-500 relative z-[750] pointer-events-auto ${(step === 0 || step === 1) ? 'w-36 mb-6' : 'w-20 mb-2'}`}
                                 >
                                     {settings.logoUrl || settings.logoUrlDark ? (
