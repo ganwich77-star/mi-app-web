@@ -56,24 +56,27 @@ export function useSettings(photographerId, isDemo = false) {
             if (docSnap.exists()) {
                 const firebaseData = docSnap.data();
 
-                // Asegurar que Efectivo y Bizum existan siempre en la lista
+                // Asegurar que Efectivo, Bizum y Tarjeta existan siempre en la lista
                 let updatedPM = firebaseData.paymentMethods || [];
                 const hasEfectivo = updatedPM.some(m => m.id === 'efectivo');
                 const hasBizum = updatedPM.some(m => m.id === 'bizum');
+                const hasCard = updatedPM.some(m => m.id === 'card');
 
                 if (!hasEfectivo) updatedPM.push({ id: 'efectivo', label: 'Efectivo', enabled: false });
                 if (!hasBizum) updatedPM.push({ id: 'bizum', label: 'Bizum', enabled: false });
+                if (!hasCard) updatedPM.push({ id: 'card', label: 'Tarjeta', enabled: false });
 
                 // Mapeo forzado de iconos para consistencia premium
                 const pmConfig = {
                     'efectivo': { icon: '💶', label: 'Efectivo' },
-                    'bizum': { icon: '📲', label: 'Bizum' }
+                    'bizum': { icon: '📲', label: 'Bizum' },
+                    'card': { icon: '💳', label: 'Tarjeta' }
                 };
 
                 updatedPM = updatedPM.map(m => ({
                     ...m,
-                    icon: pmConfig[m.id]?.icon || '💳',
-                    label: pmConfig[m.id]?.label || (m.label ? m.label.replace(/[💶📲]/g, '').trim() : m.id)
+                    icon: pmConfig[m.id]?.icon || '🛡️',
+                    label: pmConfig[m.id]?.label || (m.label ? m.label.replace(/[💶📲💳]/g, '').trim() : m.id)
                 }));
 
                 const finalData = {
