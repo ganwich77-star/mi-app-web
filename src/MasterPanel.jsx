@@ -4,7 +4,7 @@ import { collection, onSnapshot, doc, updateDoc, setDoc, getDocs } from 'firebas
 import {
     Users, Shield, AlertTriangle, CheckCircle, Globe,
     Settings, Search, ArrowLeft, ExternalLink, Activity, Edit, X, Save,
-    MessageSquare, Copy, Sparkles, Trash2
+    MessageSquare, Copy, Sparkles, Trash2, QrCode, Download
 } from 'lucide-react';
 import { deleteDoc } from 'firebase/firestore';
 
@@ -14,6 +14,8 @@ export default function MasterPanel({ onBack }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [editingPhotographer, setEditingPhotographer] = useState(null);
     const [editData, setEditData] = useState({});
+    const [qrPhotographer, setQrPhotographer] = useState(null);
+    const [deleteConfirm, setDeleteConfirm] = useState(null); // Nuevo estado para el modal de borrado
 
     useEffect(() => {
         const colRef = collection(db, 'orlas2026_photographers');
@@ -84,17 +86,18 @@ export default function MasterPanel({ onBack }) {
                 isPaid: editData.isPaid
             });
 
-            alert('✅ Cambios guardados');
             setEditingPhotographer(null);
         } catch (error) {
             console.error("Error guardando cambios:", error);
-            alert('❌ Error al guardar');
         }
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm(`⚠️ ¿Estás SEGURO de que quieres eliminar a "${id}"?\n\nEsta acción borrará el acceso y la configuración del fotógrafo. Los pedidos y datos en subcolecciones permanecerán en la base de datos (por seguridad), pero el fotógrafo ya no aparecerá en esta lista ni podrá entrar.`)) return;
+        setDeleteConfirm(id);
+    };
 
+    const confirmDelete = async () => {
+        const id = deleteConfirm;
         try {
             console.log("Intentando eliminar fotógrafo:", id);
 
@@ -105,13 +108,11 @@ export default function MasterPanel({ onBack }) {
 
             // 2. Borrar documento raíz (esto es lo que lo quita de la lista)
             const rootRef = doc(db, 'orlas2026_photographers', id);
-            await deleteDoc(rootRef);
             console.log("Documento raíz borrado");
 
-            alert('✅ Registro eliminado correctamente de la lista maestra.');
+            setDeleteConfirm(null);
         } catch (error) {
             console.error("Error crítico al eliminar:", error);
-            alert(`❌ Error al eliminar: ${error.message}`);
         }
     };
 
@@ -251,7 +252,7 @@ export default function MasterPanel({ onBack }) {
                     <div className="grid grid-cols-2 md:flex md:justify-center gap-3 md:gap-4 relative z-10 w-full lg:w-auto">
                         <button
                             onClick={() => {
-                                const url = `${window.location.origin}${window.location.pathname}?f=demo_photographer&view=user&demo=true`;
+                                const url = `https://basecode.es/graduaciones2026/?f=demo_photographer&view=user&demo=true`;
                                 window.open(url, '_blank');
                             }}
                             className="bg-indigo-600 px-4 md:px-6 py-4 rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl shadow-indigo-500/20 hover:bg-indigo-500 transition-all active:scale-95 min-h-[48px]"
@@ -261,9 +262,8 @@ export default function MasterPanel({ onBack }) {
 
                         <button
                             onClick={() => {
-                                const url = `${window.location.origin}${window.location.pathname}?f=demo_photographer&view=user&demo=true`;
+                                const url = `https://basecode.es/graduaciones2026/?f=demo_photographer&view=user&demo=true`;
                                 navigator.clipboard.writeText(url);
-                                alert('✅ Enlace de demo copiado al portapapeles');
                             }}
                             className="bg-slate-900 border border-white/10 px-4 md:px-6 py-4 rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-slate-800 transition-all active:scale-95 min-h-[48px]"
                         >
@@ -272,7 +272,7 @@ export default function MasterPanel({ onBack }) {
 
                         <button
                             onClick={() => {
-                                const url = `${window.location.origin}${window.location.pathname}?f=demo_photographer&view=user&demo=true`;
+                                const url = `https://basecode.es/graduaciones2026/?f=demo_photographer&view=user&demo=true`;
                                 const msg = `¡Hola! He pensado que te gustaría probar la nueva app de gestión de orlas que estoy usando. Te paso el enlace a la versión demo para que le eches un vistazo:\n\n🔗 ${url}\n\n¡Ya me dirás qué te parece!`;
                                 window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
                             }}
@@ -356,6 +356,14 @@ export default function MasterPanel({ onBack }) {
                                                     title="Editar Datos"
                                                 >
                                                     <Edit size={14} />
+                                                </button>
+
+                                                <button
+                                                    onClick={() => setQrPhotographer(p)}
+                                                    className="flex items-center gap-2 px-3 py-2 bg-white/5 rounded-xl hover:bg-white/10 text-white/60 hover:text-amber-400 transition-all border border-white/5"
+                                                    title="Descargar QR"
+                                                >
+                                                    <QrCode size={14} />
                                                 </button>
 
                                                 <a
@@ -552,6 +560,107 @@ export default function MasterPanel({ onBack }) {
                     </div>
                 )
             }
+            {/* Modal de QR */}
+            {qrPhotographer && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/90 backdrop-blur-2xl animate-fade-in">
+                    <div className="w-full max-w-sm bg-slate-900 border border-white/10 rounded-[40px] shadow-2xl overflow-hidden animate-slide-up text-center">
+                        <div className="p-8 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+                            <div className="flex items-center gap-3">
+                                <QrCode className="text-amber-400" size={20} />
+                                <h2 className="text-xl font-black uppercase tracking-tighter text-left">Código QR Acceso</h2>
+                            </div>
+                            <button onClick={() => setQrPhotographer(null)} className="p-2 text-white/40 hover:text-white transition-colors">
+                                <X size={24} />
+                            </button>
+                        </div>
+
+                        <div className="p-10 space-y-8 flex flex-col items-center">
+                            <div className="bg-white p-6 rounded-[32px] shadow-2xl shadow-indigo-500/20 relative group">
+                                <img
+                                    id="qr-image"
+                                    src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`${window.location.origin}${window.location.pathname}?f=${qrPhotographer.id}&view=user`)}`}
+                                    alt="QR Code"
+                                    className="w-48 h-48 md:w-56 md:h-56 object-contain"
+                                />
+                                <div className="absolute inset-0 flex items-center justify-center bg-indigo-600/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-[32px]">
+                                    <Sparkles className="text-indigo-400" size={32} />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <p className="text-lg font-black uppercase tracking-tight">{qrPhotographer.brandName || qrPhotographer.id}</p>
+                                <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em]">{`ID: ${qrPhotographer.id}`}</p>
+                            </div>
+
+                            <button
+                                onClick={async () => {
+                                    const url = `https://api.qrserver.com/v1/create-qr-code/?size=1000x1000&data=${encodeURIComponent(`${window.location.origin}${window.location.pathname}?f=${qrPhotographer.id}&view=user`)}`;
+                                    try {
+                                        const response = await fetch(url);
+                                        const blob = await response.blob();
+                                        const blobUrl = window.URL.createObjectURL(blob);
+                                        const link = document.createElement('a');
+                                        link.href = blobUrl;
+                                        link.download = `QR_ACCESO_${qrPhotographer.id.toUpperCase()}.png`;
+                                        document.body.appendChild(link);
+                                        link.click();
+                                        document.body.removeChild(link);
+                                        window.URL.revokeObjectURL(blobUrl);
+                                    } catch (err) {
+                                        window.open(url, '_blank');
+                                    }
+                                }}
+                                className="w-full py-5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl shadow-amber-500/20 flex items-center justify-center gap-3 transition-all active:scale-95 group"
+                            >
+                                <Download size={18} className="group-hover:translate-y-0.5 transition-transform" /> Descargar Calidad Alta
+                            </button>
+                        </div>
+
+                        <div className="px-8 pb-8">
+                            <p className="text-slate-600 text-[9px] font-bold uppercase tracking-wider">Escanea para acceder directamente a la toma de datos</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Modal de Confirmación de Borrado Premium */}
+            {deleteConfirm && (
+                <div className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-black/95 backdrop-blur-3xl animate-fade-in">
+                    <div className="w-full max-w-md bg-slate-900 border border-white/10 rounded-[40px] shadow-2xl overflow-hidden animate-slide-up">
+                        <div className="p-10 text-center space-y-6">
+                            <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center text-red-500 mx-auto border-4 border-red-500/20 mb-4 animate-pulse">
+                                <AlertTriangle size={40} />
+                            </div>
+
+                            <div className="space-y-3">
+                                <h3 className="text-2xl font-black uppercase tracking-tighter text-white">¿Eliminar Fotógrafo?</h3>
+                                <p className="text-red-400 font-black text-xs uppercase tracking-widest">{deleteConfirm}</p>
+                            </div>
+
+                            <div className="bg-white/5 p-6 rounded-3xl border border-white/5 space-y-4">
+                                <p className="text-slate-400 text-sm font-medium leading-relaxed">
+                                    Esta acción es definitiva. Se borrará el acceso y la configuración, aunque los pedidos históricos se mantendrán por seguridad.
+                                </p>
+                            </div>
+
+                            <div className="flex gap-4 pt-4">
+                                <button
+                                    onClick={() => setDeleteConfirm(null)}
+                                    className="flex-1 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/10 hover:bg-white/5 transition-all text-white/60"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={confirmDelete}
+                                    className="flex-1 py-5 bg-red-600 hover:bg-red-500 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-2xl shadow-red-600/30 transition-all active:scale-95"
+                                >
+                                    Sí, Eliminar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
+
     );
 }
