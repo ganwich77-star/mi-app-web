@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { db } from '../firebase.js';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
-import { PACKS, EXTRAS, DEMO_PACKS, DEMO_EXTRAS, DEFAULT_PAYMENT_METHODS, SCHOOLS } from '../constants.js';
+import { PACKS, EXTRAS, DEMO_PACKS, DEMO_EXTRAS, DEFAULT_PAYMENT_METHODS, SCHOOLS, DEMO_2026_PACKS, DEMO_2026_EXTRAS } from '../constants.js';
 
 export function useSettings(photographerId, isDemo = false) {
     const SETTINGS_KEY = `orlas2026_settings_${photographerId}`;
@@ -194,8 +194,9 @@ export function useSettings(photographerId, isDemo = false) {
     const availableSchools = (settings.schools || SCHOOLS).filter(s => s.id !== 'otros');
 
     // Intercepción visual exclusiva en Modo Demo sin afectar la DB real
-    const displayPacks = isDemo ? DEMO_PACKS : (settings.packs || PACKS);
-    const displayExtras = isDemo ? DEMO_EXTRAS : (settings.extras || EXTRAS);
+    const isDemo2026 = photographerId === 'demo2026';
+    const displayPacks = isDemo ? (isDemo2026 ? DEMO_2026_PACKS : DEMO_PACKS) : (settings.packs || PACKS);
+    const displayExtras = isDemo ? (isDemo2026 ? DEMO_2026_EXTRAS : DEMO_EXTRAS) : (settings.extras || EXTRAS);
 
     return {
         settings,

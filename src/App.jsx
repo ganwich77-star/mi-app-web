@@ -29,8 +29,8 @@ import Landing from './Landing.jsx';
 import CommandCenter from './components/CommandCenter.jsx';
 // --- CONFIGURACIÓN DISEÑO ORLA (ESTABLE - FUERA DE APP PR RENDIMIENTO) ---
 const DPI = 300;
-const mmToPx = (mm) => Math.round((mm * DPI) / 25.4);
-const pxToMm = (px) => Math.round((px * 25.4) / DPI);
+const mmToPx = (mm, dpi = 300) => Math.round((mm * dpi) / 25.4);
+const pxToMm = (px, dpi = 300) => ((px * 25.4) / dpi);
 
 // --- COMPONENTES DE CONTROL ESTABLES ---
 const ControlGroup = React.memo(({ title, icon: Icon, children, expandedGroups, setExpandedGroups }) => {
@@ -55,8 +55,8 @@ const ControlGroup = React.memo(({ title, icon: Icon, children, expandedGroups, 
     );
 });
 
-const HybridInput = React.memo(({ label, value, onChange, min, max, step = 1, unit = "px" }) => {
-    const displayValue = unit === "px" ? pxToMm(value) : value;
+const HybridInput = React.memo(({ label, value, onChange, min, max, step = 1, unit = "px", dpi = 300 }) => {
+    const displayValue = unit === "px" ? pxToMm(value, dpi).toFixed(1) : (unit === "cm" ? (pxToMm(value, dpi) / 10).toFixed(1) : value);
 
     return (
         <div className="group space-y-4 md:space-y-3 py-1">
@@ -67,7 +67,7 @@ const HybridInput = React.memo(({ label, value, onChange, min, max, step = 1, un
                         {displayValue}
                     </span>
                     <span className="text-[9px] font-black uppercase text-primary/30 dark:text-white/30">
-                        {unit === "px" ? "MM" : unit === "ud" ? "UD" : unit === "x" ? "X" : unit}
+                        {unit === "px" ? "MM" : unit === "cm" ? "CM" : unit === "ud" ? "UD" : unit === "x" ? "X" : unit}
                     </span>
                 </div>
             </div>
@@ -119,18 +119,21 @@ const DevNav = React.memo(({ view, setView }) => (
         >
             <Sparkles size={12} className={view === 'onboarding' ? 'animate-pulse' : ''} /> <span className="hidden xs:inline">ÚNETE FOTÓGRAFO</span><span className="xs:hidden">ÚNETE</span>
         </button>
+        <div className="w-px h-4 bg-white/10" />
         <button
             onClick={() => setView('master')}
             className={`px-3 py-2 rounded-[18px] text-[8px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${view === 'master' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
         >
             <Settings size={12} className={view === 'master' ? 'animate-spin-slow' : ''} /> <span className="hidden xs:inline">CENTRO DE CONTROL</span><span className="xs:hidden">MASTER</span>
         </button>
+        <div className="w-px h-4 bg-white/10" />
         <button
             onClick={() => setView('command')}
             className={`px-3 py-2 rounded-[18px] text-[8px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${view === 'command' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
         >
             <LayoutGrid size={12} /> <span className="hidden xs:inline">PANEL ADMINISTRADOR</span><span className="xs:hidden">ADMIN</span>
         </button>
+        <div className="w-px h-4 bg-white/10" />
         <button
             onClick={() => setView('landing')}
             className={`px-3 py-2 rounded-[18px] text-[8px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${view === 'landing' ? 'bg-white text-black shadow-lg shadow-white/40' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
@@ -144,7 +147,8 @@ export default function App() {
     // 1. Detección de Modo Demo y Fotógrafo (Multitenancy)
     const [isDemo] = useState(() => {
         const params = new URLSearchParams(window.location.search);
-        return params.get('demo') === 'true' || window.location.hostname.includes('demo');
+        const f = params.get('f');
+        return params.get('demo') === 'true' || window.location.hostname.includes('demo') || f === 'demo2026';
     });
 
     const [photographerId] = useState(() => {
@@ -160,7 +164,10 @@ export default function App() {
         const params = new URLSearchParams(window.location.search);
         const v = params.get('view');
         const f = params.get('f');
+
         if (v) return v;
+        // En modo demo forzamos inicio en landing (presentación) aunque venga el parámetro 'f'
+        if (isDemo) return 'landing';
         if (f) return 'user';
         return 'landing';
     });
@@ -274,13 +281,14 @@ export default function App() {
 
     const [configOrla, setConfigOrla] = useState(() => {
         const defaults = {
-            canvasW: 4961, canvasH: 3508, margin: mmToPx(20),
+            dpi: 300,
+            canvasW: 4961, canvasH: 3508, margin: mmToPx(20, 300),
             numAlumnos: 24, numDocentes: 3,
             fontFamily: "Myriad Pro", isBold: false, isItalic: false,
             fontSizeAlu: 10, fontSizeDoc: 10,
-            dScale: 1.2, dY: mmToPx(60), dGapX: mmToPx(15), dTextOffset: mmToPx(12),
-            aScale: 1.0, aW: mmToPx(35), aH: mmToPx(45), aStartY: mmToPx(135), aStartX: mmToPx(20),
-            aCols: 8, aGapY: mmToPx(65), aGapX: mmToPx(10), aTextOffset: mmToPx(10)
+            dScale: 1.2, dY: mmToPx(60, 300), dGapX: mmToPx(15, 300), dTextOffset: mmToPx(12, 300),
+            aScale: 1.0, aW: mmToPx(35, 300), aH: mmToPx(45, 300), aStartY: mmToPx(135, 300), aStartX: mmToPx(20, 300),
+            aCols: 8, aGapY: mmToPx(65, 300), aGapX: mmToPx(10, 300), aTextOffset: mmToPx(10, 300)
         };
         try {
             const stored = localStorage.getItem(`orlas2026_configOrla`);
@@ -321,6 +329,8 @@ export default function App() {
     const isDraggingCanvasRef = useRef(false);
     const dragStartRef = useRef({ x: 0, y: 0 });
     const scrollStartRef = useRef({ left: 0, top: 0 });
+    const initialPinchDistanceRef = useRef(0);
+    const initialZoomRef = useRef(1);
 
     const handleCanvasMouseDown = (e) => {
         isDraggingCanvasRef.current = true;
@@ -360,6 +370,40 @@ export default function App() {
             const newZoom = prev - e.deltaY * zoomSpeed;
             return Math.min(3, Math.max(0.1, newZoom));
         });
+    };
+
+    const handleCanvasTouchStart = (e) => {
+        if (e.touches.length === 2) {
+            isDraggingCanvasRef.current = false;
+            const dist = Math.sqrt(
+                Math.pow(e.touches[0].clientX - e.touches[1].clientX, 2) +
+                Math.pow(e.touches[0].clientY - e.touches[1].clientY, 2)
+            );
+            initialPinchDistanceRef.current = dist;
+            initialZoomRef.current = canvasZoom;
+        } else {
+            handleCanvasMouseDown(e);
+        }
+    };
+
+    const handleCanvasTouchMove = (e) => {
+        if (e.touches.length === 2 && initialPinchDistanceRef.current > 0) {
+            e.preventDefault();
+            const currentDist = Math.sqrt(
+                Math.pow(e.touches[0].clientX - e.touches[1].clientX, 2) +
+                Math.pow(e.touches[0].clientY - e.touches[1].clientY, 2)
+            );
+            const scale = currentDist / initialPinchDistanceRef.current;
+            const newZoom = initialZoomRef.current * scale;
+            setCanvasZoom(Math.min(3, Math.max(0.1, newZoom)));
+        } else {
+            handleCanvasMouseMove(e);
+        }
+    };
+
+    const handleCanvasTouchEnd = () => {
+        initialPinchDistanceRef.current = 0;
+        handleCanvasMouseUp();
     };
 
     const handleCanvasMouseUp = () => {
@@ -1029,7 +1073,28 @@ export default function App() {
     };
 
     const updateConfig = (key, value) => {
-        setConfigOrla(prev => ({ ...prev, [key]: value }));
+        if (key === 'dpi') {
+            const ratio = value / configOrla.dpi;
+            setConfigOrla(prev => ({
+                ...prev,
+                dpi: value,
+                canvasW: Math.round(prev.canvasW * ratio),
+                canvasH: Math.round(prev.canvasH * ratio),
+                margin: Math.round(prev.margin * ratio),
+                aW: Math.round(prev.aW * ratio),
+                aH: Math.round(prev.aH * ratio),
+                aGapX: Math.round(prev.aGapX * ratio),
+                aGapY: Math.round(prev.aGapY * ratio),
+                aStartX: Math.round(prev.aStartX * ratio),
+                aStartY: Math.round(prev.aStartY * ratio),
+                aTextOffset: Math.round(prev.aTextOffset * ratio),
+                dY: Math.round(prev.dY * ratio),
+                dGapX: Math.round(prev.dGapX * ratio),
+                dTextOffset: Math.round(prev.dTextOffset * ratio)
+            }));
+        } else {
+            setConfigOrla(prev => ({ ...prev, [key]: value }));
+        }
     };
 
     const renderDesignControls = () => {
@@ -1145,33 +1210,33 @@ export default function App() {
                 <ControlGroup title="Alumnos" icon={LayoutGrid} expandedGroups={expandedDesignGroups} setExpandedGroups={setExpandedDesignGroups}>
                     <div className="space-y-6">
                         <HybridInput label="Columnas" value={configOrla.aCols} onChange={(v) => updateConfig('aCols', v)} min={1} max={20} unit="ud" />
-                        <HybridInput label="Eje Y (Inicio)" value={configOrla.aStartY} onChange={(v) => updateConfig('aStartY', v)} min={mmToPx(50)} max={mmToPx(280)} />
-                        <HybridInput label="Separación Filas" value={configOrla.aGapY} onChange={(v) => updateConfig('aGapY', v)} min={mmToPx(40)} max={mmToPx(120)} />
-                        <HybridInput label="Separación Texto" value={configOrla.aTextOffset} onChange={(v) => updateConfig('aTextOffset', v)} min={mmToPx(2)} max={mmToPx(25)} />
+                        <HybridInput label="Eje Y (Inicio)" value={configOrla.aStartY} onChange={(v) => updateConfig('aStartY', v)} min={mmToPx(50, configOrla.dpi)} max={mmToPx(280, configOrla.dpi)} dpi={configOrla.dpi} />
+                        <HybridInput label="Separación Filas" value={configOrla.aGapY} onChange={(v) => updateConfig('aGapY', v)} min={mmToPx(40, configOrla.dpi)} max={mmToPx(120, configOrla.dpi)} dpi={configOrla.dpi} />
+                        <HybridInput label="Separación Texto" value={configOrla.aTextOffset} onChange={(v) => updateConfig('aTextOffset', v)} min={mmToPx(2, configOrla.dpi)} max={mmToPx(25, configOrla.dpi)} dpi={configOrla.dpi} />
                         <HybridInput label="Tamaño Texto" value={configOrla.fontSizeAlu} onChange={(v) => updateConfig('fontSizeAlu', v)} min={6} max={18} unit="pt" />
                     </div>
                 </ControlGroup>
 
                 <ControlGroup title="Docentes" icon={UserSquare2} expandedGroups={expandedDesignGroups} setExpandedGroups={setExpandedDesignGroups}>
                     <div className="space-y-6">
-                        <HybridInput label="Eje Y (Altura)" value={configOrla.dY} onChange={(v) => updateConfig('dY', v)} min={mmToPx(10)} max={mmToPx(150)} />
+                        <HybridInput label="Eje Y (Altura)" value={configOrla.dY} onChange={(v) => updateConfig('dY', v)} min={mmToPx(10, configOrla.dpi)} max={mmToPx(150, configOrla.dpi)} dpi={configOrla.dpi} />
                         <HybridInput label="Escala Fotos" value={configOrla.dScale} onChange={(v) => updateConfig('dScale', v)} min={0.5} max={2.5} step={0.05} unit="x" />
-                        <HybridInput label="Separación Texto" value={configOrla.dTextOffset} onChange={(v) => updateConfig('dTextOffset', v)} min={mmToPx(2)} max={mmToPx(30)} />
+                        <HybridInput label="Separación Texto" value={configOrla.dTextOffset} onChange={(v) => updateConfig('dTextOffset', v)} min={mmToPx(2, configOrla.dpi)} max={mmToPx(30, configOrla.dpi)} dpi={configOrla.dpi} />
                         <HybridInput label="Tamaño Texto" value={configOrla.fontSizeDoc} onChange={(v) => updateConfig('fontSizeDoc', v)} min={6} max={18} unit="pt" />
                     </div>
                 </ControlGroup>
 
                 <ControlGroup title="Canvas y Márgenes" icon={Maximize} expandedGroups={expandedDesignGroups} setExpandedGroups={setExpandedDesignGroups}>
                     <div className="space-y-6">
-                        <HybridInput label="Margen Global" value={configOrla.margin} onChange={(v) => updateConfig('margin', v)} min={mmToPx(5)} max={mmToPx(50)} />
+                        <HybridInput label="Margen Global" value={configOrla.margin} onChange={(v) => updateConfig('margin', v)} min={mmToPx(5, configOrla.dpi)} max={mmToPx(50, configOrla.dpi)} dpi={configOrla.dpi} />
                         <div className="pt-4 border-t border-primary/5 dark:border-white/5 space-y-3">
                             <p className="text-[9px] font-black text-primary/40 dark:text-white/40 uppercase italic tracking-widest px-1">Totales (Lectura)</p>
                             <div className="grid grid-cols-2 gap-2">
                                 <div className="p-3 bg-primary/5 dark:bg-white/5 rounded-xl border border-primary/5 dark:border-white/5">
-                                    <p className="text-[10px] font-black text-primary dark:text-white">{configOrla.numAlumnos} Alus.</p>
+                                    <p className="text-[10px] font-black text-primary dark:text-white uppercase tracking-tighter">{configOrla.numAlumnos} Alus.</p>
                                 </div>
                                 <div className="p-3 bg-primary/5 dark:bg-white/5 rounded-xl border border-primary/5 dark:border-white/5">
-                                    <p className="text-[10px] font-black text-primary dark:text-white">{configOrla.numDocentes} Doc.</p>
+                                    <p className="text-[10px] font-black text-primary dark:text-white uppercase tracking-tighter">{configOrla.numDocentes} Doc.</p>
                                 </div>
                             </div>
                         </div>
@@ -1436,6 +1501,8 @@ export default function App() {
                             groupName={schools.find(s => s.id === adminSchool)?.name || 'Grupo de Orla'}
                             course={designFilter.course}
                             group={designFilter.group}
+                            theme={theme}
+                            onToggleTheme={toggleTheme}
                         />
                     )}
 
@@ -1651,21 +1718,7 @@ export default function App() {
                                                         </div>
                                                     </div>
                                                 </div>
-
-                                                <div className="card p-6">
-                                                    <h3 className="text-sm font-bold text-primary flex items-center gap-2 mb-5"><CreditCard size={18} className="text-accent" /> Método de pago</h3>
-                                                    {enabledPaymentMethods.length > 0 ? (
-                                                        <div className={`grid ${enabledPaymentMethods.length === 1 ? 'grid-cols-1 max-w-[200px] mx-auto w-full' : 'grid-cols-2'} gap-3`}>
-                                                            {enabledPaymentMethods.map(m => (
-                                                                <button key={m.id} onClick={() => setFormData({ ...formData, paymentMethod: m.id })} className={`py-4 rounded-2xl font-bold text-sm border-2 transition-all duration-200 active:scale-95 ${formData.paymentMethod === m.id ? 'border-accent bg-accent/5 text-accent shadow-lg shadow-accent/5' : 'border-primary/5 bg-primary/5 text-secondary hover:border-primary/20 hover:text-primary'}`}>
-                                                                    {m.label}
-                                                                </button>
-                                                            ))}
-                                                        </div>
-                                                    ) : <p className="text-slate-500 text-sm text-center py-3">Sin métodos de pago activos.</p>}
-                                                </div>
-
-                                                {/* BANNER REGALO */}
+                                                {/* BANNER REGALO (SE MANTIENE LIMPIO) */}
                                                 <button
                                                     onClick={() => setShowGiftModal(true)}
                                                     className="w-full card p-5 flex items-center justify-center gap-3 group active:scale-95 transition-all bg-gradient-to-br from-primary/5 to-primary/10 border-primary/10 hover:border-accent/30"
@@ -1674,37 +1727,64 @@ export default function App() {
                                                     <span className="text-lg font-black text-primary tracking-tight">¡Tu regalo te espera! 🎁</span>
                                                 </button>
 
-                                                {/* INFORMACIÓN LEGAL TPV - REQUERIMIENTO SABADELL */}
-                                                {(formData.paymentMethod === 'card' || formData.paymentMethod === 'bizum') && (
-                                                    <div className="card p-5 bg-white/50 border-primary/10 space-y-4">
-                                                        <div className="flex justify-center gap-6 opacity-60">
-                                                            <img src="https://upload.wikimedia.org/wikipedia/commons/5/5e/Visa_Inc._logo.svg" alt="Visa" className="h-4" />
-                                                            <img src="https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg" alt="Mastercard" className="h-6" />
-                                                            <div className="flex items-center gap-1 border border-primary/20 px-1 rounded text-[7px] font-bold text-primary/60">
-                                                                <Shield size={10} /> SECURE WEB
+                                                {/* TARJETA UNIFICADA DE PAGO Y FINALIZACIÓN */}
+                                                {/* TARJETA UNIFICADA DE PAGO Y FINALIZACIÓN - COMPACTA */}
+                                                <div className="card p-6 space-y-6 relative overflow-hidden bg-white/40 border-primary/10">
+                                                    <div className="space-y-4">
+                                                        <h3 className="text-[10px] font-black text-primary/30 uppercase tracking-[0.25em] text-center italic">Elige método de pago</h3>
+                                                        {enabledPaymentMethods.length > 0 ? (
+                                                            <div className="flex flex-wrap justify-center gap-3">
+                                                                {enabledPaymentMethods.map(m => (
+                                                                    <button
+                                                                        key={m.id}
+                                                                        onClick={() => setFormData({ ...formData, paymentMethod: m.id })}
+                                                                        className={`flex items-center gap-3 px-6 py-4 rounded-[28px] border-2 transition-all duration-300 active:scale-95 ${formData.paymentMethod === m.id ? 'border-accent bg-accent/5 text-accent shadow-xl shadow-accent/10 scale-105' : 'border-primary/5 bg-primary/5 text-secondary/60 hover:bg-primary/10'}`}
+                                                                    >
+                                                                        <span className="text-2xl">{m.icon || (m.id === 'bizum' ? '📲' : '💳')}</span>
+                                                                        <span className="text-[11px] font-black uppercase tracking-widest">{m.label}</span>
+                                                                    </button>
+                                                                ))}
                                                             </div>
-                                                        </div>
-
-                                                        <div className="text-[9px] text-secondary/70 leading-relaxed text-center space-y-1">
-                                                            <p className="font-black uppercase tracking-widest text-primary/40">Información del Establecimiento</p>
-                                                            <p>Pujalte Fotografía (Pujalte Creative Studio)</p>
-                                                            <p>CIF: 48443916M · Calle Mayor 1 · 03202 Elche (Alicante) · España</p>
-                                                            <div className="pt-2 flex justify-center gap-3">
-                                                                <button type="button" className="underline hover:text-primary">Aviso Legal</button>
-                                                                <button type="button" className="underline hover:text-primary">Política de Compra</button>
-                                                            </div>
-                                                        </div>
+                                                        ) : <p className="text-slate-500 text-sm text-center py-3">Sin métodos de pago activos.</p>}
                                                     </div>
-                                                )}
 
-                                                <button
-                                                    onClick={handleFinalize}
-                                                    disabled={!formData.paymentMethod}
-                                                    className={`btn-primary w-full text-xl py-6 flex items-center justify-center gap-3 ${!formData.paymentMethod ? 'opacity-50 grayscale' : ''}`}
-                                                >
-                                                    <CheckCircle size={24} />
-                                                    {formData.paymentMethod === 'efectivo' ? 'Confirmar Pedido' : 'Ir al Pago Seguro'}
-                                                </button>
+                                                    {/* Información Legal Integrada (Muy sutil) */}
+                                                    {/* Información Legal Integrada (Muy sutil) */}
+                                                    {(formData.paymentMethod === 'card' || formData.paymentMethod === 'bizum' || formData.paymentMethod === 'tarjeta') && (
+                                                        <div className="pt-5 border-t border-primary/10 animate-fade-in text-center space-y-4">
+                                                            <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 opacity-30 grayscale saturate-0">
+                                                                <img src="https://upload.wikimedia.org/wikipedia/commons/5/5e/Visa_Inc._logo.svg" alt="Visa" className="h-3" />
+                                                                <img src="https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg" alt="Mastercard" className="h-5" />
+                                                                <div className="flex items-center gap-1 border border-primary/20 px-1.5 rounded text-[8px] font-bold">
+                                                                    <Shield size={10} /> SECURE WEB
+                                                                </div>
+                                                                <span className="text-[9px] font-bold uppercase tracking-tighter">
+                                                                    {(settings.fiscalName || 'Pujalte Fotografía').toUpperCase()} · CIF: {settings.cif || '48443916M'}
+                                                                </span>
+                                                            </div>
+                                                            <div className="text-[9px] font-bold opacity-40">
+                                                                {settings.address || 'Calle Mayor 1'}, {settings.city || 'Elche'} · España
+                                                            </div>
+                                                            <div className="flex justify-center gap-6 text-[10px] font-bold opacity-50">
+                                                                <span className="underline cursor-pointer hover:text-primary transition-colors">Aviso Legal</span>
+                                                                <span className="underline cursor-pointer hover:text-primary transition-colors">Condiciones</span>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* ÚNICO BOTÓN DE ACCIÓN FINAL */}
+                                                    <button
+                                                        onClick={handleFinalize}
+                                                        disabled={!formData.paymentMethod}
+                                                        className={`w-full py-6 rounded-[32px] font-black text-lg transition-all duration-500 flex items-center justify-center gap-4 shadow-2xl active:scale-95 ${formData.paymentMethod ? 'bg-indigo-600 text-white shadow-indigo-500/40 hover:-translate-y-1' : 'bg-primary/10 text-primary/20 cursor-not-allowed'}`}
+                                                    >
+                                                        {formData.paymentMethod === 'efectivo' ? <CheckCircle size={24} /> : <Lock size={20} />}
+                                                        <span className="tracking-tight italic uppercase">
+                                                            {formData.paymentMethod === 'efectivo' ? 'Confirmar Pedido' : 'Ir al Pago Seguro'}
+                                                        </span>
+                                                        <ChevronRight size={20} className={formData.paymentMethod ? 'animate-bounce-x' : ''} />
+                                                    </button>
+                                                </div>
                                             </div>
                                         )}
                                     </>
@@ -3818,23 +3898,62 @@ export default function App() {
                                                         },
 
                                                         // GENERAL
-                                                        { icon: Box, label: 'Margen', key: 'margin', min: mmToPx(5), max: mmToPx(50), group: 'General' },
                                                         {
-                                                            icon: Download, label: 'Descargar Config', key: 'download-config', group: 'General', action: () => {
-                                                                const data = JSON.stringify(configOrla, null, 2);
-                                                                const blob = new Blob([data], { type: 'application/json' });
-                                                                const url = URL.createObjectURL(blob);
-                                                                const a = document.createElement('a');
-                                                                a.href = url;
-                                                                a.download = `config_orla_${new Date().getTime()}.json`;
-                                                                a.click();
+                                                            icon: Layout,
+                                                            label: 'Formato',
+                                                            key: 'canvasFormat',
+                                                            type: 'select',
+                                                            options: ['DINA1', 'DINA2', 'DINA3', '30x40', '20x30', '15x20', 'CUSTOM'],
+                                                            group: 'General',
+                                                            action: (val) => {
+                                                                const presets = {
+                                                                    'DINA1': { w: 841, h: 594 },
+                                                                    'DINA2': { w: 594, h: 420 },
+                                                                    'DINA3': { w: 420, h: 297 },
+                                                                    '30x40': { w: 400, h: 300 },
+                                                                    '20x30': { w: 300, h: 200 },
+                                                                    '15x20': { w: 200, h: 150 }
+                                                                };
+                                                                if (presets[val]) {
+                                                                    const newW = mmToPx(presets[val].w, configOrla.dpi);
+                                                                    const newH = mmToPx(presets[val].h, configOrla.dpi);
+                                                                    const factor = newW / configOrla.canvasW;
+
+                                                                    setConfigOrla(prev => ({
+                                                                        ...prev,
+                                                                        canvasFormat: val,
+                                                                        canvasW: newW,
+                                                                        canvasH: newH,
+                                                                        margin: Math.round(prev.margin * factor),
+                                                                        aW: Math.round(prev.aW * factor),
+                                                                        aH: Math.round(prev.aH * factor),
+                                                                        aGapX: Math.round(prev.aGapX * factor),
+                                                                        aGapY: Math.round(prev.aGapY * factor),
+                                                                        aStartX: Math.round(prev.aStartX * factor),
+                                                                        aStartY: Math.round(prev.aStartY * factor),
+                                                                        aTextOffset: Math.round(prev.aTextOffset * factor),
+                                                                        dY: Math.round(prev.dY * factor),
+                                                                        dGapX: Math.round(prev.dGapX * factor),
+                                                                        dTextOffset: Math.round(prev.dTextOffset * factor),
+                                                                        fontSizeAlu: Math.round(prev.fontSizeAlu * factor),
+                                                                        fontSizeDoc: Math.round(prev.fontSizeDoc * factor)
+                                                                    }));
+                                                                } else {
+                                                                    updateConfig('canvasFormat', val);
+                                                                }
+                                                                const tool = TOOLS.find(t => t.key === 'canvasFormat');
+                                                                if (tool) setActiveDesignParam(tool);
                                                             }
                                                         },
+                                                        { icon: Maximize2, label: 'Ancho (W)', key: 'canvasW', min: mmToPx(100, configOrla.dpi), max: mmToPx(2000, configOrla.dpi), step: 1, unit: 'cm', group: 'General', condition: (c) => c.canvasFormat === 'CUSTOM' },
+                                                        { icon: Maximize2, label: 'Alto (H)', key: 'canvasH', min: mmToPx(100, configOrla.dpi), max: mmToPx(2000, configOrla.dpi), step: 1, unit: 'cm', group: 'General', condition: (c) => c.canvasFormat === 'CUSTOM' },
+                                                        { icon: Box, label: 'Margen', key: 'margin', min: mmToPx(0, configOrla.dpi), max: mmToPx(200, configOrla.dpi), step: 1, unit: 'cm', group: 'General' },
+                                                        { icon: Sparkles, label: 'Resolución', key: 'dpi', min: 72, max: 600, step: 1, unit: 'dpi', group: 'General' },
                                                         {
-                                                            icon: History, label: 'Restaurar', key: 'restore-config', group: 'General', action: () => {
+                                                            icon: History, label: 'Autorreinicio', key: 'restore-config', group: 'General', action: () => {
                                                                 const backup = localStorage.getItem('configOrla_backup');
                                                                 if (backup) {
-                                                                    if (confirm('¿Restaurar la última copia guardada?')) {
+                                                                    if (confirm('¿Restaurar la última copia automática?')) {
                                                                         setConfigOrla(JSON.parse(backup));
                                                                     }
                                                                 } else {
@@ -3856,21 +3975,44 @@ export default function App() {
                                                                 <div className="px-5 pt-4 pb-2">
                                                                     <div className="flex items-center justify-between mb-2">
                                                                         <span className={`text-[9px] font-black uppercase tracking-widest ${textLabel}`}>{activeDesignParam.label}</span>
-                                                                        <span className="text-[13px] font-black text-violet-400 tabular-nums">
-                                                                            {
-                                                                                activeDesignParam.key.includes('Scale') || activeDesignParam.unit === 'UD' || activeDesignParam.key.includes('fontSize')
-                                                                                    ? activeDesignParam.key.includes('Scale') ? configOrla[activeDesignParam.key].toFixed(2) : Math.round(configOrla[activeDesignParam.key])
-                                                                                    : Math.round(pxToMm(configOrla[activeDesignParam.key]))
-                                                                            }
-                                                                            <span className="text-[9px] text-violet-300 ml-0.5">{activeDesignParam.unit || 'MM'}</span>
-                                                                        </span>
+                                                                        <div className="flex items-center gap-1.5 focus-within:ring-2 focus-within:ring-violet-500/50 rounded-lg transition-all">
+                                                                            <input
+                                                                                type="number"
+                                                                                step={activeDesignParam.unit === 'cm' || activeDesignParam.key.includes('Scale') ? 0.1 : 1}
+                                                                                value={
+                                                                                    activeDesignParam.key.includes('Scale') || activeDesignParam.unit === 'UD' || activeDesignParam.key.includes('fontSize')
+                                                                                        ? activeDesignParam.key.includes('Scale') ? parseFloat(configOrla[activeDesignParam.key].toFixed(2)) : Math.round(configOrla[activeDesignParam.key])
+                                                                                        : activeDesignParam.unit === 'cm'
+                                                                                            ? parseFloat((pxToMm(configOrla[activeDesignParam.key], configOrla.dpi) / 10).toFixed(1))
+                                                                                            : activeDesignParam.unit === 'dpi'
+                                                                                                ? configOrla[activeDesignParam.key]
+                                                                                                : Math.round(pxToMm(configOrla[activeDesignParam.key], configOrla.dpi))
+                                                                                }
+                                                                                onChange={(e) => {
+                                                                                    const v = parseFloat(e.target.value);
+                                                                                    if (isNaN(v)) return;
+
+                                                                                    let finalVal = v;
+                                                                                    if (activeDesignParam.key.includes('Scale') || activeDesignParam.unit === 'UD' || activeDesignParam.key.includes('fontSize') || activeDesignParam.unit === 'dpi') {
+                                                                                        finalVal = v;
+                                                                                    } else if (activeDesignParam.unit === 'cm') {
+                                                                                        finalVal = mmToPx(v * 10, configOrla.dpi);
+                                                                                    } else {
+                                                                                        finalVal = mmToPx(v, configOrla.dpi);
+                                                                                    }
+                                                                                    updateConfig(activeDesignParam.key, finalVal);
+                                                                                }}
+                                                                                className="w-16 h-7 bg-violet-500/10 border-none text-right font-black text-[13px] text-violet-400 focus:outline-none focus:bg-violet-500/20 rounded-lg px-2 tabular-nums"
+                                                                            />
+                                                                            <span className="text-[9px] text-violet-300 font-black uppercase tracking-tighter w-4">{activeDesignParam.unit || 'MM'}</span>
+                                                                        </div>
                                                                     </div>
                                                                     {activeDesignParam.type === 'select' ? (
                                                                         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
                                                                             {activeDesignParam.options.map(opt => (
                                                                                 <button
                                                                                     key={opt}
-                                                                                    onClick={() => updateConfig(activeDesignParam.key, opt)}
+                                                                                    onClick={() => activeDesignParam.action ? activeDesignParam.action(opt) : updateConfig(activeDesignParam.key, opt)}
                                                                                     className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${configOrla[activeDesignParam.key] === opt ? 'bg-violet-600 text-white shadow-lg' : isDark ? 'bg-white/5 text-white/40' : 'bg-black/5 text-black/40'}`}
                                                                                 >
                                                                                     {opt}
@@ -3983,6 +4125,7 @@ export default function App() {
                                                                                             className={`flex items-center gap-1 transition-all duration-500 ease-out overflow-hidden ${isGroupActive ? 'max-w-[1000px] opacity-100 ml-4 pointer-events-auto' : 'max-w-0 opacity-0 ml-0 pointer-events-none'}`}
                                                                                         >
                                                                                             {groupTools.map(tool => {
+                                                                                                if (tool.condition && !tool.condition(configOrla)) return null;
                                                                                                 const isParamActive = activeDesignParam?.key === tool.key;
                                                                                                 return (
                                                                                                     <button
@@ -4048,18 +4191,18 @@ export default function App() {
                                                             </div>
                                                             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                                                                 <button
-                                                                    onClick={() => setIsFullScreenDesign(true)}
-                                                                    className="w-full sm:w-auto px-5 py-3 bg-violet-600 hover:bg-violet-500 text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.15em] flex items-center justify-center gap-2 transition-all shadow-xl shadow-violet-600/20 active:scale-95 group whitespace-nowrap"
-                                                                >
-                                                                    <Maximize2 size={16} className="group-hover:rotate-12 transition-transform flex-shrink-0" />
-                                                                    <span>Editar Orla</span>
-                                                                </button>
-                                                                <button
                                                                     onClick={() => setView('command')}
                                                                     className="w-full sm:w-auto px-5 py-3 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.15em] flex items-center justify-center gap-2 transition-all shadow-xl shadow-emerald-500/30 active:scale-95 group border border-white/10 animate-pulse-slow whitespace-nowrap"
                                                                 >
                                                                     <Layers size={16} className="group-hover:scale-110 transition-transform flex-shrink-0" />
                                                                     <span>Finalizar Orla</span>
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => setIsFullScreenDesign(true)}
+                                                                    className="w-full sm:w-auto px-5 py-3 bg-violet-600 hover:bg-violet-500 text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.15em] flex items-center justify-center gap-2 transition-all shadow-xl shadow-violet-600/20 active:scale-95 group whitespace-nowrap"
+                                                                >
+                                                                    <Maximize2 size={16} className="group-hover:rotate-12 transition-transform flex-shrink-0" />
+                                                                    <span>Editar Orla</span>
                                                                 </button>
                                                             </div>
                                                         </div>
@@ -4072,9 +4215,9 @@ export default function App() {
                                                         onMouseUp={handleCanvasMouseUp}
                                                         onMouseLeave={handleCanvasMouseUp}
                                                         onWheel={handleCanvasWheel}
-                                                        onTouchStart={handleCanvasMouseDown}
-                                                        onTouchMove={handleCanvasMouseMove}
-                                                        onTouchEnd={handleCanvasMouseUp}
+                                                        onTouchStart={handleCanvasTouchStart}
+                                                        onTouchMove={handleCanvasTouchMove}
+                                                        onTouchEnd={handleCanvasTouchEnd}
                                                         className={`relative select-none touch-none ${isFullScreenDesign
                                                             ? `flex-1 ${theme === 'dark' ? 'bg-[#0a0a0a]' : 'bg-[#f0f2f5]'} overflow-auto flex items-center justify-center`
                                                             : 'w-full overflow-hidden bg-black/20 rounded-3xl border border-white/5 cursor-grab active:cursor-grabbing'}`}
@@ -4092,12 +4235,56 @@ export default function App() {
                                                             width: '100%',
                                                             height: '100%',
                                                             display: 'flex',
-                                                            alignItems: isFullScreenDesign ? 'center' : 'flex-start',
+                                                            alignItems: 'center',
                                                             justifyContent: 'center',
-                                                            padding: isFullScreenDesign ? '2rem' : '16px 16px 0 16px',
+                                                            padding: isFullScreenDesign ? '4rem' : '40px',
                                                             minWidth: isFullScreenDesign ? 'max-content' : undefined,
-                                                            minHeight: isFullScreenDesign ? 'max-content' : undefined
+                                                            minHeight: isFullScreenDesign ? 'max-content' : undefined,
+                                                            position: 'relative'
                                                         }}>
+                                                            {/* COTAS (INDICADORES DE TAMAÑO) */}
+                                                            {/* COTA ANCHO (W) */}
+                                                            <div className="absolute pointer-events-none flex flex-col items-center"
+                                                                style={{
+                                                                    left: '50%',
+                                                                    bottom: 'calc(50% + ' + (configOrla.canvasH / 20 * (isFullScreenDesign ? (window.innerWidth < 1024 ? canvasZoom * 0.75 : canvasZoom * 1.5) : Math.min(1, ((canvasContainerRef?.current?.offsetWidth || window.innerWidth) - 80) / (configOrla.canvasW / 10)))) + 'px + 10px)',
+                                                                    transform: isFullScreenDesign ? `translate(calc(-50% + ${panOffset.x}px), ${panOffset.y}px)` : 'translateX(-50%)',
+                                                                    width: isFullScreenDesign ? (configOrla.canvasW / 10 * (window.innerWidth < 1024 ? canvasZoom * 0.75 : canvasZoom * 1.5)) + 'px' : (configOrla.canvasW / 10 * Math.min(1, ((canvasContainerRef?.current?.offsetWidth || window.innerWidth) - 80) / (configOrla.canvasW / 10))) + 'px',
+                                                                    zIndex: 60
+                                                                }}>
+                                                                <div className="flex items-center w-full">
+                                                                    <div className="w-0 h-0 border-y-[4px] border-y-transparent border-r-[8px] border-r-violet-600/60" />
+                                                                    <div className="h-[1px] flex-1 bg-violet-600/30" />
+                                                                    <span className="text-[10px] font-black text-white bg-violet-600 px-2 py-0.5 rounded-full shadow-lg whitespace-nowrap mx-2">
+                                                                        W: {(pxToMm(configOrla.canvasW, configOrla.dpi) / 10).toFixed(1)} CM
+                                                                    </span>
+                                                                    <div className="h-[1px] flex-1 bg-violet-600/30" />
+                                                                    <div className="w-0 h-0 border-y-[4px] border-y-transparent border-l-[8px] border-l-violet-600/60" />
+                                                                </div>
+                                                            </div>
+
+                                                            {/* COTA ALTO (H) */}
+                                                            <div className="absolute pointer-events-none flex items-center justify-center"
+                                                                style={{
+                                                                    top: '50%',
+                                                                    right: 'calc(50% + ' + (configOrla.canvasW / 20 * (isFullScreenDesign ? (window.innerWidth < 1024 ? canvasZoom * 0.75 : canvasZoom * 1.5) : Math.min(1, ((canvasContainerRef?.current?.offsetWidth || window.innerWidth) - 80) / (configOrla.canvasW / 10)))) + 'px + 10px)',
+                                                                    transformOrigin: 'right center',
+                                                                    transform: isFullScreenDesign
+                                                                        ? `translate(${panOffset.x}px, calc(-50% + ${panOffset.y}px)) rotate(-90deg)`
+                                                                        : 'translateY(-50%) rotate(-90deg)',
+                                                                    width: isFullScreenDesign ? (configOrla.canvasH / 10 * (window.innerWidth < 1024 ? canvasZoom * 0.75 : canvasZoom * 1.5)) + 'px' : (configOrla.canvasH / 10 * Math.min(1, ((canvasContainerRef?.current?.offsetWidth || window.innerWidth) - 80) / (configOrla.canvasW / 10))) + 'px',
+                                                                    zIndex: 60
+                                                                }}>
+                                                                <div className="flex items-center w-full">
+                                                                    <div className="w-0 h-0 border-y-[4px] border-y-transparent border-r-[8px] border-r-violet-600/60" />
+                                                                    <div className="h-[1px] flex-1 bg-violet-600/30" />
+                                                                    <span className="text-[10px] font-black text-white bg-violet-600 px-2 py-0.5 rounded-full shadow-lg whitespace-nowrap mx-2">
+                                                                        H: {(pxToMm(configOrla.canvasH, configOrla.dpi) / 10).toFixed(1)} CM
+                                                                    </span>
+                                                                    <div className="h-[1px] flex-1 bg-violet-600/30" />
+                                                                    <div className="w-0 h-0 border-y-[4px] border-y-transparent border-l-[8px] border-l-violet-600/60" />
+                                                                </div>
+                                                            </div>
                                                             <div className="relative bg-white shadow-[0_0_100px_rgba(0,0,0,0.5)] rounded-sm overflow-hidden"
                                                                 style={{
                                                                     width: configOrla.canvasW / 10 + 'px',
@@ -4109,8 +4296,8 @@ export default function App() {
                                                                     backgroundSize: '20px 20px',
                                                                     transform: isFullScreenDesign
                                                                         ? `translate(${panOffset.x}px, ${panOffset.y}px) scale(${window.innerWidth < 1024 ? canvasZoom * 0.75 : canvasZoom * 1.5})`
-                                                                        : (() => { const aw = (canvasContainerRef?.current?.offsetWidth || window.innerWidth) - 32; const s = Math.min(1, aw / (configOrla.canvasW / 10)); return `scale(${s})`; })(),
-                                                                    transformOrigin: isFullScreenDesign ? 'center center' : 'top center',
+                                                                        : (() => { const aw = (canvasContainerRef?.current?.offsetWidth || window.innerWidth) - 80; const s = Math.min(1, aw / (configOrla.canvasW / 10)); return `scale(${s})`; })(),
+                                                                    transformOrigin: isFullScreenDesign ? 'center center' : 'center center',
                                                                     transition: isDraggingCanvasRef.current ? 'none' : 'transform 0.1s ease-out',
                                                                     flexShrink: 0
                                                                 }}>

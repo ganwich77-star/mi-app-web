@@ -42,6 +42,44 @@ export const DEMO_EXTRAS = [
     { id: 'pin_extra', name: 'Pin de Graduación (Invitado)', price: 0.00, cost: 0.00, emoji: '🏅' },
 ];
 
+export const DEMO_2026_PACKS = [
+    {
+        id: 'esencial_26',
+        name: 'Pack Digital + Orla 2026',
+        subtitle: 'El estándar de calidad',
+        items: ['1 Orla A3+ Seda', 'Descarga Digital HD', '8 Fotos Carnet'],
+        price: 26.00,
+        cost: 6.50,
+        popular: false,
+    },
+    {
+        id: 'oro_26',
+        name: 'Pack Oro Premium',
+        subtitle: 'El recuerdo más completo',
+        items: ['Pack Digital + Orla', '2 Copias Orla A4', '1 Retrato 15×20', 'Imán de nevera'],
+        price: 36.00,
+        cost: 9.33,
+        popular: true,
+    },
+    {
+        id: 'luxury_26',
+        name: 'Pack Luxury Total',
+        subtitle: 'Experiencia exclusiva',
+        items: ['Pack Oro Premium', 'Cuadro Foam 20×25', 'Álbum Digital 10p'],
+        price: 52.00,
+        cost: 14.50,
+        popular: false,
+    }
+];
+
+export const DEMO_2026_EXTRAS = [
+    { id: 'extra_orla_26', name: 'Copia Orla A3+ Extra', price: 10.00, cost: 2.50, emoji: '🖼️' },
+    { id: 'extra_retrato_26', name: 'Retrato 15×20 Extra', price: 8.00, cost: 0.80, emoji: '🧑' },
+    { id: 'extra_iman_26', name: 'Imán Flexible Extra', price: 5.00, cost: 0.50, emoji: '🧲' },
+    { id: 'extra_foam_26', name: 'Cuadro Foam 20×25', price: 15.00, cost: 4.50, emoji: '🎨' },
+    { id: 'extra_digital_26', name: 'Enlace Descarga Digital', price: 12.00, cost: 0.00, emoji: '📲' },
+];
+
 export const SCHOOLS = [
     { id: 'cantero', name: 'Maestro Joaquín Cantero', code: 'MJC' },
     { id: 'sanjose', name: 'San José', code: 'SJO' },
