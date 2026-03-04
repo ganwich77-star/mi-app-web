@@ -1,21 +1,38 @@
 import React, { useState } from 'react';
-import { Camera, Layers, Zap, Copy, Download, ArrowLeft, CheckCircle2, Binary, X, FileCode } from 'lucide-react';
+import { Camera, Layers, Zap, Copy, Download, ArrowLeft, CheckCircle2, Binary, X, FileCode, Star, Package, Tag, Users, UserCheck, Globe, GraduationCap } from 'lucide-react';
+import { PACKS, EXTRAS } from '../constants.js';
 
 const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "ORLA-GENERICA", course = "", group = "", onBack }) => {
     const [copiedStep1, setCopiedStep1] = useState(false);
     const [scriptModal, setScriptModal] = useState(null);
+    const [activeFilter, setActiveFilter] = useState({ type: 'role', id: 'ALL' });
 
     // Construcción del nombre de la carpeta: ORLA + CENTRO + CURSO + GRUPO
     const folderName = `ORLA ${groupName} ${course} ${group}`.trim().toUpperCase();
 
-    // Combinamos alumnos + profesores (solo los que tienen photoFile asignado)
-    const graduateIds = Array.isArray(graduates)
-        ? graduates.map(g => g.photoFile || g.id || g.studentName?.split(' ')[0]).filter(Boolean)
+    // Lógica de filtrado combinada y ordenada
+    const filteredGraduates = graduates.filter(g => {
+        const { type, id } = activeFilter;
+        if (type === 'role') {
+            if (id === 'ALL' || id === 'STUDENTS') return true;
+            return false;
+        }
+        if (type === 'pack') {
+            const gPackId = typeof g.pack === 'object' ? g.pack.id : g.pack;
+            return gPackId === id;
+        }
+        if (type === 'extra') {
+            return g.extras && (g.extras[id] > 0 || Object.values(g.extras).some(e => e.id === id));
+        }
+        return false;
+    }).sort((a, b) => (a.studentName || '').localeCompare(b.studentName || '', 'es', { sensitivity: 'base' }));
+
+    const filteredStaff = (activeFilter.type === 'role' && (activeFilter.id === 'ALL' || activeFilter.id === 'STAFF'))
+        ? staff.sort((a, b) => a.name.localeCompare(b.name))
         : [];
-    const staffIds = Array.isArray(staff)
-        ? staff.map(s => s.photoFile || s.id).filter(Boolean)
-        : [];
-    // Unión sin duplicados
+
+    const graduateIds = filteredGraduates.map(g => g.photoFile || g.id).filter(Boolean);
+    const staffIds = filteredStaff.map(s => s.photoFile || s.id).filter(Boolean);
     const allIds = [...new Set([...graduateIds, ...staffIds])];
     const lrString = allIds.join(',');
 
@@ -248,6 +265,36 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
             ].join('\n');
         }
 
+        // Intentar usar File System Access API para elegir ruta (Navegadores modernos)
+        if ('showSaveFilePicker' in window) {
+            const opts = {
+                suggestedName: filename,
+                types: [{
+                    description: 'Adobe Photoshop Script',
+                    accept: { 'text/javascript': ['.jsx'] },
+                }],
+            };
+
+            window.showSaveFilePicker(opts)
+                .then(handle => handle.createWritable())
+                .then(writable => {
+                    writable.write(content);
+                    writable.close();
+                    setScriptModal({ content, filename, copied: false, saved: true, savedPath: 'Ruta seleccionada por usuario' });
+                })
+                .catch(err => {
+                    if (err.name !== 'AbortError') {
+                        // Si falla o se cancela, intentar fallback habitual
+                        console.error('Error guardando archivo:', err);
+                        fallbackDownload(content, filename, folderName);
+                    }
+                });
+        } else {
+            fallbackDownload(content, filename, folderName);
+        }
+    };
+
+    const fallbackDownload = (content, filename, folderName) => {
         // POST al endpoint Vite → escribe el .jsx directamente en ~/Downloads
         fetch('/graduaciones2026/api/download-script', {
             method: 'POST',
@@ -257,18 +304,22 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
             .then(r => r.json())
             .then(data => {
                 if (data.success) {
-                    // Muestra modal de éxito con la ruta
                     setScriptModal({ content, filename, copied: false, saved: true, savedPath: data.path });
                 } else {
-                    // Fallback: copia al portapapeles
                     navigator.clipboard.writeText(content).catch(() => { });
                     setScriptModal({ content, filename, copied: true, saved: false });
                 }
             })
             .catch(() => {
-                // Sin endpoint (producción): copia al portapapeles
-                navigator.clipboard.writeText(content).catch(() => { });
-                setScriptModal({ content, filename, copied: true, saved: false });
+                // Sin endpoint (producción): copia al portapapeles o descarga normal
+                const blob = new Blob([content], { type: 'text/javascript' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                a.click();
+                URL.revokeObjectURL(url);
+                setScriptModal({ content, filename, copied: false, saved: true, savedPath: 'Descargas' });
             });
     };
 
@@ -299,50 +350,191 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
-                        {/* PASO 01 */}
-                        <div className="group bg-white/[0.03] border border-white/10 rounded-[28px] md:rounded-[32px] p-6 md:p-8 space-y-4 md:space-y-6 hover:bg-white/[0.05] hover:border-violet-500/30 transition-all duration-500">
-                            <div className="w-12 h-12 md:w-14 md:h-14 bg-violet-500/20 rounded-2xl flex items-center justify-center text-violet-400 group-hover:scale-110 transition-transform">
-                                <Camera size={24} className="md:size-[28px]" />
+                    <div className="space-y-6">
+                        {/* 01. PUENTE LIGHTROOM - ANCHO COMPLETO */}
+                        <div className="group bg-white/[0.03] border border-white/10 rounded-[32px] p-6 md:p-8 space-y-6 hover:bg-white/[0.05] hover:border-violet-500/30 transition-all duration-500">
+                            <div className="flex items-center gap-4 border-b border-white/5 pb-4">
+                                <div className="w-12 h-12 bg-violet-500/20 rounded-2xl flex items-center justify-center text-violet-400">
+                                    <Camera size={24} />
+                                </div>
+                                <div className="space-y-0.5">
+                                    <h3 className="text-lg md:text-xl font-black italic uppercase tracking-wider">01. Puente Lightroom</h3>
+                                    <p className="text-white/30 text-[10px] uppercase font-black tracking-[0.3em]">Filtros Inteligentes y Control de Pedidos</p>
+                                </div>
                             </div>
-                            <div className="space-y-1 md:space-y-2">
-                                <h3 className="text-base md:text-lg font-black italic uppercase tracking-wider text-left">01. Puente Lightroom</h3>
-                                <p className="text-white/40 text-[11px] md:text-xs leading-relaxed text-left">Filtra la biblioteca para exportar JPEGs de un solo clic.</p>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                {/* IZQUIERDA: CONTROLES Y COPIADO */}
+                                <div className="space-y-6">
+                                    <button onClick={() => copyToClipboard(lrString)} className="w-full flex items-center justify-between p-5 bg-violet-600/10 rounded-2xl border border-violet-500/20 group/btn transition-all hover:bg-violet-600 text-white shadow-xl shadow-violet-900/10">
+                                        <div className="flex flex-col items-start">
+                                            <span className="text-[11px] font-black uppercase tracking-widest">Copiar IDs de Fotos ({allIds.length})</span>
+                                            <span className="text-[8px] opacity-60 uppercase font-black tracking-tighter italic">Filtro Activo: {activeFilter.id}</span>
+                                        </div>
+                                        {copiedStep1 ? <CheckCircle2 size={20} /> : <Copy size={20} className="opacity-40 group-hover/btn:opacity-100" />}
+                                    </button>
+
+                                    <div className="space-y-6">
+                                        <div className="space-y-3">
+                                            <p className="text-[9px] font-black uppercase text-white/20 tracking-[0.3em] flex items-center gap-2"><Users size={12} /> Roles Disponibles</p>
+                                            <div className="flex flex-wrap gap-2">
+                                                {[
+                                                    { id: 'ALL', label: 'Todo' },
+                                                    { id: 'STUDENTS', label: 'Alumnos' },
+                                                    { id: 'STAFF', label: 'Docentes' }
+                                                ].map(f => (
+                                                    <button key={f.id} onClick={() => setActiveFilter({ type: 'role', id: f.id })}
+                                                        className={`py-2 px-4 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${activeFilter.type === 'role' && activeFilter.id === f.id ? 'bg-violet-600 border-violet-500 text-white shadow-lg' : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'}`}>
+                                                        {f.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            <p className="text-[9px] font-black uppercase text-white/20 tracking-[0.3em] flex items-center gap-2"><Package size={12} /> Packs Contratados</p>
+                                            <div className="flex flex-wrap gap-2">
+                                                {PACKS.map(p => (
+                                                    <button key={p.id} onClick={() => setActiveFilter({ type: 'pack', id: p.id })}
+                                                        className={`py-2 px-4 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${activeFilter.type === 'pack' && activeFilter.id === p.id ? 'bg-blue-600 border-blue-500 text-white shadow-lg' : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'}`}>
+                                                        {p.name}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            <p className="text-[9px] font-black uppercase text-white/20 tracking-[0.3em] flex items-center gap-2"><Tag size={12} /> Extras y Complementos</p>
+                                            <div className="flex flex-wrap gap-2">
+                                                {EXTRAS.map(e => (
+                                                    <button key={e.id} onClick={() => setActiveFilter({ type: 'extra', id: e.id })}
+                                                        className={`py-2 px-4 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${activeFilter.type === 'extra' && activeFilter.id === e.id ? 'bg-amber-600 border-amber-500 text-white shadow-lg' : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'}`}>
+                                                        {e.name}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* DERECHA: TABLA LISTADO */}
+                                <div className="bg-black/20 rounded-[24px] border border-white/5 flex flex-col h-[350px] md:h-full min-h-[400px]">
+                                    <div className="p-4 border-b border-white/5 flex justify-between text-[8px] font-black uppercase text-white/20 tracking-[0.3em] bg-white/[0.02]">
+                                        <span>Detalle del Protagonista</span>
+                                        <span>Referencia Foto</span>
+                                    </div>
+                                    <div className="flex-1 overflow-y-auto custom-scrollbar p-2">
+                                        {filteredStaff.map(s => (
+                                            <div key={s.id} className="flex items-center justify-between py-3 border-b border-white/5 px-2 hover:bg-white/[0.03] transition-colors rounded-xl mx-1">
+                                                <div className="flex flex-col">
+                                                    <span className="text-[11px] font-black uppercase italic tracking-tighter text-white">{s.name}</span>
+                                                    <span className="text-[8px] opacity-50 uppercase font-black text-violet-400 tracking-widest">{s.role}</span>
+                                                </div>
+                                                <span className="text-[11px] font-mono font-black text-amber-500 bg-amber-500/10 px-2 py-1 rounded-lg">{s.photoFile || 'S/F'}</span>
+                                            </div>
+                                        ))}
+                                        {filteredGraduates.length > 0 ? filteredGraduates.map(g => (
+                                            <div key={g.id} className="flex items-center justify-between py-3 border-b border-white/5 px-2 hover:bg-white/[0.03] transition-colors rounded-xl mx-1">
+                                                <div className="flex flex-col">
+                                                    <span className="text-[11px] font-black uppercase italic tracking-tighter text-white">{g.studentName}</span>
+                                                    <span className="text-[8px] opacity-50 uppercase font-black tracking-widest text-white/60">
+                                                        {activeFilter.type === 'extra' ?
+                                                            (EXTRAS.find(ex => ex.id === activeFilter.id)?.name || 'Extra') :
+                                                            (typeof g.pack === 'object' ? (g.pack.name || g.pack.label) : (PACKS.find(p => p.id === g.pack)?.name || g.pack || 'No Pack'))
+                                                        }
+                                                    </span>
+                                                </div>
+                                                <div className="flex flex-col items-end gap-1">
+                                                    <span className="text-[11px] font-mono font-black text-violet-400 bg-violet-400/10 px-2 py-1 rounded-lg">{g.photoFile || 'S/F'}</span>
+                                                    {activeFilter.type !== 'extra' && g.extras && Object.keys(g.extras).length > 0 &&
+                                                        <span className="text-[7px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full font-black uppercase tracking-tighter">
+                                                            +{Object.keys(g.extras).length} EXTRAS
+                                                        </span>
+                                                    }
+                                                </div>
+                                            </div>
+                                        )) : activeFilter.id !== 'STAFF' && activeFilter.id !== 'ALL' && (
+                                            <div className="h-full flex flex-col items-center justify-center opacity-20 py-20">
+                                                <Search size={32} className="mb-2" />
+                                                <p className="text-[9px] font-black uppercase tracking-widest">Sin resultados</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
-                            <button onClick={() => copyToClipboard(lrString)} className="w-full flex items-center justify-between p-3.5 md:p-4 bg-white/5 rounded-2xl border border-white/10 group/btn transition-all hover:bg-violet-500 hover:text-white">
-                                <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest">Copiar IDs ({allIds.length}) — {graduateIds.length} alu + {staffIds.length} doc</span>
-                                {copiedStep1 ? <CheckCircle2 size={16} /> : <Copy size={16} className="opacity-40 group-hover/btn:opacity-100" />}
-                            </button>
                         </div>
 
-                        {/* PASO 02 */}
-                        <div className="group bg-white/[0.03] border border-white/10 rounded-[28px] md:rounded-[32px] p-6 md:p-8 space-y-4 md:space-y-6 hover:bg-white/[0.05] hover:border-violet-500/30 transition-all duration-500">
-                            <div className="w-12 h-12 md:w-14 md:h-14 bg-blue-500/20 rounded-2xl flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
-                                <Layers size={24} className="md:size-[28px]" />
-                            </div>
-                            <div className="space-y-1 md:space-y-2">
-                                <h3 className="text-base md:text-lg font-black italic uppercase tracking-wider text-left">02. Constructor PSD</h3>
-                                <p className="text-white/40 text-[11px] md:text-xs leading-relaxed text-left">Genera el lienzo, carpetas y tipografía en Photoshop.</p>
-                            </div>
-                            <button onClick={() => downloadScript('CONSTRUCTOR')} className="w-full flex items-center justify-between p-3.5 md:p-4 bg-white/5 rounded-2xl border border-white/10 group/btn transition-all hover:bg-blue-500 hover:text-white">
-                                <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest">Bajar Script Estructura</span>
-                                <Download size={16} className="opacity-40 group-hover/btn:opacity-100" />
-                            </button>
-                        </div>
+                        {/* FILA INFERIOR: 02 Y 03 */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* 02. CONSTRUCTOR PSD */}
+                            <div className="group bg-white/[0.03] border border-white/10 rounded-[32px] p-6 space-y-4 hover:bg-white/[0.05] hover:border-blue-500/30 transition-all duration-500 flex flex-col">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
+                                        <Layers size={20} />
+                                    </div>
+                                    <div className="space-y-0.5">
+                                        <h3 className="text-base font-black italic uppercase tracking-wider">02. Constructor PSD</h3>
+                                        <p className="text-white/30 text-[9px] uppercase font-bold tracking-widest">Generación de Lienzo Maestro</p>
+                                    </div>
+                                </div>
 
-                        {/* PASO 03 */}
-                        <div className="group bg-white/[0.03] border border-white/10 rounded-[28px] md:rounded-[32px] p-6 md:p-8 space-y-4 md:space-y-6 hover:bg-white/[0.05] hover:border-violet-500/30 transition-all duration-500">
-                            <div className="w-12 h-12 md:w-14 md:h-14 bg-amber-500/20 rounded-2xl flex items-center justify-center text-amber-400 group-hover:scale-110 transition-transform">
-                                <Zap size={24} className="md:size-[28px]" />
+                                <div className="bg-blue-500/5 rounded-2xl border border-blue-500/10 p-5 grid grid-cols-2 gap-4 flex-1">
+                                    <div className="space-y-1">
+                                        <p className="text-[8px] uppercase font-black text-white/30 tracking-widest">Resolución</p>
+                                        <p className="text-sm font-black italic">300 DPI</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-[8px] uppercase font-black text-white/30 tracking-widest">Lienzo (W×H)</p>
+                                        <p className="text-sm font-black italic">{design.canvasW}×{design.canvasH}px</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-[8px] uppercase font-black text-white/30 tracking-widest">Margen Global</p>
+                                        <p className="text-sm font-black italic">{design.margin}px</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-[8px] uppercase font-black text-white/30 tracking-widest text-blue-400">Ready to PSD</p>
+                                        <p className="text-sm font-black italic">Myriad Pro</p>
+                                    </div>
+                                </div>
+
+                                <button onClick={() => downloadScript('CONSTRUCTOR')} className="w-full flex items-center justify-between p-4 bg-blue-600/20 rounded-2xl border border-blue-500/30 group/btn transition-all hover:bg-blue-600 text-white shadow-lg">
+                                    <span className="text-[10px] font-black uppercase tracking-widest">Descargar Script Estructura</span>
+                                    <Download size={18} />
+                                </button>
                             </div>
-                            <div className="space-y-1 md:space-y-2">
-                                <h3 className="text-base md:text-lg font-black italic uppercase tracking-wider text-left">03. Inyección Rápida</h3>
-                                <p className="text-white/40 text-[11px] md:text-xs leading-relaxed text-left">Vuelca fotos finales con rasterización pre-pego optimizada.</p>
+
+                            {/* 03. INYECCIÓN RÁPIDA */}
+                            <div className="group bg-white/[0.03] border border-white/10 rounded-[32px] p-6 space-y-4 hover:bg-white/[0.05] hover:border-amber-500/30 transition-all duration-500 flex flex-col">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 bg-amber-500/20 rounded-xl flex items-center justify-center text-amber-400 group-hover:scale-110 transition-transform">
+                                        <Zap size={20} />
+                                    </div>
+                                    <div className="space-y-0.5">
+                                        <h3 className="text-base font-black italic uppercase tracking-wider">03. Inyección Rápida</h3>
+                                        <p className="text-white/30 text-[9px] uppercase font-bold tracking-widest">Motor de Vuelcado Masivo</p>
+                                    </div>
+                                </div>
+
+                                <div className="bg-amber-500/5 rounded-2xl border border-amber-500/10 p-5 grid grid-cols-2 gap-4 flex-1">
+                                    <div className="space-y-1">
+                                        <p className="text-[8px] uppercase font-black text-white/30 tracking-widest">Alumnos</p>
+                                        <p className="text-sm font-black italic">{graduates.length}</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-[8px] uppercase font-black text-white/30 tracking-widest">Docentes</p>
+                                        <p className="text-sm font-black italic">{staff.length}</p>
+                                    </div>
+                                    <div className="col-span-2 pt-2 border-t border-amber-500/10 flex items-center justify-between">
+                                        <span className="text-[8px] text-white/30 font-black uppercase tracking-widest">Estado</span>
+                                        <span className="text-[8px] font-black uppercase text-green-400 animate-pulse tracking-widest">Firestore Sincronizado</span>
+                                    </div>
+                                </div>
+
+                                <button onClick={() => downloadScript('RASTER')} className="w-full flex items-center justify-between p-4 bg-amber-600/20 rounded-2xl border border-amber-500/30 group/btn transition-all hover:bg-amber-600 text-white shadow-lg">
+                                    <span className="text-[10px] font-black uppercase tracking-widest">Bajar Motor de Vuelco</span>
+                                    <Download size={18} />
+                                </button>
                             </div>
-                            <button onClick={() => downloadScript('RASTER')} className="w-full flex items-center justify-between p-3.5 md:p-4 bg-white/5 rounded-2xl border border-white/10 group/btn transition-all hover:bg-amber-500 hover:text-white">
-                                <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest">Bajar Motor Raster</span>
-                                <Download size={16} className="opacity-40 group-hover/btn:opacity-100" />
-                            </button>
                         </div>
                     </div>
 
