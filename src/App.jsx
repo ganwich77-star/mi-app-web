@@ -232,6 +232,7 @@ export default function App() {
     const [adminSchool, setAdminSchool] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     const [showPinModal, setShowPinModal] = useState(false);
+    const [showMasterModal, setShowMasterModal] = useState(false);
     const [pinInput, setPinInput] = useState('');
     const [showLegalModal, setShowLegalModal] = useState(false);
     const [showPrivacyModal, setShowPrivacyModal] = useState(false);
@@ -1288,9 +1289,9 @@ export default function App() {
         setShowPinModal(true); setPinInput(''); setPinError(false);
     };
 
-    // Acceso mediante el logo (requiere PIN 7373 siempre)
+    // Acceso mediante el logo (requiere CONTRASEÑA robusta)
     const handleSecretAdminAccess = () => {
-        setShowPinModal(true);
+        setShowMasterModal(true);
         setPinInput('');
         setPinError(false);
     };
@@ -5100,6 +5101,57 @@ export default function App() {
                                             {pinError && <p className="absolute -bottom-6 left-0 right-0 text-[10px] text-red-500 font-bold uppercase tracking-widest">PIN Incorrecto</p>}
                                         </div>
                                         <button onClick={() => setShowPinModal(false)} className="w-full py-2 text-[10px] font-black text-secondary/40 hover:text-primary uppercase tracking-widest transition-colors">Volver</button>
+                                    </div>
+                                </div>
+                            </div>
+                        )
+                    }
+
+                    {/* MODAL CONTRASEÑA MASTER (ALTA SEGURIDAD) */}
+                    {
+                        showMasterModal && (
+                            <div className="fixed inset-0 z-[800] flex items-center justify-center p-6 bg-black/95 backdrop-blur-2xl animate-fade-in">
+                                <div className="w-full max-w-sm bg-card border border-white/10 rounded-[40px] shadow-2xl overflow-hidden animate-scale-in">
+                                    <div className="p-8 text-center space-y-6">
+                                        <div className="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center mx-auto border border-red-500/20">
+                                            <Shield size={28} className="text-red-500" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <h3 className="text-xl font-black text-red-500 uppercase tracking-tighter">Acceso Reservado</h3>
+                                            <p className="text-[10px] text-secondary font-black uppercase tracking-widest opacity-60">Master Engine Password</p>
+                                        </div>
+                                        <div className="relative">
+                                            <input
+                                                type="password"
+                                                value={pinInput}
+                                                onChange={(e) => {
+                                                    setPinInput(e.target.value);
+                                                    setPinError(false);
+                                                }}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                        if (pinInput === 'JPM17PASS71-') {
+                                                            setIsAdminUnlocked(true);
+                                                            setIsCreator(true);
+                                                            setView('master');
+                                                            setShowMasterModal(false);
+                                                        } else {
+                                                            setPinError(true);
+                                                            setTimeout(() => {
+                                                                setPinError(false);
+                                                                setPinInput('');
+                                                            }, 1000);
+                                                        }
+                                                    }
+                                                }}
+                                                placeholder="Contraseña"
+                                                autoFocus
+                                                className={`w-full bg-primary/5 border ${pinError ? 'border-red-500 animate-shake' : 'border-primary/10'} rounded-2xl py-5 px-6 text-center text-lg font-black tracking-[0.2em] outline-none focus:border-red-500 transition-all text-primary placeholder:text-primary/20`}
+                                            />
+                                            {pinError && <p className="absolute -bottom-6 left-0 right-0 text-[10px] text-red-500 font-bold uppercase tracking-widest">Contraseña Incorrecta</p>}
+                                        </div>
+                                        <p className="text-[9px] font-bold text-primary/40 leading-relaxed uppercase">Pulsa Enter para acceder</p>
+                                        <button onClick={() => setShowMasterModal(false)} className="w-full py-2 text-[10px] font-black text-secondary/40 hover:text-primary uppercase tracking-widest transition-colors">Volver</button>
                                     </div>
                                 </div>
                             </div>
