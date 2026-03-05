@@ -16,7 +16,8 @@ import {
     Award,
     ChevronRight,
     ArrowRight,
-    MousePointer2
+    MousePointer2,
+    Shield
 } from 'lucide-react';
 
 /**

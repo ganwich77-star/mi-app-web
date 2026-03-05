@@ -9,9 +9,9 @@ const STATUS_CONFIG = {
 };
 
 // Anchos idénticos a la cabecera en App.jsx (sin columna Beneficio), ampliando la última para 2 botones
-const GRID = 'grid-cols-[minmax(120px,1.5fr)_minmax(110px,1.2fr)_minmax(160px,2fr)_minmax(100px,1fr)_minmax(130px,1.5fr)_minmax(80px,0.7fr)_minmax(80px,0.7fr)_70px]';
+const GRID = 'grid-cols-[40px_minmax(120px,1.5fr)_minmax(110px,1.2fr)_minmax(160px,2fr)_minmax(100px,1fr)_minmax(130px,1.5fr)_minmax(80px,0.7fr)_minmax(80px,0.7fr)_70px]';
 
-export default function OrderRow({ order, onStatusChange, onDelete, onEdit }) {
+export default function OrderRow({ order, onStatusChange, onDelete, onEdit, isSelected, onSelect }) {
     const [confirmDelete, setConfirmDelete] = useState(false);
     const status = order.status || 'Pendiente';
     const sc = STATUS_CONFIG[status] || STATUS_CONFIG['Pendiente'];
@@ -20,7 +20,17 @@ export default function OrderRow({ order, onStatusChange, onDelete, onEdit }) {
     return (
         <>
             {/* ── VISTA ESCRITORIO ──────────────────────────────────────── */}
-            <div className={`hidden sm:grid ${GRID} gap-2 items-center px-4 py-3.5 hover:bg-primary/3 transition-colors group`}>
+            <div className={`hidden sm:grid ${GRID} gap-2 items-center px-4 py-3.5 hover:bg-primary/3 transition-colors group ${isSelected ? 'bg-indigo-500/5' : ''}`}>
+
+                {/* Checkbox Selección */}
+                <div className="flex justify-center">
+                    <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={(e) => onSelect(e.target.checked)}
+                        className="w-4 h-4 rounded border-primary/20 accent-indigo-500 cursor-pointer"
+                    />
+                </div>
 
                 {/* Alumno + fichero */}
                 <div className="flex items-center gap-2 min-w-0">
@@ -91,7 +101,15 @@ export default function OrderRow({ order, onStatusChange, onDelete, onEdit }) {
             </div>
 
             {/* ── VISTA MÓVIL ───────────────────────────────────────────── */}
-            <div className="sm:hidden flex items-center gap-3 px-3 py-3 hover:bg-primary/3 transition-colors group border-b border-primary/5 last:border-0">
+            <div className={`sm:hidden flex items-center gap-3 px-3 py-3 hover:bg-primary/3 transition-colors group border-b border-primary/5 last:border-0 ${isSelected ? 'bg-indigo-500/5' : ''}`}>
+                <div className="flex items-center">
+                    <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={(e) => onSelect(e.target.checked)}
+                        className="w-4 h-4 rounded border-primary/20 accent-indigo-500 cursor-pointer"
+                    />
+                </div>
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 min-w-0">
                         <p className="font-black text-[13px] text-primary truncate leading-tight">{order.studentName}</p>

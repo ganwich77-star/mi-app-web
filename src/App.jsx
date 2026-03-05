@@ -9,7 +9,8 @@ import {
     TrendingUp, Users, Trash2, Edit, Sun, Moon, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, Database, Upload, AlertTriangle, Share,
     Square, CheckSquare, X, Camera, Check, Tag, FileText, Crown, ArrowRight,
     Settings2, Maximize2, Maximize, ZoomIn, ZoomOut, Move, Layout, Bold, Italic, UserCheck, Eye, Palette, History,
-    LayoutGrid, UserSquare2, Layers, MoveVertical, MoveHorizontal, GripVertical, Move as MoveIcon, ArrowUpDown, Grid, Box, ChevronsUpDown, Baseline, AlignCenterVertical, AlignCenterHorizontal
+    LayoutGrid, UserSquare2, Layers, MoveVertical, MoveHorizontal, GripVertical, Move as MoveIcon, ArrowUpDown, Grid, Box, ChevronsUpDown, Baseline, AlignCenterVertical, AlignCenterHorizontal,
+    RefreshCw, Zap, ArrowUpCircle
 } from 'lucide-react';
 
 import { SCHOOLS, PACKS, EXTRAS, CONTACT_PHONE, COURSE_GROUPS, STAFF_ROLES, DRIVE_API_KEY, DRIVE_CLIENT_ID } from './constants.js';
@@ -267,6 +268,8 @@ export default function App() {
     const [staffAssigning, setStaffAssigning] = useState(null); // { member, tempFile }
     const [selectedOrderIds, setSelectedOrderIds] = useState([]);
     const [selectedStaffIds, setSelectedStaffIds] = useState([]);
+    const [sortBy, setSortBy] = useState('surname'); // 'surname', 'name', 'date', 'course'
+    const [schoolSearch, setSchoolSearch] = useState('');
 
     const [showNewStudentForm, setShowNewStudentForm] = useState(false);
     const [newStudentForm, setNewStudentForm] = useState({ schoolId: '', name: '', course: '', group: '', phone: '', photoFile: '', status: 'Pendiente', paymentMethod: '' });
@@ -1401,7 +1404,12 @@ export default function App() {
 
             return matchesSearch && matchesCourse && matchesGroup && matchesStatus;
         })
-        .sort((a, b) => firstSurname(a.studentName).localeCompare(firstSurname(b.studentName), 'es', { sensitivity: 'base' }));
+        .sort((a, b) => {
+            if (sortBy === 'name') return (a.studentName || '').localeCompare(b.studentName || '', 'es');
+            if (sortBy === 'course') return (a.course || '').localeCompare(b.course || '', 'es');
+            if (sortBy === 'date') return (b.timestamp || 0) - (a.timestamp || 0);
+            return firstSurname(a.studentName || '').localeCompare(firstSurname(b.studentName || ''), 'es', { sensitivity: 'base' });
+        });
 
     if (!isLoaded) return <div className="min-h-screen bg-card flex items-center justify-center animate-pulse"><img src={`${import.meta.env.BASE_URL}logo.png`} className="w-12 h-12 grayscale opacity-20" /></div>;
 
@@ -2064,9 +2072,9 @@ export default function App() {
                                         const visible = q
                                             ? shootOrders.filter(o => o.studentName?.toLowerCase().includes(q))
                                             : [...shootOrders].sort((a, b) => {
-                                                const fa = (a.studentName || '').trim().split(/\s+/)[1] || '';
-                                                const fb = (b.studentName || '').trim().split(/\s+/)[1] || '';
-                                                return fa.localeCompare(fb, 'es', { sensitivity: 'base' });
+                                                if (sortBy === 'name') return (a.studentName || '').localeCompare(b.studentName || '', 'es');
+                                                if (sortBy === 'date') return (b.timestamp || 0) - (a.timestamp || 0);
+                                                return firstSurname(a.studentName || '').localeCompare(firstSurname(b.studentName || ''), 'es', { sensitivity: 'base' });
                                             });
 
                                         const total = shootOrders.length;
@@ -2120,6 +2128,14 @@ export default function App() {
                                                                     <option value="Pagado" className="bg-card text-primary">Pagado</option>
                                                                     <option value="Producido" className="bg-card text-primary">Producido</option>
                                                                     <option value="Entregado" className="bg-card text-primary">Entregado</option>
+                                                                </select>
+                                                            </div>
+                                                            <div className="relative">
+                                                                <label className="text-[8px] font-black text-indigo-500 uppercase mb-1 ml-1 block opacity-50">Ordenar por</label>
+                                                                <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="w-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 text-xs font-black rounded-xl px-4 py-3.5 cursor-pointer outline-none hover:bg-indigo-500/20 transition-all appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%20stroke%3D%22currentColor%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%20%2F%3E%3C%2Fsvg%3E')] bg-[length:16px] bg-[right_1rem_center] bg-no-repeat min-h-[48px]">
+                                                                    <option value="surname">Apellido ↑</option>
+                                                                    <option value="name">Nombre ↑</option>
+                                                                    <option value="date">Más recientes ↓</option>
                                                                 </select>
                                                             </div>
                                                         </div>
@@ -2256,13 +2272,33 @@ export default function App() {
                                                                         <Trash2 size={14} /> {selectedOrderIds.length} seleccionados
                                                                     </p>
                                                                     <div className="flex gap-2">
-                                                                        <button onClick={() => setSelectedOrderIds([])} className="px-3 py-1.5 text-[10px] font-black uppercase text-secondary hover:text-primary">Cancelar</button>
+                                                                        <select
+                                                                            onChange={e => {
+                                                                                if (e.target.value) {
+                                                                                    if (confirm(`¿Cambiar estado a "${e.target.value}" para ${selectedOrderIds.length} alumnos?`)) {
+                                                                                        selectedOrderIds.forEach(id => updateStatus(id, e.target.value));
+                                                                                        setSelectedOrderIds([]);
+                                                                                    }
+                                                                                    e.target.value = '';
+                                                                                }
+                                                                            }}
+                                                                            className="bg-white/10 border border-white/20 text-white text-[10px] font-black uppercase rounded-xl px-3 py-2 outline-none cursor-pointer"
+                                                                        >
+                                                                            <option value="">Marcar como...</option>
+                                                                            <option value="Pendiente">Pendiente</option>
+                                                                            <option value="Pagado">Pagado</option>
+                                                                            <option value="Producido">Producido</option>
+                                                                            <option value="Entregado">Entregado</option>
+                                                                        </select>
+                                                                        <button onClick={() => setSelectedOrderIds([])} className="px-3 py-1.5 text-[10px] font-black uppercase text-white/60 hover:text-white transition-colors">Cancelar</button>
                                                                         <button onClick={() => {
                                                                             if (confirm(`¿Estás seguro de que quieres borrar ${selectedOrderIds.length} alumnos? Esta acción no se puede deshacer.`)) {
                                                                                 selectedOrderIds.forEach(id => deleteOrder(id));
                                                                                 setSelectedOrderIds([]);
                                                                             }
-                                                                        }} className="px-4 py-1.5 bg-red-700 text-white text-[10px] font-black uppercase rounded-lg shadow-sm shadow-red-700/20 active:scale-95 transition-all">Borrar permanentemente</button>
+                                                                        }} className="px-4 py-1.5 bg-white/20 hover:bg-red-500 text-white text-[10px] font-black uppercase rounded-lg shadow-sm active:scale-95 transition-all flex items-center gap-2">
+                                                                            <Trash2 size={12} /> Borrar Selección
+                                                                        </button>
                                                                     </div>
                                                                 </div>
                                                             )}
@@ -2871,9 +2907,73 @@ export default function App() {
                                                                         <option value="Entregado" className="text-slate-900">Entregado</option>
                                                                     </select>
                                                                 </div>
+                                                                <div className="col-span-1">
+                                                                    <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="w-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 text-[10px] md:text-xs font-bold rounded-xl md:rounded-2xl px-3 md:px-4 py-3 md:py-3 cursor-pointer outline-none hover:bg-indigo-500/20 transition-all appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%20stroke%3D%22currentColor%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%20%2F%3E%3C%2Fsvg%3E')] bg-[length:12px] md:bg-[length:16px] bg-[right_0.8rem_center] bg-no-repeat min-h-[44px]">
+                                                                        <option value="surname">Apellido ↑</option>
+                                                                        <option value="name">Nombre ↑</option>
+                                                                        <option value="course">Curso ↑</option>
+                                                                        <option value="date">Más recientes ↓</option>
+                                                                    </select>
+                                                                </div>
                                                             </div>
                                                         </div>
-                                                        <div className="hidden sm:grid grid-cols-[minmax(120px,1.5fr)_minmax(110px,1.2fr)_minmax(160px,2fr)_minmax(100px,1fr)_minmax(130px,1.5fr)_minmax(80px,0.7fr)_minmax(80px,0.7fr)_70px] gap-2 px-4 py-2.5 bg-primary/3 border-b border-primary/5">
+
+                                                        {/* Acciones en lote Pedidos */}
+                                                        {selectedOrderIds.length > 0 && (
+                                                            <div className="mx-4 mt-4 p-3 bg-indigo-600 rounded-2xl flex items-center justify-between shadow-xl shadow-indigo-600/30 animate-slide-up">
+                                                                <div className="flex items-center gap-3 pl-2">
+                                                                    <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center text-white font-black text-xs">{selectedOrderIds.length}</div>
+                                                                    <p className="text-[10px] font-black text-white uppercase tracking-widest hidden sm:block">Seleccionados</p>
+                                                                </div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <select
+                                                                        onChange={e => {
+                                                                            if (e.target.value) {
+                                                                                if (confirm(`¿Cambiar estado a "${e.target.value}" para ${selectedOrderIds.length} pedidos?`)) {
+                                                                                    selectedOrderIds.forEach(id => updateStatus(id, e.target.value));
+                                                                                    setSelectedOrderIds([]);
+                                                                                }
+                                                                                e.target.value = '';
+                                                                            }
+                                                                        }}
+                                                                        className="bg-white/10 border border-white/20 text-white text-[10px] font-black uppercase rounded-xl px-3 py-2 outline-none cursor-pointer"
+                                                                    >
+                                                                        <option value="">Marcar como...</option>
+                                                                        <option value="Pendiente">Pendiente</option>
+                                                                        <option value="Pagado">Pagado</option>
+                                                                        <option value="Producido">Producido</option>
+                                                                        <option value="Entregado">Entregado</option>
+                                                                    </select>
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            if (confirm(`¿ELIMINAR ${selectedOrderIds.length} PEDIDOS PERMANENTEMENTE?`)) {
+                                                                                selectedOrderIds.forEach(id => deleteOrder(id));
+                                                                                setSelectedOrderIds([]);
+                                                                            }
+                                                                        }}
+                                                                        className="p-2.5 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-colors"
+                                                                    >
+                                                                        <Trash2 size={16} />
+                                                                    </button>
+                                                                    <button onClick={() => setSelectedOrderIds([])} className="p-2.5 text-white/60 hover:text-white transition-colors">
+                                                                        <X size={20} />
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        <div className="hidden sm:grid grid-cols-[50px_minmax(120px,1.5fr)_minmax(110px,1.2fr)_minmax(160px,2fr)_minmax(100px,1fr)_minmax(130px,1.5fr)_minmax(80px,0.7fr)_minmax(80px,0.7fr)_70px] gap-2 px-4 py-3 bg-primary/3 border-b border-primary/5">
+                                                            <div className="flex items-center justify-center">
+                                                                <button
+                                                                    onClick={() => {
+                                                                        if (selectedOrderIds.length === filteredOrders.length) setSelectedOrderIds([]);
+                                                                        else setSelectedOrderIds(filteredOrders.map(o => o.id));
+                                                                    }}
+                                                                    className={`w-5 h-5 rounded-md border-2 transition-all flex items-center justify-center ${selectedOrderIds.length === filteredOrders.length && filteredOrders.length > 0 ? 'bg-indigo-500 border-indigo-500 text-white' : 'border-primary/20 bg-white'}`}
+                                                                >
+                                                                    {selectedOrderIds.length === filteredOrders.length && filteredOrders.length > 0 && <Check size={14} strokeWidth={4} />}
+                                                                </button>
+                                                            </div>
                                                             {['Alumno', 'Curso', 'Centro Educativo', 'Pack', 'Extras', 'Pago', 'Estado', ''].map((h, i) => (
                                                                 <span key={i} className="text-[9px] font-black text-secondary uppercase tracking-widest text-center first:text-left last:text-right">{h}</span>
                                                             ))}
@@ -2884,6 +2984,10 @@ export default function App() {
                                                                     <OrderRow
                                                                         key={order.id}
                                                                         order={order}
+                                                                        isSelected={selectedOrderIds.includes(order.id)}
+                                                                        onSelect={() => {
+                                                                            setSelectedOrderIds(prev => prev.includes(order.id) ? prev.filter(id => id !== order.id) : [...prev, order.id]);
+                                                                        }}
                                                                         onStatusChange={(s) => updateStatus(order.id, s)}
                                                                         onDelete={() => deleteOrder(order.id)}
                                                                         onEdit={(o) => setOrderToEdit({
@@ -3244,301 +3348,219 @@ export default function App() {
                                     {
                                         adminTab === 'settings' && (
                                             <div className="space-y-6 pb-20">
-
                                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                                     {/* Bloque 1: Pagos y Seguridad */}
                                                     <div className="card p-6 flex flex-col h-full">
                                                         <div className="flex flex-col h-full">
                                                             <h3 className="text-lg font-black text-primary flex items-center gap-2 mb-6"><CreditCard size={18} className="text-accent" /> Pagos y Seguridad</h3>
-
                                                             <div className="grid grid-cols-1 gap-3 mb-4">
-                                                                {paymentMethods.map(method => {
-                                                                    return (
-                                                                        <div key={method.id} className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${method.enabled ? 'bg-indigo-500/5 border-indigo-500/20 shadow-sm' : 'bg-primary/2 border-primary/5 opacity-60'}`}>
-                                                                            <div className="flex items-center gap-3">
-                                                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg ${method.enabled ? 'bg-indigo-500/10 text-indigo-400' : 'bg-primary/5 text-secondary'}`}>
-                                                                                    {method.icon}
-                                                                                </div>
-                                                                                <span className={`text-[11px] font-black uppercase tracking-wider transition-colors ${method.enabled ? 'text-primary' : 'text-secondary'}`}>{method.label}</span>
+                                                                {paymentMethods.map(method => (
+                                                                    <div key={method.id} className={`flex items-center justify-between p-4 rounded-2xl border transition-all duration-300 ${method.enabled ? 'bg-indigo-500/5 border-indigo-500/30 shadow-lg shadow-indigo-500/5' : 'bg-primary/2 border-primary/10 opacity-60 hover:opacity-100'}`}>
+                                                                        <div className="flex items-center gap-3">
+                                                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-all ${method.enabled ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30 scale-110' : 'bg-primary/5 text-primary/40'}`}>
+                                                                                {method.icon}
                                                                             </div>
-                                                                            <button onClick={() => togglePaymentMethod(method.id)} className={`w-10 h-6 rounded-full relative transition-all duration-300 ${method.enabled ? 'bg-indigo-500' : 'bg-primary/20'}`}>
-                                                                                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-all duration-300 ${method.enabled ? 'right-1' : 'left-1'}`} />
-                                                                            </button>
+                                                                            <div className="flex flex-col">
+                                                                                <span className="text-[11px] font-black text-primary uppercase tracking-wider">{method.label}</span>
+                                                                                <span className={`text-[8px] font-bold uppercase tracking-widest ${method.enabled ? 'text-indigo-500' : 'text-secondary/40'}`}>
+                                                                                    {method.enabled ? 'Activado' : 'Desactivado'}
+                                                                                </span>
+                                                                            </div>
                                                                         </div>
-                                                                    );
-                                                                })}
-                                                            </div>
-
-                                                            <div className="mt-auto pt-6 space-y-4 h-[220px] flex flex-col justify-center">
-                                                                <div>
-                                                                    <h3 className="text-lg font-black text-primary flex items-center gap-2 mb-3">
-                                                                        <Shield size={18} className="text-accent" /> Cambiar PIN de Acceso
-                                                                    </h3>
-                                                                    <input type="text" maxLength={4} className="input-dark w-full py-4 text-sm tracking-[1em] font-black text-center rounded-2xl" placeholder="XXXX" onChange={e => {
-                                                                        const val = e.target.value.replace(/\D/g, '').substring(0, 4);
-                                                                        if (val.length === 4) { updateAdminPin(val); alert('✅ PIN actualizado'); e.target.value = ''; }
-                                                                    }} />
-                                                                </div>
-                                                                <div>
-                                                                    <h3 className="text-lg font-black text-primary flex items-center gap-2 mb-3">
-                                                                        <Gift size={18} className="text-pink-500" /> % Regalo Comercial
-                                                                    </h3>
-                                                                    <div className="relative">
-                                                                        <input type="number" min="0" max="100" defaultValue={settings?.giftDiscount || 25} className="input-dark w-full py-4 text-sm font-black text-center rounded-2xl pr-10" placeholder="25" onChange={e => {
-                                                                            const val = parseInt(e.target.value);
-                                                                            if (!isNaN(val) && val >= 0 && val <= 100) {
-                                                                                updateSettings({ giftDiscount: val });
-                                                                            }
-                                                                        }} />
-                                                                        <span className="absolute right-6 top-1/2 -translate-y-1/2 text-secondary font-black text-sm">%</span>
+                                                                        <button
+                                                                            onClick={() => togglePaymentMethod(method.id)}
+                                                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 focus:outline-none ${method.enabled ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'}`}
+                                                                        >
+                                                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-300 shadow-sm ${method.enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                                                                        </button>
                                                                     </div>
+                                                                ))}
+                                                            </div>
+                                                            <div className="space-y-3 mt-auto pt-6 border-t border-primary/5">
+                                                                <div className="flex flex-row items-center gap-2 mb-2">
+                                                                    <Lock size={16} className="text-indigo-500 shrink-0" />
+                                                                    <span className="text-[10px] font-black text-secondary uppercase tracking-[0.2em]">PIN Acceso Admin</span>
                                                                 </div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <input type="text" maxLength={4} value={adminPin} onChange={(e) => setAdminPin(e.target.value.replace(/\D/g, ''))} onBlur={() => updateAdminPin(adminPin)} className="input-dark w-full py-4 text-center text-xl font-black tracking-[0.5em] rounded-2xl" />
+                                                                    <div className="p-3 bg-emerald-500/10 text-emerald-600 rounded-2xl"><Check size={20} /></div>
+                                                                </div>
+                                                                <p className="text-[9px] text-secondary font-black opacity-40 uppercase tracking-widest text-center mt-2 italic">Código maestro para entrar al panel</p>
                                                             </div>
                                                         </div>
                                                     </div>
 
-                                                    {/* Bloque 2: Identidad y Logo Inteligente */}
+                                                    {/* Bloque 2: Marca y Colores */}
                                                     <div className="card p-6 flex flex-col h-full">
-                                                        <h3 className="text-lg font-black text-primary flex items-center gap-2 mb-6"><Sparkles size={18} className="text-indigo-500" /> Identidad y Logo Inteligente</h3>
+                                                        <h3 className="text-lg font-black text-primary flex items-center gap-2 mb-6"><Sparkles size={18} className="text-indigo-500" /> Identidad Visual</h3>
                                                         <div className="grid grid-cols-2 gap-4 mb-6">
-                                                            {/* Logo Versión Luz */}
                                                             <div className="space-y-2">
-                                                                <label className="text-[9px] font-black text-secondary uppercase tracking-widest block opacity-70">Logo para Modo Claro</label>
-                                                                <div className="relative group">
-                                                                    <input
-                                                                        type="file" accept="image/png" id="logo-light-upload" className="hidden"
-                                                                        onChange={(e) => {
-                                                                            const file = e.target.files[0];
-                                                                            if (file) {
-                                                                                const reader = new FileReader();
-                                                                                reader.onload = (ev) => {
-                                                                                    const img = new Image();
-                                                                                    img.src = ev.target.result;
-                                                                                    img.onload = () => {
-                                                                                        const canvas = document.createElement('canvas');
-                                                                                        const scale = Math.min(1, 800 / img.width);
-                                                                                        canvas.width = img.width * scale;
-                                                                                        canvas.height = img.height * scale;
-                                                                                        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-                                                                                        updateSettings({ logoUrl: canvas.toDataURL('image/png', 0.8) });
-                                                                                    };
-                                                                                };
-                                                                                reader.readAsDataURL(file);
-                                                                            }
-                                                                        }}
-                                                                    />
-                                                                    <label htmlFor="logo-light-upload" className="w-full h-24 bg-white border-2 border-dashed border-indigo-200 rounded-2xl flex items-center justify-center cursor-pointer hover:border-indigo-400 transition-all overflow-hidden p-3">
-                                                                        {settings.logoUrl ? (
-                                                                            <img src={settings.logoUrl} alt="Light" className="w-full h-full object-contain" />
-                                                                        ) : (
-                                                                            <div className="flex flex-col items-center opacity-40">
-                                                                                <Sun size={16} />
-                                                                                <span className="text-[8px] font-black mt-1">LIGERO</span>
-                                                                            </div>
-                                                                        )}
-                                                                    </label>
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Logo Versión Noche */}
-                                                            <div className="space-y-2">
-                                                                <label className="text-[9px] font-black text-secondary uppercase tracking-widest block opacity-70">Logo para Modo Oscuro</label>
-                                                                <div className="relative group">
-                                                                    <input
-                                                                        type="file" accept="image/png" id="logo-dark-upload" className="hidden"
-                                                                        onChange={(e) => {
-                                                                            const file = e.target.files[0];
-                                                                            if (file) {
-                                                                                const reader = new FileReader();
-                                                                                reader.onload = (ev) => {
-                                                                                    const img = new Image();
-                                                                                    img.src = ev.target.result;
-                                                                                    img.onload = () => {
-                                                                                        const canvas = document.createElement('canvas');
-                                                                                        const scale = Math.min(1, 800 / img.width);
-                                                                                        canvas.width = img.width * scale;
-                                                                                        canvas.height = img.height * scale;
-                                                                                        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-                                                                                        updateSettings({ logoUrlDark: canvas.toDataURL('image/png', 0.8) });
-                                                                                    };
-                                                                                };
-                                                                                reader.readAsDataURL(file);
-                                                                            }
-                                                                        }}
-                                                                    />
-                                                                    <label htmlFor="logo-dark-upload" className="w-full h-24 bg-slate-900 border-2 border-dashed border-slate-700 rounded-2xl flex items-center justify-center cursor-pointer hover:border-indigo-500 transition-all overflow-hidden p-3">
-                                                                        {settings.logoUrlDark ? (
-                                                                            <img src={settings.logoUrlDark} alt="Dark" className="w-full h-full object-contain" />
-                                                                        ) : (
-                                                                            <div className="flex flex-col items-center text-white opacity-40">
-                                                                                <Moon size={16} />
-                                                                                <span className="text-[8px] font-black mt-1">OSCURO</span>
-                                                                            </div>
-                                                                        )}
-                                                                    </label>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-
-                                                        <div className="space-y-4">
-                                                            <div className="flex flex-col flex-1 justify-center">
-                                                                <div className="flex flex-row items-center gap-2 mb-2">
-                                                                    <Tag size={16} className="text-violet-500 shrink-0" />
-                                                                    <span className="text-sm font-black text-primary leading-none">Nombre de tu Marca</span>
-                                                                </div>
-                                                                <input
-                                                                    type="text" value={settings.brandName || ''}
-                                                                    onChange={(e) => setSettings(prev => ({ ...prev, brandName: e.target.value }))}
-                                                                    onBlur={(e) => updateSettings({ brandName: e.target.value })}
-                                                                    className="input-dark w-full py-3 text-sm font-black px-4 rounded-xl"
-                                                                />
-                                                            </div>
-                                                            <div className="flex flex-col flex-1 justify-center">
-                                                                <div className="flex flex-row items-center gap-2 mb-2">
-                                                                    <Mail size={16} className="text-indigo-400 shrink-0" />
-                                                                    <span className="text-sm font-black text-primary leading-none">Email Avisos</span>
-                                                                </div>
-                                                                <input
-                                                                    type="email" value={settings.notificationEmail || ''}
-                                                                    onChange={(e) => setSettings(prev => ({ ...prev, notificationEmail: e.target.value }))}
-                                                                    onBlur={(e) => updateSettings({ notificationEmail: e.target.value })}
-                                                                    className="input-dark w-full py-3 text-sm font-black px-4 rounded-xl"
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Bloque 3: Gestión de Datos */}
-                                                    <div className="card p-6 flex flex-col h-full">
-                                                        <div className="flex flex-col h-full">
-                                                            <h3 className="text-lg font-black text-primary flex items-center gap-2 mb-6"><Database size={18} className="text-indigo-500" /> Gestión de Datos</h3>
-
-                                                            <div className="grid grid-cols-1 gap-3 mb-4">
-                                                                <div className="space-y-2 text-center flex flex-col items-center">
-                                                                    <button onClick={downloadMasterBackup} className="w-full py-4 bg-primary/5 border border-primary/10 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-primary/10 transition-all">
-                                                                        <Download size={14} /> Descargar Copia JSON
-                                                                    </button>
-                                                                    <button onClick={syncWithDrive} className={`w-full py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${isBackingUp ? 'bg-indigo-500/20 text-indigo-400 cursor-not-allowed' : 'bg-primary/5 border border-primary/10 hover:bg-primary/10'}`}>
-                                                                        <Upload size={14} className={isBackingUp ? 'animate-spin' : ''} />
-                                                                        {isBackingUp ? 'Sincronizando...' : 'Subir a Google Drive (PRO)'}
-                                                                    </button>
-                                                                    <p className="text-[9px] text-secondary/60 font-medium px-4 text-center leading-tight">Guarda una copia de seguridad con todos tus pedidos, diseños y configuraciones actuales.</p>
-                                                                </div>
-
-                                                                <div className="space-y-2">
-                                                                    <button onClick={() => {
-                                                                        const input = document.createElement('input');
-                                                                        input.type = 'file'; input.id = 'restore-input'; input.accept = '.json';
-                                                                        input.onchange = (e) => {
-                                                                            const file = e.target.files[0];
-                                                                            const reader = new FileReader();
-                                                                            reader.onload = (event) => {
-                                                                                try {
-                                                                                    const data = JSON.parse(event.target.result);
-                                                                                    if (confirm('⚠️ Esto sobrescribirá todos los datos actuales. ¿Estás seguro?')) {
-                                                                                        Object.keys(data).forEach(key => { if (key.startsWith('orlas2026_')) localStorage.setItem(key, JSON.stringify(data[key])); });
-                                                                                        window.location.reload();
-                                                                                    }
-                                                                                } catch (err) { alert('Archivo no válido'); }
+                                                                <label className="text-[9px] font-black text-secondary uppercase tracking-widest block opacity-70">Logo Claro</label>
+                                                                <input type="file" accept="image/png" id="logo-light-upload-settings" className="hidden" onChange={(e) => {
+                                                                    const file = e.target.files[0];
+                                                                    if (file) {
+                                                                        const reader = new FileReader();
+                                                                        reader.onload = (ev) => {
+                                                                            const img = new Image();
+                                                                            img.src = ev.target.result;
+                                                                            img.onload = () => {
+                                                                                const canvas = document.createElement('canvas');
+                                                                                const scale = Math.min(1, 800 / img.width);
+                                                                                canvas.width = img.width * scale; canvas.height = img.height * scale;
+                                                                                canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                                                                                updateSettings({ logoUrl: canvas.toDataURL('image/png', 0.8) });
                                                                             };
-                                                                            reader.readAsText(file);
                                                                         };
-                                                                        input.click();
-                                                                    }} className="w-full py-4 bg-primary/5 border border-primary/10 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-primary/10 transition-all">
-                                                                        <Upload size={14} /> Restaurar Copia JSON
-                                                                    </button>
-                                                                    <p className="text-[9px] text-secondary/60 font-medium px-4 text-center leading-tight">Recupera tus datos desde un archivo backup guardado previamente en tu equipo.</p>
-                                                                </div>
+                                                                        reader.readAsDataURL(file);
+                                                                    }
+                                                                }} />
+                                                                <label htmlFor="logo-light-upload-settings" className="w-full h-24 bg-white border-2 border-dashed border-indigo-200 rounded-2xl flex items-center justify-center cursor-pointer hover:border-indigo-400 p-3 overflow-hidden">
+                                                                    {settings.logoUrl ? <img src={settings.logoUrl} className="h-full object-contain" /> : <Sun size={20} className="text-indigo-200" />}
+                                                                </label>
                                                             </div>
-
-                                                            <div className="mt-auto pt-6 h-[220px] flex flex-col justify-center">
-                                                                <h3 className="text-lg font-black text-primary flex items-center gap-2 mb-6">
-                                                                    <Download size={18} className="text-indigo-500" /> Listado para Excel
-                                                                </h3>
-                                                                <div className="space-y-4">
-                                                                    <button onClick={() => {
-                                                                        const selectedSchoolObj = schools.find(s => s.id === adminSchool);
-                                                                        if (!selectedSchoolObj) return alert('Selecciona un centro primero');
-                                                                        exportCSV({ school: adminSchool });
-                                                                    }} className="w-full py-4 bg-indigo-600 text-white rounded-[24px] font-black text-[11px] uppercase tracking-widest flex flex-col items-center justify-center gap-1 hover:bg-indigo-500 shadow-lg shadow-indigo-600/20 active:scale-95 transition-all">
-                                                                        <span>EXCEL MAESTRO</span>
-                                                                        <span className="text-[10px] opacity-70">{schools.find(s => s.id === adminSchool)?.name.replace('Maestro ', '').replace('MAESTRO ', '')}</span>
-                                                                    </button>
-                                                                    <p className="text-[9px] text-secondary font-black opacity-40 uppercase tracking-widest text-center italic">Tabla de alumnos compatible con Excel/Drive</p>
-                                                                </div>
+                                                            <div className="space-y-2">
+                                                                <label className="text-[9px] font-black text-secondary uppercase tracking-widest block opacity-70">Logo Oscuro</label>
+                                                                <input type="file" accept="image/png" id="logo-dark-upload-settings" className="hidden" onChange={(e) => {
+                                                                    const file = e.target.files[0];
+                                                                    if (file) {
+                                                                        const reader = new FileReader();
+                                                                        reader.onload = (ev) => {
+                                                                            const img = new Image();
+                                                                            img.src = ev.target.result;
+                                                                            img.onload = () => {
+                                                                                const canvas = document.createElement('canvas');
+                                                                                const scale = Math.min(1, 800 / img.width);
+                                                                                canvas.width = img.width * scale; canvas.height = img.height * scale;
+                                                                                canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                                                                                updateSettings({ logoUrlDark: canvas.toDataURL('image/png', 0.8) });
+                                                                            };
+                                                                        };
+                                                                        reader.readAsDataURL(file);
+                                                                    }
+                                                                }} />
+                                                                <label htmlFor="logo-dark-upload-settings" className="w-full h-24 bg-slate-900 border-2 border-dashed border-slate-700 rounded-2xl flex items-center justify-center cursor-pointer hover:border-indigo-500 p-3 overflow-hidden">
+                                                                    {settings.logoUrlDark ? <img src={settings.logoUrlDark} className="h-full object-contain" /> : <Moon size={20} className="text-slate-700" />}
+                                                                </label>
+                                                            </div>
+                                                        </div>
+                                                        <div className="space-y-4">
+                                                            <div>
+                                                                <label className="text-[10px] font-black text-secondary uppercase tracking-[0.2em] mb-2 block">Nombre Comercial</label>
+                                                                <input type="text" value={settings.brandName || ''} onChange={(e) => setSettings(p => ({ ...p, brandName: e.target.value }))} onBlur={(e) => updateSettings({ brandName: e.target.value })} className="input-dark w-full py-3 px-4 rounded-xl text-sm font-black" />
+                                                            </div>
+                                                            <div>
+                                                                <label className="text-[10px] font-black text-secondary uppercase tracking-[0.2em] mb-2 block">Email Avisos</label>
+                                                                <input type="email" value={settings.notificationEmail || ''} onChange={(e) => setSettings(p => ({ ...p, notificationEmail: e.target.value }))} onBlur={(e) => updateSettings({ notificationEmail: e.target.value })} className="input-dark w-full py-3 px-4 rounded-xl text-sm font-black" />
                                                             </div>
                                                         </div>
                                                     </div>
 
-                                                    {/* Bloque 4: Datos de Facturación */}
-                                                    <div className="card p-6 col-span-1 md:col-span-2 lg:col-span-3">
-                                                        <h3 className="text-lg font-black text-primary flex items-center gap-2 mb-6"><FileText size={18} className="text-indigo-500" /> Datos de Facturación</h3>
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                                            <div>
-                                                                <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-2 block">Nombre Fiscal / Razón Social</label>
-                                                                <input
-                                                                    type="text"
-                                                                    value={settings.fiscalName || ''}
-                                                                    onChange={(e) => setSettings(prev => ({ ...prev, fiscalName: e.target.value }))}
-                                                                    onBlur={(e) => updateSettings({ fiscalName: e.target.value })}
-                                                                    className="input-dark w-full py-4 text-sm font-black px-6 rounded-2xl"
-                                                                />
+                                                    {/* Bloque 3: Gestión de Datos y Plan */}
+                                                    <div className="card p-6 flex flex-col h-full">
+                                                        <h3 className="text-lg font-black text-primary flex items-center gap-2 mb-6"><Database size={18} className="text-indigo-500" /> Sistema y Plan</h3>
+                                                        <div className="space-y-3 mb-8">
+                                                            <button onClick={downloadMasterBackup} className="w-full py-4 bg-primary/5 border border-primary/10 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-primary/10 transition-all">
+                                                                <Download size={14} /> Descargar Backup
+                                                            </button>
+                                                            <button onClick={() => {
+                                                                const input = document.createElement('input'); input.type = 'file'; input.accept = '.json';
+                                                                input.onchange = (e) => {
+                                                                    const file = e.target.files[0]; const reader = new FileReader();
+                                                                    reader.onload = (event) => {
+                                                                        try {
+                                                                            const data = JSON.parse(event.target.result);
+                                                                            if (confirm('⚠️ ¿Sobrescribir datos?')) {
+                                                                                Object.keys(data).forEach(k => { if (k.startsWith('orlas2026_')) localStorage.setItem(k, JSON.stringify(data[k])); });
+                                                                                window.location.reload();
+                                                                            }
+                                                                        } catch (err) { alert('Error'); }
+                                                                    }; reader.readAsText(file);
+                                                                }; input.click();
+                                                            }} className="w-full py-4 bg-primary/5 border border-primary/10 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-primary/10 transition-all">
+                                                                <RefreshCw size={14} /> Restaurar Backup
+                                                            </button>
+                                                        </div>
+                                                        <div className="mt-auto pt-6 border-t border-primary/5">
+                                                            <div className="flex items-center justify-between mb-4">
+                                                                <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2"><Zap size={14} /> Plan Activo</span>
+                                                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${settings?.plan === 'starter' ? 'bg-amber-500/10 text-amber-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
+                                                                    {settings?.plan === 'starter' ? 'STARTER' : 'PRO'}
+                                                                </span>
                                                             </div>
-                                                            <div>
-                                                                <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-2 block">CIF / NIF</label>
-                                                                <input
-                                                                    type="text"
-                                                                    value={settings.cif || ''}
-                                                                    onChange={(e) => setSettings(prev => ({ ...prev, cif: e.target.value }))}
-                                                                    onBlur={(e) => updateSettings({ cif: e.target.value })}
-                                                                    className="input-dark w-full py-4 text-sm font-black px-6 rounded-2xl"
-                                                                />
+                                                            <div className="space-y-2">
+                                                                <div className="flex justify-between text-[9px] font-black uppercase text-secondary">
+                                                                    <span>Uso Alumnos</span>
+                                                                    <span>{orders.length} / {settings?.plan === 'starter' ? '100' : '∞'}</span>
+                                                                </div>
+                                                                <div className="h-1 bg-primary/10 rounded-full overflow-hidden">
+                                                                    <div className="h-full bg-indigo-500" style={{ width: `${settings?.plan === 'starter' ? Math.min(100, orders.length) : Math.min(100, (orders.length / 500) * 100)}%` }} />
+                                                                </div>
                                                             </div>
-                                                            <div>
-                                                                <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-2 block">Dirección</label>
-                                                                <input
-                                                                    type="text"
-                                                                    value={settings.address || ''}
-                                                                    onChange={(e) => setSettings(prev => ({ ...prev, address: e.target.value }))}
-                                                                    onBlur={(e) => updateSettings({ address: e.target.value })}
-                                                                    className="input-dark w-full py-4 text-sm font-black px-6 rounded-2xl"
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-2 block">Código Postal</label>
-                                                                <input
-                                                                    type="text"
-                                                                    value={settings.postalCode || ''}
-                                                                    onChange={(e) => setSettings(prev => ({ ...prev, postalCode: e.target.value }))}
-                                                                    onBlur={(e) => updateSettings({ postalCode: e.target.value })}
-                                                                    className="input-dark w-full py-4 text-sm font-black px-6 rounded-2xl"
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-2 block">Ciudad</label>
-                                                                <input
-                                                                    type="text"
-                                                                    value={settings.city || ''}
-                                                                    onChange={(e) => setSettings(prev => ({ ...prev, city: e.target.value }))}
-                                                                    onBlur={(e) => updateSettings({ city: e.target.value })}
-                                                                    className="input-dark w-full py-4 text-sm font-black px-6 rounded-2xl"
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-2 block">Provincia</label>
-                                                                <input
-                                                                    type="text"
-                                                                    value={settings.province || ''}
-                                                                    onChange={(e) => setSettings(prev => ({ ...prev, province: e.target.value }))}
-                                                                    onBlur={(e) => updateSettings({ province: e.target.value })}
-                                                                    className="input-dark w-full py-4 text-sm font-black px-6 rounded-2xl"
-                                                                />
-                                                            </div>
+                                                            {settings?.plan === 'starter' && (
+                                                                <button onClick={() => window.location.href = `mailto:soporte@pujalte.com?subject=PRO&body=Studio ${settings.brandName}`} className="w-full mt-5 py-3 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20">
+                                                                    <ArrowUpCircle size={14} className="inline mr-2" /> Mejorar a PRO
+                                                                </button>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>
 
+                                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                                    {/* Bloque 4: Datos Fiscales */}
+                                                    <div className="card p-6 col-span-1 lg:col-span-2">
+                                                        <h3 className="text-lg font-black text-primary flex items-center gap-2 mb-6"><FileText size={18} className="text-indigo-500" /> Datos de Facturación</h3>
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                                                            <div className="lg:col-span-2">
+                                                                <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-2 block">Nombre Fiscal / Razón Social</label>
+                                                                <input type="text" value={settings.fiscalName || ''} onChange={(e) => setSettings(prev => ({ ...prev, fiscalName: e.target.value }))} onBlur={(e) => updateSettings({ fiscalName: e.target.value })} className="input-dark w-full py-3.5 px-5 rounded-xl text-sm font-black" />
+                                                            </div>
+                                                            <div>
+                                                                <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-2 block">CIF / NIF</label>
+                                                                <input type="text" value={settings.cif || ''} onChange={(e) => setSettings(prev => ({ ...prev, cif: e.target.value }))} onBlur={(e) => updateSettings({ cif: e.target.value })} className="input-dark w-full py-3.5 px-5 rounded-xl text-sm font-black" />
+                                                            </div>
+                                                            <div className="md:col-span-2 lg:col-span-3">
+                                                                <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-2 block">Dirección Social</label>
+                                                                <input type="text" value={settings.address || ''} onChange={(e) => setSettings(prev => ({ ...prev, address: e.target.value }))} onBlur={(e) => updateSettings({ address: e.target.value })} className="input-dark w-full py-3.5 px-5 rounded-xl text-sm font-black" />
+                                                            </div>
+                                                            <div>
+                                                                <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-2 block">Código Postal</label>
+                                                                <input type="text" value={settings.postalCode || ''} onChange={(e) => setSettings(prev => ({ ...prev, postalCode: e.target.value }))} onBlur={(e) => updateSettings({ postalCode: e.target.value })} className="input-dark w-full py-3.5 px-5 rounded-xl text-sm font-black" />
+                                                            </div>
+                                                            <div>
+                                                                <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-2 block">Ciudad</label>
+                                                                <input type="text" value={settings.city || ''} onChange={(e) => setSettings(prev => ({ ...prev, city: e.target.value }))} onBlur={(e) => updateSettings({ city: e.target.value })} className="input-dark w-full py-3.5 px-5 rounded-xl text-sm font-black" />
+                                                            </div>
+                                                            <div>
+                                                                <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-2 block">Provincia</label>
+                                                                <input type="text" value={settings.province || ''} onChange={(e) => setSettings(prev => ({ ...prev, province: e.target.value }))} onBlur={(e) => updateSettings({ province: e.target.value })} className="input-dark w-full py-3.5 px-5 rounded-xl text-sm font-black" />
+                                                            </div>
+                                                        </div>
+                                                    </div>
 
+                                                    {/* Bloque 5: Exportación y Reportes */}
+                                                    <div className="card p-6 flex flex-col bg-indigo-500/5 border-indigo-500/10">
+                                                        <h3 className="text-lg font-black text-primary flex items-center gap-2 mb-4"><Download size={18} className="text-indigo-600" /> Exportar Centro</h3>
+                                                        <p className="text-[10px] font-bold text-secondary uppercase tracking-widest mb-8 opacity-60">Descarga la base de datos de alumnos filtrada por el centro activo para tu laboratorio o Excel.</p>
+
+                                                        <div className="mt-auto space-y-4">
+                                                            <div className="p-4 bg-white/5 rounded-2xl border border-white/5 mb-2">
+                                                                <p className="text-[9px] font-black text-secondary uppercase tracking-widest mb-1">Centro Seleccionado</p>
+                                                                <p className="text-xs font-black text-indigo-500 truncate">{schools.find(s => s.id === adminSchool)?.name || 'Ninguno'}</p>
+                                                            </div>
+
+                                                            <button
+                                                                onClick={() => {
+                                                                    if (!adminSchool) return alert('⚠️ Selecciona un centro primero');
+                                                                    exportCSV({ school: adminSchool });
+                                                                }}
+                                                                className="w-full py-5 bg-indigo-600 text-white rounded-[24px] font-black text-[11px] uppercase tracking-widest hover:bg-indigo-500 shadow-xl shadow-indigo-600/30 transition-all active:scale-95 flex items-center justify-center gap-2"
+                                                            >
+                                                                <Download size={14} /> GENERAR EXCEL
+                                                            </button>
+                                                            <p className="text-[9px] text-secondary font-black opacity-30 uppercase tracking-widest text-center italic">Formato CSV compatible con Excel</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
                                         )
                                     }
@@ -3859,704 +3881,706 @@ export default function App() {
                                         )
                                     }
 
-                                    {adminTab === 'design' && (
-                                        <div className={`animate-fade-in max-w-7xl mx-auto ${isFullScreenDesign ? 'fixed inset-0 z-[600] bg-card p-0 flex flex-col overflow-hidden' : 'space-y-6 pb-20'}`}>
+                                    {
+                                        adminTab === 'design' && (
+                                            <div className={`animate-fade-in max-w-7xl mx-auto ${isFullScreenDesign ? 'fixed inset-0 z-[600] bg-card p-0 flex flex-col overflow-hidden' : 'space-y-6 pb-20'}`}>
 
-                                            {/* BARRA LATERAL (Desktop Only) — oculta en fullscreen, usa barra inferior en su lugar */}
-                                            {isFullScreenDesign && (
-                                                <div className="hidden">
-                                                    {/* Sidebar desactivada en fullscreen — controles en barra inferior Snapseed */}
-                                                </div>
-                                            )}
+                                                {/* BARRA LATERAL (Desktop Only) — oculta en fullscreen, usa barra inferior en su lugar */}
+                                                {isFullScreenDesign && (
+                                                    <div className="hidden">
+                                                        {/* Sidebar desactivada en fullscreen — controles en barra inferior Snapseed */}
+                                                    </div>
+                                                )}
 
-                                            {/* ÁREA DE TRABAJO (Canvas) */}
-                                            <div className={`flex-1 flex flex-col relative ${isFullScreenDesign ? 'h-full overflow-hidden' : ''}`}>
+                                                {/* ÁREA DE TRABAJO (Canvas) */}
+                                                <div className={`flex-1 flex flex-col relative ${isFullScreenDesign ? 'h-full overflow-hidden' : ''}`}>
 
-                                                {/* Header Especial para FullScreen (Minimalista Mobile) */}
+                                                    {/* Header Especial para FullScreen (Minimalista Mobile) */}
 
 
-                                                {/* ═══ SNAPSEED BOTTOM BAR — Barra única persistente ═══ */}
-                                                {isFullScreenDesign && (() => {
-                                                    const isDark = theme === 'dark';
-                                                    const barBg = isDark ? 'bg-black/95 border-white/10' : 'bg-white/98 border-black/8';
-                                                    const textMuted = isDark ? 'text-white/30' : 'text-black/40';
-                                                    const textLabel = isDark ? 'text-white/40' : 'text-black/50';
-                                                    const dividerColor = isDark ? 'border-white/5' : 'border-black/5';
-                                                    const TOOLS = [
-                                                        // ALUMNOS
-                                                        { icon: LayoutGrid, label: 'Filas', key: 'aCols', min: 1, max: 12, step: 1, unit: 'UD', group: 'Alumnos' },
-                                                        { icon: Maximize, label: 'Escala', key: 'aScale', min: 0.5, max: 2.0, step: 0.05, unit: 'x', group: 'Alumnos' },
-                                                        { icon: MoveHorizontal, label: 'Separación Fotos', key: 'aGapX', min: 0, max: mmToPx(100), group: 'Alumnos' },
-                                                        { icon: ArrowUpDown, label: 'Eje Y', key: 'aStartY', min: mmToPx(50), max: mmToPx(280), group: 'Alumnos' },
-                                                        { icon: MoveVertical, label: 'Separación Filas', key: 'aGapY', min: mmToPx(2), max: mmToPx(150), group: 'Alumnos' },
-                                                        { icon: Baseline, label: 'Tamaño Texto', key: 'fontSizeAlu', min: 6, max: 18, unit: 'pt', group: 'Alumnos' },
-                                                        { icon: ChevronsUpDown, label: 'Separación Texto', key: 'aTextOffset', min: 0, max: mmToPx(20), group: 'Alumnos' },
-                                                        {
-                                                            icon: AlignCenterHorizontal, label: 'Centrar Alu', key: 'centrar-alu', group: 'Alumnos', action: () => {
-                                                                const dynamicW = configOrla.aW * (configOrla.aScale || 1.0);
-                                                                const totalW = configOrla.aCols * dynamicW + (configOrla.aCols - 1) * configOrla.aGapX;
-                                                                const centeredX = (configOrla.canvasW - totalW) / 2;
-                                                                updateConfig('aStartX', Math.max(0, centeredX));
-                                                            }
-                                                        },
-                                                        {
-                                                            icon: AlignCenterHorizontal, label: 'Auto-Ancho', key: 'auto-ancho', group: 'Alumnos', action: () => {
-                                                                const dynamicW = configOrla.aW * (configOrla.aScale || 1.0);
-                                                                const totalW = configOrla.aCols * dynamicW;
-                                                                const availableW = configOrla.canvasW - (configOrla.margin * 2);
-                                                                const idealGap = (availableW - totalW) / (configOrla.aCols - 1);
-                                                                updateConfig('aGapX', Math.max(0, idealGap));
-                                                            }
-                                                        },
-
-                                                        // DOCENTES
-                                                        { icon: UserSquare2, label: 'Eje Y', key: 'dY', min: mmToPx(10), max: mmToPx(150), group: 'Docentes' },
-                                                        { icon: Maximize, label: 'Escala', key: 'dScale', min: 0.5, max: 2.5, step: 0.05, unit: 'x', group: 'Docentes' },
-                                                        { icon: MoveHorizontal, label: 'Separación Fotos', key: 'dGapX', min: 0, max: mmToPx(100), group: 'Docentes' },
-                                                        { icon: Baseline, label: 'Tamaño Texto', key: 'fontSizeDoc', min: 6, max: 18, unit: 'pt', group: 'Docentes' },
-                                                        { icon: Baseline, label: 'Separación Texto', key: 'dTextOffset', min: 0, max: mmToPx(25), group: 'Docentes' },
-                                                        {
-                                                            icon: AlignCenterHorizontal, label: 'Centrar Doc', key: 'centrar-doc', group: 'Docentes', action: () => {
-                                                                // Los docentes ya se centran automáticamente al eje X mediante justify-center en preview
-                                                                // y cálculo matemático en el script. Esta acción simplemente confirma el estado.
-                                                                const btn = document.getElementById('btn-guardar-orla');
-                                                                if (btn) { btn.classList.add('text-blue-400'); setTimeout(() => btn.classList.remove('text-blue-400'), 1000); }
-                                                            }
-                                                        },
-
-                                                        // GENERAL
-                                                        {
-                                                            icon: Layout,
-                                                            label: 'Formato',
-                                                            key: 'canvasFormat',
-                                                            type: 'select',
-                                                            options: ['DINA1', 'DINA2', 'DINA3', '30x40', '20x30', '15x20', 'CUSTOM'],
-                                                            group: 'General',
-                                                            action: (val) => {
-                                                                const presets = {
-                                                                    'DINA1': { w: 841, h: 594 },
-                                                                    'DINA2': { w: 594, h: 420 },
-                                                                    'DINA3': { w: 420, h: 297 },
-                                                                    '30x40': { w: 400, h: 300 },
-                                                                    '20x30': { w: 300, h: 200 },
-                                                                    '15x20': { w: 200, h: 150 }
-                                                                };
-                                                                if (presets[val]) {
-                                                                    const newW = mmToPx(presets[val].w, configOrla.dpi);
-                                                                    const newH = mmToPx(presets[val].h, configOrla.dpi);
-                                                                    const factor = newW / configOrla.canvasW;
-
-                                                                    setConfigOrla(prev => ({
-                                                                        ...prev,
-                                                                        canvasFormat: val,
-                                                                        canvasW: newW,
-                                                                        canvasH: newH,
-                                                                        margin: Math.round(prev.margin * factor),
-                                                                        aW: Math.round(prev.aW * factor),
-                                                                        aH: Math.round(prev.aH * factor),
-                                                                        aGapX: Math.round(prev.aGapX * factor),
-                                                                        aGapY: Math.round(prev.aGapY * factor),
-                                                                        aStartX: Math.round(prev.aStartX * factor),
-                                                                        aStartY: Math.round(prev.aStartY * factor),
-                                                                        aTextOffset: Math.round(prev.aTextOffset * factor),
-                                                                        dY: Math.round(prev.dY * factor),
-                                                                        dGapX: Math.round(prev.dGapX * factor),
-                                                                        dTextOffset: Math.round(prev.dTextOffset * factor),
-                                                                        fontSizeAlu: Math.round(prev.fontSizeAlu * factor),
-                                                                        fontSizeDoc: Math.round(prev.fontSizeDoc * factor)
-                                                                    }));
-                                                                } else {
-                                                                    updateConfig('canvasFormat', val);
+                                                    {/* ═══ SNAPSEED BOTTOM BAR — Barra única persistente ═══ */}
+                                                    {isFullScreenDesign && (() => {
+                                                        const isDark = theme === 'dark';
+                                                        const barBg = isDark ? 'bg-black/95 border-white/10' : 'bg-white/98 border-black/8';
+                                                        const textMuted = isDark ? 'text-white/30' : 'text-black/40';
+                                                        const textLabel = isDark ? 'text-white/40' : 'text-black/50';
+                                                        const dividerColor = isDark ? 'border-white/5' : 'border-black/5';
+                                                        const TOOLS = [
+                                                            // ALUMNOS
+                                                            { icon: LayoutGrid, label: 'Filas', key: 'aCols', min: 1, max: 12, step: 1, unit: 'UD', group: 'Alumnos' },
+                                                            { icon: Maximize, label: 'Escala', key: 'aScale', min: 0.5, max: 2.0, step: 0.05, unit: 'x', group: 'Alumnos' },
+                                                            { icon: MoveHorizontal, label: 'Separación Fotos', key: 'aGapX', min: 0, max: mmToPx(100), group: 'Alumnos' },
+                                                            { icon: ArrowUpDown, label: 'Eje Y', key: 'aStartY', min: mmToPx(50), max: mmToPx(280), group: 'Alumnos' },
+                                                            { icon: MoveVertical, label: 'Separación Filas', key: 'aGapY', min: mmToPx(2), max: mmToPx(150), group: 'Alumnos' },
+                                                            { icon: Baseline, label: 'Tamaño Texto', key: 'fontSizeAlu', min: 6, max: 18, unit: 'pt', group: 'Alumnos' },
+                                                            { icon: ChevronsUpDown, label: 'Separación Texto', key: 'aTextOffset', min: 0, max: mmToPx(20), group: 'Alumnos' },
+                                                            {
+                                                                icon: AlignCenterHorizontal, label: 'Centrar Alu', key: 'centrar-alu', group: 'Alumnos', action: () => {
+                                                                    const dynamicW = configOrla.aW * (configOrla.aScale || 1.0);
+                                                                    const totalW = configOrla.aCols * dynamicW + (configOrla.aCols - 1) * configOrla.aGapX;
+                                                                    const centeredX = (configOrla.canvasW - totalW) / 2;
+                                                                    updateConfig('aStartX', Math.max(0, centeredX));
                                                                 }
-                                                                const tool = TOOLS.find(t => t.key === 'canvasFormat');
-                                                                if (tool) setActiveDesignParam(tool);
-                                                            }
-                                                        },
-                                                        { icon: Maximize2, label: 'Ancho (W)', key: 'canvasW', min: mmToPx(100, configOrla.dpi), max: mmToPx(2000, configOrla.dpi), step: 1, unit: 'cm', group: 'General', condition: (c) => c.canvasFormat === 'CUSTOM' },
-                                                        { icon: Maximize2, label: 'Alto (H)', key: 'canvasH', min: mmToPx(100, configOrla.dpi), max: mmToPx(2000, configOrla.dpi), step: 1, unit: 'cm', group: 'General', condition: (c) => c.canvasFormat === 'CUSTOM' },
-                                                        { icon: Box, label: 'Margen', key: 'margin', min: mmToPx(0, configOrla.dpi), max: mmToPx(200, configOrla.dpi), step: 1, unit: 'cm', group: 'General' },
-                                                        { icon: Sparkles, label: 'Resolución', key: 'dpi', min: 72, max: 600, step: 1, unit: 'dpi', group: 'General' },
-                                                        {
-                                                            icon: History, label: 'Autorreinicio', key: 'restore-config', group: 'General', action: () => {
-                                                                const backup = localStorage.getItem('configOrla_backup');
-                                                                if (backup) {
-                                                                    if (confirm('¿Restaurar la última copia automática?')) {
-                                                                        setConfigOrla(JSON.parse(backup));
+                                                            },
+                                                            {
+                                                                icon: AlignCenterHorizontal, label: 'Auto-Ancho', key: 'auto-ancho', group: 'Alumnos', action: () => {
+                                                                    const dynamicW = configOrla.aW * (configOrla.aScale || 1.0);
+                                                                    const totalW = configOrla.aCols * dynamicW;
+                                                                    const availableW = configOrla.canvasW - (configOrla.margin * 2);
+                                                                    const idealGap = (availableW - totalW) / (configOrla.aCols - 1);
+                                                                    updateConfig('aGapX', Math.max(0, idealGap));
+                                                                }
+                                                            },
+
+                                                            // DOCENTES
+                                                            { icon: UserSquare2, label: 'Eje Y', key: 'dY', min: mmToPx(10), max: mmToPx(150), group: 'Docentes' },
+                                                            { icon: Maximize, label: 'Escala', key: 'dScale', min: 0.5, max: 2.5, step: 0.05, unit: 'x', group: 'Docentes' },
+                                                            { icon: MoveHorizontal, label: 'Separación Fotos', key: 'dGapX', min: 0, max: mmToPx(100), group: 'Docentes' },
+                                                            { icon: Baseline, label: 'Tamaño Texto', key: 'fontSizeDoc', min: 6, max: 18, unit: 'pt', group: 'Docentes' },
+                                                            { icon: Baseline, label: 'Separación Texto', key: 'dTextOffset', min: 0, max: mmToPx(25), group: 'Docentes' },
+                                                            {
+                                                                icon: AlignCenterHorizontal, label: 'Centrar Doc', key: 'centrar-doc', group: 'Docentes', action: () => {
+                                                                    // Los docentes ya se centran automáticamente al eje X mediante justify-center en preview
+                                                                    // y cálculo matemático en el script. Esta acción simplemente confirma el estado.
+                                                                    const btn = document.getElementById('btn-guardar-orla');
+                                                                    if (btn) { btn.classList.add('text-blue-400'); setTimeout(() => btn.classList.remove('text-blue-400'), 1000); }
+                                                                }
+                                                            },
+
+                                                            // GENERAL
+                                                            {
+                                                                icon: Layout,
+                                                                label: 'Formato',
+                                                                key: 'canvasFormat',
+                                                                type: 'select',
+                                                                options: ['DINA1', 'DINA2', 'DINA3', '30x40', '20x30', '15x20', 'CUSTOM'],
+                                                                group: 'General',
+                                                                action: (val) => {
+                                                                    const presets = {
+                                                                        'DINA1': { w: 841, h: 594 },
+                                                                        'DINA2': { w: 594, h: 420 },
+                                                                        'DINA3': { w: 420, h: 297 },
+                                                                        '30x40': { w: 400, h: 300 },
+                                                                        '20x30': { w: 300, h: 200 },
+                                                                        '15x20': { w: 200, h: 150 }
+                                                                    };
+                                                                    if (presets[val]) {
+                                                                        const newW = mmToPx(presets[val].w, configOrla.dpi);
+                                                                        const newH = mmToPx(presets[val].h, configOrla.dpi);
+                                                                        const factor = newW / configOrla.canvasW;
+
+                                                                        setConfigOrla(prev => ({
+                                                                            ...prev,
+                                                                            canvasFormat: val,
+                                                                            canvasW: newW,
+                                                                            canvasH: newH,
+                                                                            margin: Math.round(prev.margin * factor),
+                                                                            aW: Math.round(prev.aW * factor),
+                                                                            aH: Math.round(prev.aH * factor),
+                                                                            aGapX: Math.round(prev.aGapX * factor),
+                                                                            aGapY: Math.round(prev.aGapY * factor),
+                                                                            aStartX: Math.round(prev.aStartX * factor),
+                                                                            aStartY: Math.round(prev.aStartY * factor),
+                                                                            aTextOffset: Math.round(prev.aTextOffset * factor),
+                                                                            dY: Math.round(prev.dY * factor),
+                                                                            dGapX: Math.round(prev.dGapX * factor),
+                                                                            dTextOffset: Math.round(prev.dTextOffset * factor),
+                                                                            fontSizeAlu: Math.round(prev.fontSizeAlu * factor),
+                                                                            fontSizeDoc: Math.round(prev.fontSizeDoc * factor)
+                                                                        }));
+                                                                    } else {
+                                                                        updateConfig('canvasFormat', val);
                                                                     }
-                                                                } else {
-                                                                    alert('No hay ninguna copia de seguridad guardada.');
+                                                                    const tool = TOOLS.find(t => t.key === 'canvasFormat');
+                                                                    if (tool) setActiveDesignParam(tool);
+                                                                }
+                                                            },
+                                                            { icon: Maximize2, label: 'Ancho (W)', key: 'canvasW', min: mmToPx(100, configOrla.dpi), max: mmToPx(2000, configOrla.dpi), step: 1, unit: 'cm', group: 'General', condition: (c) => c.canvasFormat === 'CUSTOM' },
+                                                            { icon: Maximize2, label: 'Alto (H)', key: 'canvasH', min: mmToPx(100, configOrla.dpi), max: mmToPx(2000, configOrla.dpi), step: 1, unit: 'cm', group: 'General', condition: (c) => c.canvasFormat === 'CUSTOM' },
+                                                            { icon: Box, label: 'Margen', key: 'margin', min: mmToPx(0, configOrla.dpi), max: mmToPx(200, configOrla.dpi), step: 1, unit: 'cm', group: 'General' },
+                                                            { icon: Sparkles, label: 'Resolución', key: 'dpi', min: 72, max: 600, step: 1, unit: 'dpi', group: 'General' },
+                                                            {
+                                                                icon: History, label: 'Autorreinicio', key: 'restore-config', group: 'General', action: () => {
+                                                                    const backup = localStorage.getItem('configOrla_backup');
+                                                                    if (backup) {
+                                                                        if (confirm('¿Restaurar la última copia automática?')) {
+                                                                            setConfigOrla(JSON.parse(backup));
+                                                                        }
+                                                                    } else {
+                                                                        alert('No hay ninguna copia de seguridad guardada.');
+                                                                    }
                                                                 }
                                                             }
-                                                        }
-                                                    ];
-                                                    return (
-                                                        <div
-                                                            className={`fixed bottom-0 left-0 right-0 z-[200] backdrop-blur-xl border-t select-none ${barBg}`}
-                                                            style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
-                                                            onTouchStart={e => e.stopPropagation()}
-                                                            onTouchMove={e => e.stopPropagation()}
-                                                            onTouchEnd={e => e.stopPropagation()}
-                                                        >
-                                                            {/* — SLIDER AREA — solo visible cuando hay herramienta activa */}
-                                                            {activeDesignParam && (
-                                                                <div className="px-5 pt-4 pb-2">
-                                                                    <div className="flex items-center justify-between mb-2">
-                                                                        <span className={`text-[9px] font-black uppercase tracking-widest ${textLabel}`}>{activeDesignParam.label}</span>
-                                                                        <div className="flex items-center gap-1.5 focus-within:ring-2 focus-within:ring-violet-500/50 rounded-lg transition-all">
-                                                                            <input
-                                                                                type="number"
-                                                                                step={activeDesignParam.unit === 'cm' || activeDesignParam.key.includes('Scale') ? 0.1 : 1}
-                                                                                value={
-                                                                                    activeDesignParam.key.includes('Scale') || activeDesignParam.unit === 'UD' || activeDesignParam.key.includes('fontSize')
-                                                                                        ? activeDesignParam.key.includes('Scale') ? parseFloat(configOrla[activeDesignParam.key].toFixed(2)) : Math.round(configOrla[activeDesignParam.key])
-                                                                                        : activeDesignParam.unit === 'cm'
-                                                                                            ? parseFloat((pxToMm(configOrla[activeDesignParam.key], configOrla.dpi) / 10).toFixed(1))
-                                                                                            : activeDesignParam.unit === 'dpi'
-                                                                                                ? configOrla[activeDesignParam.key]
-                                                                                                : Math.round(pxToMm(configOrla[activeDesignParam.key], configOrla.dpi))
-                                                                                }
-                                                                                onChange={(e) => {
-                                                                                    const v = parseFloat(e.target.value);
-                                                                                    if (isNaN(v)) return;
-
-                                                                                    let finalVal = v;
-                                                                                    if (activeDesignParam.key.includes('Scale') || activeDesignParam.unit === 'UD' || activeDesignParam.key.includes('fontSize') || activeDesignParam.unit === 'dpi') {
-                                                                                        finalVal = v;
-                                                                                    } else if (activeDesignParam.unit === 'cm') {
-                                                                                        finalVal = mmToPx(v * 10, configOrla.dpi);
-                                                                                    } else {
-                                                                                        finalVal = mmToPx(v, configOrla.dpi);
+                                                        ];
+                                                        return (
+                                                            <div
+                                                                className={`fixed bottom-0 left-0 right-0 z-[200] backdrop-blur-xl border-t select-none ${barBg}`}
+                                                                style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+                                                                onTouchStart={e => e.stopPropagation()}
+                                                                onTouchMove={e => e.stopPropagation()}
+                                                                onTouchEnd={e => e.stopPropagation()}
+                                                            >
+                                                                {/* — SLIDER AREA — solo visible cuando hay herramienta activa */}
+                                                                {activeDesignParam && (
+                                                                    <div className="px-5 pt-4 pb-2">
+                                                                        <div className="flex items-center justify-between mb-2">
+                                                                            <span className={`text-[9px] font-black uppercase tracking-widest ${textLabel}`}>{activeDesignParam.label}</span>
+                                                                            <div className="flex items-center gap-1.5 focus-within:ring-2 focus-within:ring-violet-500/50 rounded-lg transition-all">
+                                                                                <input
+                                                                                    type="number"
+                                                                                    step={activeDesignParam.unit === 'cm' || activeDesignParam.key.includes('Scale') ? 0.1 : 1}
+                                                                                    value={
+                                                                                        activeDesignParam.key.includes('Scale') || activeDesignParam.unit === 'UD' || activeDesignParam.key.includes('fontSize')
+                                                                                            ? activeDesignParam.key.includes('Scale') ? parseFloat(configOrla[activeDesignParam.key].toFixed(2)) : Math.round(configOrla[activeDesignParam.key])
+                                                                                            : activeDesignParam.unit === 'cm'
+                                                                                                ? parseFloat((pxToMm(configOrla[activeDesignParam.key], configOrla.dpi) / 10).toFixed(1))
+                                                                                                : activeDesignParam.unit === 'dpi'
+                                                                                                    ? configOrla[activeDesignParam.key]
+                                                                                                    : Math.round(pxToMm(configOrla[activeDesignParam.key], configOrla.dpi))
                                                                                     }
-                                                                                    updateConfig(activeDesignParam.key, finalVal);
-                                                                                }}
-                                                                                className="w-16 h-7 bg-violet-500/10 border-none text-right font-black text-[13px] text-violet-400 focus:outline-none focus:bg-violet-500/20 rounded-lg px-2 tabular-nums"
+                                                                                    onChange={(e) => {
+                                                                                        const v = parseFloat(e.target.value);
+                                                                                        if (isNaN(v)) return;
+
+                                                                                        let finalVal = v;
+                                                                                        if (activeDesignParam.key.includes('Scale') || activeDesignParam.unit === 'UD' || activeDesignParam.key.includes('fontSize') || activeDesignParam.unit === 'dpi') {
+                                                                                            finalVal = v;
+                                                                                        } else if (activeDesignParam.unit === 'cm') {
+                                                                                            finalVal = mmToPx(v * 10, configOrla.dpi);
+                                                                                        } else {
+                                                                                            finalVal = mmToPx(v, configOrla.dpi);
+                                                                                        }
+                                                                                        updateConfig(activeDesignParam.key, finalVal);
+                                                                                    }}
+                                                                                    className="w-16 h-7 bg-violet-500/10 border-none text-right font-black text-[13px] text-violet-400 focus:outline-none focus:bg-violet-500/20 rounded-lg px-2 tabular-nums"
+                                                                                />
+                                                                                <span className="text-[9px] text-violet-300 font-black uppercase tracking-tighter w-4">{activeDesignParam.unit || 'MM'}</span>
+                                                                            </div>
+                                                                        </div>
+                                                                        {activeDesignParam.type === 'select' ? (
+                                                                            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                                                                                {activeDesignParam.options.map(opt => (
+                                                                                    <button
+                                                                                        key={opt}
+                                                                                        onClick={() => activeDesignParam.action ? activeDesignParam.action(opt) : updateConfig(activeDesignParam.key, opt)}
+                                                                                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${configOrla[activeDesignParam.key] === opt ? 'bg-violet-600 text-white shadow-lg' : isDark ? 'bg-white/5 text-white/40' : 'bg-black/5 text-black/40'}`}
+                                                                                    >
+                                                                                        {opt}
+                                                                                    </button>
+                                                                                ))}
+                                                                            </div>
+                                                                        ) : (
+                                                                            <input
+                                                                                type="range"
+                                                                                min={activeDesignParam.min}
+                                                                                max={activeDesignParam.max}
+                                                                                step={activeDesignParam.step || (activeDesignParam.key.includes('fontSize') ? 0.5 : 1)}
+                                                                                value={configOrla[activeDesignParam.key]}
+                                                                                onChange={(e) => updateConfig(activeDesignParam.key, parseFloat(e.target.value))}
+                                                                                className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-violet-500/20"
+                                                                                style={{ accentColor: '#7c3aed' }}
                                                                             />
-                                                                            <span className="text-[9px] text-violet-300 font-black uppercase tracking-tighter w-4">{activeDesignParam.unit || 'MM'}</span>
-                                                                        </div>
+                                                                        )}
                                                                     </div>
-                                                                    {activeDesignParam.type === 'select' ? (
-                                                                        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                                                                            {activeDesignParam.options.map(opt => (
-                                                                                <button
-                                                                                    key={opt}
-                                                                                    onClick={() => activeDesignParam.action ? activeDesignParam.action(opt) : updateConfig(activeDesignParam.key, opt)}
-                                                                                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${configOrla[activeDesignParam.key] === opt ? 'bg-violet-600 text-white shadow-lg' : isDark ? 'bg-white/5 text-white/40' : 'bg-black/5 text-black/40'}`}
-                                                                                >
-                                                                                    {opt}
-                                                                                </button>
-                                                                            ))}
-                                                                        </div>
-                                                                    ) : (
-                                                                        <input
-                                                                            type="range"
-                                                                            min={activeDesignParam.min}
-                                                                            max={activeDesignParam.max}
-                                                                            step={activeDesignParam.step || (activeDesignParam.key.includes('fontSize') ? 0.5 : 1)}
-                                                                            value={configOrla[activeDesignParam.key]}
-                                                                            onChange={(e) => updateConfig(activeDesignParam.key, parseFloat(e.target.value))}
-                                                                            className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-violet-500/20"
-                                                                            style={{ accentColor: '#7c3aed' }}
-                                                                        />
-                                                                    )}
-                                                                </div>
-                                                            )}
+                                                                )}
 
-                                                            {/* — HERRAMIENTAS ROW — siempre visible, scroll horizontal */}
-                                                            <div className="flex items-center w-full max-w-7xl mx-auto">
-                                                                {/* Btn GUARDAR */}
-                                                                <button
-                                                                    onClick={() => {
-                                                                        try { localStorage.setItem('configOrla_backup', JSON.stringify(configOrla)); } catch (e) { }
-                                                                        const btn = document.getElementById('btn-guardar-orla');
-                                                                        if (btn) { btn.classList.add('text-green-400'); setTimeout(() => btn.classList.remove('text-green-400'), 1500); }
-                                                                    }}
-                                                                    id="btn-guardar-orla"
-                                                                    className={`flex-shrink-0 flex flex-col items-center gap-1 px-4 py-3 active:scale-90 transition-all border-r ${textMuted} ${dividerColor}`}
-                                                                >
-                                                                    <Check size={18} />
-                                                                    <span className="text-[7px] font-black uppercase tracking-widest">Guardar</span>
-                                                                </button>
+                                                                {/* — HERRAMIENTAS ROW — siempre visible, scroll horizontal */}
+                                                                <div className="flex items-center w-full max-w-7xl mx-auto">
+                                                                    {/* Btn GUARDAR */}
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            try { localStorage.setItem('configOrla_backup', JSON.stringify(configOrla)); } catch (e) { }
+                                                                            const btn = document.getElementById('btn-guardar-orla');
+                                                                            if (btn) { btn.classList.add('text-green-400'); setTimeout(() => btn.classList.remove('text-green-400'), 1500); }
+                                                                        }}
+                                                                        id="btn-guardar-orla"
+                                                                        className={`flex-shrink-0 flex flex-col items-center gap-1 px-4 py-3 active:scale-90 transition-all border-r ${textMuted} ${dividerColor}`}
+                                                                    >
+                                                                        <Check size={18} />
+                                                                        <span className="text-[7px] font-black uppercase tracking-widest">Guardar</span>
+                                                                    </button>
 
-                                                                {/* ZOOM Y RESTO DE HERRAMIENTAS */}
-                                                                <div className="flex-1 flex items-center overflow-hidden">
-                                                                    {/* ZOOM CONTROLS — BOTÓN + POPOVER VERTICAL */}
-                                                                    {/* ZOOM CONTROLS — DESPLIEGUE HORIZONTAL */}
-                                                                    <div className="flex items-center ml-2 flex-shrink-0">
-                                                                        <button
-                                                                            onClick={() => {
-                                                                                const nextState = !showZoomBar;
-                                                                                setShowZoomBar(nextState);
-                                                                                if (nextState) {
-                                                                                    setActiveToolGroup(null);
-                                                                                    setActiveDesignParam(null);
-                                                                                }
-                                                                            }}
-                                                                            className={`flex flex-col items-center justify-center gap-1 w-14 h-14 rounded-2xl transition-all active:scale-90 z-10 ${showZoomBar ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/30' : isDark ? 'bg-white/5 text-white/50 border border-white/5 hover:bg-white/10' : 'bg-black/5 text-black/50 border border-black/5 hover:bg-black/10'}`}
-                                                                        >
-                                                                            <Search size={20} />
-                                                                            <span className="text-[7px] font-black uppercase tracking-tighter">{Math.round(canvasZoom * 100)}%</span>
-                                                                        </button>
-
-                                                                        <div
-                                                                            className={`flex items-center gap-4 transition-all duration-500 ease-out overflow-hidden h-14 ${showZoomBar ? 'max-w-[300px] opacity-100 ml-3 px-4 bg-violet-500/5 rounded-2xl border border-violet-500/10' : 'max-w-0 opacity-0 ml-0 pointer-events-none'}`}
-                                                                        >
+                                                                    {/* ZOOM Y RESTO DE HERRAMIENTAS */}
+                                                                    <div className="flex-1 flex items-center overflow-hidden">
+                                                                        {/* ZOOM CONTROLS — BOTÓN + POPOVER VERTICAL */}
+                                                                        {/* ZOOM CONTROLS — DESPLIEGUE HORIZONTAL */}
+                                                                        <div className="flex items-center ml-2 flex-shrink-0">
                                                                             <button
-                                                                                onClick={() => { setCanvasZoom(1); setPanOffset({ x: 0, y: 0 }); }}
-                                                                                className="text-[8px] font-black uppercase text-violet-500 hover:text-white hover:bg-violet-500 px-2 py-1 rounded-md transition-all flex-shrink-0"
+                                                                                onClick={() => {
+                                                                                    const nextState = !showZoomBar;
+                                                                                    setShowZoomBar(nextState);
+                                                                                    if (nextState) {
+                                                                                        setActiveToolGroup(null);
+                                                                                        setActiveDesignParam(null);
+                                                                                    }
+                                                                                }}
+                                                                                className={`flex flex-col items-center justify-center gap-1 w-14 h-14 rounded-2xl transition-all active:scale-90 z-10 ${showZoomBar ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/30' : isDark ? 'bg-white/5 text-white/50 border border-white/5 hover:bg-white/10' : 'bg-black/5 text-black/50 border border-black/5 hover:bg-black/10'}`}
                                                                             >
-                                                                                RESET
+                                                                                <Search size={20} />
+                                                                                <span className="text-[7px] font-black uppercase tracking-tighter">{Math.round(canvasZoom * 100)}%</span>
                                                                             </button>
 
-                                                                            <div className="w-32 flex items-center flex-shrink-0 mr-2">
-                                                                                <input
-                                                                                    type="range"
-                                                                                    min="10"
-                                                                                    max="300"
-                                                                                    value={Math.round(canvasZoom * 100)}
-                                                                                    onChange={e => setCanvasZoom(parseInt(e.target.value) / 100)}
-                                                                                    className="w-full h-1.5 bg-violet-500/20 rounded-lg appearance-none cursor-pointer accent-violet-500"
-                                                                                />
+                                                                            <div
+                                                                                className={`flex items-center gap-4 transition-all duration-500 ease-out overflow-hidden h-14 ${showZoomBar ? 'max-w-[300px] opacity-100 ml-3 px-4 bg-violet-500/5 rounded-2xl border border-violet-500/10' : 'max-w-0 opacity-0 ml-0 pointer-events-none'}`}
+                                                                            >
+                                                                                <button
+                                                                                    onClick={() => { setCanvasZoom(1); setPanOffset({ x: 0, y: 0 }); }}
+                                                                                    className="text-[8px] font-black uppercase text-violet-500 hover:text-white hover:bg-violet-500 px-2 py-1 rounded-md transition-all flex-shrink-0"
+                                                                                >
+                                                                                    RESET
+                                                                                </button>
+
+                                                                                <div className="w-32 flex items-center flex-shrink-0 mr-2">
+                                                                                    <input
+                                                                                        type="range"
+                                                                                        min="10"
+                                                                                        max="300"
+                                                                                        value={Math.round(canvasZoom * 100)}
+                                                                                        onChange={e => setCanvasZoom(parseInt(e.target.value) / 100)}
+                                                                                        className="w-full h-1.5 bg-violet-500/20 rounded-lg appearance-none cursor-pointer accent-violet-500"
+                                                                                    />
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <div className={`w-px h-8 mx-2 flex-shrink-0 ${isDark ? 'bg-white/10' : 'bg-black/10'}`} />
+
+                                                                        {/* Tira de herramientas */}
+                                                                        <div className="flex-1 overflow-x-auto scrollbar-hide" style={{ WebkitOverflowScrolling: 'touch' }}>
+                                                                            <div className="flex items-center gap-4 px-4 py-2" style={{ minWidth: 'max-content' }}>
+                                                                                {['Alumnos', 'Docentes', 'General'].map(groupName => {
+                                                                                    const isGroupActive = activeToolGroup === groupName;
+                                                                                    const groupTools = TOOLS.filter(t => t.group === groupName);
+
+                                                                                    return (
+                                                                                        <div key={groupName} className="flex items-center">
+                                                                                            {/* BOTÓN DEL GRUPO */}
+                                                                                            <button
+                                                                                                onClick={() => {
+                                                                                                    const nextState = !isGroupActive;
+                                                                                                    setActiveToolGroup(nextState ? groupName : null);
+                                                                                                    setActiveDesignParam(null);
+                                                                                                    if (nextState) setShowZoomBar(false);
+                                                                                                }}
+                                                                                                className={`flex flex-col items-center justify-center min-w-[60px] px-3 py-2 transition-all active:scale-95 ${isGroupActive ? 'opacity-100' : 'opacity-40 hover:opacity-100'}`}
+                                                                                            >
+                                                                                                <span className={`text-[9px] font-black uppercase tracking-widest ${isGroupActive ? 'text-violet-500' : isDark ? 'text-white' : 'text-black'}`}>
+                                                                                                    {groupName}
+                                                                                                </span>
+                                                                                                <div className={`w-full h-0.5 mt-1.5 rounded-full transition-all duration-500 ${isGroupActive ? 'bg-violet-600' : 'bg-transparent'}`} />
+                                                                                            </button>
+
+                                                                                            {/* HIJOS (DESPLEGABLE HACIA LA DERECHA) */}
+                                                                                            <div
+                                                                                                className={`flex items-center gap-1 transition-all duration-500 ease-out overflow-hidden ${isGroupActive ? 'max-w-[1000px] opacity-100 ml-4 pointer-events-auto' : 'max-w-0 opacity-0 ml-0 pointer-events-none'}`}
+                                                                                            >
+                                                                                                {groupTools.map(tool => {
+                                                                                                    if (tool.condition && !tool.condition(configOrla)) return null;
+                                                                                                    const isParamActive = activeDesignParam?.key === tool.key;
+                                                                                                    return (
+                                                                                                        <button
+                                                                                                            key={tool.key}
+                                                                                                            onClick={() => {
+                                                                                                                if (tool.action) {
+                                                                                                                    tool.action();
+                                                                                                                } else {
+                                                                                                                    setActiveDesignParam(isParamActive ? null : tool);
+                                                                                                                }
+                                                                                                            }}
+                                                                                                            className={`flex flex-col items-center gap-1.5 px-3 py-2.5 rounded-2xl transition-all active:scale-90 flex-shrink-0 ${isParamActive
+                                                                                                                ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/30'
+                                                                                                                : tool.action ? (isDark ? 'text-cyan-400/70 hover:text-cyan-300 hover:bg-cyan-500/10' : 'text-cyan-600/70 hover:text-cyan-700 hover:bg-cyan-500/10')
+                                                                                                                    : (isDark ? 'text-white/40 hover:text-white hover:bg-white/5' : 'text-black/40 hover:text-black hover:bg-black/5')
+                                                                                                                }`}
+                                                                                                        >
+                                                                                                            <tool.icon size={18} />
+                                                                                                            <span className={`text-[8px] font-black uppercase tracking-tight whitespace-nowrap ${isParamActive ? 'text-white' : isDark ? 'text-white/40' : 'text-black/50'}`}>
+                                                                                                                {tool.label}
+                                                                                                            </span>
+                                                                                                        </button>
+                                                                                                    );
+                                                                                                })}
+                                                                                            </div>
+
+                                                                                            {/* SEPARADOR ENTRE GRUPOS */}
+                                                                                            {!isGroupActive && groupName !== 'General' && (
+                                                                                                <div className={`w-px h-6 mx-3 flex-shrink-0 ${isDark ? 'bg-white/10' : 'bg-black/10'}`} />
+                                                                                            )}
+                                                                                        </div>
+                                                                                    );
+                                                                                })}
                                                                             </div>
                                                                         </div>
                                                                     </div>
 
-                                                                    <div className={`w-px h-8 mx-2 flex-shrink-0 ${isDark ? 'bg-white/10' : 'bg-black/10'}`} />
-
-                                                                    {/* Tira de herramientas */}
-                                                                    <div className="flex-1 overflow-x-auto scrollbar-hide" style={{ WebkitOverflowScrolling: 'touch' }}>
-                                                                        <div className="flex items-center gap-4 px-4 py-2" style={{ minWidth: 'max-content' }}>
-                                                                            {['Alumnos', 'Docentes', 'General'].map(groupName => {
-                                                                                const isGroupActive = activeToolGroup === groupName;
-                                                                                const groupTools = TOOLS.filter(t => t.group === groupName);
-
-                                                                                return (
-                                                                                    <div key={groupName} className="flex items-center">
-                                                                                        {/* BOTÓN DEL GRUPO */}
-                                                                                        <button
-                                                                                            onClick={() => {
-                                                                                                const nextState = !isGroupActive;
-                                                                                                setActiveToolGroup(nextState ? groupName : null);
-                                                                                                setActiveDesignParam(null);
-                                                                                                if (nextState) setShowZoomBar(false);
-                                                                                            }}
-                                                                                            className={`flex flex-col items-center justify-center min-w-[60px] px-3 py-2 transition-all active:scale-95 ${isGroupActive ? 'opacity-100' : 'opacity-40 hover:opacity-100'}`}
-                                                                                        >
-                                                                                            <span className={`text-[9px] font-black uppercase tracking-widest ${isGroupActive ? 'text-violet-500' : isDark ? 'text-white' : 'text-black'}`}>
-                                                                                                {groupName}
-                                                                                            </span>
-                                                                                            <div className={`w-full h-0.5 mt-1.5 rounded-full transition-all duration-500 ${isGroupActive ? 'bg-violet-600' : 'bg-transparent'}`} />
-                                                                                        </button>
-
-                                                                                        {/* HIJOS (DESPLEGABLE HACIA LA DERECHA) */}
-                                                                                        <div
-                                                                                            className={`flex items-center gap-1 transition-all duration-500 ease-out overflow-hidden ${isGroupActive ? 'max-w-[1000px] opacity-100 ml-4 pointer-events-auto' : 'max-w-0 opacity-0 ml-0 pointer-events-none'}`}
-                                                                                        >
-                                                                                            {groupTools.map(tool => {
-                                                                                                if (tool.condition && !tool.condition(configOrla)) return null;
-                                                                                                const isParamActive = activeDesignParam?.key === tool.key;
-                                                                                                return (
-                                                                                                    <button
-                                                                                                        key={tool.key}
-                                                                                                        onClick={() => {
-                                                                                                            if (tool.action) {
-                                                                                                                tool.action();
-                                                                                                            } else {
-                                                                                                                setActiveDesignParam(isParamActive ? null : tool);
-                                                                                                            }
-                                                                                                        }}
-                                                                                                        className={`flex flex-col items-center gap-1.5 px-3 py-2.5 rounded-2xl transition-all active:scale-90 flex-shrink-0 ${isParamActive
-                                                                                                            ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/30'
-                                                                                                            : tool.action ? (isDark ? 'text-cyan-400/70 hover:text-cyan-300 hover:bg-cyan-500/10' : 'text-cyan-600/70 hover:text-cyan-700 hover:bg-cyan-500/10')
-                                                                                                                : (isDark ? 'text-white/40 hover:text-white hover:bg-white/5' : 'text-black/40 hover:text-black hover:bg-black/5')
-                                                                                                            }`}
-                                                                                                    >
-                                                                                                        <tool.icon size={18} />
-                                                                                                        <span className={`text-[8px] font-black uppercase tracking-tight whitespace-nowrap ${isParamActive ? 'text-white' : isDark ? 'text-white/40' : 'text-black/50'}`}>
-                                                                                                            {tool.label}
-                                                                                                        </span>
-                                                                                                    </button>
-                                                                                                );
-                                                                                            })}
-                                                                                        </div>
-
-                                                                                        {/* SEPARADOR ENTRE GRUPOS */}
-                                                                                        {!isGroupActive && groupName !== 'General' && (
-                                                                                            <div className={`w-px h-6 mx-3 flex-shrink-0 ${isDark ? 'bg-white/10' : 'bg-black/10'}`} />
-                                                                                        )}
-                                                                                    </div>
-                                                                                );
-                                                                            })}
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-
-                                                                {/* Btn CERRAR */}
-                                                                <button
-                                                                    onClick={() => setIsFullScreenDesign(false)}
-                                                                    className={`flex-shrink-0 flex flex-col items-center gap-1 px-4 py-3 active:scale-90 transition-all border-l ${textMuted} ${dividerColor}`}
-                                                                >
-                                                                    <X size={18} />
-                                                                    <span className="text-[7px] font-black uppercase tracking-widest">Cerrar</span>
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })()}
-
-                                                <div className={`card ${isFullScreenDesign ? 'border-none bg-transparent h-full p-0 flex flex-col' : 'p-8 border-violet-500/20 bg-violet-500/5 dark:bg-violet-500/5 relative overflow-hidden'}`}>
-                                                    {/* Header Previa */}
-                                                    {!isFullScreenDesign && (
-                                                        <div className="flex flex-col sm:flex-row items-center gap-3 mb-8 relative z-10">
-                                                            <div className="flex items-center gap-4 flex-1">
-                                                                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20">
-                                                                    <Eye size={24} />
-                                                                </div>
-                                                                <div className="text-left">
-                                                                    <h2 className="text-xl font-black text-primary uppercase tracking-tighter">Previsualización Técnica (A3)</h2>
-                                                                    <p className="text-[10px] font-bold text-secondary uppercase tracking-[0.2em] opacity-60">Escala Visual 1:10 • 300 DPI</p>
+                                                                    {/* Btn CERRAR */}
+                                                                    <button
+                                                                        onClick={() => setIsFullScreenDesign(false)}
+                                                                        className={`flex-shrink-0 flex flex-col items-center gap-1 px-4 py-3 active:scale-90 transition-all border-l ${textMuted} ${dividerColor}`}
+                                                                    >
+                                                                        <X size={18} />
+                                                                        <span className="text-[7px] font-black uppercase tracking-widest">Cerrar</span>
+                                                                    </button>
                                                                 </div>
                                                             </div>
-                                                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-                                                                <button
-                                                                    onClick={() => setView('command')}
-                                                                    className="w-full sm:w-auto px-5 py-3 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.15em] flex items-center justify-center gap-2 transition-all shadow-xl shadow-emerald-500/30 active:scale-95 group border border-white/10 animate-pulse-slow whitespace-nowrap"
-                                                                >
-                                                                    <Layers size={16} className="group-hover:scale-110 transition-transform flex-shrink-0" />
-                                                                    <span>Finalizar Orla</span>
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => setIsFullScreenDesign(true)}
-                                                                    className="w-full sm:w-auto px-5 py-3 bg-violet-600 hover:bg-violet-500 text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.15em] flex items-center justify-center gap-2 transition-all shadow-xl shadow-violet-600/20 active:scale-95 group whitespace-nowrap"
-                                                                >
-                                                                    <Maximize2 size={16} className="group-hover:rotate-12 transition-transform flex-shrink-0" />
-                                                                    <span>Editar Orla</span>
-                                                                </button>
+                                                        );
+                                                    })()}
+
+                                                    <div className={`card ${isFullScreenDesign ? 'border-none bg-transparent h-full p-0 flex flex-col' : 'p-8 border-violet-500/20 bg-violet-500/5 dark:bg-violet-500/5 relative overflow-hidden'}`}>
+                                                        {/* Header Previa */}
+                                                        {!isFullScreenDesign && (
+                                                            <div className="flex flex-col sm:flex-row items-center gap-3 mb-8 relative z-10">
+                                                                <div className="flex items-center gap-4 flex-1">
+                                                                    <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20">
+                                                                        <Eye size={24} />
+                                                                    </div>
+                                                                    <div className="text-left">
+                                                                        <h2 className="text-xl font-black text-primary uppercase tracking-tighter">Previsualización Técnica (A3)</h2>
+                                                                        <p className="text-[10px] font-bold text-secondary uppercase tracking-[0.2em] opacity-60">Escala Visual 1:10 • 300 DPI</p>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+                                                                    <button
+                                                                        onClick={() => setView('command')}
+                                                                        className="w-full sm:w-auto px-5 py-3 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.15em] flex items-center justify-center gap-2 transition-all shadow-xl shadow-emerald-500/30 active:scale-95 group border border-white/10 animate-pulse-slow whitespace-nowrap"
+                                                                    >
+                                                                        <Layers size={16} className="group-hover:scale-110 transition-transform flex-shrink-0" />
+                                                                        <span>Finalizar Orla</span>
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => setIsFullScreenDesign(true)}
+                                                                        className="w-full sm:w-auto px-5 py-3 bg-violet-600 hover:bg-violet-500 text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.15em] flex items-center justify-center gap-2 transition-all shadow-xl shadow-violet-600/20 active:scale-95 group whitespace-nowrap"
+                                                                    >
+                                                                        <Maximize2 size={16} className="group-hover:rotate-12 transition-transform flex-shrink-0" />
+                                                                        <span>Editar Orla</span>
+                                                                    </button>
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    )}
+                                                        )}
 
-                                                    <div
-                                                        ref={canvasContainerRef}
-                                                        onMouseDown={handleCanvasMouseDown}
-                                                        onMouseMove={handleCanvasMouseMove}
-                                                        onMouseUp={handleCanvasMouseUp}
-                                                        onMouseLeave={handleCanvasMouseUp}
-                                                        onWheel={handleCanvasWheel}
-                                                        onTouchStart={handleCanvasTouchStart}
-                                                        onTouchMove={handleCanvasTouchMove}
-                                                        onTouchEnd={handleCanvasTouchEnd}
-                                                        className={`relative select-none touch-none ${isFullScreenDesign
-                                                            ? `flex-1 ${theme === 'dark' ? 'bg-[#0a0a0a]' : 'bg-[#f0f2f5]'} overflow-auto flex items-center justify-center`
-                                                            : 'w-full overflow-hidden bg-black/20 rounded-3xl border border-white/5 cursor-grab active:cursor-grabbing'}`}
-                                                        style={(() => {
-                                                            if (isFullScreenDesign) return { cursor: 'grab', paddingBottom: '100px' };
-                                                            const availableW = (canvasContainerRef?.current?.offsetWidth || window.innerWidth) - 32;
-                                                            const canvasW = configOrla.canvasW / 10;
-                                                            const canvasH = configOrla.canvasH / 10;
-                                                            const scale = Math.min(1, availableW / canvasW);
-                                                            return { cursor: 'grab', height: Math.round(canvasH * scale + 32) + 'px' };
-                                                        })()}
-                                                    >
-                                                        {/* Preview del Canvas */}
-                                                        <div style={{
-                                                            width: '100%',
-                                                            height: '100%',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'center',
-                                                            padding: isFullScreenDesign ? '4rem' : '40px',
-                                                            minWidth: isFullScreenDesign ? 'max-content' : undefined,
-                                                            minHeight: isFullScreenDesign ? 'max-content' : undefined,
-                                                            position: 'relative'
-                                                        }}>
-                                                            {/* COTAS (INDICADORES DE TAMAÑO) */}
-                                                            {isFullScreenDesign && (
-                                                                <>
-                                                                    {/* COTA ANCHO (W) */}
-                                                                    <div className="absolute pointer-events-none flex flex-col items-center"
-                                                                        style={{
-                                                                            left: '50%',
-                                                                            bottom: 'calc(50% + ' + (configOrla.canvasH / 20 * (isFullScreenDesign ? (window.innerWidth < 1024 ? canvasZoom * 0.75 : canvasZoom * 1.5) : Math.min(1, ((canvasContainerRef?.current?.offsetWidth || window.innerWidth) - 80) / (configOrla.canvasW / 10)))) + 'px + 10px)',
-                                                                            transform: `translate(calc(-50% + ${panOffset.x}px), ${panOffset.y}px)`,
-                                                                            width: (configOrla.canvasW / 10 * (window.innerWidth < 1024 ? canvasZoom * 0.75 : canvasZoom * 1.5)) + 'px',
-                                                                            zIndex: 60
-                                                                        }}>
-                                                                        <div className="flex items-center w-full">
-                                                                            <div className="w-0 h-0 border-y-[4px] border-y-transparent border-r-[8px] border-r-violet-600/60" />
-                                                                            <div className="h-[1px] flex-1 bg-violet-600/30" />
-                                                                            <span className="text-[10px] font-black text-white bg-violet-600 px-2 py-0.5 rounded-full shadow-lg whitespace-nowrap mx-2">
-                                                                                W: {(pxToMm(configOrla.canvasW, configOrla.dpi) / 10).toFixed(1)} CM
-                                                                            </span>
-                                                                            <div className="h-[1px] flex-1 bg-violet-600/30" />
-                                                                            <div className="w-0 h-0 border-y-[4px] border-y-transparent border-l-[8px] border-l-violet-600/60" />
+                                                        <div
+                                                            ref={canvasContainerRef}
+                                                            onMouseDown={handleCanvasMouseDown}
+                                                            onMouseMove={handleCanvasMouseMove}
+                                                            onMouseUp={handleCanvasMouseUp}
+                                                            onMouseLeave={handleCanvasMouseUp}
+                                                            onWheel={handleCanvasWheel}
+                                                            onTouchStart={handleCanvasTouchStart}
+                                                            onTouchMove={handleCanvasTouchMove}
+                                                            onTouchEnd={handleCanvasTouchEnd}
+                                                            className={`relative select-none touch-none ${isFullScreenDesign
+                                                                ? `flex-1 ${theme === 'dark' ? 'bg-[#0a0a0a]' : 'bg-[#f0f2f5]'} overflow-auto flex items-center justify-center`
+                                                                : 'w-full overflow-hidden bg-black/20 rounded-3xl border border-white/5 cursor-grab active:cursor-grabbing'}`}
+                                                            style={(() => {
+                                                                if (isFullScreenDesign) return { cursor: 'grab', paddingBottom: '100px' };
+                                                                const availableW = (canvasContainerRef?.current?.offsetWidth || window.innerWidth) - 32;
+                                                                const canvasW = configOrla.canvasW / 10;
+                                                                const canvasH = configOrla.canvasH / 10;
+                                                                const scale = Math.min(1, availableW / canvasW);
+                                                                return { cursor: 'grab', height: Math.round(canvasH * scale + 32) + 'px' };
+                                                            })()}
+                                                        >
+                                                            {/* Preview del Canvas */}
+                                                            <div style={{
+                                                                width: '100%',
+                                                                height: '100%',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                padding: isFullScreenDesign ? '4rem' : '40px',
+                                                                minWidth: isFullScreenDesign ? 'max-content' : undefined,
+                                                                minHeight: isFullScreenDesign ? 'max-content' : undefined,
+                                                                position: 'relative'
+                                                            }}>
+                                                                {/* COTAS (INDICADORES DE TAMAÑO) */}
+                                                                {isFullScreenDesign && (
+                                                                    <>
+                                                                        {/* COTA ANCHO (W) */}
+                                                                        <div className="absolute pointer-events-none flex flex-col items-center"
+                                                                            style={{
+                                                                                left: '50%',
+                                                                                bottom: 'calc(50% + ' + (configOrla.canvasH / 20 * (isFullScreenDesign ? (window.innerWidth < 1024 ? canvasZoom * 0.75 : canvasZoom * 1.5) : Math.min(1, ((canvasContainerRef?.current?.offsetWidth || window.innerWidth) - 80) / (configOrla.canvasW / 10)))) + 'px + 10px)',
+                                                                                transform: `translate(calc(-50% + ${panOffset.x}px), ${panOffset.y}px)`,
+                                                                                width: (configOrla.canvasW / 10 * (window.innerWidth < 1024 ? canvasZoom * 0.75 : canvasZoom * 1.5)) + 'px',
+                                                                                zIndex: 60
+                                                                            }}>
+                                                                            <div className="flex items-center w-full">
+                                                                                <div className="w-0 h-0 border-y-[4px] border-y-transparent border-r-[8px] border-r-violet-600/60" />
+                                                                                <div className="h-[1px] flex-1 bg-violet-600/30" />
+                                                                                <span className="text-[10px] font-black text-white bg-violet-600 px-2 py-0.5 rounded-full shadow-lg whitespace-nowrap mx-2">
+                                                                                    W: {(pxToMm(configOrla.canvasW, configOrla.dpi) / 10).toFixed(1)} CM
+                                                                                </span>
+                                                                                <div className="h-[1px] flex-1 bg-violet-600/30" />
+                                                                                <div className="w-0 h-0 border-y-[4px] border-y-transparent border-l-[8px] border-l-violet-600/60" />
+                                                                            </div>
                                                                         </div>
-                                                                    </div>
 
-                                                                    {/* COTA ALTO (H) */}
-                                                                    <div className="absolute pointer-events-none flex items-center justify-center"
-                                                                        style={{
-                                                                            top: '50%',
-                                                                            left: 'calc(50% - ' + (configOrla.canvasW / 20 * (isFullScreenDesign ? (window.innerWidth < 1024 ? canvasZoom * 0.75 : canvasZoom * 1.5) : Math.min(1, ((canvasContainerRef?.current?.offsetWidth || window.innerWidth) - 80) / (configOrla.canvasW / 10)))) + 'px - 15px)',
-                                                                            transformOrigin: 'center center',
-                                                                            transform: `translate(calc(-50% + ${panOffset.x}px), calc(-50% + ${panOffset.y}px)) rotate(-90deg)`,
-                                                                            width: (configOrla.canvasH / 10 * (window.innerWidth < 1024 ? canvasZoom * 0.75 : canvasZoom * 1.5)) + 'px',
-                                                                            zIndex: 60
-                                                                        }}>
-                                                                        <div className="flex items-center w-full">
-                                                                            <div className="w-0 h-0 border-y-[4px] border-y-transparent border-r-[8px] border-r-violet-600/60" />
-                                                                            <div className="h-[1px] flex-1 bg-violet-600/30" />
-                                                                            <span className="text-[10px] font-black text-white bg-violet-600 px-2 py-0.5 rounded-full shadow-lg whitespace-nowrap mx-2">
-                                                                                H: {(pxToMm(configOrla.canvasH, configOrla.dpi) / 10).toFixed(1)} CM
-                                                                            </span>
-                                                                            <div className="h-[1px] flex-1 bg-violet-600/30" />
-                                                                            <div className="w-0 h-0 border-y-[4px] border-y-transparent border-l-[8px] border-l-violet-600/60" />
+                                                                        {/* COTA ALTO (H) */}
+                                                                        <div className="absolute pointer-events-none flex items-center justify-center"
+                                                                            style={{
+                                                                                top: '50%',
+                                                                                left: 'calc(50% - ' + (configOrla.canvasW / 20 * (isFullScreenDesign ? (window.innerWidth < 1024 ? canvasZoom * 0.75 : canvasZoom * 1.5) : Math.min(1, ((canvasContainerRef?.current?.offsetWidth || window.innerWidth) - 80) / (configOrla.canvasW / 10)))) + 'px - 15px)',
+                                                                                transformOrigin: 'center center',
+                                                                                transform: `translate(calc(-50% + ${panOffset.x}px), calc(-50% + ${panOffset.y}px)) rotate(-90deg)`,
+                                                                                width: (configOrla.canvasH / 10 * (window.innerWidth < 1024 ? canvasZoom * 0.75 : canvasZoom * 1.5)) + 'px',
+                                                                                zIndex: 60
+                                                                            }}>
+                                                                            <div className="flex items-center w-full">
+                                                                                <div className="w-0 h-0 border-y-[4px] border-y-transparent border-r-[8px] border-r-violet-600/60" />
+                                                                                <div className="h-[1px] flex-1 bg-violet-600/30" />
+                                                                                <span className="text-[10px] font-black text-white bg-violet-600 px-2 py-0.5 rounded-full shadow-lg whitespace-nowrap mx-2">
+                                                                                    H: {(pxToMm(configOrla.canvasH, configOrla.dpi) / 10).toFixed(1)} CM
+                                                                                </span>
+                                                                                <div className="h-[1px] flex-1 bg-violet-600/30" />
+                                                                                <div className="w-0 h-0 border-y-[4px] border-y-transparent border-l-[8px] border-l-violet-600/60" />
+                                                                            </div>
                                                                         </div>
-                                                                    </div>
-                                                                </>
-                                                            )}
-                                                            <div className="relative bg-white shadow-[0_0_100px_rgba(0,0,0,0.5)] rounded-sm overflow-hidden"
-                                                                style={{
-                                                                    width: configOrla.canvasW / 10 + 'px',
-                                                                    height: configOrla.canvasH / 10 + 'px',
-                                                                    backgroundImage: `
+                                                                    </>
+                                                                )}
+                                                                <div className="relative bg-white shadow-[0_0_100px_rgba(0,0,0,0.5)] rounded-sm overflow-hidden"
+                                                                    style={{
+                                                                        width: configOrla.canvasW / 10 + 'px',
+                                                                        height: configOrla.canvasH / 10 + 'px',
+                                                                        backgroundImage: `
                                                                             linear-gradient(to right, #f0f0f0 1px, transparent 1px),
                                                                             linear-gradient(to bottom, #f0f0f0 1px, transparent 1px)
                                                                         `,
-                                                                    backgroundSize: '20px 20px',
-                                                                    transform: isFullScreenDesign
-                                                                        ? `translate(${panOffset.x}px, ${panOffset.y}px) scale(${window.innerWidth < 1024 ? canvasZoom * 0.75 : canvasZoom * 1.5})`
-                                                                        : (() => { const aw = (canvasContainerRef?.current?.offsetWidth || window.innerWidth) - 80; const s = Math.min(1, aw / (configOrla.canvasW / 10)); return `scale(${s})`; })(),
-                                                                    transformOrigin: isFullScreenDesign ? 'center center' : 'center center',
-                                                                    transition: isDraggingCanvasRef.current ? 'none' : 'transform 0.1s ease-out',
-                                                                    flexShrink: 0
-                                                                }}>
+                                                                        backgroundSize: '20px 20px',
+                                                                        transform: isFullScreenDesign
+                                                                            ? `translate(${panOffset.x}px, ${panOffset.y}px) scale(${window.innerWidth < 1024 ? canvasZoom * 0.75 : canvasZoom * 1.5})`
+                                                                            : (() => { const aw = (canvasContainerRef?.current?.offsetWidth || window.innerWidth) - 80; const s = Math.min(1, aw / (configOrla.canvasW / 10)); return `scale(${s})`; })(),
+                                                                        transformOrigin: isFullScreenDesign ? 'center center' : 'center center',
+                                                                        transition: isDraggingCanvasRef.current ? 'none' : 'transform 0.1s ease-out',
+                                                                        flexShrink: 0
+                                                                    }}>
 
-                                                                {/* Margen */}
-                                                                <div className="absolute border border-red-500/30 border-dashed pointer-events-none z-50"
-                                                                    style={{ inset: configOrla.margin / 10 + 'px' }} />
+                                                                    {/* Margen */}
+                                                                    <div className="absolute border border-red-500/30 border-dashed pointer-events-none z-50"
+                                                                        style={{ inset: configOrla.margin / 10 + 'px' }} />
 
-                                                                {/* Guías centro: solo en fullscreen */}
-                                                                {isFullScreenDesign && <>
-                                                                    <div className="absolute top-0 bottom-0 pointer-events-none z-50" style={{ left: '50%', width: '1px', background: 'rgba(0,190,230,0.45)', transform: 'translateX(-0.5px)' }} />
-                                                                    <div className="absolute left-0 right-0 pointer-events-none z-50" style={{ top: '50%', height: '1px', background: 'rgba(0,190,230,0.45)', transform: 'translateY(-0.5px)' }} />
-                                                                </>}
+                                                                    {/* Guías centro: solo en fullscreen */}
+                                                                    {isFullScreenDesign && <>
+                                                                        <div className="absolute top-0 bottom-0 pointer-events-none z-50" style={{ left: '50%', width: '1px', background: 'rgba(0,190,230,0.45)', transform: 'translateX(-0.5px)' }} />
+                                                                        <div className="absolute left-0 right-0 pointer-events-none z-50" style={{ top: '50%', height: '1px', background: 'rgba(0,190,230,0.45)', transform: 'translateY(-0.5px)' }} />
+                                                                    </>}
 
-                                                                {(() => {
-                                                                    const groupsForCourse = designFilter.course ? [...new Set(orders.filter(o => getCourseBase(o.course) === designFilter.course).map(o => getGroup(o.course)))].filter(Boolean) : [];
-                                                                    const needsGroup = groupsForCourse.length > 0;
-                                                                    const isSelectionComplete = designFilter.school && designFilter.course && (!needsGroup || designFilter.group);
+                                                                    {(() => {
+                                                                        const groupsForCourse = designFilter.course ? [...new Set(orders.filter(o => getCourseBase(o.course) === designFilter.course).map(o => getGroup(o.course)))].filter(Boolean) : [];
+                                                                        const needsGroup = groupsForCourse.length > 0;
+                                                                        const isSelectionComplete = designFilter.school && designFilter.course && (!needsGroup || designFilter.group);
 
-                                                                    if (!isSelectionComplete) {
-                                                                        return (
-                                                                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-50/50 backdrop-blur-[2px] z-50">
-                                                                                <div className="w-24 h-24 bg-violet-500/10 rounded-full flex items-center justify-center mb-4 animate-bounce p-4 border border-violet-500/20 shadow-[0_0_30px_rgba(139,92,246,0.2)]">
-                                                                                    {settings?.logoUrl ? (
-                                                                                        <img src={settings.logoUrl} alt="Logo" className="w-full h-full object-contain drop-shadow-md" />
-                                                                                    ) : (
-                                                                                        <LayoutGrid size={32} className="text-violet-500" />
-                                                                                    )}
+                                                                        if (!isSelectionComplete) {
+                                                                            return (
+                                                                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-50/50 backdrop-blur-[2px] z-50">
+                                                                                    <div className="w-24 h-24 bg-violet-500/10 rounded-full flex items-center justify-center mb-4 animate-bounce p-4 border border-violet-500/20 shadow-[0_0_30px_rgba(139,92,246,0.2)]">
+                                                                                        {settings?.logoUrl ? (
+                                                                                            <img src={settings.logoUrl} alt="Logo" className="w-full h-full object-contain drop-shadow-md" />
+                                                                                        ) : (
+                                                                                            <LayoutGrid size={32} className="text-violet-500" />
+                                                                                        )}
+                                                                                    </div>
+                                                                                    <p className="text-[10px] font-black text-violet-600 uppercase tracking-[0.2em] animate-pulse px-10 text-center">
+                                                                                        {!designFilter.school ? "Selecciona el Centro" : !designFilter.course ? "Selecciona el Curso" : "Selecciona el Grupo"}
+                                                                                    </p>
                                                                                 </div>
-                                                                                <p className="text-[10px] font-black text-violet-600 uppercase tracking-[0.2em] animate-pulse px-10 text-center">
-                                                                                    {!designFilter.school ? "Selecciona el Centro" : !designFilter.course ? "Selecciona el Curso" : "Selecciona el Grupo"}
-                                                                                </p>
-                                                                            </div>
-                                                                        );
-                                                                    }
+                                                                            );
+                                                                        }
 
-                                                                    return (
-                                                                        <>
-                                                                            {/* Docentes */}
-                                                                            <div className="absolute top-0 w-full flex justify-center z-20" style={{ top: configOrla.dY / 10 + 'px', columnGap: (configOrla.dGapX || 150) / 10 + 'px' }}>
-                                                                                {selectedStaffIds.map(id => staff.find(m => m.id === id)).filter(Boolean).map((member, i) => {
-                                                                                    const staffNameParts = (member.name || '').trim().split(/\s+/);
-                                                                                    const staffFirstName = staffNameParts[0] || '';
-                                                                                    const staffSurnames = staffNameParts.slice(1).join(' ');
+                                                                        return (
+                                                                            <>
+                                                                                {/* Docentes */}
+                                                                                <div className="absolute top-0 w-full flex justify-center z-20" style={{ top: configOrla.dY / 10 + 'px', columnGap: (configOrla.dGapX || 150) / 10 + 'px' }}>
+                                                                                    {selectedStaffIds.map(id => staff.find(m => m.id === id)).filter(Boolean).map((member, i) => {
+                                                                                        const staffNameParts = (member.name || '').trim().split(/\s+/);
+                                                                                        const staffFirstName = staffNameParts[0] || '';
+                                                                                        const staffSurnames = staffNameParts.slice(1).join(' ');
 
-                                                                                    return (
-                                                                                        <div key={member.id} className="relative flex flex-col items-center">
-                                                                                            <div className="bg-slate-200 border border-slate-300 rounded-sm relative flex items-center justify-center overflow-hidden"
-                                                                                                style={{
-                                                                                                    width: (configOrla.aW * configOrla.dScale) / 10 + 'px',
-                                                                                                    height: (configOrla.aH * configOrla.dScale) / 10 + 'px',
-                                                                                                    marginBottom: configOrla.dTextOffset / 10 + 'px'
-                                                                                                }}>
-                                                                                                {member.photoFile ? (
-                                                                                                    <div className="w-full h-full bg-slate-400 flex items-center justify-center text-[8px] font-black text-white/50">{member.photoFile}</div>
-                                                                                                ) : (
-                                                                                                    <div className="w-full h-full flex items-center justify-center opacity-40"><UserCheck size={configOrla.dScale * 12} /></div>
-                                                                                                )}
-                                                                                            </div>
-                                                                                            <div className="mt-[4px] text-center" style={{ width: (configOrla.aW * configOrla.dScale) / 10 + 'px' }}>
-                                                                                                <p className="leading-[1.1] uppercase truncate text-black" style={{
-                                                                                                    fontFamily: configOrla.fontFamily,
-                                                                                                    fontSize: (configOrla.fontSizeDoc / 2) + 'px',
-                                                                                                    fontWeight: 'normal',
-                                                                                                    fontStyle: 'normal',
-                                                                                                    color: '#000000'
-                                                                                                }}>{staffFirstName}</p>
-                                                                                                {staffSurnames && (
+                                                                                        return (
+                                                                                            <div key={member.id} className="relative flex flex-col items-center">
+                                                                                                <div className="bg-slate-200 border border-slate-300 rounded-sm relative flex items-center justify-center overflow-hidden"
+                                                                                                    style={{
+                                                                                                        width: (configOrla.aW * configOrla.dScale) / 10 + 'px',
+                                                                                                        height: (configOrla.aH * configOrla.dScale) / 10 + 'px',
+                                                                                                        marginBottom: configOrla.dTextOffset / 10 + 'px'
+                                                                                                    }}>
+                                                                                                    {member.photoFile ? (
+                                                                                                        <div className="w-full h-full bg-slate-400 flex items-center justify-center text-[8px] font-black text-white/50">{member.photoFile}</div>
+                                                                                                    ) : (
+                                                                                                        <div className="w-full h-full flex items-center justify-center opacity-40"><UserCheck size={configOrla.dScale * 12} /></div>
+                                                                                                    )}
+                                                                                                </div>
+                                                                                                <div className="mt-[4px] text-center" style={{ width: (configOrla.aW * configOrla.dScale) / 10 + 'px' }}>
                                                                                                     <p className="leading-[1.1] uppercase truncate text-black" style={{
                                                                                                         fontFamily: configOrla.fontFamily,
                                                                                                         fontSize: (configOrla.fontSizeDoc / 2) + 'px',
                                                                                                         fontWeight: 'normal',
                                                                                                         fontStyle: 'normal',
                                                                                                         color: '#000000'
-                                                                                                    }}>{staffSurnames}</p>
-                                                                                                )}
-                                                                                                <p className="text-[5px] mt-[1.5px] font-bold uppercase truncate leading-none text-black" style={{ fontFamily: configOrla.fontFamily, color: '#000000' }}>{member.role}</p>
-                                                                                            </div>
-                                                                                        </div>
-                                                                                    );
-                                                                                })}
-                                                                            </div>
-
-                                                                            {/* Alumnos Grid */}
-                                                                            <div className="absolute w-full z-10" style={{ top: configOrla.aStartY / 10 + 'px', left: 0, paddingLeft: configOrla.aStartX / 10 + 'px', paddingRight: configOrla.aStartX / 10 + 'px' }}>
-                                                                                <div className="grid justify-items-center" style={{
-                                                                                    gridTemplateColumns: `repeat(${configOrla.aCols}, ${(configOrla.aW * (configOrla.aScale || 1.0)) / 10}px)`,
-                                                                                    rowGap: configOrla.aGapY / 10 + 'px',
-                                                                                    columnGap: configOrla.aGapX / 10 + 'px'
-                                                                                }}>
-                                                                                    {orders.filter(o =>
-                                                                                        (!designFilter.course || getCourseBase(o.course) === designFilter.course) &&
-                                                                                        (!designFilter.group || getGroup(o.course) === designFilter.group)
-                                                                                    ).sort((a, b) => {
-                                                                                        const partsA = (a.studentName || '').trim().split(/\s+/);
-                                                                                        const partsB = (b.studentName || '').trim().split(/\s+/);
-                                                                                        const surA = partsA[1] || partsA[0] || '';
-                                                                                        const surB = partsB[1] || partsB[0] || '';
-                                                                                        return surA.localeCompare(surB, 'es', { sensitivity: 'base' });
-                                                                                    }).map((order, i) => {
-                                                                                        const nameParts = (order.studentName || '').trim().split(/\s+/);
-                                                                                        const firstName = nameParts[0] || '';
-                                                                                        const surnames = nameParts.slice(1).join(' ');
-
-                                                                                        return (
-                                                                                            <div key={order.id} className="flex flex-col items-center">
-                                                                                                <div className="bg-slate-50 border border-slate-100 rounded-sm relative flex items-center justify-center overflow-hidden"
-                                                                                                    style={{
-                                                                                                        width: (configOrla.aW * (configOrla.aScale || 1.0)) / 10 + 'px',
-                                                                                                        height: (configOrla.aH * (configOrla.aScale || 1.0)) / 10 + 'px',
-                                                                                                        marginBottom: configOrla.aTextOffset / 10 + 'px'
-                                                                                                    }}>
-                                                                                                    {order.photoFile ? (
-                                                                                                        <span className="text-[8px] font-black text-slate-600">{order.photoFile}</span>
-                                                                                                    ) : (
-                                                                                                        <span className="font-black opacity-[0.2]" style={{ fontSize: (6 * (configOrla.aScale || 1.0)) + 'px' }}>{i + 1}</span>
+                                                                                                    }}>{staffFirstName}</p>
+                                                                                                    {staffSurnames && (
+                                                                                                        <p className="leading-[1.1] uppercase truncate text-black" style={{
+                                                                                                            fontFamily: configOrla.fontFamily,
+                                                                                                            fontSize: (configOrla.fontSizeDoc / 2) + 'px',
+                                                                                                            fontWeight: 'normal',
+                                                                                                            fontStyle: 'normal',
+                                                                                                            color: '#000000'
+                                                                                                        }}>{staffSurnames}</p>
                                                                                                     )}
+                                                                                                    <p className="text-[5px] mt-[1.5px] font-bold uppercase truncate leading-none text-black" style={{ fontFamily: configOrla.fontFamily, color: '#000000' }}>{member.role}</p>
                                                                                                 </div>
-                                                                                                <p className="leading-[1.1] uppercase truncate text-black" style={{
-                                                                                                    fontFamily: configOrla.fontFamily,
-                                                                                                    fontSize: (configOrla.fontSizeAlu / 2) + 'px',
-                                                                                                    fontWeight: 'normal',
-                                                                                                    fontStyle: 'normal',
-                                                                                                    color: '#000000'
-                                                                                                }}>{firstName}</p>
-                                                                                                {surnames && (
+                                                                                            </div>
+                                                                                        );
+                                                                                    })}
+                                                                                </div>
+
+                                                                                {/* Alumnos Grid */}
+                                                                                <div className="absolute w-full z-10" style={{ top: configOrla.aStartY / 10 + 'px', left: 0, paddingLeft: configOrla.aStartX / 10 + 'px', paddingRight: configOrla.aStartX / 10 + 'px' }}>
+                                                                                    <div className="grid justify-items-center" style={{
+                                                                                        gridTemplateColumns: `repeat(${configOrla.aCols}, ${(configOrla.aW * (configOrla.aScale || 1.0)) / 10}px)`,
+                                                                                        rowGap: configOrla.aGapY / 10 + 'px',
+                                                                                        columnGap: configOrla.aGapX / 10 + 'px'
+                                                                                    }}>
+                                                                                        {orders.filter(o =>
+                                                                                            (!designFilter.course || getCourseBase(o.course) === designFilter.course) &&
+                                                                                            (!designFilter.group || getGroup(o.course) === designFilter.group)
+                                                                                        ).sort((a, b) => {
+                                                                                            const partsA = (a.studentName || '').trim().split(/\s+/);
+                                                                                            const partsB = (b.studentName || '').trim().split(/\s+/);
+                                                                                            const surA = partsA[1] || partsA[0] || '';
+                                                                                            const surB = partsB[1] || partsB[0] || '';
+                                                                                            return surA.localeCompare(surB, 'es', { sensitivity: 'base' });
+                                                                                        }).map((order, i) => {
+                                                                                            const nameParts = (order.studentName || '').trim().split(/\s+/);
+                                                                                            const firstName = nameParts[0] || '';
+                                                                                            const surnames = nameParts.slice(1).join(' ');
+
+                                                                                            return (
+                                                                                                <div key={order.id} className="flex flex-col items-center">
+                                                                                                    <div className="bg-slate-50 border border-slate-100 rounded-sm relative flex items-center justify-center overflow-hidden"
+                                                                                                        style={{
+                                                                                                            width: (configOrla.aW * (configOrla.aScale || 1.0)) / 10 + 'px',
+                                                                                                            height: (configOrla.aH * (configOrla.aScale || 1.0)) / 10 + 'px',
+                                                                                                            marginBottom: configOrla.aTextOffset / 10 + 'px'
+                                                                                                        }}>
+                                                                                                        {order.photoFile ? (
+                                                                                                            <span className="text-[8px] font-black text-slate-600">{order.photoFile}</span>
+                                                                                                        ) : (
+                                                                                                            <span className="font-black opacity-[0.2]" style={{ fontSize: (6 * (configOrla.aScale || 1.0)) + 'px' }}>{i + 1}</span>
+                                                                                                        )}
+                                                                                                    </div>
                                                                                                     <p className="leading-[1.1] uppercase truncate text-black" style={{
                                                                                                         fontFamily: configOrla.fontFamily,
                                                                                                         fontSize: (configOrla.fontSizeAlu / 2) + 'px',
                                                                                                         fontWeight: 'normal',
                                                                                                         fontStyle: 'normal',
                                                                                                         color: '#000000'
-                                                                                                    }}>{surnames}</p>
-                                                                                                )}
-                                                                                            </div>
-                                                                                        );
-                                                                                    })}
+                                                                                                    }}>{firstName}</p>
+                                                                                                    {surnames && (
+                                                                                                        <p className="leading-[1.1] uppercase truncate text-black" style={{
+                                                                                                            fontFamily: configOrla.fontFamily,
+                                                                                                            fontSize: (configOrla.fontSizeAlu / 2) + 'px',
+                                                                                                            fontWeight: 'normal',
+                                                                                                            fontStyle: 'normal',
+                                                                                                            color: '#000000'
+                                                                                                        }}>{surnames}</p>
+                                                                                                    )}
+                                                                                                </div>
+                                                                                            );
+                                                                                        })}
+                                                                                    </div>
                                                                                 </div>
-                                                                            </div>
 
-                                                                            {/* Pie de Orla (Nombre Centro y Promoción) */}
-                                                                            <div className="absolute w-full flex flex-col items-center z-10" style={{
-                                                                                bottom: configOrla.margin / 10 + 'px',
-                                                                                left: 0,
-                                                                                padding: `0 ${configOrla.margin / 10}px`
-                                                                            }}>
-                                                                                <h2 className="uppercase font-black leading-none text-black" style={{
-                                                                                    fontFamily: configOrla.fontFamily,
-                                                                                    fontSize: '18px',
-                                                                                    letterSpacing: '0.05em',
-                                                                                    marginBottom: '2px'
+                                                                                {/* Pie de Orla (Nombre Centro y Promoción) */}
+                                                                                <div className="absolute w-full flex flex-col items-center z-10" style={{
+                                                                                    bottom: configOrla.margin / 10 + 'px',
+                                                                                    left: 0,
+                                                                                    padding: `0 ${configOrla.margin / 10}px`
                                                                                 }}>
-                                                                                    {schools.find(s => s.id === designFilter.school)?.name || 'NOMBRE DEL CENTRO'}
-                                                                                </h2>
-                                                                                <p className="uppercase font-medium text-black" style={{
-                                                                                    fontFamily: configOrla.fontFamily,
-                                                                                    fontSize: '10px',
-                                                                                    letterSpacing: '0.2em',
-                                                                                    opacity: 0.8
-                                                                                }}>
-                                                                                    PROMOCIÓN 2026
-                                                                                </p>
-                                                                            </div>
-                                                                        </>
-                                                                    );
-                                                                })()}
+                                                                                    <h2 className="uppercase font-black leading-none text-black" style={{
+                                                                                        fontFamily: configOrla.fontFamily,
+                                                                                        fontSize: '18px',
+                                                                                        letterSpacing: '0.05em',
+                                                                                        marginBottom: '2px'
+                                                                                    }}>
+                                                                                        {schools.find(s => s.id === designFilter.school)?.name || 'NOMBRE DEL CENTRO'}
+                                                                                    </h2>
+                                                                                    <p className="uppercase font-medium text-black" style={{
+                                                                                        fontFamily: configOrla.fontFamily,
+                                                                                        fontSize: '10px',
+                                                                                        letterSpacing: '0.2em',
+                                                                                        opacity: 0.8
+                                                                                    }}>
+                                                                                        PROMOCIÓN 2026
+                                                                                    </p>
+                                                                                </div>
+                                                                            </>
+                                                                        );
+                                                                    })()}
+                                                                </div>
                                                             </div>
                                                         </div>
+
+                                                        {/* Selectores de Curso - AHORA DEBAJO */}
+                                                        {!isFullScreenDesign && (
+                                                            <div className="mt-8 pt-8 border-t border-violet-500/10 flex flex-col items-center gap-4 text-center">
+                                                                <div className="flex items-center gap-2 p-1.5 bg-black/20 rounded-2xl border border-white/5">
+                                                                    {/* SELECTOR CENTRO */}
+                                                                    <select
+                                                                        value={designFilter.school || ''}
+                                                                        onChange={e => {
+                                                                            const sid = e.target.value;
+                                                                            setDesignFilter(p => ({ ...p, school: sid, course: '', group: '' }));
+                                                                            if (sid) setAdminSchool(sid); // Sincronizar para cargar órdenes de ese centro
+                                                                        }}
+                                                                        className="bg-transparent text-white text-[11px] font-black uppercase tracking-wider px-4 py-2 outline-none cursor-pointer hover:text-violet-400 transition-colors"
+                                                                    >
+                                                                        <option value="" className="bg-slate-900">— CENTRO —</option>
+                                                                        {schools.map(s => <option key={s.id} value={s.id} className="bg-slate-900">{s.name}</option>)}
+                                                                    </select>
+                                                                    <div className="w-px h-4 bg-white/10" />
+                                                                    {/* SELECTOR CURSO */}
+                                                                    <select
+                                                                        value={designFilter.course}
+                                                                        onChange={e => {
+                                                                            const nextCourse = e.target.value;
+                                                                            const courseGroups = nextCourse ? [...new Set(orders.filter(o => getCourseBase(o.course) === nextCourse).map(o => getGroup(o.course)))].filter(Boolean).sort() : [];
+                                                                            // Si solo hay un grupo, lo seleccionamos automáticamente
+                                                                            const autoGroup = courseGroups.length === 1 ? courseGroups[0] : '';
+                                                                            setDesignFilter(p => ({ ...p, course: nextCourse, group: autoGroup }));
+                                                                        }}
+                                                                        disabled={!designFilter.school}
+                                                                        className="bg-transparent text-white text-[11px] font-black uppercase tracking-wider px-4 py-2 outline-none cursor-pointer disabled:opacity-30 hover:text-violet-400 transition-colors"
+                                                                    >
+                                                                        <option value="" className="bg-slate-900">— CURSO —</option>
+                                                                        {[...new Set(
+                                                                            orders
+                                                                                .filter(o => !designFilter.school || o.schoolId === designFilter.school)
+                                                                                .map(o => getCourseBase(o.course))
+                                                                        )].filter(Boolean).sort().map(c => <option key={c} value={c} className="bg-slate-900">{c}</option>)}
+                                                                    </select>
+                                                                    <div className="w-px h-4 bg-white/10" />
+                                                                    {/* SELECTOR GRUPO */}
+                                                                    <select
+                                                                        value={designFilter.group}
+                                                                        onChange={e => setDesignFilter(p => ({ ...p, group: e.target.value }))}
+                                                                        disabled={!designFilter.course}
+                                                                        className="bg-transparent text-white text-[11px] font-black uppercase tracking-wider px-4 py-2 outline-none cursor-pointer disabled:opacity-30 hover:text-violet-400 transition-colors"
+                                                                    >
+                                                                        <option value="" className="bg-slate-900">G</option>
+                                                                        {(designFilter.course ? [...new Set(orders.filter(o => getCourseBase(o.course) === designFilter.course).map(o => getGroup(o.course)))].filter(Boolean).sort() : []).map(g => <option key={g} value={g} className="bg-slate-900">{g}</option>)}
+                                                                    </select>
+                                                                </div>
+                                                                <p className="w-full text-[10px] font-bold text-violet-400/60 uppercase tracking-widest italic text-center">Selecciona el curso para cargar los alumnos automáticamente en la previa.</p>
+                                                            </div>
+                                                        )}
                                                     </div>
-
-                                                    {/* Selectores de Curso - AHORA DEBAJO */}
-                                                    {!isFullScreenDesign && (
-                                                        <div className="mt-8 pt-8 border-t border-violet-500/10 flex flex-col items-center gap-4 text-center">
-                                                            <div className="flex items-center gap-2 p-1.5 bg-black/20 rounded-2xl border border-white/5">
-                                                                {/* SELECTOR CENTRO */}
-                                                                <select
-                                                                    value={designFilter.school || ''}
-                                                                    onChange={e => {
-                                                                        const sid = e.target.value;
-                                                                        setDesignFilter(p => ({ ...p, school: sid, course: '', group: '' }));
-                                                                        if (sid) setAdminSchool(sid); // Sincronizar para cargar órdenes de ese centro
-                                                                    }}
-                                                                    className="bg-transparent text-white text-[11px] font-black uppercase tracking-wider px-4 py-2 outline-none cursor-pointer hover:text-violet-400 transition-colors"
-                                                                >
-                                                                    <option value="" className="bg-slate-900">— CENTRO —</option>
-                                                                    {schools.map(s => <option key={s.id} value={s.id} className="bg-slate-900">{s.name}</option>)}
-                                                                </select>
-                                                                <div className="w-px h-4 bg-white/10" />
-                                                                {/* SELECTOR CURSO */}
-                                                                <select
-                                                                    value={designFilter.course}
-                                                                    onChange={e => {
-                                                                        const nextCourse = e.target.value;
-                                                                        const courseGroups = nextCourse ? [...new Set(orders.filter(o => getCourseBase(o.course) === nextCourse).map(o => getGroup(o.course)))].filter(Boolean).sort() : [];
-                                                                        // Si solo hay un grupo, lo seleccionamos automáticamente
-                                                                        const autoGroup = courseGroups.length === 1 ? courseGroups[0] : '';
-                                                                        setDesignFilter(p => ({ ...p, course: nextCourse, group: autoGroup }));
-                                                                    }}
-                                                                    disabled={!designFilter.school}
-                                                                    className="bg-transparent text-white text-[11px] font-black uppercase tracking-wider px-4 py-2 outline-none cursor-pointer disabled:opacity-30 hover:text-violet-400 transition-colors"
-                                                                >
-                                                                    <option value="" className="bg-slate-900">— CURSO —</option>
-                                                                    {[...new Set(
-                                                                        orders
-                                                                            .filter(o => !designFilter.school || o.schoolId === designFilter.school)
-                                                                            .map(o => getCourseBase(o.course))
-                                                                    )].filter(Boolean).sort().map(c => <option key={c} value={c} className="bg-slate-900">{c}</option>)}
-                                                                </select>
-                                                                <div className="w-px h-4 bg-white/10" />
-                                                                {/* SELECTOR GRUPO */}
-                                                                <select
-                                                                    value={designFilter.group}
-                                                                    onChange={e => setDesignFilter(p => ({ ...p, group: e.target.value }))}
-                                                                    disabled={!designFilter.course}
-                                                                    className="bg-transparent text-white text-[11px] font-black uppercase tracking-wider px-4 py-2 outline-none cursor-pointer disabled:opacity-30 hover:text-violet-400 transition-colors"
-                                                                >
-                                                                    <option value="" className="bg-slate-900">G</option>
-                                                                    {(designFilter.course ? [...new Set(orders.filter(o => getCourseBase(o.course) === designFilter.course).map(o => getGroup(o.course)))].filter(Boolean).sort() : []).map(g => <option key={g} value={g} className="bg-slate-900">{g}</option>)}
-                                                                </select>
-                                                            </div>
-                                                            <p className="w-full text-[10px] font-bold text-violet-400/60 uppercase tracking-widest italic text-center">Selecciona el curso para cargar los alumnos automáticamente en la previa.</p>
-                                                        </div>
-                                                    )}
                                                 </div>
                                             </div>
-                                        </div>
-                                    )}
+                                        )
+                                    }
                                     <BackgroundOrbs />
-                                </div>
-                            </div>
+                                </div >
+                            </div >
                         )
                     }
                     {/* MODAL REGALO */}
