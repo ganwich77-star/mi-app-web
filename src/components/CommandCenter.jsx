@@ -538,7 +538,7 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                         <div className="flex items-center gap-4 md:gap-8 w-full md:w-auto">
                             <div className="space-y-1 text-left flex-1 md:flex-none">
                                 <p className={`text-[8px] md:text-[9px] font-black ${theme === 'dark' ? 'text-white/30' : 'text-slate-400'} uppercase tracking-[0.2em]`}>Grupo Activo</p>
-                                <p className="text-xs md:text-sm font-black uppercase text-violet-500 truncate max-w-[150px] md:max-w-[200px]">{groupName}</p>
+                                <p className="text-xs md:text-sm font-black uppercase text-orange-500 truncate max-w-[150px] md:max-w-[200px]">{groupName}</p>
                             </div>
                             <div className={`w-px h-10 ${theme === 'dark' ? 'bg-white/10' : 'bg-slate-200'}`} />
                             <div className="space-y-1 text-left flex-1 md:flex-none">

@@ -24,7 +24,7 @@ export default function PricingCalculator() {
 
     if (students < 60) {
         recommendedPlan = "PLAN FLEX";
-        platformCost = students * 2.50;
+        platformCost = students * 2.00;
         planColor = "text-emerald-400";
         sliderGradientStart = "#10b981";
         sliderGradientEnd = "#34d399";
@@ -36,7 +36,7 @@ export default function PricingCalculator() {
         sliderGradientEnd = "#fbbf24";
     } else if (students < 180) {
         recommendedPlan = "PLAN FLEX";
-        platformCost = students * 2.50;
+        platformCost = students * 2.00;
         planColor = "text-emerald-400";
         sliderGradientStart = "#10b981";
         sliderGradientEnd = "#34d399";
@@ -125,7 +125,7 @@ export default function PricingCalculator() {
                             <p className="text-xs text-white/80 font-bold max-w-[180px] leading-tight mt-1">Inversi&oacute;n en Plataforma</p>
                         </div>
                         <div className="text-right">
-                            <p className="text-3xl font-black text-white drop-shadow-lg">{platformCost.toLocaleString('es-ES', { minimumFractionDigits: recommendedPlan === 'PLAN FLEX' ? 2 : 0 })}€<span className="text-sm text-white/40 font-normal">/{recommendedPlan === 'PLAN FLEX' ? 'total' : 'campaña'}</span></p>
+                            <p className="text-3xl font-black text-white drop-shadow-lg">{platformCost.toLocaleString('es-ES', { minimumFractionDigits: recommendedPlan === 'PLAN FLEX' ? 2 : 0 })}€ <span className="text-sm text-white/40 font-normal">/{recommendedPlan === 'PLAN FLEX' ? 'total' : 'campaña'}</span></p>
                             <p className="text-[10px] text-indigo-300 font-bold tracking-widest uppercase mt-1">Sale a {(platformCost / students).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€ por alumno</p>
                         </div>
                     </div>

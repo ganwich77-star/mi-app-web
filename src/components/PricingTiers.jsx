@@ -31,16 +31,16 @@ export default function PricingTiers(props) {
                     </div>
                 );
             }
-            return '449 €';
+            return '449 € + IVA';
         }
 
         const basePrices = {
-            flex: '2,50 €',
-            starter: '149 €',
+            flex: '2,00 €',
+            starter: '149 € + IVA',
             custom: (
                 <div className="flex flex-col">
-                    <span className="text-2xl font-black">Desde 850 €</span>
-                    <span className="text-[10px] text-indigo-400 font-bold uppercase mt-1 tracking-tighter">White Label: 1.250 €</span>
+                    <span className="text-2xl font-black">Desde 850 € + IVA</span>
+                    <span className="text-[10px] text-indigo-400 font-bold uppercase mt-1 tracking-tighter">White Label: 1.250 € + IVA</span>
                 </div>
             )
         };
@@ -155,7 +155,7 @@ export default function PricingTiers(props) {
                                     {plan.price}
                                 </div>
                                 <div className="text-[8px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-tighter opacity-70">
-                                    {plan.period}
+                                    {plan.period} {plan.id !== 'custom' && '+ IVA'}
                                 </div>
                             </div>
 

@@ -252,7 +252,7 @@
   }
 
   label {
-    @apply text-xs font-black uppercase tracking-[0.15em] mb-3 block opacity-80 !important;
+    @apply text-xs font-black uppercase tracking-[0.15em] mb-3 block opacity-80;
     color: var(--text-primary);
   }
 
@@ -389,4 +389,30 @@
 
 [data-theme='dark'] .bg-champagne {
   background-color: rgba(251, 243, 228, 0.08) !important;
+}
+
+/* Calendario nativo clickeable en toda la caja */
+input[type="date"].full-clickable-date::-webkit-calendar-picker-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: auto;
+  height: auto;
+  color: transparent;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type="date"].full-clickable-date::-webkit-calendar-picker-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
 }
