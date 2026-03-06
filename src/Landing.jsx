@@ -1,3 +1,4 @@
+// RE-DEPLOY: 2026-03-06 - UI & Security Fixes
 import React, { useState, useMemo, useEffect } from 'react';
 import {
     Zap,
