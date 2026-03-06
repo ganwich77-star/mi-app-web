@@ -1171,8 +1171,16 @@ export default function App() {
         setShowPinModal(true); setPinInput(''); setPinError(false);
     };
 
-    // Acceso mediante el logo (requiere PIN 7373 siempre)
     const handleSecretAdminAccess = () => {
+        if (isAdminUnlocked) {
+            if (photographerId === 'pujaltecreativestudio') {
+                setIsCreator(true);
+                setView('master');
+            } else {
+                setView('admin');
+            }
+            return;
+        }
         setShowPinModal(true);
         setPinInput('');
         setPinError(false);
@@ -1761,7 +1769,7 @@ export default function App() {
                                     {/* Logo y Título integrados */}
                                     <div className="flex flex-col md:flex-row items-center md:items-center gap-3 md:gap-6 mb-6 md:mb-8 mt-2">
                                         <button
-                                            onClick={() => isCreator ? setView('master') : setView('user')}
+                                            onClick={() => setView('user')}
                                             className="flex items-center justify-center transition-all active:scale-95 hover:opacity-80"
                                         >
                                             {settings.logoUrl || settings.logoUrlDark ? (
@@ -1774,12 +1782,13 @@ export default function App() {
                                             ) : (
                                                 <img
                                                     src={`${import.meta.env.BASE_URL}logo.png`}
-                                                    alt="Pujalte Creative Studio"
+                                                    alt="Logo"
                                                     className="h-8 md:h-14 w-auto transition-all duration-500"
                                                     style={{ filter: theme === 'light' ? 'brightness(0)' : 'none' }}
                                                 />
                                             )}
                                         </button>
+
                                         <div className="flex flex-col text-center md:text-left text-primary md:border-l md:border-primary/10 md:pl-6 leading-none">
                                             <div className="flex items-center justify-center md:justify-start gap-2 mb-1">
                                                 <Shield size={10} className="text-amber-500 md:size-[14px]" />
@@ -4673,18 +4682,21 @@ export default function App() {
                                             <h3 className="text-xl font-black text-primary uppercase tracking-tighter">Área Protegida</h3>
                                             <p className="text-[10px] text-secondary font-black uppercase tracking-widest opacity-60">Introduce tu PIN de acceso</p>
                                         </div>
-                                        <div className="relative">
+                                        <div className="relative space-y-4">
                                             <input
                                                 type="password"
-                                                maxLength="4"
+                                                placeholder="••••••••"
                                                 value={pinInput}
                                                 onChange={(e) => {
-                                                    const val = e.target.value.replace(/\D/g, '');
-                                                    setPinInput(val);
-                                                    if (val.length === 4) {
-                                                        if (val === adminPin) {
+                                                    setPinInput(e.target.value);
+                                                    setPinError(false);
+                                                }}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                        const masterPass = 'JPM17PASS71-';
+                                                        if (pinInput === adminPin || pinInput === masterPass) {
                                                             setIsAdminUnlocked(true);
-                                                            if (photographerId === 'pujaltecreativestudio') {
+                                                            if (photographerId === 'pujaltecreativestudio' || pinInput === masterPass) {
                                                                 setIsCreator(true);
                                                                 setView('master');
                                                             } else {
@@ -4701,11 +4713,36 @@ export default function App() {
                                                     }
                                                 }}
                                                 autoFocus
-                                                className={`w-full bg-primary/5 border ${pinError ? 'border-red-500 animate-shake' : 'border-primary/10'} rounded-2xl py-5 text-center text-3xl font-black tracking-[1em] outline-none focus:border-accent transition-all`}
+                                                className={`w-full bg-primary/5 border ${pinError ? 'border-red-500 animate-shake' : 'border-primary/10'} rounded-2xl py-5 text-center text-2xl font-black tracking-[0.2em] outline-none focus:border-accent transition-all placeholder:tracking-normal placeholder:opacity-20`}
                                             />
-                                            {pinError && <p className="absolute -bottom-6 left-0 right-0 text-[10px] text-red-500 font-bold uppercase tracking-widest">PIN Incorrecto</p>}
+                                            {pinError && <p className="absolute -bottom-6 left-0 right-0 text-[10px] text-red-500 font-bold uppercase tracking-widest text-center">Contraseña Incorrecta</p>}
+
+                                            <button
+                                                onClick={() => {
+                                                    const masterPass = 'JPM17PASS71-';
+                                                    if (pinInput === adminPin || pinInput === masterPass) {
+                                                        setIsAdminUnlocked(true);
+                                                        if (photographerId === 'pujaltecreativestudio' || pinInput === masterPass) {
+                                                            setIsCreator(true);
+                                                            setView('master');
+                                                        } else {
+                                                            setView('admin');
+                                                        }
+                                                        setShowPinModal(false);
+                                                    } else {
+                                                        setPinError(true);
+                                                        setTimeout(() => {
+                                                            setPinError(false);
+                                                            setPinInput('');
+                                                        }, 1000);
+                                                    }
+                                                }}
+                                                className="w-full h-14 bg-accent text-card text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl shadow-lg shadow-accent/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                                            >
+                                                Acceder al Sistema
+                                            </button>
                                         </div>
-                                        <button onClick={() => setShowPinModal(false)} className="w-full py-2 text-[10px] font-black text-secondary/40 hover:text-primary uppercase tracking-widest transition-colors">Volver</button>
+                                        <button onClick={() => setShowPinModal(false)} className="w-full py-2 text-[10px] font-black text-secondary/40 hover:text-primary uppercase tracking-widest transition-colors">Cancelar y Volver</button>
                                     </div>
                                 </div>
                             </div>

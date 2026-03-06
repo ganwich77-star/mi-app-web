@@ -204,12 +204,11 @@ const Landing = ({ onAdminAccess, onOpenAvisoLegal, onOpenPrivacidad, onOpenCond
                     <a href="#nosotros" className="hover:text-indigo-400 transition-colors">estudio</a>
                 </div>
 
-                {/* Logo Central */}
                 <div className="flex items-center">
                     <img
                         src={`${import.meta.env.BASE_URL || '/'}logo.png`}
                         alt="Pujalte Studio"
-                        className="h-10 md:h-14 w-auto brightness-0 invert cursor-pointer active:scale-95 transition-transform"
+                        className="h-12 md:h-20 w-auto brightness-0 invert cursor-pointer active:scale-95 transition-transform"
                         onClick={onAdminAccess}
                     />
                 </div>
@@ -225,7 +224,7 @@ const Landing = ({ onAdminAccess, onOpenAvisoLegal, onOpenPrivacidad, onOpenCond
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[100%] h-[100%] bg-gradient-to-b from-indigo-600/20 via-transparent to-transparent blur-[120px] -z-10 animate-pulse" />
                 <div className="max-w-7xl mx-auto relative z-10 text-center reveal">
                     <span className="inline-block px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[8px] md:text-[9px] font-black tracking-[0.4em] mb-4 md:mb-8 uppercase">v8.3 integral precision</span>
-                    <h1 className="text-3xl sm:text-5xl md:text-[110px] font-black tracking-tighter mb-4 md:mb-8 leading-[0.9] md:leading-[0.85] text-glow px-4">
+                    <h1 className="text-3xl sm:text-5xl md:text-[110px] font-black tracking-tight mb-4 md:mb-8 leading-[1] md:leading-[0.95] text-glow px-4 py-2">
                         <span className="gradient-text-white">EL FIN DE </span> <br /> <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 via-indigo-600 to-indigo-300">LAS ERRATAS.</span>
                     </h1>
                     <p className="max-w-xl mx-auto text-slate-400 text-sm md:text-xl font-medium mb-8 md:pb-12 italic tracking-tight leading-relaxed reveal px-4">
@@ -284,30 +283,44 @@ const Landing = ({ onAdminAccess, onOpenAvisoLegal, onOpenPrivacidad, onOpenCond
                                         </div>
                                         <input
                                             type="range"
-                                            min="10"
-                                            max="5000"
-                                            step="1"
-                                            value={numStudents}
+                                            min="0"
+                                            max="100"
+                                            step="0.1"
+                                            value={
+                                                numStudents <= 200
+                                                    ? (numStudents - 10) / 190 * 60
+                                                    : numStudents <= 1000
+                                                        ? 60 + (numStudents - 200) / 800 * 25
+                                                        : 85 + (numStudents - 1000) / 4000 * 15
+                                            }
                                             onChange={(e) => {
-                                                const rawVal = parseInt(e.target.value);
-                                                let val = rawVal;
-
-                                                // Lógica no lineal (Tramo A, B, C)
-                                                if (rawVal > 1000) {
-                                                    // Tramo C: 1.001 - 5.000 (500 en 500)
-                                                    val = Math.round(rawVal / 500) * 500;
-                                                } else if (rawVal > 500) {
-                                                    // Tramo B: 501 - 1.000 (50 en 50)
-                                                    val = Math.round(rawVal / 50) * 50;
+                                                const pos = parseFloat(e.target.value);
+                                                let val;
+                                                if (pos <= 60) {
+                                                    val = 10 + (pos / 60) * 190;
+                                                    val = Math.round(val);
+                                                } else if (pos <= 85) {
+                                                    val = 200 + ((pos - 60) / 25) * 800;
+                                                    val = Math.round(val / 10) * 10;
+                                                } else {
+                                                    val = 1000 + ((pos - 85) / 15) * 4000;
+                                                    val = Math.round(val / 100) * 100;
                                                 }
-                                                // Tramo A: 1 - 500 (1 en 1) - valor por defecto
-
-                                                if (val < 10) val = 10;
                                                 setNumStudents(val);
                                             }}
                                             className="w-full h-1.5 md:h-2 bg-white/5 rounded-full appearance-none cursor-pointer"
                                             style={{
-                                                background: `linear-gradient(to right, #6366f1 0%, #6366f1 ${(numStudents - 10) / (5000 - 10) * 100}%, rgba(255, 255, 255, 0.05) ${(numStudents - 10) / (5000 - 10) * 100}%, rgba(255, 255, 255, 0.05) 100%)`
+                                                background: `linear-gradient(to right, #6366f1 0%, #6366f1 ${numStudents <= 200
+                                                    ? (numStudents - 10) / 190 * 60
+                                                    : numStudents <= 1000
+                                                        ? 60 + (numStudents - 200) / 800 * 25
+                                                        : 85 + (numStudents - 1000) / 4000 * 15
+                                                    }%, rgba(255, 255, 255, 0.05) ${numStudents <= 200
+                                                        ? (numStudents - 10) / 190 * 60
+                                                        : numStudents <= 1000
+                                                            ? 60 + (numStudents - 200) / 800 * 25
+                                                            : 85 + (numStudents - 1000) / 4000 * 15
+                                                    }%, rgba(255, 255, 255, 0.05) 100%)`
                                             }}
                                         />
                                     </div>
@@ -428,7 +441,7 @@ const Landing = ({ onAdminAccess, onOpenAvisoLegal, onOpenPrivacidad, onOpenCond
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-16 md:mb-24">
                         <span className="inline-block px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[8px] md:text-[9px] font-black tracking-[0.4em] mb-6 uppercase">TARIFAS PROFESIONALES 2026</span>
-                        <h2 className="text-4xl md:text-[80px] font-black italic tracking-tighter text-white leading-none uppercase text-glow">
+                        <h2 className="text-4xl md:text-[80px] font-black italic tracking-tight text-white leading-[1.1] md:leading-[1] uppercase text-glow">
                             PLANES QUE <br /> <span className="text-indigo-600">ESCALAN CONTIGO.</span>
                         </h2>
                     </div>
@@ -441,11 +454,6 @@ const Landing = ({ onAdminAccess, onOpenAvisoLegal, onOpenPrivacidad, onOpenCond
                         />
                     </div>
 
-                    <div className="mt-12 text-center opacity-30">
-                        <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.4em] italic leading-relaxed">
-                            * Todos los planes de suscripción para fotógrafos son + IVA legal vigente.
-                        </p>
-                    </div>
                 </div>
             </section>
 
