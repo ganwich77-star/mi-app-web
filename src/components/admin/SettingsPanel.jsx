@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
     CreditCard, Shield, Gift, Sparkles, Sun, Moon, Tag,
     Mail, Database, Download, Upload, FileText,
-    Calendar, Camera, ShoppingCart, GraduationCap, Trash2, Plus, AlertTriangle
+    ChevronDown, Trash2, Plus, Phone, MessageCircle, Settings2
 } from 'lucide-react';
 import { COURSE_GROUPS } from '../../constants.js';
 
@@ -21,10 +21,22 @@ const SettingsPanel = ({
     exportCSV,
     adminSchool,
     schools,
-    photographerId
+    photographerId,
+    theme = 'dark'
 }) => {
-    const [notifForm, setNotifForm] = React.useState({ title: '', body: '' });
-    const [sendingNotif, setSendingNotif] = React.useState(false);
+    // Estados de apertura de secciones
+    const [openSections, setOpenSections] = useState({
+        general: true,
+        billing: false,
+        notifications: false
+    });
+
+    const [notifForm, setNotifForm] = useState({ title: '', body: '' });
+    const [sendingNotif, setSendingNotif] = useState(false);
+
+    const toggleSection = (section) => {
+        setOpenSections(prev => ({ ...prev, [section]: !prev[section] }));
+    };
 
     const sendMassiveNotification = async () => {
         if (!notifForm.title || !notifForm.body) return alert('Rellena el mensaje');
@@ -48,339 +60,273 @@ const SettingsPanel = ({
             setSendingNotif(false);
         }
     };
+
+    const SectionHeader = ({ id, icon: Icon, title, subtitle, colorClass, isOpen }) => (
+        <div
+            onClick={() => toggleSection(id)}
+            className={`flex items-center justify-between p-8 cursor-pointer transition-all duration-300 ${isOpen ? `bg-${colorClass}/5` : 'hover:bg-primary/2'}`}
+        >
+            <div className="flex items-center gap-6">
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-500 shadow-lg ${isOpen ? `bg-${colorClass} text-white scale-110 rotate-3` : `bg-${colorClass}/10 text-${colorClass}`}`}>
+                    <Icon size={28} />
+                </div>
+                <div>
+                    <h3 className="text-2xl font-black text-primary tracking-tight">{title}</h3>
+                    <p className="text-[10px] font-bold text-secondary uppercase tracking-[0.2em] opacity-60">{subtitle}</p>
+                </div>
+            </div>
+            {/* Solo mostramos la flecha si la sección no es la principal abierta por defecto o para feedback visual claro */}
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-500 ${isOpen ? `bg-${colorClass}/20 text-${colorClass} rotate-180` : 'bg-primary/5 text-secondary'}`}>
+                <ChevronDown size={24} />
+            </div>
+        </div>
+    );
+
     return (
         <div className="space-y-6 pb-20">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div className="col-span-1 md:col-span-2 lg:col-span-3">
-                    <CriticalDatesPanel
-                        settings={settings}
-                        updateSettings={updateSettings}
-                        schools={schools}
-                    />
-                </div>
+            {/* Fechas Importantes */}
+            <div className="w-full">
+                <CriticalDatesPanel
+                    settings={settings}
+                    updateSettings={updateSettings}
+                    schools={schools}
+                    theme={theme}
+                />
+            </div>
 
-                {/* Bloque 1: Pagos y Seguridad */}
-                <div className="card p-6 flex flex-col h-full">
-                    <div className="flex flex-col h-full">
-                        <h3 className="text-lg font-black text-primary flex items-center gap-2 mb-6"><CreditCard size={18} className="text-accent" /> Pagos y Seguridad</h3>
+            {/* 1. CONFIGURACIÓN GENERAL */}
+            <div className={`card overflow-hidden transition-all duration-500 ${openSections.general ? 'ring-2 ring-indigo-500/20 shadow-2xl' : 'hover:ring-1 hover:ring-indigo-500/10 shadow-lg'}`}>
+                <SectionHeader
+                    id="general"
+                    icon={Settings2}
+                    title="Configuración de la Aplicación"
+                    subtitle="PAGOS, IDENTIDAD Y GESTIÓN DE DATOS"
+                    colorClass="indigo-600"
+                    isOpen={openSections.general}
+                />
 
-                        <div className="grid grid-cols-1 gap-3 mb-4">
-                            {paymentMethods.map(method => (
-                                <div key={method.id} className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${method.enabled ? 'bg-indigo-500/5 border-indigo-500/20 shadow-sm' : 'bg-primary/2 border-primary/5 opacity-60'}`}>
-                                    <div className="flex items-center gap-3">
-                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg ${method.enabled ? 'bg-indigo-500/10 text-indigo-400' : 'bg-primary/5 text-secondary'}`}>
-                                            {method.icon}
+                <div className={`transition-all duration-700 ease-in-out ${openSections.general ? 'max-h-[3000px] opacity-100 p-8 pt-2' : 'max-h-0 opacity-0 pointer-events-none overflow-hidden'}`}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+
+                        {/* Sub-bloque: Pagos y Seguridad */}
+                        <div className="space-y-6">
+                            <h4 className="text-[11px] font-black text-indigo-500 uppercase tracking-[0.3em] mb-4 flex items-center gap-3">
+                                <Shield size={16} /> Pagos y Seguridad
+                            </h4>
+                            <div className="grid grid-cols-1 gap-3">
+                                {paymentMethods.map(method => (
+                                    <div key={method.id} className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${method.enabled ? 'bg-indigo-500/5 border-indigo-500/20' : 'bg-primary/2 border-primary/5 opacity-40'}`}>
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg ${method.enabled ? 'bg-indigo-500/10 text-indigo-400' : 'bg-primary/5 text-secondary'}`}>
+                                                {method.icon}
+                                            </div>
+                                            <span className="text-[10px] font-black uppercase tracking-wider">{method.label}</span>
                                         </div>
-                                        <span className={`text-[11px] font-black uppercase tracking-wider transition-colors ${method.enabled ? 'text-primary' : 'text-secondary'}`}>{method.label}</span>
+                                        <button onClick={() => togglePaymentMethod(method.id)} className={`w-10 h-6 rounded-full relative transition-all duration-300 ${method.enabled ? 'bg-indigo-500' : 'bg-primary/20'}`}>
+                                            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-all duration-300 ${method.enabled ? 'right-1' : 'left-1'}`} />
+                                        </button>
                                     </div>
-                                    <button onClick={() => togglePaymentMethod(method.id)} className={`w-10 h-6 rounded-full relative transition-all duration-300 ${method.enabled ? 'bg-indigo-500' : 'bg-primary/20'}`}>
-                                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-all duration-300 ${method.enabled ? 'right-1' : 'left-1'}`} />
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-
-                        <div className="mt-auto pt-6 space-y-4 h-[220px] flex flex-col justify-center">
-                            <div>
-                                <h3 className="text-lg font-black text-primary flex items-center gap-2 mb-3">
-                                    <Shield size={18} className="text-accent" /> Cambiar PIN de Acceso
-                                </h3>
-                                <input type="text" maxLength={4} className="input-dark w-full py-4 text-sm tracking-[1em] font-black text-center rounded-2xl" placeholder="XXXX" onChange={e => {
-                                    const val = e.target.value.replace(/\D/g, '').substring(0, 4);
-                                    if (val.length === 4) { updateAdminPin(val); alert('✅ PIN actualizado'); e.target.value = ''; }
-                                }} />
+                                ))}
                             </div>
-                            <div>
-                                <h3 className="text-lg font-black text-primary flex items-center gap-2 mb-3">
-                                    <Gift size={18} className="text-pink-500" /> % Regalo Comercial
-                                </h3>
-                                <div className="relative">
-                                    <input type="number" min="0" max="100" defaultValue={settings?.giftDiscount || 25} className="input-dark w-full py-4 text-sm font-black text-center rounded-2xl pr-10" placeholder="25" onChange={e => {
-                                        const val = parseInt(e.target.value);
-                                        if (!isNaN(val) && val >= 0 && val <= 100) {
-                                            updateSettings({ giftDiscount: val });
-                                        }
+                            <div className="pt-4 space-y-5">
+                                <div>
+                                    <label className="text-[9px] font-black text-secondary uppercase tracking-widest block mb-2 opacity-60">Pin de Acceso</label>
+                                    <input type="text" maxLength={4} className="input-dark w-full py-4 text-sm tracking-[1.2em] font-black text-center rounded-xl border-indigo-500/10" placeholder="XXXX" onChange={e => {
+                                        const val = e.target.value.replace(/\D/g, '').substring(0, 4);
+                                        if (val.length === 4) { updateAdminPin(val); alert('✅ PIN actualizado'); e.target.value = ''; }
                                     }} />
-                                    <span className="absolute right-6 top-1/2 -translate-y-1/2 text-secondary font-black text-sm">%</span>
+                                </div>
+                                <div className="p-5 bg-pink-500/5 border border-pink-500/10 rounded-2xl">
+                                    <label className="text-[9px] font-black text-pink-500 uppercase tracking-widest block mb-3 flex items-center gap-2">
+                                        <Gift size={14} /> % Descuento Regalo
+                                    </label>
+                                    <div className="relative">
+                                        <input type="number" min="0" max="100" defaultValue={settings?.giftDiscount || 25} className="input-dark bg-slate-900/50 w-full py-4 text-sm font-black text-center rounded-xl pr-10 border-pink-500/10" onChange={e => {
+                                            const val = parseInt(e.target.value);
+                                            if (!isNaN(val) && val >= 0 && val <= 100) updateSettings({ giftDiscount: val });
+                                        }} />
+                                        <span className="absolute right-6 top-1/2 -translate-y-1/2 text-secondary font-black text-sm opacity-30">%</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </div>
 
-                {/* Bloque 2: Identidad y Logo Inteligente */}
-                <div className="card p-6 flex flex-col h-full">
-                    <h3 className="text-lg font-black text-primary flex items-center gap-2 mb-6"><Sparkles size={18} className="text-indigo-500" /> Identidad y Logo Inteligente</h3>
-                    <div className="grid grid-cols-2 gap-4 mb-6">
-                        {/* Logo Versión Luz */}
-                        <div className="space-y-2">
-                            <label className="text-[9px] font-black text-secondary uppercase tracking-widest block opacity-70">Logo para Modo Claro</label>
-                            <div className="relative group">
-                                <input
-                                    type="file" accept="image/png" id="logo-light-upload" className="hidden"
-                                    onChange={(e) => {
-                                        const file = e.target.files[0];
-                                        if (file) {
-                                            const reader = new FileReader();
-                                            reader.onload = (ev) => {
-                                                const img = new Image();
-                                                img.src = ev.target.result;
-                                                img.onload = () => {
-                                                    const canvas = document.createElement('canvas');
-                                                    const scale = Math.min(1, 800 / img.width);
-                                                    canvas.width = img.width * scale;
-                                                    canvas.height = img.height * scale;
-                                                    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-                                                    updateSettings({ logoUrl: canvas.toDataURL('image/png', 0.8) });
+                        {/* Sub-bloque: Identidad y Logo */}
+                        <div className="space-y-6">
+                            <h4 className="text-[11px] font-black text-violet-500 uppercase tracking-[0.3em] mb-4 flex items-center gap-3">
+                                <Sparkles size={16} /> Identidad y Logo
+                            </h4>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <label className="text-[8px] font-black text-secondary uppercase tracking-widest block opacity-40 text-center">LIGHT</label>
+                                    <input type="file" accept="image/png" id="logo-light-upload" className="hidden"
+                                        onChange={(e) => {
+                                            const file = e.target.files[0];
+                                            if (file) {
+                                                const reader = new FileReader();
+                                                reader.onload = (ev) => {
+                                                    const img = new Image(); img.src = ev.target.result;
+                                                    img.onload = () => {
+                                                        const canvas = document.createElement('canvas');
+                                                        const scale = Math.min(1, 800 / img.width);
+                                                        canvas.width = img.width * scale; canvas.height = img.height * scale;
+                                                        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                                                        updateSettings({ logoUrl: canvas.toDataURL('image/png', 0.8) });
+                                                    };
                                                 };
-                                            };
-                                            reader.readAsDataURL(file);
-                                        }
-                                    }}
-                                />
-                                <label htmlFor="logo-light-upload" className="w-full h-24 bg-white border-2 border-dashed border-indigo-200 rounded-2xl flex items-center justify-center cursor-pointer hover:border-indigo-400 transition-all overflow-hidden p-3">
-                                    {settings.logoUrl ? (
-                                        <img src={settings.logoUrl} alt="Light" className="w-full h-full object-contain" />
-                                    ) : (
-                                        <div className="flex flex-col items-center opacity-40">
-                                            <Sun size={16} />
-                                            <span className="text-[8px] font-black mt-1">LIGERO</span>
-                                        </div>
-                                    )}
-                                </label>
-                            </div>
-                        </div>
-
-                        {/* Logo Versión Noche */}
-                        <div className="space-y-2">
-                            <label className="text-[9px] font-black text-secondary uppercase tracking-widest block opacity-70">Logo para Modo Oscuro</label>
-                            <div className="relative group">
-                                <input
-                                    type="file" accept="image/png" id="logo-dark-upload" className="hidden"
-                                    onChange={(e) => {
-                                        const file = e.target.files[0];
-                                        if (file) {
-                                            const reader = new FileReader();
-                                            reader.onload = (ev) => {
-                                                const img = new Image();
-                                                img.src = ev.target.result;
-                                                img.onload = () => {
-                                                    const canvas = document.createElement('canvas');
-                                                    const scale = Math.min(1, 800 / img.width);
-                                                    canvas.width = img.width * scale;
-                                                    canvas.height = img.height * scale;
-                                                    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-                                                    updateSettings({ logoUrlDark: canvas.toDataURL('image/png', 0.8) });
+                                                reader.readAsDataURL(file);
+                                            }
+                                        }}
+                                    />
+                                    <label htmlFor="logo-light-upload" className="w-full h-28 bg-white/5 border-2 border-dashed border-primary/10 rounded-2xl flex items-center justify-center cursor-pointer hover:border-violet-500 transition-all overflow-hidden p-3 group">
+                                        {settings.logoUrl ? <img src={settings.logoUrl} alt="Light" className="w-full h-full object-contain" /> : <Sun size={20} className="text-secondary/20 group-hover:scale-110 transition-transform" />}
+                                    </label>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[8px] font-black text-secondary uppercase tracking-widest block opacity-40 text-center">DARK</label>
+                                    <input type="file" accept="image/png" id="logo-dark-upload" className="hidden"
+                                        onChange={(e) => {
+                                            const file = e.target.files[0];
+                                            if (file) {
+                                                const reader = new FileReader();
+                                                reader.onload = (ev) => {
+                                                    const img = new Image(); img.src = ev.target.result;
+                                                    img.onload = () => {
+                                                        const canvas = document.createElement('canvas');
+                                                        const scale = Math.min(1, 800 / img.width);
+                                                        canvas.width = img.width * scale; canvas.height = img.height * scale;
+                                                        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                                                        updateSettings({ logoUrlDark: canvas.toDataURL('image/png', 0.8) });
+                                                    };
                                                 };
-                                            };
-                                            reader.readAsDataURL(file);
-                                        }
-                                    }}
-                                />
-                                <label htmlFor="logo-dark-upload" className="w-full h-24 bg-slate-900 border-2 border-dashed border-slate-700 rounded-2xl flex items-center justify-center cursor-pointer hover:border-indigo-500 transition-all overflow-hidden p-3">
-                                    {settings.logoUrlDark ? (
-                                        <img src={settings.logoUrlDark} alt="Dark" className="w-full h-full object-contain" />
-                                    ) : (
-                                        <div className="flex flex-col items-center text-white opacity-40">
-                                            <Moon size={16} />
-                                            <span className="text-[8px] font-black mt-1">OSCURO</span>
-                                        </div>
-                                    )}
-                                </label>
+                                                reader.readAsDataURL(file);
+                                            }
+                                        }}
+                                    />
+                                    <label htmlFor="logo-dark-upload" className="w-full h-28 bg-slate-900/50 border-2 border-dashed border-slate-700 rounded-2xl flex items-center justify-center cursor-pointer hover:border-violet-500 transition-all overflow-hidden p-3 group">
+                                        {settings.logoUrlDark ? <img src={settings.logoUrlDark} alt="Dark" className="w-full h-full object-contain" /> : <Moon size={20} className="text-white/10 group-hover:scale-110 transition-transform" />}
+                                    </label>
+                                </div>
                             </div>
-                        </div>
-                    </div>
-
-                    <div className="space-y-4">
-                        <div className="flex flex-col flex-1 justify-center">
-                            <div className="flex flex-row items-center gap-2 mb-2">
-                                <Tag size={16} className="text-violet-500 shrink-0" />
-                                <span className="text-sm font-black text-primary leading-none">Nombre de tu Marca</span>
-                            </div>
-                            <input
-                                type="text" value={settings.brandName || ''}
-                                onChange={(e) => setSettings(prev => ({ ...prev, brandName: e.target.value }))}
-                                onBlur={(e) => updateSettings({ brandName: e.target.value })}
-                                className="input-dark w-full py-3 text-sm font-black px-4 rounded-xl"
-                            />
-                        </div>
-                        <div className="flex flex-col flex-1 justify-center">
-                            <div className="flex flex-row items-center gap-2 mb-2">
-                                <Mail size={16} className="text-indigo-400 shrink-0" />
-                                <span className="text-sm font-black text-primary leading-none">Email Avisos</span>
-                            </div>
-                            <input
-                                type="email" value={settings.notificationEmail || ''}
-                                onChange={(e) => setSettings(prev => ({ ...prev, notificationEmail: e.target.value }))}
-                                onBlur={(e) => updateSettings({ notificationEmail: e.target.value })}
-                                className="input-dark w-full py-3 text-sm font-black px-4 rounded-xl"
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                {/* Bloque 3: Gestión de Datos */}
-                <div className="card p-6 flex flex-col h-full">
-                    <div className="flex flex-col h-full">
-                        <h3 className="text-lg font-black text-primary flex items-center gap-2 mb-6"><Database size={18} className="text-indigo-500" /> Gestión de Datos</h3>
-
-                        <div className="grid grid-cols-1 gap-3 mb-4">
-                            <div className="space-y-2 text-center flex flex-col items-center">
-                                <button onClick={downloadMasterBackup} className="w-full py-4 bg-primary/5 border border-primary/10 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-primary/10 transition-all">
-                                    <Download size={14} /> Descargar Copia JSON
-                                </button>
-                                <button onClick={syncWithDrive} className={`w-full py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${isBackingUp ? 'bg-indigo-500/20 text-indigo-400 cursor-not-allowed' : 'bg-primary/5 border border-primary/10 hover:bg-primary/10'}`}>
-                                    <Upload size={14} className={isBackingUp ? 'animate-spin' : ''} />
-                                    {isBackingUp ? 'Sincronizando...' : 'Subir a Google Drive (PRO)'}
-                                </button>
-                                <p className="text-[9px] text-secondary/60 font-medium px-4 text-center leading-tight">Guarda una copia de seguridad con todos tus pedidos, diseños y configuraciones actuales.</p>
-                            </div>
-
-                            <div className="space-y-2">
-                                <button onClick={() => {
-                                    const input = document.createElement('input');
-                                    input.type = 'file'; input.id = 'restore-input'; input.accept = '.json';
-                                    input.onchange = (e) => {
-                                        const file = e.target.files[0];
-                                        const reader = new FileReader();
-                                        reader.onload = (event) => {
-                                            try {
-                                                const data = JSON.parse(event.target.result);
-                                                if (confirm('⚠️ Esto sobrescribirá todos los datos actuales. ¿Estás seguro?')) {
-                                                    Object.keys(data).forEach(key => { if (key.startsWith('orlas2026_')) localStorage.setItem(key, JSON.stringify(data[key])); });
-                                                    window.location.reload();
-                                                }
-                                            } catch (err) { alert('Archivo no válido'); }
-                                        };
-                                        reader.readAsText(file);
-                                    };
-                                    input.click();
-                                }} className="w-full py-4 bg-primary/5 border border-primary/10 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-primary/10 transition-all">
-                                    <Upload size={14} /> Restaurar Copia JSON
-                                </button>
-                                <p className="text-[9px] text-secondary/60 font-medium px-4 text-center leading-tight">Recupera tus datos desde un archivo backup guardado previamente en tu equipo.</p>
+                            <div className="space-y-4 pt-4">
+                                <div>
+                                    <label className="text-[9px] font-black text-secondary uppercase tracking-widest block mb-2 opacity-60">Nombre Comercial</label>
+                                    <input type="text" value={settings.brandName || ''} onChange={(e) => setSettings(prev => ({ ...prev, brandName: e.target.value }))} onBlur={(e) => updateSettings({ brandName: e.target.value })} className="input-dark w-full py-4 text-[11px] font-black uppercase tracking-widest rounded-xl" />
+                                </div>
+                                <div>
+                                    <label className="text-[9px] font-black text-secondary uppercase tracking-widest block mb-2 opacity-60">Email de Soporte</label>
+                                    <input type="email" value={settings.notificationEmail || ''} onChange={(e) => setSettings(prev => ({ ...prev, notificationEmail: e.target.value }))} onBlur={(e) => updateSettings({ notificationEmail: e.target.value })} className="input-dark w-full py-4 text-[11px] font-black lowercase rounded-xl" />
+                                </div>
                             </div>
                         </div>
 
-                        <div className="mt-auto pt-6 h-[220px] flex flex-col justify-center">
-                            <h3 className="text-lg font-black text-primary flex items-center gap-2 mb-6">
-                                <Download size={18} className="text-indigo-500" /> Listado para Excel
-                            </h3>
+                        {/* Sub-bloque: Gestión de Datos */}
+                        <div className="space-y-6">
+                            <h4 className="text-[11px] font-black text-emerald-500 uppercase tracking-[0.3em] mb-4 flex items-center gap-3">
+                                <Database size={16} /> Gestión de Datos
+                            </h4>
                             <div className="space-y-4">
+                                <button onClick={downloadMasterBackup} className="w-full py-4.5 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] text-emerald-500 flex items-center justify-center gap-3 hover:bg-emerald-500 hover:text-white transition-all shadow-lg shadow-emerald-500/5">
+                                    <Download size={16} /> Bajar Backup JSON
+                                </button>
+                                <button onClick={syncWithDrive} className={`w-full py-4.5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center gap-3 transition-all ${isBackingUp ? 'bg-indigo-500/20 text-indigo-400' : 'bg-primary/5 border border-primary/10 hover:border-indigo-500/30 text-secondary'}`}>
+                                    <Upload size={16} className={isBackingUp ? 'animate-spin' : ''} /> DRIVE (PRO)
+                                </button>
+                            </div>
+                            <div className="pt-6 border-t border-primary/5">
+                                <label className="text-[9px] font-black text-emerald-400 uppercase tracking-widest block mb-4 ml-1">Exportar Listado</label>
                                 <button onClick={() => {
                                     const selectedSchoolObj = schools.find(s => s.id === adminSchool);
                                     if (!selectedSchoolObj) return alert('Selecciona un centro primero');
                                     exportCSV({ school: adminSchool });
-                                }} className="w-full py-4 bg-indigo-600 text-white rounded-[24px] font-black text-[11px] uppercase tracking-widest flex flex-col items-center justify-center gap-1 hover:bg-indigo-500 shadow-lg shadow-indigo-600/20 active:scale-95 transition-all">
+                                }} className="w-full py-6 bg-gradient-to-br from-emerald-600 to-emerald-400 text-white rounded-[2rem] font-black text-[11px] uppercase tracking-[0.2em] flex flex-col items-center justify-center gap-1 hover:scale-[1.02] shadow-xl shadow-emerald-600/20 active:scale-95 transition-all">
                                     <span>EXCEL MAESTRO</span>
-                                    <span className="text-[10px] opacity-70">{schools.find(s => s.id === adminSchool)?.name.replace('Maestro ', '').replace('MAESTRO ', '')}</span>
+                                    <span className="text-[8px] opacity-70 tracking-widest font-bold">
+                                        {schools.find(s => s.id === adminSchool)?.name.toUpperCase().replace('MAESTRO ', '').slice(0, 20) || 'SELECCIONA CENTRO'}...
+                                    </span>
                                 </button>
-                                <p className="text-[9px] text-secondary font-black opacity-40 uppercase tracking-widest text-center italic">Tabla de alumnos compatible con Excel/Drive</p>
                             </div>
                         </div>
+
                     </div>
                 </div>
+            </div>
 
-                {/* Bloque 4: Datos de Facturación */}
-                <div className="card p-6 col-span-1 md:col-span-2 lg:col-span-3">
-                    <h3 className="text-lg font-black text-primary flex items-center gap-2 mb-6"><FileText size={18} className="text-indigo-500" /> Datos de Facturación</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <div>
-                            <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-2 block">Nombre Fiscal / Razón Social</label>
-                            <input
-                                type="text"
-                                value={settings.fiscalName || ''}
-                                onChange={(e) => setSettings(prev => ({ ...prev, fiscalName: e.target.value }))}
-                                onBlur={(e) => updateSettings({ fiscalName: e.target.value })}
-                                className="input-dark w-full py-4 text-sm font-black px-6 rounded-2xl"
-                            />
+            {/* 2. DATOS DE FACTURACIÓN */}
+            <div className={`card overflow-hidden transition-all duration-500 ${openSections.billing ? 'ring-2 ring-slate-400/20 shadow-2xl' : 'hover:ring-1 hover:ring-slate-400/10'}`}>
+                <SectionHeader
+                    id="billing"
+                    icon={FileText}
+                    title="Datos de Facturación"
+                    subtitle="INFORMACIÓN LEGAL Y FISCAL"
+                    colorClass="slate-400"
+                    isOpen={openSections.billing}
+                />
+                <div className={`transition-all duration-500 ease-in-out ${openSections.billing ? 'max-h-[1000px] opacity-100 p-8 pt-2' : 'max-h-0 opacity-0 pointer-events-none overflow-hidden'}`}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-4">
+                        <div className="space-y-2">
+                            <label className="text-[9px] font-black text-secondary uppercase tracking-widest block opacity-50 ml-1">Razón Social</label>
+                            <input type="text" value={settings.fiscalName || ''} onChange={(e) => setSettings(prev => ({ ...prev, fiscalName: e.target.value }))} onBlur={(e) => updateSettings({ fiscalName: e.target.value })} className="input-dark w-full py-4 text-[11px] font-black uppercase rounded-2xl" />
                         </div>
-                        <div>
-                            <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-2 block">CIF / NIF</label>
-                            <input
-                                type="text"
-                                value={settings.cif || ''}
-                                onChange={(e) => setSettings(prev => ({ ...prev, cif: e.target.value }))}
-                                onBlur={(e) => updateSettings({ cif: e.target.value })}
-                                className="input-dark w-full py-4 text-sm font-black px-6 rounded-2xl"
-                            />
+                        <div className="space-y-2">
+                            <label className="text-[9px] font-black text-secondary uppercase tracking-widest block opacity-50 ml-1">CIF / NIF</label>
+                            <input type="text" value={settings.cif || ''} onChange={(e) => setSettings(prev => ({ ...prev, cif: e.target.value }))} onBlur={(e) => updateSettings({ cif: e.target.value })} className="input-dark w-full py-4 text-[11px] font-black uppercase rounded-2xl" />
                         </div>
-                        <div>
-                            <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-2 block">Dirección</label>
-                            <input
-                                type="text"
-                                value={settings.address || ''}
-                                onChange={(e) => setSettings(prev => ({ ...prev, address: e.target.value }))}
-                                onBlur={(e) => updateSettings({ address: e.target.value })}
-                                className="input-dark w-full py-4 text-sm font-black px-6 rounded-2xl"
-                            />
+                        <div className="space-y-2">
+                            <label className="text-[9px] font-black text-secondary uppercase tracking-widest block opacity-50 ml-1">Dirección</label>
+                            <input type="text" value={settings.address || ''} onChange={(e) => setSettings(prev => ({ ...prev, address: e.target.value }))} onBlur={(e) => updateSettings({ address: e.target.value })} className="input-dark w-full py-4 text-[11px] font-black uppercase rounded-2xl" />
                         </div>
-                        <div>
-                            <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-2 block">Código Postal</label>
-                            <input
-                                type="text"
-                                value={settings.postalCode || ''}
-                                onChange={(e) => setSettings(prev => ({ ...prev, postalCode: e.target.value }))}
-                                onBlur={(e) => updateSettings({ postalCode: e.target.value })}
-                                className="input-dark w-full py-4 text-sm font-black px-6 rounded-2xl"
-                            />
+                        <div className="space-y-2">
+                            <label className="text-[9px] font-black text-secondary uppercase tracking-widest block opacity-50 ml-1">C.P.</label>
+                            <input type="text" value={settings.postalCode || ''} onChange={(e) => setSettings(prev => ({ ...prev, postalCode: e.target.value }))} onBlur={(e) => updateSettings({ postalCode: e.target.value })} className="input-dark w-full py-4 text-[11px] font-black uppercase rounded-2xl" />
                         </div>
-                        <div>
-                            <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-2 block">Ciudad</label>
-                            <input
-                                type="text"
-                                value={settings.city || ''}
-                                onChange={(e) => setSettings(prev => ({ ...prev, city: e.target.value }))}
-                                onBlur={(e) => updateSettings({ city: e.target.value })}
-                                className="input-dark w-full py-4 text-sm font-black px-6 rounded-2xl"
-                            />
+                        <div className="space-y-2">
+                            <label className="text-[9px] font-black text-secondary uppercase tracking-widest block opacity-50 ml-1">Ciudad</label>
+                            <input type="text" value={settings.city || ''} onChange={(e) => setSettings(prev => ({ ...prev, city: e.target.value }))} onBlur={(e) => updateSettings({ city: e.target.value })} className="input-dark w-full py-4 text-[11px] font-black uppercase rounded-2xl" />
                         </div>
-                        <div>
-                            <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-2 block">Provincia</label>
-                            <input
-                                type="text"
-                                value={settings.province || ''}
-                                onChange={(e) => setSettings(prev => ({ ...prev, province: e.target.value }))}
-                                onBlur={(e) => updateSettings({ province: e.target.value })}
-                                className="input-dark w-full py-4 text-sm font-black px-6 rounded-2xl"
-                            />
+                        <div className="space-y-2">
+                            <label className="text-[9px] font-black text-secondary uppercase tracking-widest block opacity-50 ml-1">Provincia</label>
+                            <input type="text" value={settings.province || ''} onChange={(e) => setSettings(prev => ({ ...prev, province: e.target.value }))} onBlur={(e) => updateSettings({ province: e.target.value })} className="input-dark w-full py-4 text-[11px] font-black uppercase rounded-2xl" />
                         </div>
                     </div>
                 </div>
+            </div>
 
-                {/* Bloque 5: Servidor de Notificaciones Masivas (PWA) */}
-                <div className="card p-6 col-span-1 md:col-span-2 lg:col-span-3 bg-gradient-to-r from-violet-600/5 to-transparent border-violet-500/10">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                        <div className="max-w-md">
-                            <h3 className="text-xl font-black text-primary flex items-center gap-2 mb-2">
-                                <Sparkles size={22} className="text-violet-500" /> Servidor de Notificaciones
-                            </h3>
-                            <p className="text-[11px] font-medium text-secondary leading-relaxed">
-                                Envía avisos instantáneos (Push) a todos los alumnos que hayan guardado la App en sus dispositivos.
-                                <span className="block mt-1 text-violet-500/80 font-bold uppercase tracking-widest text-[9px]">Uso: Avisar de fotos listas, fin de plazo o eventos.</span>
-                            </p>
-                        </div>
+            {/* 3. NOTIFICACIONES MASIVAS (Ahora agrupado en una sola Isla de Escritura) */}
+            <div className={`card overflow-hidden transition-all duration-500 ${openSections.notifications ? 'ring-2 ring-violet-600/30 shadow-2xl' : 'hover:ring-1 hover:ring-violet-600/10 shadow-lg'}`}>
+                <SectionHeader
+                    id="notifications"
+                    icon={Sparkles}
+                    title="Canal de Notificaciones"
+                    subtitle="PUSH PWA MASIVO"
+                    colorClass="violet-600"
+                    isOpen={openSections.notifications}
+                />
+                <div className={`transition-all duration-700 ease-in-out ${openSections.notifications ? 'max-h-[1000px] opacity-100 p-8 pt-2' : 'max-h-0 opacity-0 pointer-events-none overflow-hidden'}`}>
+                    <div className="max-w-4xl mx-auto py-4">
+                        <div className="bg-violet-600/5 border border-violet-600/10 p-8 rounded-[2.5rem] space-y-6 shadow-inner relative overflow-hidden group">
+                            {/* Decoración sutil de fondo */}
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-violet-600/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-violet-600/10 transition-colors duration-700" />
 
-                        <div className="flex-1 w-full space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black text-secondary uppercase tracking-[0.2em] ml-1">Título del Aviso</label>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-violet-400 uppercase tracking-widest ml-2">Título del Aviso</label>
                                     <input
                                         type="text"
-                                        placeholder="¡Fotos Listas! 🎓"
+                                        placeholder="¡FOTOS LISTAS! 🎓"
                                         value={notifForm.title}
                                         onChange={e => setNotifForm({ ...notifForm, title: e.target.value })}
-                                        className="input-dark w-full py-4 px-5 text-sm font-black rounded-2xl"
+                                        className="input-dark w-full py-5 px-6 text-[11px] font-black uppercase rounded-2xl border-violet-600/10 bg-slate-900/40 focus:border-violet-600/40 transition-all placeholder:text-white/40"
                                     />
                                 </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black text-secondary uppercase tracking-[0.2em] ml-1">Cuerpo del Mensaje</label>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-violet-400 uppercase tracking-widest ml-2">Cuerpo del Mensaje</label>
                                     <input
                                         type="text"
-                                        placeholder="Ya puedes ver las fotos de la Graduación..."
+                                        placeholder="YA PUEDES VER LAS FOTOS..."
                                         value={notifForm.body}
                                         onChange={e => setNotifForm({ ...notifForm, body: e.target.value })}
-                                        className="input-dark w-full py-4 px-5 text-sm font-black rounded-2xl"
+                                        className="input-dark w-full py-5 px-6 text-[11px] font-black uppercase rounded-2xl border-violet-600/10 bg-slate-900/40 focus:border-violet-600/40 transition-all placeholder:text-white/40"
                                     />
                                 </div>
                             </div>
@@ -388,7 +334,7 @@ const SettingsPanel = ({
                             <button
                                 onClick={sendMassiveNotification}
                                 disabled={sendingNotif}
-                                className={`w-full py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-3 shadow-xl transition-all active:scale-[0.98] ${sendingNotif ? 'bg-violet-600/40 cursor-not-allowed text-white/50' : 'bg-violet-600 hover:bg-violet-500 text-white shadow-violet-600/20'}`}
+                                className={`w-full py-6 rounded-[2rem] font-black text-[12px] uppercase tracking-[0.4em] flex items-center justify-center gap-4 transition-all shadow-2xl relative z-10 ${sendingNotif ? 'bg-violet-600/40' : 'bg-violet-600 hover:bg-violet-500 text-white shadow-violet-600/30 active:scale-95'}`}
                             >
                                 {sendingNotif ? (
                                     <>
@@ -396,15 +342,18 @@ const SettingsPanel = ({
                                         PROCESANDO ENVÍO...
                                     </>
                                 ) : (
-                                    <>
-                                        🚀 ENVIAR AVISO A TODOS LOS ALUMNOS
-                                    </>
+                                    <>🚀 LANZAR NOTIFICACIÓN A TODOS</>
                                 )}
                             </button>
                         </div>
+
+                        <p className="text-center text-[9px] font-bold text-secondary uppercase tracking-[0.3em] opacity-40 mt-6 italic">
+                            * El mensaje se enviará instantáneamente a todos los dispositivos suscritos.
+                        </p>
                     </div>
                 </div>
             </div>
+
         </div>
     );
 };
