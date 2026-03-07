@@ -23,7 +23,11 @@ export function useSettings(photographerId, isDemo = false) {
                 city: '',
                 province: '',
                 logoUrl: null,
-                logoUrlDark: null
+                logoUrlDark: null,
+                shootingDateDefault: '',
+                appDeadlineDefault: '',
+                graduationDateDefault: '',
+                dateExceptions: []
             };
         } catch {
             return {
@@ -40,7 +44,11 @@ export function useSettings(photographerId, isDemo = false) {
                 city: '',
                 province: '',
                 logoUrl: null,
-                logoUrlDark: null
+                logoUrlDark: null,
+                shootingDateDefault: '',
+                appDeadlineDefault: '',
+                graduationDateDefault: '',
+                dateExceptions: []
             };
         }
     });

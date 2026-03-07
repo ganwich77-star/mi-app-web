@@ -64,12 +64,12 @@ export default function PricingTiers(props) {
             name: getPlanName('flex'),
             price: getPlanPrice('flex'),
             period: '/ alumno',
-            description: 'Ideal para fotógrafos ocasionales o pruebas.',
+            description: 'Uso ocasional o prueba. Sin compromiso.',
             icon: User,
             color: 'text-emerald-400',
             bg: 'bg-emerald-400/10',
             border: 'border-emerald-500/30',
-            features: ['Soporte Estándar (Email)', 'Todas las funciones pro', 'Sin permanencia'],
+            features: ['0€ Inversión Fija', 'Todas las funciones pro', 'Perfecto para 1 solo aula'],
             highlight: false
         },
         {
@@ -77,12 +77,12 @@ export default function PricingTiers(props) {
             name: getPlanName('starter'),
             price: getPlanPrice('starter'),
             period: '/ campaña',
-            description: 'Pequeños estudios (hasta 100 alumnos).',
+            description: 'Estudios locales (1-2 coles). Ahorro desde el alumno 75.',
             icon: Zap,
             color: 'text-amber-400',
             bg: 'bg-amber-400/10',
             border: 'border-amber-500/30',
-            features: ['Máximo 100 Alumnos', 'Máximo 2 Colegios/Centros', 'Soporte Prioritario WhatsApp'],
+            features: ['Máximo 150 Alumnos', 'Máximo 2 Colegios/Centros', 'Coste alumno < 1€'],
             highlight: false
         },
         {
@@ -90,14 +90,14 @@ export default function PricingTiers(props) {
             name: getPlanName('pro'),
             price: getPlanPrice('pro'),
             period: '/ campaña',
-            description: 'Profesionales con volumen (Ilimitado).',
+            description: 'Profesionales de volumen. El seguro total contra errores.',
             icon: Crown,
             color: 'text-blue-400',
             bg: 'bg-blue-400/10',
             border: 'border-blue-500/50',
-            features: ['Alumnos Ilimitados', 'Colegios Ilimitados', 'Gestión Multicolegio Avanzada'],
+            features: ['Alumnos Ilimitados', 'Colegios Ilimitados', 'Máximo ahorro neto'],
             highlight: true,
-            badge: getBonusMessage('pro') || 'MÁS POPULAR'
+            badge: getBonusMessage('pro') || 'MÁS RENTABLE'
         },
         {
             id: 'custom',
@@ -109,7 +109,7 @@ export default function PricingTiers(props) {
             color: 'text-purple-400',
             bg: 'bg-purple-400/10',
             border: 'border-purple-500/30',
-            features: ['White Label disponible', 'Desarrollo a medida', 'Soporte técnico dedicado'],
+            features: ['White Label completa', 'Dominio propio', 'Soporte VIP dedicado'],
             highlight: false
         }
     ];

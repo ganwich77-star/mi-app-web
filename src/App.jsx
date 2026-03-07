@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { db } from './firebase.js';
 import { collection, addDoc } from 'firebase/firestore';
+import { getToken, onMessage } from 'firebase/messaging';
+import { messaging } from './firebase.js';
 import {
     GraduationCap, User, CreditCard, Plus, Minus, CheckCircle,
     Download, Settings, Search, DollarSign, Euro, BarChart3, Copy,
@@ -27,64 +29,28 @@ import PricingTiers from './components/PricingTiers.jsx';
 import Landing from './Landing.jsx';
 import CommandCenter from './components/CommandCenter.jsx';
 import { AvisoLegal, PoliticaPrivacidad, CondicionesVenta } from './components/LegalModals.jsx';
+// Nuevos componentes modulares
+import UserEnrollment from './components/user/UserEnrollment.jsx';
+import OrdersPanel from './components/admin/OrdersPanel.jsx';
+import EditOrderModal from './components/admin/EditOrderModal.jsx';
+import SchoolsPanel from './components/admin/SchoolsPanel.jsx';
+import ShootingPanel from './components/admin/ShootingPanel.jsx';
+import SettingsPanel from './components/admin/SettingsPanel.jsx';
+import PricingPanel from './components/admin/PricingPanel.jsx';
+import DesignPanel from './components/admin/DesignPanel.jsx';
+import StaffEditModal from './components/admin/StaffEditModal.jsx';
+import CriticalDatesPanel from './components/admin/CriticalDatesPanel.jsx';
+import TutorsPanel from './components/admin/TutorsPanel.jsx';
+
+
+import { toTitleCase, firstSurname, getCourseBase, getGroup } from './utils/formatters.js';
+
 // --- CONFIGURACIÓN DISEÑO ORLA (ESTABLE - FUERA DE APP PR RENDIMIENTO) ---
 const DPI = 300;
 const mmToPx = (mm) => Math.round((mm * DPI) / 25.4);
 const pxToMm = (px) => Math.round((px * 25.4) / DPI);
 
-// --- COMPONENTES DE CONTROL ESTABLES ---
-const ControlGroup = React.memo(({ title, icon: Icon, children, expandedGroups, setExpandedGroups }) => {
-    const isExpanded = expandedGroups.includes(title);
-    const toggle = () => setExpandedGroups(prev =>
-        isExpanded ? prev.filter(t => t !== title) : [...prev, title]
-    );
 
-    return (
-        <div className="border-b border-primary/10 dark:border-white/10 last:border-0 pb-4">
-            <button
-                onClick={toggle}
-                className="w-full flex items-center justify-between py-3 md:py-2 text-[11px] md:text-[10px] font-black text-primary dark:text-white uppercase italic tracking-[0.2em] group border-b border-primary/5 dark:border-white/5 mb-2 active:bg-primary/5 transition-colors"
-            >
-                <div className="flex items-center gap-2.5">
-                    <Icon size={16} className="text-violet-500 dark:text-emerald-400 shrink-0" /> {title}
-                </div>
-                <ChevronDown size={16} className={`text-primary dark:text-white transition-transform duration-300 opacity-40 ${isExpanded ? 'rotate-180' : ''}`} />
-            </button>
-            {isExpanded && <div className="space-y-6 md:space-y-4 pt-4 animate-fade-in">{children}</div>}
-        </div>
-    );
-});
-
-const HybridInput = React.memo(({ label, value, onChange, min, max, step = 1, unit = "px" }) => {
-    const displayValue = unit === "px" ? pxToMm(value) : value;
-
-    return (
-        <div className="group space-y-4 md:space-y-3 py-1">
-            <div className="flex justify-between items-center px-1">
-                <label className="text-[11px] md:text-[10px] font-black text-primary/60 dark:text-white/60 uppercase italic tracking-[0.1em]">{label}</label>
-                <div className="flex items-center gap-2 px-3 py-1.5 md:py-1 rounded-xl bg-primary/5 dark:bg-white/5 border border-primary/5 dark:border-white/5">
-                    <span className="text-[13px] md:text-[12px] font-black text-primary dark:text-white min-w-[2rem] text-right">
-                        {displayValue}
-                    </span>
-                    <span className="text-[9px] font-black uppercase text-primary/30 dark:text-white/30">
-                        {unit === "px" ? "MM" : unit === "ud" ? "UD" : unit === "x" ? "X" : unit}
-                    </span>
-                </div>
-            </div>
-            <div className="px-1 relative flex items-center h-8">
-                <input
-                    type="range"
-                    min={min}
-                    max={max}
-                    step={step}
-                    value={value}
-                    onChange={(e) => onChange(parseFloat(e.target.value))}
-                    className="w-full h-2 md:h-1.5 rounded-full appearance-none cursor-pointer bg-primary/10 dark:bg-white/10 accent-violet-600 transition-all hover:bg-primary/20 dark:hover:bg-white/20 touch-none"
-                />
-            </div>
-        </div>
-    );
-});
 
 // --- ORBES DECORATIVOS ---
 const BackgroundOrbs = () => (
@@ -153,7 +119,7 @@ export default function App() {
         return params.get('f') || defaultId;
     });
 
-    const { settings, setSettings, paymentMethods, enabledPaymentMethods, schools, packs: allPacks, extras: allExtras, adminPin, togglePaymentMethod, addPaymentMethod, updateAdminPin, addSchool, deleteSchool, updateSettings } = useSettings(photographerId, isDemo);
+    const { settings, setSettings, paymentMethods, enabledPaymentMethods, schools, packs: allPacks, extras: allExtras, adminPin, togglePaymentMethod, addPaymentMethod, updateAdminPin, addSchool, updateSchool, deleteSchool, updateSettings } = useSettings(photographerId, isDemo);
 
     const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
     const [view, setView] = useState(() => {
@@ -180,49 +146,19 @@ export default function App() {
         localStorage.setItem('theme', newTheme);
     };
 
-    // Primera letra de cada palabra en mayúscula, resto en minúscula
-    const toTitleCase = (str) => {
-        if (!str) return '';
-        const cleanStr = str.trim().replace(/\s+/g, ' ');
-        const lowers = ['de', 'la', 'los', 'las', 'del', 'y'];
-        return cleanStr.toLowerCase().split(' ').map((word, index) => {
-            if (index > 0 && lowers.includes(word)) return word;
-            return word.charAt(0).toUpperCase() + word.slice(1);
-        }).join(' ');
-    };
-
-    // Helpers de procesamiento
-    const firstSurname = (name = '') => {
-        if (!name) return '';
-        const parts = name.trim().split(/\s+/);
-        return parts[1] || parts[0] || '';
-    };
-
-    const getCourseBase = (name = '') => {
-        if (!name) return '';
-        const parts = name.split(' ');
-        const last = parts[parts.length - 1];
-        const isGroupChar = last.length === 1 && last === last.toUpperCase() && isNaN(last);
-        return isGroupChar ? parts.slice(0, -1).join(' ') : name;
-    };
-
-    const getGroup = (name = '') => {
-        if (!name) return '';
-        const parts = name.split(' ');
-        const last = parts[parts.length - 1];
-        return (last.length === 1 && last === last.toUpperCase() && isNaN(last)) ? last : '';
-    };
-
     const [adminTab, setAdminTab] = useState(() => {
         const params = new URLSearchParams(window.location.search);
         return params.get('tab') || 'shooting';
     });
     const [mobileAdminMenuOpen, setMobileAdminMenuOpen] = useState(false);
+    const [mobileOrdersFiltersOpen, setMobileOrdersFiltersOpen] = useState(false);
 
     const [step, setStep] = useState(0);
     const [orderCompleted, setOrderCompleted] = useState(false);
     const [copyStatus, setCopyStatus] = useState('');
     const [adminSchool, setAdminSchool] = useState('');
+    const [schoolToEdit, setSchoolToEdit] = useState(null);
+    const [newSchoolName, setNewSchoolName] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     const [showPinModal, setShowPinModal] = useState(false);
     const [pinInput, setPinInput] = useState('');
@@ -248,8 +184,6 @@ export default function App() {
     const [shootSearch, setShootSearch] = useState('');
     const [shootFilters, setShootFilters] = useState({ course: '', group: '', status: '' });
     const [ordersFilters, setOrdersFilters] = useState({ course: '', group: '', status: '' });
-    const [mobileOrdersFiltersOpen, setMobileOrdersFiltersOpen] = useState(false);
-    const [shootAssigning, setShootAssigning] = useState(null);
     const [shootMode, setShootMode] = useState(() => {
         const params = new URLSearchParams(window.location.search);
         return params.get('shoot_mode') || 'students';
@@ -261,7 +195,6 @@ export default function App() {
     const [selectedOrderIds, setSelectedOrderIds] = useState([]);
     const [selectedStaffIds, setSelectedStaffIds] = useState([]);
 
-    const [showNewStudentForm, setShowNewStudentForm] = useState(false);
     const [newStudentForm, setNewStudentForm] = useState({ schoolId: '', name: '', course: '', group: '', phone: '', photoFile: '', status: 'Pendiente', paymentMethod: '' });
 
     // Regalo
@@ -274,6 +207,76 @@ export default function App() {
     const [showPlanSelector, setShowPlanSelector] = useState(false);
     const [showPlanSuccessModal, setShowPlanSuccessModal] = useState(false);
     const [planTransitionData, setPlanTransitionData] = useState(null);
+
+    // --- ESTADO DE CONEXIÓN (PWA) ---
+    const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+    useEffect(() => {
+        const handleOnline = () => setIsOnline(true);
+        const handleOffline = () => setIsOnline(false);
+
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, []);
+
+    // --- MANEJO DE NOTIFICACIONES PUSH (PWA) ---
+    useEffect(() => {
+        const urlBase64ToUint8Array = (base64String) => {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray;
+        };
+
+        const subscribeToPush = async () => {
+            if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+            try {
+                const registration = await navigator.serviceWorker.ready;
+                const permission = await Notification.requestPermission();
+
+                if (permission === 'granted') {
+                    const VAPID_KEY = "BHlRMHtNv7wtwckffZPgnTtk5fOFLw60QBV665hnkaO8nqo6YlOM7Pj12x3V_oZ2TeXcYWRdzWpb0VBDfWJp9RU";
+
+                    const subscription = await registration.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: urlBase64ToUint8Array(VAPID_KEY)
+                    });
+
+                    // Guardar en Firebase via Cloud Function
+                    const { httpsCallable } = await import('firebase/functions');
+                    const { functions: fns } = await import('./firebase.js');
+                    const saveSub = httpsCallable(fns, 'saveSubscription');
+                    await saveSub({ subscription, photographerId });
+
+                    console.log('✅ Suscripción PWA guardada con éxito');
+                }
+            } catch (err) {
+                console.warn('Suscripción PWA no disponible o denegada:', err.message);
+            }
+        };
+
+        if (view === 'user') {
+            subscribeToPush();
+        }
+
+        if (!messaging) return;
+        const unsubscribe = onMessage(messaging, (payload) => {
+            console.log('FCM Foreground:', payload);
+            alert(`📣 ${payload.notification?.title || 'Nuevo aviso'}\n${payload.notification?.body || ''}`);
+        });
+
+        return () => unsubscribe();
+    }, [photographerId, view]);
 
     const [configOrla, setConfigOrla] = useState(() => {
         const defaults = {
@@ -301,22 +304,12 @@ export default function App() {
         localStorage.setItem(`orlas2026_configOrla`, JSON.stringify(configOrla));
     }, [configOrla]);
     const [designFilter, setDesignFilter] = useState({ course: '', group: '' });
-    const [isCsvMode, setIsCsvMode] = useState(false);
+    const [activeDesignParam, setActiveDesignParam] = useState(null); // { key, label, min, max, unit, step }
     const [isFullScreenDesign, setIsFullScreenDesign] = useState(false);
-    const [isDesignSidebarOpen, setIsDesignSidebarOpen] = useState(window.innerWidth > 1024);
     const [canvasZoom, setCanvasZoom] = useState(1);
     const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
     const [showZoomBar, setShowZoomBar] = useState(false);
-    const [expandedDesignGroups, setExpandedDesignGroups] = useState(['Estructura', 'Ejes (Y)', 'Equipo Docente', 'Alumnos']);
-    const [draggedStaffIdx, setDraggedStaffIdx] = useState(null);
-
-    const [newSchoolName, setNewSchoolName] = useState('');
-    const [schoolToEdit, setSchoolToEdit] = useState(null);
-
-    // Snapseed Mobile Style States
-    const [activeDesignParam, setActiveDesignParam] = useState(null); // { key, label, min, max, unit, step }
-    const [activeToolGroup, setActiveToolGroup] = useState(null); // 'Alumnos' | 'Docentes' | 'General' | null
-    const [isMobileToolsOpen, setIsMobileToolsOpen] = useState(false);
+    const [expandedDesignGroups, setExpandedDesignGroups] = useState(['alumnos']);
 
 
     // Drag to pan ref
@@ -416,6 +409,7 @@ export default function App() {
     const [courseName, setCourseName] = useState('');   // ej: "6º Primaria"
     const [courseLine, setCourseLine] = useState('');   // ej: "A"
     const [selectedPacks, setSelectedPacks] = useState({});
+    const [selectedSupplements, setSelectedSupplements] = useState({});
     const [extras, setExtras] = useState({});
     const [formError, setFormError] = useState('');
 
@@ -467,6 +461,25 @@ export default function App() {
             setFormData(prev => ({ ...prev, paymentMethod: enabledPaymentMethods[0].id }));
         }
     }, [enabledPaymentMethods]);
+
+    // GENERAR TOKEN ADMIN AL DESBLOQUEAR
+    useEffect(() => {
+        if (isAdminUnlocked && !localStorage.getItem(`orlas2026_token_${photographerId}`)) {
+            const fetchToken = async () => {
+                try {
+                    const { httpsCallable } = await import('firebase/functions');
+                    const { functions } = await import('./firebase.js');
+                    const getTokenFn = httpsCallable(functions, 'getAdminToken');
+                    const res = await getTokenFn({ photographerId, pin: '7373' });
+                    localStorage.setItem(`orlas2026_token_${photographerId}`, res.data.token);
+                    console.log('🔐 Sesión de administrador firmada (JWT)');
+                } catch (e) {
+                    console.error('Error obteniendo token JWT:', e);
+                }
+            };
+            fetchToken();
+        }
+    }, [isAdminUnlocked, photographerId]);
 
     // Notificaciones Email para Administrador
     const sendAdminNotification = async (type, data) => {
@@ -569,6 +582,8 @@ export default function App() {
     const orderTotals = useMemo(() => {
         let price = 0;
         let cost = 0;
+
+        // Sumar Packs
         Object.entries(selectedPacks).forEach(([id, qty]) => {
             const pack = allPacks.find(p => p.id === id);
             if (pack) {
@@ -576,6 +591,18 @@ export default function App() {
                 cost += pack.cost * qty;
             }
         });
+
+        // Sumar Suplementos (aplican al total o a cada pack según lógica de negocio, aquí al total)
+        const activeSupplements = settings.supplements || [];
+        Object.keys(selectedSupplements).forEach(id => {
+            const supplement = activeSupplements.find(s => s.id.toString() === id.toString());
+            if (supplement && selectedSupplements[id]) {
+                price += supplement.price;
+                // Asumimos que el suplemento es 100% beneficio o tiene un coste despreciable por ahora
+            }
+        });
+
+        // Sumar Extras
         Object.entries(extras).forEach(([id, qty]) => {
             if (qty > 0) {
                 const item = allExtras.find(e => e.id === id);
@@ -583,7 +610,7 @@ export default function App() {
             }
         });
         return { price, cost, profit: price - cost };
-    }, [selectedPacks, extras, allPacks, allExtras]);
+    }, [selectedPacks, extras, selectedSupplements, allPacks, allExtras, settings.supplements]);
 
     const stats = useMemo(() => orders.reduce((acc, o) => ({
         revenue: acc.revenue + (o.price || 0),
@@ -610,6 +637,13 @@ export default function App() {
         setSelectedPacks(prev => ({ ...prev, [packId]: Math.max(1, qty) }));
     };
 
+    const toggleSupplement = (id) => {
+        setSelectedSupplements(prev => ({
+            ...prev,
+            [id]: !prev[id]
+        }));
+    };
+
     // Helpers comunes
     const getExtrasDesc = () =>
         Object.entries(extras)
@@ -631,7 +665,16 @@ export default function App() {
         const extrasDesc = getExtrasDesc();
         const packsDesc = getPacksDesc();
         const mainPackId = Object.keys(selectedPacks)[0];
-        const mainPack = allPacks.find(p => p.id === mainPackId);
+
+        // Suplementos descripción
+        const activeSupplements = settings.supplements || [];
+        const supplementsDesc = Object.keys(selectedSupplements)
+            .filter(id => selectedSupplements[id])
+            .map(id => {
+                const s = activeSupplements.find(sup => sup.id.toString() === id.toString());
+                return s ? s.name : id;
+            })
+            .join(', ');
 
         const newOrder = {
             studentName: formData.studentName,
@@ -649,6 +692,8 @@ export default function App() {
             packQuantity: selectedPacks[mainPackId] || 1,
             extras: { ...extras },
             extrasDesc,
+            supplements: { ...selectedSupplements },
+            supplementsDesc,
             paymentMethod: formData.paymentMethod,
             price: orderTotals.price,
             cost: orderTotals.cost,
@@ -661,7 +706,7 @@ export default function App() {
             studentName: formData.studentName,
             schoolName: getSchoolName(formData.schoolId),
             course: formData.course,
-            packName: packsDesc,
+            packName: `${packsDesc}${supplementsDesc ? ` (+${supplementsDesc})` : ''}`,
             total: orderTotals.price,
             paymentMethod: formData.paymentMethod
         });
@@ -682,25 +727,40 @@ export default function App() {
             `🏫 *Colegio:* ${school}\n` +
             `📚 *Curso:* ${formData.course}\n` +
             `📦 *Packs:* ${getPacksDesc()}\n` +
-            (extrasDesc ? `➕ *Extras:* ${extrasDesc}\n` : '') +
+            (extrasDesc ? `➕ *Extras:* ${extrasDesc}\n` : '');
+
+        // Obtener descripción de suplementos para WhatsApp
+        const activeSupplements = settings.supplements || [];
+        const supplementsDescList = Object.keys(selectedSupplements)
+            .filter(id => selectedSupplements[id])
+            .map(id => {
+                const s = activeSupplements.find(sup => sup.id.toString() === id.toString());
+                return s ? s.name : '';
+            })
+            .filter(Boolean);
+
+        const footer =
+            (supplementsDescList.length > 0 ? `✨ *Suplementos:* ${supplementsDescList.join(', ')}\n` : '') +
             `💰 *Total:* ${orderTotals.price.toFixed(0)}€\n`;
 
+        const fullMsg = header + footer;
+
         if (isBizum) {
-            return header +
+            return fullMsg + "\n" +
                 `💳 *Pago:* Bizum\n\n` +
                 `✅ He realizado el Bizum al ${CONTACT_PHONE} con el concepto *ORLA ${formData.studentName}*.\n` +
                 `Adjunto el justificante. ¡Gracias!`;
         }
 
         if (isEfectivo) {
-            return header +
+            return fullMsg + "\n" +
                 `💶 *Pago:* Efectivo\n\n` +
                 `🏫 Haré entrega del importe en efectivo directamente en el centro escolar.\n` +
                 `Por favor, confirmad disponibilidad para la recogida. ¡Muchas gracias!`;
         }
 
         // Transferencia u otro
-        return header +
+        return fullMsg + "\n" +
             `🏦 *Pago:* ${methodLabel}\n\n` +
             `En cuanto realice el pago os aviso. ¡Gracias!`;
     };
@@ -987,184 +1047,8 @@ export default function App() {
         setConfigOrla(prev => ({ ...prev, [key]: value }));
     };
 
-    const renderDesignControls = () => {
-
-        const activeCourses = [...new Set(orders.map(o => getCourseBase(o.course)))].filter(Boolean).sort();
-        const availGroups = designFilter.course ? [...new Set(orders.filter(o => getCourseBase(o.course) === designFilter.course).map(o => getGroup(o.course)))].filter(Boolean).sort() : [];
-
-        const updatePhotoSize = (newWidth) => {
-            const ratio = 45 / 35;
-            setConfigOrla(prev => ({
-                ...prev,
-                aW: newWidth,
-                aH: Math.round(newWidth * ratio)
-            }));
-        };
-
-        const handleDragStart = (idx) => setDraggedStaffIdx(idx);
-        const handleDragOver = (e, idx) => {
-            e.preventDefault();
-            if (draggedStaffIdx === null || draggedStaffIdx === idx) return;
-            const newOrder = [...selectedStaffIds];
-            const draggedId = newOrder[draggedStaffIdx];
-            newOrder.splice(draggedStaffIdx, 1);
-            newOrder.splice(idx, 0, draggedId);
-            setDraggedStaffIdx(idx);
-            setSelectedStaffIds(newOrder);
-        };
-        const handleDragEnd = () => setDraggedStaffIdx(null);
-
-        return (
-            <div className="space-y-4">
-                <ControlGroup title="Docentes y Alumnos" icon={Users} expandedGroups={expandedDesignGroups} setExpandedGroups={setExpandedDesignGroups}>
-                    <div className="space-y-6">
-                        {/* EQUIPO DOCENTE */}
-                        <div className="space-y-4">
-                            {/* SELECCIONADOS (Arrastrables) */}
-                            <div className="space-y-2">
-                                <p className="text-[9px] font-black text-primary dark:text-white uppercase italic tracking-[0.15em] px-1 opacity-80 border-l-2 border-violet-500 pl-3">Equipo Docente</p>
-                                {selectedStaffIds.map((id, idx) => {
-                                    const member = staff.find(m => m.id === id);
-                                    if (!member) return null;
-                                    return (
-                                        <div
-                                            key={id}
-                                            draggable
-                                            onDragStart={() => handleDragStart(idx)}
-                                            onDragOver={(e) => handleDragOver(e, idx)}
-                                            onDragEnd={handleDragEnd}
-                                            className={`group flex items-center gap-3 p-3 bg-primary/5 dark:bg-white/5 border border-primary/5 dark:border-white/5 rounded-2xl cursor-grab active:cursor-grabbing transition-all hover:bg-primary/10 dark:hover:bg-white/10 ${draggedStaffIdx === idx ? 'opacity-40 scale-95 border-violet-500' : ''}`}
-                                        >
-                                            <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center text-violet-500 font-bold shrink-0">
-                                                {idx + 1}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-[11px] font-black truncate uppercase text-primary dark:text-white">{member.name}</p>
-                                                <p className="text-[9px] font-bold text-primary/40 dark:text-white/30 truncate uppercase">{member.role}</p>
-                                            </div>
-                                            <div className="p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <GripVertical size={14} className="text-primary/40 dark:text-white/20" />
-                                            </div>
-                                            <button
-                                                onClick={() => setSelectedStaffIds(prev => prev.filter(sid => sid !== id))}
-                                                className="p-2 text-primary/20 dark:text-white/10 hover:text-red-500 transition-colors"
-                                            >
-                                                <X size={14} />
-                                            </button>
-                                        </div>
-                                    );
-                                })}
-                                {selectedStaffIds.length === 0 && <p className="text-[10px] font-black text-primary/20 dark:text-white/40 text-center py-8 border-2 border-dashed border-primary/10 dark:border-white/10 rounded-2xl uppercase tracking-widest italic bg-primary/[0.01] dark:bg-white/[0.01]">Listado vacío</p>}
-                            </div>
-
-                            {/* DISPONIBLES */}
-                            <div className="space-y-3">
-                                <p className="text-[9px] font-black text-primary dark:text-white uppercase italic tracking-[0.15em] px-1 opacity-80 border-l-2 border-emerald-500 pl-3">Docentes Disponibles</p>
-                                <div className="grid grid-cols-1 gap-2">
-                                    {staff.filter(m => !selectedStaffIds.includes(m.id)).map(member => (
-                                        <button
-                                            key={member.id}
-                                            onClick={() => setSelectedStaffIds(prev => [...prev, member.id])}
-                                            className="group flex items-center gap-4 p-4 bg-primary/5 dark:bg-white/5 border border-primary/5 dark:border-white/10 rounded-3xl hover:bg-violet-500/10 dark:hover:bg-violet-500/10 hover:border-violet-500/30 transition-all text-left"
-                                        >
-                                            <div className="w-10 h-10 rounded-lg bg-primary/5 dark:bg-white/5 flex items-center justify-center text-primary/40 dark:text-white/60 group-hover:bg-violet-500/20 group-hover:text-violet-500 dark:group-hover:text-white transition-all">
-                                                <Plus size={18} />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-[11px] font-black truncate uppercase text-primary dark:text-white group-hover:text-violet-600 dark:group-hover:text-white">{member.name}</p>
-                                                <p className="text-[9px] font-bold text-primary/40 dark:text-white/40 group-hover:text-violet-400 transition-colors uppercase">{member.role}</p>
-                                            </div>
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* ALUMNOS */}
-                        <div className="space-y-4 pt-6 mt-4 border-t border-primary/10 dark:border-white/10">
-                            <div className="flex items-center gap-2 mb-2">
-                                <GraduationCap size={16} className="text-emerald-400" />
-                                <p className="text-[10px] font-black text-primary dark:text-white uppercase italic tracking-[0.2em]">Alumnos</p>
-                            </div>
-                            <div className="p-4 bg-primary/[0.03] dark:bg-white/[0.03] border border-primary/10 dark:border-white/10 rounded-2xl shadow-inner">
-                                <p className="text-[10px] font-black text-violet-400 uppercase italic tracking-widest mb-2 leading-tight text-center">Ordenación Automática</p>
-                                <p className="text-[11px] text-primary dark:text-white uppercase font-black tracking-[0.1em] leading-relaxed text-center">
-                                    POR PRIMER APELLIDO (A-Z)
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </ControlGroup>
 
 
-                <ControlGroup title="Alumnos" icon={LayoutGrid} expandedGroups={expandedDesignGroups} setExpandedGroups={setExpandedDesignGroups}>
-                    <div className="space-y-6">
-                        <HybridInput label="Columnas" value={configOrla.aCols} onChange={(v) => updateConfig('aCols', v)} min={1} max={20} unit="ud" />
-                        <HybridInput label="Eje Y (Inicio)" value={configOrla.aStartY} onChange={(v) => updateConfig('aStartY', v)} min={mmToPx(50)} max={mmToPx(280)} />
-                        <HybridInput label="Separación Filas" value={configOrla.aGapY} onChange={(v) => updateConfig('aGapY', v)} min={mmToPx(40)} max={mmToPx(120)} />
-                        <HybridInput label="Separación Texto" value={configOrla.aTextOffset} onChange={(v) => updateConfig('aTextOffset', v)} min={mmToPx(2)} max={mmToPx(25)} />
-                        <HybridInput label="Tamaño Texto" value={configOrla.fontSizeAlu} onChange={(v) => updateConfig('fontSizeAlu', v)} min={6} max={18} unit="pt" />
-                    </div>
-                </ControlGroup>
-
-                <ControlGroup title="Docentes" icon={UserSquare2} expandedGroups={expandedDesignGroups} setExpandedGroups={setExpandedDesignGroups}>
-                    <div className="space-y-6">
-                        <HybridInput label="Eje Y (Altura)" value={configOrla.dY} onChange={(v) => updateConfig('dY', v)} min={mmToPx(10)} max={mmToPx(150)} />
-                        <HybridInput label="Escala Fotos" value={configOrla.dScale} onChange={(v) => updateConfig('dScale', v)} min={0.5} max={2.5} step={0.05} unit="x" />
-                        <HybridInput label="Separación Texto" value={configOrla.dTextOffset} onChange={(v) => updateConfig('dTextOffset', v)} min={mmToPx(2)} max={mmToPx(30)} />
-                        <HybridInput label="Tamaño Texto" value={configOrla.fontSizeDoc} onChange={(v) => updateConfig('fontSizeDoc', v)} min={6} max={18} unit="pt" />
-                    </div>
-                </ControlGroup>
-
-                <ControlGroup title="Canvas y Márgenes" icon={Maximize} expandedGroups={expandedDesignGroups} setExpandedGroups={setExpandedDesignGroups}>
-                    <div className="space-y-6">
-                        <HybridInput label="Margen Global" value={configOrla.margin} onChange={(v) => updateConfig('margin', v)} min={mmToPx(5)} max={mmToPx(50)} />
-                        <div className="pt-4 border-t border-primary/5 dark:border-white/5 space-y-3">
-                            <p className="text-[9px] font-black text-primary/40 dark:text-white/40 uppercase italic tracking-widest px-1">Totales (Lectura)</p>
-                            <div className="grid grid-cols-2 gap-2">
-                                <div className="p-3 bg-primary/5 dark:bg-white/5 rounded-xl border border-primary/5 dark:border-white/5">
-                                    <p className="text-[10px] font-black text-primary dark:text-white">{configOrla.numAlumnos} Alus.</p>
-                                </div>
-                                <div className="p-3 bg-primary/5 dark:bg-white/5 rounded-xl border border-primary/5 dark:border-white/5">
-                                    <p className="text-[10px] font-black text-primary dark:text-white">{configOrla.numDocentes} Doc.</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </ControlGroup>
-
-                <div className="pt-4 animate-fade-in">
-                    <button
-                        onClick={() => setView('command')}
-                        className="w-full group relative overflow-hidden p-6 rounded-[24px] bg-gradient-to-br from-violet-600 to-indigo-700 text-white shadow-[0_20px_40px_-15px_rgba(124,58,237,0.5)] transition-all hover:scale-[1.02] active:scale-[0.98] border border-white/10"
-                    >
-                        {/* Efecto de brillo al pasar el ratón */}
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-shine" />
-
-                        <div className="flex items-center justify-between relative z-10">
-                            <div className="text-left">
-                                <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60 mb-1">Producción Senior</p>
-                                <h4 className="text-lg font-black italic uppercase tracking-tighter">Finalizar Diseño</h4>
-                            </div>
-                            <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md group-hover:rotate-12 transition-transform">
-                                <Layers size={22} className="text-white" />
-                            </div>
-                        </div>
-
-                        {/* Footer del botón con indicador Antigravity */}
-                        <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between relative z-10">
-                            <span className="text-[8px] font-black uppercase tracking-widest opacity-40 italic">Command Center V2.6</span>
-                            <div className="flex items-center gap-1.5 px-3 py-1 bg-black/20 rounded-full border border-white/5">
-                                <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
-                                <span className="text-[8px] font-black uppercase tracking-widest text-green-400">Ready</span>
-                            </div>
-                        </div>
-                    </button>
-                    <p className="text-[9px] text-center mt-4 text-primary/30 dark:text-white/30 font-bold uppercase tracking-widest italic">Inyecta este diseño directamente en Photoshop</p>
-                </div>
-            </div>
-        );
-    };
 
     const handleAdminClick = () => {
         if (isAdminUnlocked) { setView('admin'); return; }
@@ -1296,7 +1180,14 @@ export default function App() {
     if (!isLoaded) return <div className="min-h-screen bg-card flex items-center justify-center animate-pulse"><img src={`${import.meta.env.BASE_URL}logo.png`} className="w-12 h-12 grayscale opacity-20" /></div>;
 
     return (
-        <div className={`min-h-screen transition-all duration-500 overflow-x-hidden ${theme === 'dark' ? 'dark bg-[#0a0a0c] text-white' : 'bg-[#fafafa] text-slate-900 font-medium'}`}>
+        <div className={`min-h-screen transition-colors duration-500 ${theme === 'dark' ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+
+            {/* AVISO OFFLINE */}
+            {!isOnline && (
+                <div className="fixed top-0 left-0 right-0 z-[1000] bg-amber-500 text-white py-2 px-4 text-center text-xs font-bold animate-fade-in flex items-center justify-center gap-2">
+                    <AlertTriangle size={14} /> Estás en modo offline. Algunas funciones pueden no estar disponibles.
+                </div>
+            )}
             <style>{`
                 .dark { color-scheme: dark; }
                 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
@@ -1414,2874 +1305,333 @@ export default function App() {
 
                     {/* VISTA USUARIO */}
                     {view === 'user' && (
-                        <div className="pb-safe min-h-[calc(100vh-120px)] animate-fade-in">
-                            <div className={`relative px-4 transition-all duration-500 text-center ${(step === 0 || step === 1) ? 'pt-8 pb-10' : 'pt-4 pb-4'}`}>
-                                <button
-                                    onClick={handleSecretAdminAccess}
-                                    className={`flex items-center justify-center mx-auto active:scale-95 transition-all duration-500 relative z-[750] pointer-events-auto ${(step === 0 || step === 1) ? 'w-36 mb-6' : 'w-20 mb-2'}`}
-                                >
-                                    {settings.logoUrl || settings.logoUrlDark ? (
-                                        <img
-                                            src={theme === 'dark' ? (settings.logoUrlDark || settings.logoUrl) : (settings.logoUrl || settings.logoUrlDark)}
-                                            alt="Logo"
-                                            className="w-full h-auto object-contain transition-all duration-500"
-                                            style={{ filter: (isDemo && theme === 'light') ? 'brightness(0)' : 'none' }}
-                                        />
-                                    ) : (
-                                        <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Logo" className="w-full h-auto object-contain transition-all duration-500" style={{ filter: theme === 'light' ? 'brightness(0)' : 'none' }} />
-                                    )}
-                                </button>
-                                <h1 className={`font-black text-primary tracking-tight leading-none transition-all duration-500 ${(step === 0 || step === 1) ? 'text-4xl' : 'text-xl'}`}>
-                                    {(step === 0 || step === 1) ? <>Orlas<br /><span className="text-accent">2026</span></> : <>Orlas <span className="text-accent">2026</span></>}
-                                </h1>
-
-                            </div>
-
-                            <main className={`max-w-lg mx-auto px-4 transition-all duration-500 ${(step === 0 || step === 1) ? 'space-y-8 mt-4' : 'space-y-4 mt-0'} sm:mt-0`}>
-                                {!orderCompleted ? (
-                                    <>
-                                        {step > 0 && <StepIndicator step={step} />}
-
-                                        {/* PASO 0 - BIENVENIDA */}
-                                        {step === 0 && (
-                                            <div className="card p-10 space-y-6 text-center animate-slide-up relative overflow-hidden">
-                                                <div className="absolute top-0 right-0 w-40 h-40 bg-indigo-500/10 rounded-full blur-[40px] pointer-events-none" />
-                                                <div className="absolute bottom-0 left-0 w-40 h-40 bg-violet-500/10 rounded-full blur-[40px] pointer-events-none" />
-
-                                                <h2 className="text-3xl font-black text-primary tracking-tight leading-tight">¡Te damos la<br /><span className="text-accent">bienvenida!</span></h2>
-
-                                                <p className="text-secondary font-medium leading-relaxed px-2">Rellena tus datos en solo 3 pasos para asegurar tu plaza en la orla de este año.</p>
-
-                                                <button onClick={() => setStep(1)} className="btn-primary w-full text-lg py-5 mt-4 flex items-center justify-center gap-3 font-black shadow-xl">
-                                                    Comenzar reserva <ChevronRight size={20} />
-                                                </button>
-                                            </div>
-                                        )}
-
-                                        {/* PASO 1 */}
-                                        {step === 1 && (
-                                            <div className="card p-8 space-y-6 animate-slide-up relative overflow-hidden">
-                                                {/* Efectos de luz en la tarjeta */}
-                                                <div className="absolute -top-10 -right-10 w-40 h-40 bg-accent/20 rounded-full blur-[40px] pointer-events-none" />
-                                                <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-violet-400/20 rounded-full blur-[40px] pointer-events-none" />
-
-                                                <div className="flex items-center gap-4 mb-2 relative">
-                                                    <div className="w-12 h-12 rounded-[16px] bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-[0_0_20px_rgba(99,102,241,0.4)] text-white">
-                                                        <User size={22} />
-                                                    </div>
-                                                    <div>
-                                                        <h2 className="text-2xl font-black text-primary tracking-tight leading-none bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">Datos del Alumno</h2>
-                                                        <p className="text-[10px] font-black text-secondary tracking-widest uppercase mt-1 opacity-70">Paso 1 de 3</p>
-                                                    </div>
-                                                </div>
-                                                <div className="space-y-4">
-                                                    <div>
-                                                        <label className="text-primary font-bold">Nombre y Apellidos *</label>
-                                                        <input
-                                                            type="text"
-                                                            lang="es"
-                                                            spellCheck={true}
-                                                            autoCorrect="on"
-                                                            autoCapitalize="words"
-                                                            className={`input-dark ${formError && !formData.studentName.trim() ? 'border-red-500 bg-red-50' : ''}`}
-                                                            placeholder="Ej: Mario López Pérez"
-                                                            value={formData.studentName}
-                                                            onChange={e => { setFormData({ ...formData, studentName: e.target.value }); if (formError) setFormError(''); }}
-                                                            onBlur={e => setFormData(prev => ({ ...prev, studentName: toTitleCase(e.target.value) }))}
-                                                        />
-                                                    </div>
-
-                                                    <div>
-                                                        <label className="text-primary font-bold">Centro Educativo *</label>
-                                                        <div className="relative">
-                                                            <select className={`input-dark appearance-none pr-10 ${formError && !formData.schoolId ? 'border-red-500 bg-red-50' : ''}`} value={formData.schoolId} onChange={e => { setFormData({ ...formData, schoolId: e.target.value }); if (formError) setFormError(''); }}>
-                                                                <option value="">Selecciona tu Centro</option>
-                                                                {schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                                            </select>
-                                                            <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-primary/50 pointer-events-none" />
-                                                        </div>
-                                                    </div>
-
-                                                    <div>
-                                                        <label className="text-primary font-bold">Curso / Clase *</label>
-                                                        <div className="grid grid-cols-2 gap-3">
-                                                            <div className="relative">
-                                                                <select className="input-dark appearance-none pr-10" value={courseName} onChange={e => {
-                                                                    const selected = e.target.value; setCourseName(selected); setCourseLine('');
-                                                                    setFormData(prev => ({ ...prev, course: selected }));
-                                                                }}>
-                                                                    <option value="">Curso</option>
-                                                                    {COURSE_GROUPS.map(group => {
-                                                                        const emoji = group.group.split(' ')[0];
-                                                                        return group.courses.map(c => <option key={c.name} value={c.name}>{emoji} {c.name}</option>);
-                                                                    })}
-                                                                </select>
-                                                                <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-primary/50 pointer-events-none" />
-                                                            </div>
-                                                            {(() => {
-                                                                const allCourses = COURSE_GROUPS.flatMap(g => g.courses);
-                                                                const courseObj = allCourses.find(c => c.name === courseName);
-                                                                const lines = courseObj?.lines || [];
-                                                                return lines.length > 0 ? (
-                                                                    <div className="relative">
-                                                                        <select className="input-dark appearance-none pr-10" value={courseLine} onChange={e => {
-                                                                            const line = e.target.value; setCourseLine(line);
-                                                                            setFormData(prev => ({ ...prev, course: line ? `${courseName} ${line}` : courseName }));
-                                                                        }}>
-                                                                            <option value="">Grupo</option>
-                                                                            {lines.map(l => <option key={l} value={l}>Grupo {l}</option>)}
-                                                                        </select>
-                                                                        <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-primary/50 pointer-events-none" />
-                                                                    </div>
-                                                                ) : (
-                                                                    <div className="flex items-center justify-center rounded-2xl bg-white/3 border border-white/5 px-4"><span className="text-xs text-slate-600 font-semibold">Sin grupo</span></div>
-                                                                );
-                                                            })()}
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="pt-4 space-y-4">
-                                                    {formError && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-bold text-center animate-shake">{formError}</div>}
-                                                    <button onClick={() => {
-                                                        if (!formData.studentName.trim()) { setFormError('Introduce el nombre del alumno'); return; }
-                                                        if (!formData.schoolId) { setFormError('Selecciona tu centro educativo'); return; }
-                                                        if (!formData.course) { setFormError('Selecciona el curso completo'); return; }
-                                                        setFormError(''); setShowLegalModal(true);
-                                                    }} className="btn-primary w-full text-base font-black flex items-center justify-center gap-2">
-                                                        Elegir Pack <ChevronRight size={18} />
-                                                    </button>
-                                                </div>
-
-                                            </div>
-                                        )}
-
-                                        {/* PASO 2 */}
-                                        {step === 2 && (
-                                            <div className="space-y-4 animate-slide-right">
-                                                <div className="flex items-center gap-4 mb-3 relative px-1 pt-0">
-                                                    <button onClick={() => setStep(1)} className="w-10 h-10 rounded-[14px] bg-white/5 border border-primary/10 flex items-center justify-center shadow-sm text-primary hover:bg-white/10 active:scale-95 transition-all">
-                                                        <ChevronRight size={18} className="rotate-180" />
-                                                    </button>
-                                                    <div>
-                                                        <h2 className="text-xl font-black text-primary tracking-tight leading-none">Selecciona tu Pack</h2>
-                                                        <p className="text-[9px] font-black text-secondary tracking-widest uppercase mt-0.5 opacity-50">Configura tu pedido · 2/3</p>
-                                                    </div>
-                                                </div>
-                                                <div className="space-y-4">
-                                                    {allPacks.map(pack => (
-                                                        <PackCard
-                                                            key={pack.id}
-                                                            pack={pack}
-                                                            selected={!!selectedPacks[pack.id]}
-                                                            quantity={selectedPacks[pack.id] || 1}
-                                                            onSelect={() => togglePack(pack.id)}
-                                                            onUpdateQuantity={(q) => updatePackQuantity(pack.id, q)}
-                                                        />
-                                                    ))}
-                                                    <button disabled={Object.keys(selectedPacks).length === 0} onClick={() => setStep(3)} className="btn-primary w-full text-base font-black flex items-center justify-center gap-2">
-                                                        Continuar <ChevronRight size={18} />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* PASO 3 */}
-                                        {step === 3 && (
-                                            <div className="space-y-5 animate-slide-right">
-                                                <div className="flex items-center gap-4 mb-3 relative px-1 pt-0">
-                                                    <button onClick={() => setStep(2)} className="w-10 h-10 rounded-[14px] bg-white/5 border border-primary/10 flex items-center justify-center shadow-sm text-primary hover:bg-white/10 active:scale-95 transition-all">
-                                                        <ChevronRight size={18} className="rotate-180" />
-                                                    </button>
-                                                    <div>
-                                                        <h2 className="text-xl font-black text-primary tracking-tight leading-none">Resumen de tu pedido</h2>
-                                                        <p className="text-[9px] font-black text-secondary tracking-widest uppercase mt-0.5 opacity-50">Finalizar pedido · 3/3</p>
-                                                    </div>
-                                                </div>
-
-                                                <div className="relative overflow-hidden rounded-[30px] p-8 text-center bg-accent/5 border-accent/20 shadow-2xl">
-                                                    <div className="absolute inset-0 bg-gradient-to-br from-accent/10 to-transparent pointer-events-none" />
-                                                    <p className="text-[11px] font-black text-accent uppercase tracking-[0.2em] mb-2 opacity-80">Total del pedido</p>
-                                                    <p className="text-6xl font-black text-primary leading-none">{orderTotals.price.toFixed(0)}<span className="text-3xl text-accent ml-1">€</span></p>
-                                                    <p className="text-[10px] text-secondary mt-3 font-black uppercase tracking-widest leading-relaxed">
-                                                        {getPacksDesc()}
-                                                    </p>
-                                                </div>
-
-                                                <div className="card p-6 space-y-4">
-                                                    <h3 className="text-sm font-bold text-primary flex items-center gap-2"><Package size={18} className="text-accent" /> Añadir extras opcionales</h3>
-                                                    {allExtras.map(extra => <ExtraItem key={extra.id} extra={extra} qty={extras[extra.id] || 0} onToggle={(delta) => toggleExtra(extra.id, delta)} />)}
-
-                                                    {/* Aviso de precio especial */}
-                                                    <div className="flex gap-3 items-start p-4 rounded-2xl bg-amber-400/8 border border-amber-400/20 mt-2">
-                                                        <span className="text-lg leading-none mt-0.5">⚡</span>
-                                                        <div>
-                                                            <p className="text-xs font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider mb-1">Precio exclusivo al hacer el pedido</p>
-                                                            <p className="text-xs text-secondary leading-relaxed">Estos precios están disponibles <strong className="text-primary">únicamente a través de la app</strong> en el momento del pedido. Si se solicitan posteriormente, se aplicarán las tarifas vigentes del estudio.</p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="card p-6">
-                                                    <h3 className="text-sm font-bold text-primary flex items-center gap-2 mb-5"><CreditCard size={18} className="text-accent" /> Método de pago</h3>
-                                                    {enabledPaymentMethods.length > 0 ? (
-                                                        <div className={`grid ${enabledPaymentMethods.length === 1 ? 'grid-cols-1 max-w-[200px] mx-auto w-full' : 'grid-cols-2'} gap-3`}>
-                                                            {enabledPaymentMethods.map(m => (
-                                                                <button key={m.id} onClick={() => setFormData({ ...formData, paymentMethod: m.id })} className={`py-4 rounded-2xl font-bold text-sm border-2 transition-all duration-200 active:scale-95 ${formData.paymentMethod === m.id ? 'border-accent bg-accent/5 text-accent shadow-lg shadow-accent/5' : 'border-primary/5 bg-primary/5 text-secondary hover:border-primary/20 hover:text-primary'}`}>
-                                                                    {m.label}
-                                                                </button>
-                                                            ))}
-                                                        </div>
-                                                    ) : <p className="text-slate-500 text-sm text-center py-3">Sin métodos de pago activos.</p>}
-                                                </div>
-
-                                                {/* BANNER REGALO */}
-                                                <button
-                                                    onClick={() => setShowGiftModal(true)}
-                                                    className="w-full card p-5 flex items-center justify-center gap-3 group active:scale-95 transition-all bg-gradient-to-br from-primary/5 to-primary/10 border-primary/10 hover:border-accent/30"
-                                                >
-                                                    <span className="text-lg">✨</span>
-                                                    <span className="text-lg font-black text-primary tracking-tight">¡Tu regalo te espera! 🎁</span>
-                                                </button>
-
-                                                <button onClick={handleFinalize} disabled={!formData.paymentMethod} className="btn-primary w-full text-xl py-6"><CheckCircle size={24} /> Confirmar Pedido</button>
-                                            </div>
-                                        )}
-                                    </>
-                                ) : (
-                                    /* PANTALLA ÉXITO */
-                                    <div className="card p-10 space-y-8 text-center animate-scale-in">
-                                        <div className="w-24 h-24 bg-emerald-500/10 rounded-[30px] flex items-center justify-center mx-auto border border-emerald-500/20 shadow-xl shadow-emerald-500/5"><CheckCircle size={56} className="text-emerald-500" /></div>
-                                        <div className="space-y-3">
-                                            <h2 className="text-3xl font-black text-primary tracking-tight">¡Reserva Completada!</h2>
-                                            <p className="text-secondary text-sm font-black uppercase tracking-widest opacity-60 px-4">{formData.paymentMethod === 'bizum' ? 'Completa el Bizum y envíanos el justificante.' : 'Realiza el pago y avísanos por WhatsApp.'}</p>
-                                        </div>
-                                        <div className="bg-primary/5 rounded-[30px] p-8 border border-primary/10 text-left space-y-5 backdrop-blur-md">
-                                            <div className="flex justify-between items-center border-b border-primary/10 pb-5">
-                                                <span className="text-secondary text-sm font-black uppercase tracking-widest opacity-60">Total:</span>
-                                                <span className="text-3xl font-black text-primary">{orderTotals.price.toFixed(0)}€</span>
-                                            </div>
-                                            <div className="pb-2">
-                                                <p className="text-[10px] text-secondary font-black tracking-widest opacity-40 uppercase mb-1">Packs Seleccionados</p>
-                                                <p className="text-sm font-black text-primary">{getPacksDesc()}</p>
-                                            </div>
-                                            {formData.paymentMethod === 'bizum' && (
-                                                <div className="space-y-4">
-                                                    <button onClick={() => copyToClipboard(CONTACT_PHONE, 'teléfono')} className="w-full flex items-center justify-between p-5 rounded-2xl bg-primary/5 border border-primary/10 active:bg-primary/10 transition-all"><div className="text-left"><p className="text-[10px] text-secondary font-black tracking-widest opacity-40 uppercase">Teléfono Bizum</p><p className="text-xl font-black text-primary mt-1">{CONTACT_PHONE}</p></div><Copy size={20} className="text-secondary opacity-60" /></button>
-                                                    <button onClick={() => copyToClipboard(`ORLA ${formData.studentName}`, 'concepto')} className="w-full flex items-center justify-between p-5 rounded-2xl bg-primary/5 border border-primary/10 active:bg-primary/10 transition-all"><div className="text-left"><p className="text-[10px] text-secondary font-black tracking-widest opacity-40 uppercase">Concepto</p><p className="text-lg font-black text-primary mt-1 truncate max-w-[200px]">ORLA {formData.studentName}</p></div><Copy size={20} className="text-secondary opacity-60" /></button>
-                                                </div>
-                                            )}
-                                            {formData.paymentMethod === 'efectivo' && <div className="p-5 bg-amber-50 rounded-2xl border border-amber-100 text-center text-amber-700 text-sm font-semibold">Entrega del importe en el centro escolar.</div>}
-                                        </div>
-                                        <button onClick={sendWhatsApp} className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white py-5 rounded-2xl font-black text-base active:scale-95 transition-all flex items-center justify-center gap-3 shadow-glow-green"><MessageSquare size={20} /> Enviar WhatsApp</button>
-                                        <button onClick={resetForm} className="w-full py-3 text-sm text-slate-500 hover:text-slate-300 font-semibold transition-colors">Hacer otro pedido</button>
-                                    </div>
-                                )}
-                            </main>
-
-                            {/* CALCULADORA ROI - SOLO MODO DEMO */}
-                            {isDemo && <PricingCalculator />}
-
-                            {/* MODAL LEGAL - POSICIÓN GLOBAL */}
-                            {showLegalModal && (
-                                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xl animate-fade-in overflow-y-auto">
-                                    <div className="w-full max-w-md bg-champagne border border-white/50 rounded-[45px] p-9 shadow-[0_30px_100px_rgba(0,0,0,0.5)] animate-slide-up space-y-8 relative my-auto">
-                                        {/* Decoración de luz premium superior */}
-                                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-2 bg-gradient-to-r from-transparent via-white/40 to-transparent rounded-full blur-sm"></div>
-
-                                        <div className="text-center space-y-3 relative">
-                                            <div className="w-16 h-16 bg-white rounded-[24px] flex items-center justify-center mx-auto border border-primary/5 text-indigo-600 mb-2 shadow-xl shadow-indigo-500/10">
-                                                <Shield size={32} />
-                                            </div>
-                                            <h3 className="text-2xl font-black text-primary tracking-tight">Términos del Servicio</h3>
-                                            <p className="text-[10px] text-secondary font-black uppercase tracking-[0.2em] opacity-40">Seguridad y Privacidad Garantizada</p>
-                                        </div>
-
-                                        <div className="space-y-4">
-                                            {/* Item 1 */}
-                                            <div className="flex gap-5 p-5 rounded-[28px] bg-white border border-primary/5 shadow-[0_10px_30px_rgba(0,0,0,0.03)] hover:shadow-lg transition-all duration-500">
-                                                <div className="w-10 h-10 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-500 shrink-0 shadow-inner">
-                                                    <User size={20} />
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <p className="text-[13px] font-black text-primary leading-tight">Responsabilidad de Datos</p>
-                                                    <p className="text-[11px] text-secondary leading-relaxed font-medium">Asumes la total exactitud de los datos. Errores de impresión por datos incorrectos serán costeados por el solicitante.</p>
-                                                </div>
-                                            </div>
-
-                                            {/* Item 2 */}
-                                            <div className="flex gap-5 p-5 rounded-[28px] bg-white border border-primary/5 shadow-[0_10px_30px_rgba(0,0,0,0.03)] hover:shadow-lg transition-all duration-500">
-                                                <div className="w-10 h-10 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-500 shrink-0 shadow-inner">
-                                                    <Shield size={20} />
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <p className="text-[13px] font-black text-primary leading-tight">Protección de Privacidad</p>
-                                                    <p className="text-[11px] text-secondary leading-relaxed font-medium">Tus datos se tratarán exclusivamente para la gestión de este pedido por Pujalte Creative Studio.</p>
-                                                </div>
-                                            </div>
-
-                                            {/* Consent Block Premium */}
-                                            <div
-                                                onClick={() => setFormData(prev => ({ ...prev, photoConsent: !prev.photoConsent }))}
-                                                className={`flex gap-5 p-6 rounded-[32px] border-2 transition-all duration-500 cursor-pointer group active:scale-[0.97] 
-                                                    ${formData.photoConsent
-                                                        ? 'bg-indigo-600 border-indigo-500 shadow-2xl shadow-indigo-600/30'
-                                                        : 'bg-white border-amber-500/20 animate-soft-pulse hover:border-amber-400 shadow-lg shadow-amber-500/5'}`}
-                                            >
-                                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border transition-all duration-500 shadow-md ${formData.photoConsent ? 'bg-white text-indigo-600 border-white' : 'bg-amber-50/20 text-amber-500 border-amber-100 group-hover:scale-110'}`}>
-                                                    {formData.photoConsent ? <Check size={22} strokeWidth={3} /> : <Camera size={20} />}
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <div className="flex items-center gap-2">
-                                                        <p className={`text-sm font-black transition-colors ${formData.photoConsent ? 'text-white' : 'text-primary'}`}>Autorización de Fotografía</p>
-                                                        {!formData.photoConsent && <span className="flex h-2.5 w-2.5 rounded-full bg-amber-500 animate-ping"></span>}
-                                                    </div>
-                                                    <p className={`text-[11px] leading-relaxed transition-colors ${formData.photoConsent ? 'text-white/80' : 'text-secondary font-bold'}`}>Autorizo la toma y procesamiento de fotos de mi hijo/a menor para la orla escolar.</p>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex flex-col gap-4 pt-4">
-                                            <button
-                                                disabled={!formData.photoConsent}
-                                                onClick={() => { setShowLegalModal(false); setStep(2); }}
-                                                className={`w-full py-6 text-base font-black rounded-3xl transition-all duration-500 shadow-2xl active:scale-95 flex items-center justify-center gap-3 ${formData.photoConsent ? 'bg-emerald-600 text-white shadow-emerald-500/40 hover:-translate-y-1 hover:bg-emerald-500' : 'bg-primary/5 text-primary/20 cursor-not-allowed'}`}
-                                            >
-                                                {formData.photoConsent ? 'ACEPTAR Y CONTINUAR' : 'FIRMA PARA CONTINUAR'}
-                                                <ChevronRight size={20} />
-                                            </button>
-                                            <button onClick={() => setShowLegalModal(false)} className="text-[10px] font-black text-secondary/30 hover:text-primary transition-all py-2 uppercase tracking-[0.25em]">Cerrar y volver</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                        </div>
-                    )
-
-                    }
+                        <UserEnrollment
+                            step={step}
+                            setStep={setStep}
+                            formData={formData}
+                            setFormData={setFormData}
+                            formError={formError}
+                            setFormError={setFormError}
+                            schools={schools}
+                            COURSE_GROUPS={COURSE_GROUPS}
+                            courseName={courseName}
+                            setCourseName={setCourseName}
+                            courseLine={courseLine}
+                            setCourseLine={setCourseLine}
+                            allPacks={allPacks}
+                            allExtras={allExtras}
+                            selectedPacks={selectedPacks}
+                            setSelectedPacks={setSelectedPacks}
+                            selectedSupplements={selectedSupplements}
+                            toggleSupplement={toggleSupplement}
+                            extras={extras}
+                            setExtras={setExtras}
+                            orderTotals={orderTotals}
+                            getPacksDesc={getPacksDesc}
+                            togglePack={togglePack}
+                            updatePackQuantity={updatePackQuantity}
+                            toggleExtra={toggleExtra}
+                            enabledPaymentMethods={enabledPaymentMethods}
+                            setShowGiftModal={setShowGiftModal}
+                            handleFinalize={handleFinalize}
+                            copyToClipboard={copyToClipboard}
+                            CONTACT_PHONE={CONTACT_PHONE}
+                            sendWhatsApp={sendWhatsApp}
+                            resetForm={resetForm}
+                            showLegalModal={showLegalModal}
+                            setShowLegalModal={setShowLegalModal}
+                            isDemo={isDemo}
+                            handleSecretAdminAccess={handleSecretAdminAccess}
+                            photographerId={photographerId}
+                            settings={settings}
+                            theme={theme}
+                            orderCompleted={orderCompleted}
+                            setOrderCompleted={setOrderCompleted}
+                        />
+                    )}
 
                     {/* VISTA ADMIN */}
-                    {
-                        view === 'admin' && (
-                            <div className="pt-0 pb-8 min-h-screen animate-fade-in">
-                                <div className="max-w-5xl mx-auto px-4">
-                                    {/* Logo y Título integrados */}
-                                    <div className="flex flex-col md:flex-row items-center md:items-center gap-3 md:gap-6 mb-6 md:mb-8 mt-2">
-                                        <button
-                                            onClick={() => setView('user')}
-                                            className="flex items-center justify-center transition-all active:scale-95 hover:opacity-80"
-                                        >
-                                            {settings.logoUrl || settings.logoUrlDark ? (
-                                                <img
-                                                    src={theme === 'dark' ? (settings.logoUrlDark || settings.logoUrl) : (settings.logoUrl || settings.logoUrlDark)}
-                                                    alt={photographerId}
-                                                    className="h-8 md:h-14 w-auto object-contain transition-all duration-500"
-                                                    style={{ filter: (isDemo && theme === 'light') ? 'brightness(0)' : 'none' }}
-                                                />
-                                            ) : (
-                                                <img
-                                                    src={`${import.meta.env.BASE_URL}logo.png`}
-                                                    alt="Logo"
-                                                    className="h-8 md:h-14 w-auto transition-all duration-500"
-                                                    style={{ filter: theme === 'light' ? 'brightness(0)' : 'none' }}
-                                                />
-                                            )}
-                                        </button>
-
-                                        <div className="flex flex-col text-center md:text-left text-primary md:border-l md:border-primary/10 md:pl-6 leading-none">
-                                            <div className="flex items-center justify-center md:justify-start gap-2 mb-1">
-                                                <Shield size={10} className="text-amber-500 md:size-[14px]" />
-                                                <span className="text-[7px] md:text-[10px] font-black text-amber-500 uppercase tracking-widest leading-none">Panel de Control</span>
-                                                <div className="px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/20 rounded text-[6px] md:text-[8px] font-black text-amber-600 uppercase tracking-tighter ml-1 leading-none shadow-sm">
-                                                    MASTER
-                                                </div>
-                                            </div>
-                                            <h2 className="text-xl md:text-3xl font-black tracking-tight uppercase md:normal-case mt-1 text-primary">Gestión Estratégica</h2>
-                                        </div>
-                                    </div>
-                                    <div className="sticky top-16 md:top-24 z-50 py-2 md:py-4 bg-background/80 dark:bg-black/80 backdrop-blur-2xl -mx-4 px-4 mb-4 border-b border-primary/10 transition-colors">
-                                        <div className="max-w-5xl mx-auto">
-                                            {/* Versión Escritorio: Barra Horizontal */}
-                                            <div className="hidden md:flex flex-wrap items-center justify-center gap-1.5 bg-card/60 dark:bg-white/5 p-1.5 rounded-[2rem] border border-primary/10 dark:border-white/10 backdrop-blur-md w-full shadow-2xl shadow-black/20">
-                                                <button onClick={() => { setAdminTab('shooting'); setShootSearch(''); }} className={`px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${adminTab === 'shooting' ? 'bg-red-700 text-white shadow-lg shadow-red-700/30' : 'text-secondary hover:text-primary dark:hover:text-white hover:bg-primary/10'} min-h-[44px]`}>📸 Shooting</button>
-                                                <button onClick={() => setAdminTab('schools')} className={`px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${adminTab === 'schools' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'text-secondary hover:text-primary dark:hover:text-white hover:bg-primary/5'} min-h-[44px]`}><GraduationCap size={14} /> Centros</button>
-                                                <button onClick={() => setAdminTab('settings')} className={`px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${adminTab === 'settings' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'text-secondary hover:text-primary dark:hover:text-white hover:bg-primary/5'} min-h-[44px]`}><Settings size={14} /> Ajustes App</button>
-                                                <button onClick={() => setAdminTab('orders')} className={`px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${adminTab === 'orders' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'text-secondary hover:text-primary dark:hover:text-white hover:bg-primary/5'} min-h-[44px]`}><Users size={14} /> Gestión Pedid.</button>
-                                                <button onClick={() => setAdminTab('precios')} className={`px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${adminTab === 'precios' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'text-secondary hover:text-primary dark:hover:text-white hover:bg-primary/5'} min-h-[44px]`}><Euro size={14} /> Precios</button>
-                                                <button onClick={() => setAdminTab('design')} className={`px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${adminTab === 'design' ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/20' : 'text-secondary hover:text-primary dark:hover:text-white hover:bg-primary/5'} min-h-[44px]`}><Palette size={14} /> Diseño Orla</button>
-                                            </div>
-
-                                            {/* Versión Móvil: Menú Desplegable Compacto */}
-                                            <div className="md:hidden relative">
-                                                <button
-                                                    onClick={() => setMobileAdminMenuOpen(!mobileAdminMenuOpen)}
-                                                    className="w-full flex items-center justify-between p-3 bg-card/60 border border-primary/10 rounded-2xl backdrop-blur-md shadow-xl"
-                                                >
-                                                    <div className="flex items-center gap-3">
-                                                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-white shadow-md ${adminTab === 'shooting' ? 'bg-red-700' :
-                                                            adminTab === 'schools' ? 'bg-orange-500' :
-                                                                adminTab === 'settings' ? 'bg-indigo-500' :
-                                                                    adminTab === 'orders' ? 'bg-emerald-500' :
-                                                                        adminTab === 'precios' ? 'bg-amber-500' :
-                                                                            'bg-violet-600'
-                                                            }`}>
-                                                            {adminTab === 'shooting' ? '📸' :
-                                                                adminTab === 'schools' ? <GraduationCap size={18} /> :
-                                                                    adminTab === 'settings' ? <Settings size={18} /> :
-                                                                        adminTab === 'orders' ? <Users size={18} /> :
-                                                                            adminTab === 'precios' ? <Euro size={18} /> :
-                                                                                <Palette size={18} />}
-                                                        </div>
-                                                        <div className="flex flex-col items-start leading-none">
-                                                            <span className="text-[9px] font-black text-secondary/40 uppercase tracking-widest mb-1">Sección</span>
-                                                            <span className="text-sm font-black uppercase tracking-wider text-primary">
-                                                                {adminTab === 'shooting' ? 'Shooting' :
-                                                                    adminTab === 'schools' ? 'Centros' :
-                                                                        adminTab === 'settings' ? 'Ajustes App' :
-                                                                            adminTab === 'orders' ? 'Gestión Pedid.' :
-                                                                                adminTab === 'precios' ? 'Precios' :
-                                                                                    'Diseño Orla'}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                    <ChevronDown size={20} className={`text-primary/40 transition-transform duration-300 ${mobileAdminMenuOpen ? 'rotate-180' : ''}`} />
-                                                </button>
-
-                                                {mobileAdminMenuOpen && (
-                                                    <div className="absolute top-full left-0 right-0 mt-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-primary/10 rounded-3xl shadow-2xl z-[100] p-2 grid grid-cols-2 gap-2 animate-slide-up origin-top">
-                                                        <button onClick={() => { setAdminTab('shooting'); setShootSearch(''); setMobileAdminMenuOpen(false); }} className={`p-4 rounded-2xl text-[10px] font-black uppercase tracking-wider flex flex-col items-center gap-2 transition-all ${adminTab === 'shooting' ? 'bg-red-700 text-white' : 'text-secondary hover:bg-primary/5'}`}>📸 <span>Shooting</span></button>
-                                                        <button onClick={() => { setAdminTab('schools'); setMobileAdminMenuOpen(false); }} className={`p-4 rounded-2xl text-[10px] font-black uppercase tracking-wider flex flex-col items-center gap-2 transition-all ${adminTab === 'schools' ? 'bg-orange-500 text-white' : 'text-secondary hover:bg-primary/5'}`}><GraduationCap size={20} /> <span>Centros</span></button>
-                                                        <button onClick={() => { setAdminTab('settings'); setMobileAdminMenuOpen(false); }} className={`p-4 rounded-2xl text-[10px] font-black uppercase tracking-wider flex flex-col items-center gap-2 transition-all ${adminTab === 'settings' ? 'bg-indigo-500 text-white' : 'text-secondary hover:bg-primary/5'}`}><Settings size={20} /> <span>Ajustes</span></button>
-                                                        <button onClick={() => { setAdminTab('orders'); setMobileAdminMenuOpen(false); }} className={`p-4 rounded-2xl text-[10px] font-black uppercase tracking-wider flex flex-col items-center gap-2 transition-all ${adminTab === 'orders' ? 'bg-emerald-500 text-white' : 'text-secondary hover:bg-primary/5'}`}><Users size={20} /> <span>Pedidos</span></button>
-                                                        <button onClick={() => { setAdminTab('precios'); setMobileAdminMenuOpen(false); }} className={`p-4 rounded-2xl text-[10px] font-black uppercase tracking-wider flex flex-col items-center gap-2 transition-all ${adminTab === 'precios' ? 'bg-amber-500 text-white' : 'text-secondary hover:bg-primary/5'}`}><Euro size={20} /> <span>Precios</span></button>
-                                                        <button onClick={() => { setAdminTab('design'); setMobileAdminMenuOpen(false); }} className={`p-4 rounded-2xl text-[10px] font-black uppercase tracking-wider flex flex-col items-center gap-2 transition-all ${adminTab === 'design' ? 'bg-violet-600 text-white' : 'text-secondary hover:bg-primary/5'}`}><Palette size={20} /> <span>Diseño</span></button>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Bloque: Mi Plan Master (Siempre Visible) */}
-                                    <div className="card p-4 md:p-4 bg-gradient-to-br from-indigo-900/10 dark:from-indigo-500/10 to-transparent border-indigo-500/20 dark:border-indigo-400/30 mb-6 border-2 sticky top-[100px] md:top-[152px] z-[35] backdrop-blur-xl mx-2 md:mx-0 shadow-2xl">
-                                        <div className="flex flex-col md:flex-row justify-between items-center gap-4 md:gap-4">
-                                            <div className="flex items-center gap-3 w-full md:w-auto">
-                                                <div className={`w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl flex items-center justify-center border-2 shadow-lg shrink-0 ${settings.plan === 'starter' ? 'bg-amber-400/10 border-amber-500/30 text-amber-500' :
-                                                    settings.plan === 'pro' ? 'bg-blue-400/10 border-blue-500/30 text-blue-500' :
-                                                        settings.plan === 'flex' ? 'bg-emerald-400/10 border-emerald-500/30 text-emerald-500' :
-                                                            'bg-purple-400/10 border-purple-500/30 text-purple-500'
-                                                    }`}>
-                                                    <Crown size={22} className="md:size-[32px]" />
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <div className="flex items-center gap-2">
-                                                        <h3 className="text-sm md:text-xl font-black text-primary uppercase tracking-tighter leading-none">Plan: <span className="text-indigo-500">{settings.plan?.toUpperCase() || 'STARTER'}</span></h3>
-                                                        {settings.isPaid ? (
-                                                            <span className="bg-emerald-500/10 text-emerald-500 text-[6px] md:text-[8px] font-black px-1.5 py-0.5 rounded border border-emerald-500/20 uppercase tracking-widest shrink-0">Activo</span>
-                                                        ) : (
-                                                            <span className="bg-amber-500/10 text-amber-500 text-[6px] md:text-[8px] font-black px-1.5 py-0.5 rounded border border-amber-500/20 uppercase tracking-widest leading-none shrink-0">Esperando</span>
-                                                        )}
-                                                    </div>
-                                                    <p className="hidden md:block text-secondary text-[10px] font-bold uppercase tracking-wider mt-2 opacity-60 leading-tight">
-                                                        {settings.plan === 'starter' ? 'Ideal para pequeños eventos de hasta 100 alumnos.' :
-                                                            settings.plan === 'flex' ? 'Pago por uso sin cuotas fijas anuales.' :
-                                                                settings.plan === 'pro' ? 'Control total e ilimitado para grandes volúmenes.' :
-                                                                    'Solución a medida para flujo de trabajo especial.'}
-                                                    </p>
-                                                    <p className="md:hidden text-secondary text-[8px] font-bold uppercase tracking-widest mt-1 opacity-40 leading-tight truncate">
-                                                        Solución profesional para tu estudio
-                                                    </p>
-                                                </div>
-                                            </div>
-
-                                            <button
-                                                onClick={() => setShowPlanSelector(true)}
-                                                className="w-full md:w-auto px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-[9px] md:text-[10px] uppercase tracking-[0.2em] rounded-xl shadow-xl shadow-indigo-600/20 transition-all active:scale-95 flex items-center justify-center gap-3 shrink-0 min-h-[44px]"
-                                            >
-                                                Cambiar Plan <ArrowRight size={14} />
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {/* ── VISTA SHOOTING ─────────────────────────────────────── */}
-                                    {adminTab === 'shooting' && (() => {
-                                        let shootOrders = [...orders];
-                                        if (shootFilters.course) shootOrders = shootOrders.filter(o => getCourseBase(o.course) === shootFilters.course);
-                                        if (shootFilters.group) shootOrders = shootOrders.filter(o => getGroup(o.course) === shootFilters.group);
-                                        if (shootFilters.status) shootOrders = shootOrders.filter(o => (o.status || 'Pendiente') === shootFilters.status);
-
-                                        const q = shootSearch.trim().toLowerCase();
-                                        const visible = q
-                                            ? shootOrders.filter(o => o.studentName?.toLowerCase().includes(q))
-                                            : [...shootOrders].sort((a, b) => {
-                                                const fa = (a.studentName || '').trim().split(/\s+/)[1] || '';
-                                                const fb = (b.studentName || '').trim().split(/\s+/)[1] || '';
-                                                return fa.localeCompare(fb, 'es', { sensitivity: 'base' });
-                                            });
-
-                                        const total = shootOrders.length;
-                                        const done = shootOrders.filter(o => o.photoFile).length;
-                                        const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-
-                                        const availCourses = COURSE_GROUPS.flatMap(g => g.courses);
-                                        const activeCourses = availCourses.filter(c => orders.some(o => getCourseBase(o.course) === c.name));
-                                        const selCourse = availCourses.find(c => c.name === shootFilters.course);
-                                        const availGroups = selCourse?.lines || [];
-
-                                        return (
-                                            <div className="space-y-4">
-                                                {/* Toggle modo */}
-                                                <div className="flex flex-col lg:flex-row justify-between items-center gap-4">
-                                                    <div className="flex gap-2 bg-primary/2 p-1.5 rounded-[22px] border border-primary/10 w-full lg:w-fit shadow-inner">
-                                                        <button onClick={() => setShootMode('students')} className={`flex-1 lg:px-6 py-3 rounded-[18px] text-[10px] md:text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${shootMode === 'students' ? 'bg-emerald-500 text-white shadow-lg' : 'text-secondary hover:text-primary opacity-60'} min-h-[44px]`}>
-                                                            <span className="text-sm md:text-base">👧</span> Alumnos {orders.length > 0 && <span className="bg-white/20 px-1.5 py-0.5 rounded-lg text-[9px]">{orders.length}</span>}
-                                                        </button>
-                                                        <button onClick={() => { setShootMode('staff'); setShootSearch(''); }} className={`flex-1 lg:px-6 py-3 rounded-[18px] text-[10px] md:text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${shootMode === 'staff' ? 'bg-indigo-500 text-white shadow-lg' : 'text-secondary hover:text-primary opacity-60'} min-h-[44px]`}>
-                                                            <span className="text-sm md:text-base">👨‍🏫</span> Equipo {staff.length > 0 && <span className="bg-white/20 px-1.5 py-0.5 rounded-lg text-[9px]">{staff.length}</span>}
-                                                        </button>
-                                                    </div>
-                                                    <button onClick={downloadMasterBackup} className="w-full lg:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-amber-500/10 border border-amber-500/20 text-amber-600 text-[10px] md:text-xs font-black uppercase tracking-widest rounded-2xl hover:bg-amber-500/20 transition-all active:scale-95 shadow-sm min-h-[44px]">
-                                                        <Database size={16} /> Backup SOS
-                                                    </button>
-                                                </div>
-
-                                                {shootMode === 'students' && (<>
-                                                    <div className="card p-4 md:p-6 mb-4">
-                                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                                            <div className="relative">
-                                                                <label className="text-[8px] font-black text-secondary uppercase mb-1 ml-1 block opacity-50">Curso</label>
-                                                                <select value={shootFilters.course} onChange={e => setShootFilters(p => ({ ...p, course: e.target.value, group: '' }))} className="w-full bg-primary/5 border border-primary/10 text-primary text-xs font-black rounded-xl px-4 py-3.5 cursor-pointer outline-none hover:bg-primary/10 transition-all appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%20stroke%3D%22currentColor%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%20%2F%3E%3C%2Fsvg%3E')] bg-[length:16px] bg-[right_1rem_center] bg-no-repeat min-h-[48px]">
-                                                                    <option value="">— Cursos ativos ({activeCourses.length}) —</option>
-                                                                    {activeCourses.map(c => <option key={c.name} value={c.name} className="bg-card text-primary">{c.name}</option>)}
-                                                                </select>
-                                                            </div>
-                                                            <div className="relative">
-                                                                <label className="text-[8px] font-black text-secondary uppercase mb-1 ml-1 block opacity-50">Grupo</label>
-                                                                <select value={shootFilters.group} onChange={e => setShootFilters(p => ({ ...p, group: e.target.value }))} className="w-full bg-primary/5 border border-primary/10 text-primary text-xs font-black rounded-xl px-4 py-3.5 cursor-pointer outline-none hover:bg-primary/10 transition-all appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%20stroke%3D%22currentColor%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%20%2F%3E%3C%2Fsvg%3E')] bg-[length:16px] bg-[right_1rem_center] bg-no-repeat min-h-[48px]">
-                                                                    <option value="">— Todos —</option>
-                                                                    {availGroups.map(g => <option key={g} value={g} className="bg-card text-primary">Grupo {g}</option>)}
-                                                                </select>
-                                                            </div>
-                                                            <div className="relative">
-                                                                <label className="text-[8px] font-black text-secondary uppercase mb-1 ml-1 block opacity-50">Estado</label>
-                                                                <select value={shootFilters.status} onChange={e => setShootFilters(p => ({ ...p, status: e.target.value }))} className="w-full bg-primary/5 border border-primary/10 text-primary text-xs font-black rounded-xl px-4 py-3.5 cursor-pointer outline-none hover:bg-primary/10 transition-all appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%20stroke%3D%22currentColor%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%20%2F%3E%3C%2Fsvg%3E')] bg-[length:16px] bg-[right_1rem_center] bg-no-repeat min-h-[48px]">
-                                                                    <option value="">— Todos —</option>
-                                                                    <option value="Pendiente" className="bg-card text-primary">Pendiente</option>
-                                                                    <option value="Pagado" className="bg-card text-primary">Pagado</option>
-                                                                    <option value="Producido" className="bg-card text-primary">Producido</option>
-                                                                    <option value="Entregado" className="bg-card text-primary">Entregado</option>
-                                                                </select>
-                                                            </div>
-                                                        </div>
-                                                        {/* Barra de progreso de ancho completo */}
-                                                        <div className="mt-4 pt-4 border-t border-primary/5">
-                                                            <div className="flex justify-between text-[10px] font-black text-secondary mb-2">
-                                                                <span>Progreso alumnos</span>
-                                                                <span className={pct === 100 ? 'text-emerald-500' : 'text-red-700'}>{done}/{total} · {pct}%</span>
-                                                            </div>
-                                                            <div className="h-2.5 bg-primary/10 rounded-full overflow-hidden shadow-inner">
-                                                                <div className={`h-full bg-gradient-to-r rounded-full transition-all duration-700 ease-out shadow-lg ${pct === 100 ? 'from-emerald-600 to-emerald-400' : 'from-red-800 to-red-600'}`} style={{ width: `${pct}%` }} />
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="card p-4 bg-red-700/3 border-red-700/10 mb-4 space-y-3 animate-fade-in">
-                                                        <p className="text-[10px] font-black text-red-700 uppercase tracking-widest leading-none">Alta rápida (Sin pedido previo)</p>
-                                                        <div className="flex gap-2">
-                                                            <input type="text" value={newStudentForm.name}
-                                                                onChange={e => setNewStudentForm(p => ({ ...p, name: e.target.value }))}
-                                                                onBlur={e => setNewStudentForm(p => ({ ...p, name: toTitleCase(e.target.value) }))}
-                                                                placeholder="Nombre completo del alumno" className="flex-1 bg-primary/5 border border-primary/10 text-primary text-sm rounded-xl px-4 py-3 outline-none focus:border-red-500/50 transition-all font-bold" />
-                                                            <div className="relative w-full sm:w-[220px]">
-                                                                <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-red-500 opacity-50" />
-                                                                <input type="tel" value={newStudentForm.phone}
-                                                                    onChange={e => {
-                                                                        const val = e.target.value.replace(/\D/g, '').slice(0, 9);
-                                                                        setNewStudentForm(p => ({ ...p, phone: val }));
-                                                                    }}
-                                                                    placeholder="Teléfono móvil"
-                                                                    className="w-full bg-primary/5 border border-primary/10 text-primary text-sm rounded-xl pl-9 pr-12 py-3 outline-none focus:border-red-500/50 transition-all font-bold" />
-                                                                {newStudentForm.phone.length === 9 && (
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            const msg = `Hola ${newStudentForm.name} 👋\n\nConfirmación de Pedido - Pujalte Studio\n\n¡En breve te enviaremos los detalles! 📷`;
-                                                                            window.open(`https://wa.me/34${newStudentForm.phone}?text=${encodeURIComponent(msg)}`, '_blank');
-                                                                        }}
-                                                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 hover:text-emerald-600 transition-colors"
-                                                                    >
-                                                                        <MessageSquare size={16} />
-                                                                    </button>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex flex-wrap items-center gap-2">
-                                                            <select value={newStudentForm.schoolId || adminSchool} onChange={e => {
-                                                                const sid = e.target.value;
-                                                                setNewStudentForm(p => ({ ...p, schoolId: sid }));
-                                                                setAdminSchool(sid);
-                                                            }} className="flex-1 min-w-[150px] bg-primary/5 border border-primary/10 text-primary text-xs font-bold rounded-xl px-3 py-2.5 cursor-pointer outline-none transition-colors focus:border-red-500/50">
-                                                                <option value="" className="text-primary">— Centro —</option>
-                                                                {sortedSchools.map(s => <option key={s.id} value={s.id} className="text-primary">{s.name}</option>)}
-                                                            </select>
-                                                            <select value={newStudentForm.course} onChange={e => setNewStudentForm(p => ({ ...p, course: e.target.value }))} className="flex-1 min-w-[140px] bg-primary/5 border border-primary/10 text-primary text-xs font-bold rounded-xl px-3 py-2.5 cursor-pointer outline-none transition-colors focus:border-red-500/50">
-                                                                <option value="" className="text-primary">— Curso —</option>
-                                                                {availCourses.map(c => <option key={c.name} value={c.name} className="text-primary">{c.name}</option>)}
-                                                            </select>
-                                                            <select value={newStudentForm.group} onChange={e => setNewStudentForm(p => ({ ...p, group: e.target.value }))} className="w-[85px] bg-primary/5 border border-primary/10 text-primary text-xs font-bold rounded-xl px-2 py-2.5 cursor-pointer uppercase outline-none focus:border-red-500/50">
-                                                                <option value="" className="text-primary">GRUPO</option>
-                                                                <option value="A" className="text-primary">A</option>
-                                                                <option value="B" className="text-primary">B</option>
-                                                                <option value="C" className="text-primary">C</option>
-                                                                <option value="D" className="text-primary">D</option>
-                                                            </select>
-                                                            <input type="text" value={newStudentForm.photoFile} onChange={e => setNewStudentForm(p => ({ ...p, photoFile: e.target.value }))}
-                                                                placeholder="Nº FOTO (ej: 001)" className="w-[130px] bg-primary/5 border border-primary/20 text-primary text-[10px] font-black rounded-xl px-3 py-2.5 outline-none placeholder-primary/40 focus:border-red-700/50 uppercase tracking-tighter" />
-                                                            <select value={newStudentForm.status} onChange={e => setNewStudentForm(p => ({ ...p, status: e.target.value }))} className={`w-[110px] text-[10px] font-black rounded-xl px-2 py-2.5 border cursor-pointer outline-none transition-all ${newStudentForm.status === 'Pagado' ? 'bg-emerald-500 text-white border-emerald-600' : 'bg-amber-500 text-white border-amber-600'}`}>
-                                                                <option value="Pendiente">PENDIENTE</option>
-                                                                <option value="Pagado">PAGADO</option>
-                                                            </select>
-                                                            <select value={newStudentForm.paymentMethod} onChange={e => setNewStudentForm(p => ({ ...p, paymentMethod: e.target.value }))} className="w-[150px] bg-primary/10 border border-primary/20 text-white text-[10px] font-black rounded-xl px-2 py-2.5 cursor-pointer uppercase outline-none focus:border-red-700/50">
-                                                                <option value="" disabled className="text-primary">FORMA DE PAGO</option>
-                                                                <option value="Efectivo" className="text-primary">Efectivo</option>
-                                                                <option value="Bizum" className="text-primary">Bizum</option>
-                                                            </select>
-                                                            <button
-                                                                disabled={!newStudentForm.name.trim() || !newStudentForm.course || (newStudentForm.phone && newStudentForm.phone.length < 9)}
-                                                                onClick={() => {
-                                                                    const fullCourse = `${newStudentForm.course}${newStudentForm.group ? ' ' + newStudentForm.group.toUpperCase() : ''}`;
-                                                                    const sid = newStudentForm.schoolId || adminSchool;
-                                                                    const newOrder = {
-                                                                        studentName: newStudentForm.name,
-                                                                        schoolId: sid,
-                                                                        schoolName: schools.find(s => s.id === sid)?.name || '',
-                                                                        course: fullCourse,
-                                                                        pack: { id: 'manual', label: 'PENDIENTE' },
-                                                                        packQuantity: 1,
-                                                                        extras: [],
-                                                                        paymentMethod: newStudentForm.paymentMethod,
-                                                                        status: newStudentForm.status,
-                                                                        total: 0,
-                                                                        cost: 0,
-                                                                        photoFile: newStudentForm.photoFile,
-                                                                        phone: newStudentForm.phone,
-                                                                        id: `MANUAL_${Date.now()}`,
-                                                                        timestamp: Date.now()
-                                                                    };
-                                                                    addOrder(newOrder);
-                                                                    setNewStudentForm({ schoolId: '', name: '', course: '', group: '', phone: '', photoFile: '', status: 'Pendiente', paymentMethod: '' });
-                                                                    setShowNewStudentForm(false);
-                                                                }}
-                                                                className="flex-1 sm:flex-none bg-red-700 text-white font-black text-[10px] rounded-xl px-6 py-2.5 hover:bg-red-800 transition-all active:scale-95 disabled:opacity-30 shadow-sm shadow-red-700/20 whitespace-nowrap">GUARDAR ALUMNO</button>
-                                                        </div>
-                                                    </div>
-                                                    {/* Buscador alumnos */}
-                                                    <div className="card overflow-hidden">
-                                                        <div className="p-4 border-b border-primary/5 flex flex-col gap-4">
-                                                            <div className="flex items-center justify-between gap-4">
-                                                                <div className="relative flex-1">
-                                                                    <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-red-500" />
-                                                                    <input type="text" lang="es" value={shootSearch} onChange={e => { setShootSearch(e.target.value); setSelectedOrderIds([]); }}
-                                                                        placeholder="Escribe nombre o apellido para encontrar al alumno..."
-                                                                        className="w-full bg-primary/5 border-2 border-red-700/30 focus:border-red-700 rounded-2xl pl-12 pr-4 py-4 text-base text-primary placeholder-primary/30 outline-none font-medium transition-colors" />
-                                                                </div>
-                                                                {visible.length > 0 && (
-                                                                    <button onClick={() => {
-                                                                        if (selectedOrderIds.length === visible.length) setSelectedOrderIds([]);
-                                                                        else setSelectedOrderIds(visible.map(o => o.id));
-                                                                    }} className="px-4 py-4 bg-primary/5 border border-primary/10 rounded-2xl text-[10px] font-black uppercase tracking-wider text-secondary hover:bg-primary/10 transition-all flex items-center gap-2">
-                                                                        {selectedOrderIds.length === visible.length ? <CheckSquare size={16} className="text-red-700" /> : <Square size={16} />}
-                                                                        <span className="hidden sm:inline">Todos</span>
-                                                                    </button>
-                                                                )}
-                                                            </div>
-
-                                                            {selectedOrderIds.length > 0 && (
-                                                                <div className="flex items-center justify-between bg-red-700/10 p-3 rounded-xl border border-red-700/20 animate-fade-in">
-                                                                    <p className="text-xs font-black text-red-700 uppercase tracking-wider flex items-center gap-2">
-                                                                        <Trash2 size={14} /> {selectedOrderIds.length} seleccionados
-                                                                    </p>
-                                                                    <div className="flex gap-2">
-                                                                        <button onClick={() => setSelectedOrderIds([])} className="px-3 py-1.5 text-[10px] font-black uppercase text-secondary hover:text-primary">Cancelar</button>
-                                                                        <button onClick={() => {
-                                                                            if (confirm(`¿Estás seguro de que quieres borrar ${selectedOrderIds.length} alumnos? Esta acción no se puede deshacer.`)) {
-                                                                                selectedOrderIds.forEach(id => deleteOrder(id));
-                                                                                setSelectedOrderIds([]);
-                                                                            }
-                                                                        }} className="px-4 py-1.5 bg-red-700 text-white text-[10px] font-black uppercase rounded-lg shadow-sm shadow-red-700/20 active:scale-95 transition-all">Borrar permanentemente</button>
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                        <div className="divide-y divide-primary/5 max-h-[55vh] overflow-y-auto">
-                                                            {visible.length === 0
-                                                                ? <div className="py-16 text-center text-secondary font-semibold opacity-50">{total === 0 ? 'Sin pedidos registrados' : 'Sin resultados'}</div>
-                                                                : visible.map(order => (
-                                                                    <div key={order.id} className="w-full flex items-center hover:bg-red-700/5 transition-colors group">
-                                                                        <button
-                                                                            onClick={() => {
-                                                                                setSelectedOrderIds(prev => prev.includes(order.id) ? prev.filter(id => id !== order.id) : [...prev, order.id]);
-                                                                            }}
-                                                                            className="pl-5 py-6 flex-shrink-0"
-                                                                        >
-                                                                            <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${selectedOrderIds.includes(order.id) ? 'bg-red-700 border-red-700 text-white' : 'border-primary/20 bg-primary/5 text-transparent'}`}>
-                                                                                <CheckCircle size={14} strokeWidth={3} />
-                                                                            </div>
-                                                                        </button>
-                                                                        <div className="flex-1 flex items-center gap-4 px-3 py-4">
-                                                                            {/* Icono de Estado Interactivo */}
-                                                                            <div className="relative z-20 shrink-0">
-                                                                                <select
-                                                                                    value={order.status || 'Pendiente'}
-                                                                                    onChange={e => { e.stopPropagation(); updateStatus(order.id, e.target.value); }}
-                                                                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                                                                                >
-                                                                                    <option value="Pendiente">Pendiente 📷</option>
-                                                                                    <option value="Pagado">Pagado ✅</option>
-                                                                                    <option value="Producido">Producido 📦</option>
-                                                                                    <option value="Entregado">Entregado 🏁</option>
-                                                                                </select>
-                                                                                <span className={`w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0 transition-all duration-300 border ${order.status === 'Pagado' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30' :
-                                                                                    order.status === 'Producido' ? 'bg-indigo-500/10 text-indigo-500 border-indigo-500/30' :
-                                                                                        order.status === 'Entregado' ? 'bg-slate-500/10 text-secondary border-slate-500/30' :
-                                                                                            'bg-amber-500/10 text-amber-500 border-amber-500/30'
-                                                                                    }`}>
-                                                                                    {order.status === 'Pagado' ? '✅' :
-                                                                                        order.status === 'Producido' ? '📦' :
-                                                                                            order.status === 'Entregado' ? '🏁' : '📷'}
-                                                                                </span>
-                                                                            </div>
-
-                                                                            {/* Botón WhatsApp independiente */}
-                                                                            {order.phone && (
-                                                                                <button
-                                                                                    onClick={(e) => {
-                                                                                        e.stopPropagation();
-                                                                                        const packsDesc = typeof order.pack === 'object' ? order.pack.label : (PACKS.find(p => p.id === order.pack)?.name || order.pack || 'Personalizado');
-                                                                                        const msg = `Hola ${order.studentName} 👋\n\n` +
-                                                                                            `🎓 *Confirmación de Pedido - Pujalte Studio*\n\n` +
-                                                                                            `🏫 *Centro:* ${order.schoolName}\n` +
-                                                                                            `📚 *Curso:* ${order.course}\n` +
-                                                                                            `📦 *Pack:* ${packsDesc}\n` +
-                                                                                            `💰 *Estado:* ${order.status.toUpperCase()}\n` +
-                                                                                            `💳 *Pago:* ${order.paymentMethod || 'Efectivo'}\n\n` +
-                                                                                            `¡Gracias por confiar en nosotros! 📷`;
-                                                                                        window.open(`https://wa.me/34${order.phone}?text=${encodeURIComponent(msg)}`, '_blank');
-                                                                                    }}
-                                                                                    className="w-9 h-9 rounded-xl flex items-center justify-center bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 hover:bg-emerald-500 hover:text-white transition-all active:scale-90 shrink-0"
-                                                                                    title="Enviar recibo por WhatsApp"
-                                                                                >
-                                                                                    <MessageSquare size={16} />
-                                                                                </button>
-                                                                            )}
-
-                                                                            {/* Botón de Edición (Cuerpo principal) */}
-                                                                            <button
-                                                                                onClick={() => setOrderToEdit({
-                                                                                    ...order,
-                                                                                    tempPhotoFile: order.photoFile || '',
-                                                                                    tempStatus: order.status || 'Pendiente',
-                                                                                    tempPayment: order.paymentMethod || 'Efectivo',
-                                                                                    tempCourse: getCourseBase(order.course),
-                                                                                    tempGroup: getGroup(order.course),
-                                                                                    packId: order.pack?.id || order.packId || (typeof order.pack === 'string' ? order.pack : 'esencial'),
-                                                                                    packQuantity: order.packQuantity || 1,
-                                                                                    schoolName: order.schoolName || getSchoolName(order.schoolId)
-                                                                                })}
-                                                                                className="flex-1 flex items-center justify-between gap-4 text-left"
-                                                                            >
-                                                                                <div className="flex-1 min-w-0">
-                                                                                    <div className="flex items-center gap-2">
-                                                                                        <p className="text-sm font-black text-primary truncate leading-none">{order.studentName}</p>
-                                                                                        <span className="text-[9px] font-black text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 uppercase tracking-tighter shrink-0">{order.total || 0}€</span>
-                                                                                    </div>
-                                                                                    <p className="text-[10px] font-bold text-secondary flex items-center gap-2 mt-1">
-                                                                                        <span className="text-indigo-400 uppercase tracking-widest text-[9px]">{order.schoolName || getSchoolName(order.schoolId)}</span>
-                                                                                        <span className="w-1 h-1 bg-secondary/20 rounded-full"></span>
-                                                                                        <span className="opacity-70">{order.course}</span>
-                                                                                        <span className="w-1 h-1 bg-secondary/20 rounded-full"></span>
-                                                                                        <span className="text-[8px] font-black text-indigo-400 bg-indigo-400/10 px-1 py-0.5 rounded border border-indigo-400/20 uppercase truncate max-w-[80px]">{(typeof order.pack === 'object' ? order.pack.label : order.pack) || 'SIN PACK'}</span>
-                                                                                    </p>
-                                                                                </div>
-                                                                                {order.photoFile
-                                                                                    ? <span className="text-xs font-mono text-emerald-500 bg-emerald-500/8 border border-emerald-500/20 px-3 py-1.5 rounded-xl flex-shrink-0">{order.photoFile}</span>
-                                                                                    : <span className="text-[10px] font-black text-secondary opacity-0 group-hover:opacity-40 transition-all shrink-0">TAP →</span>
-                                                                                }
-                                                                            </button>
-                                                                        </div>
-                                                                    </div>
-                                                                ))}
-                                                        </div>
-                                                    </div>
-                                                </>)
-                                                }
-
-                                                {/* ── EQUIPO DOCENTE ────────────────────────── */}
-                                                {shootMode === 'staff' && (<>
-                                                    <div className="card p-4 flex items-center gap-3 flex-wrap">
-                                                        <div className="flex-1">
-                                                            {staff.length > 0 && (
-                                                                <div className="flex flex-col gap-4">
-                                                                    <div className="flex items-center justify-between gap-4">
-                                                                        <div className="relative flex-1">
-                                                                            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-indigo-400" />
-                                                                            <input type="text" lang="es" value={shootSearch} onChange={e => { setShootSearch(e.target.value); setSelectedStaffIds([]); }}
-                                                                                placeholder="Buscar por nombre..."
-                                                                                className="w-full bg-primary/5 border border-indigo-400/20 focus:border-indigo-400 rounded-xl pl-10 pr-4 py-2.5 text-sm text-primary placeholder-primary/30 outline-none transition-colors" />
-                                                                        </div>
-                                                                        <button onClick={() => {
-                                                                            const sq = shootSearch.trim().toLowerCase();
-                                                                            const filtered = sq ? staff.filter(m => m.name.toLowerCase().includes(sq)) : staff;
-                                                                            if (selectedStaffIds.length === filtered.length) setSelectedStaffIds([]);
-                                                                            else setSelectedStaffIds(filtered.map(m => m.id));
-                                                                        }} className="px-4 py-2.5 bg-primary/5 border border-primary/10 rounded-xl text-[10px] font-black uppercase tracking-wider text-secondary hover:bg-primary/10 transition-all flex items-center gap-2">
-                                                                            {(() => {
-                                                                                const sq = shootSearch.trim().toLowerCase();
-                                                                                const filtered = sq ? staff.filter(m => m.name.toLowerCase().includes(sq)) : staff;
-                                                                                return selectedStaffIds.length > 0 && selectedStaffIds.length === filtered.length ? <CheckSquare size={14} className="text-indigo-500" /> : <Square size={14} />;
-                                                                            })()}
-                                                                            <span className="hidden sm:inline">Todos</span>
-                                                                        </button>
-                                                                    </div>
-
-                                                                    {selectedStaffIds.length > 0 && (
-                                                                        <div className="flex items-center justify-between bg-indigo-500/10 p-3 rounded-xl border border-indigo-500/20 animate-fade-in">
-                                                                            <p className="text-xs font-black text-indigo-600 uppercase tracking-wider flex items-center gap-2">
-                                                                                <Trash2 size={14} /> {selectedStaffIds.length} seleccionados
-                                                                            </p>
-                                                                            <div className="flex gap-2">
-                                                                                <button onClick={() => setSelectedStaffIds([])} className="px-3 py-1.5 text-[10px] font-black uppercase text-secondary hover:text-primary">Cancelar</button>
-                                                                                <button onClick={() => {
-                                                                                    if (confirm(`¿Estás seguro de que quieres borrar ${selectedStaffIds.length} miembros del equipo? Esta acción no se puede deshacer.`)) {
-                                                                                        selectedStaffIds.forEach(id => deleteStaff(id));
-                                                                                        setSelectedStaffIds([]);
-                                                                                    }
-                                                                                }} className="px-4 py-1.5 bg-indigo-500 text-white text-[10px] font-black uppercase rounded-lg shadow-sm shadow-indigo-500/20 active:scale-95 transition-all">Borrar selección</button>
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                    <div className="card p-4 bg-indigo-500/5 border-indigo-500/10 mb-8 shadow-sm">
-                                                        <div className="flex items-center gap-2 mb-4">
-                                                            <div className="w-1.5 h-3 bg-indigo-500 rounded-full"></div>
-                                                            <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest leading-none">Alta rápida de personal</p>
-                                                        </div>
-
-                                                        <div className="space-y-3">
-                                                            <div className="bg-primary/5 border border-primary/10 rounded-xl p-3">
-                                                                <label className="text-[8px] font-black text-secondary uppercase mb-1 ml-1 block opacity-60">Centro</label>
-                                                                <select value={newStaffForm.schoolId || adminSchool} onChange={e => {
-                                                                    const sid = e.target.value;
-                                                                    setNewStaffForm(p => ({ ...p, schoolId: sid }));
-                                                                    setAdminSchool(sid);
-                                                                }} className="w-full bg-primary/5 border border-primary/10 text-xs rounded-lg px-3 py-2 outline-none focus:border-indigo-500 transition-all font-medium text-primary cursor-pointer">
-                                                                    <option value="">— Seleccionar Centro —</option>
-                                                                    {schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                                                </select>
-                                                            </div>
-                                                            {/* Fila 1: Nombre y Foto */}
-                                                            <div className="grid grid-cols-[1fr,120px] gap-3">
-                                                                <div>
-                                                                    <label className="text-[8px] font-black text-secondary uppercase mb-1 ml-1 block opacity-60">Nombre completo</label>
-                                                                    <input type="text" value={newStaffForm.name}
-                                                                        onChange={e => {
-                                                                            const val = e.target.value.toLowerCase().replace(/(^|\s)\S/g, l => l.toUpperCase());
-                                                                            setNewStaffForm(p => ({ ...p, name: val }));
-                                                                        }}
-                                                                        placeholder="Ej: Maria García"
-                                                                        className="w-full bg-primary/5 border border-primary/10 text-xs rounded-lg px-3 py-2 outline-none focus:border-indigo-500 transition-all font-medium text-primary" />
-                                                                </div>
-                                                                <div>
-                                                                    <label className="text-[8px] font-black text-secondary uppercase mb-1 ml-1 block opacity-60">Foto (opc.)</label>
-                                                                    <input type="text" value={newStaffForm.photoFile} onChange={e => setNewStaffForm(p => ({ ...p, photoFile: e.target.value }))}
-                                                                        placeholder="DSC_001"
-                                                                        className="w-full bg-primary/5 border border-primary/10 text-xs rounded-lg px-3 py-2 outline-none focus:border-indigo-500 transition-all font-mono text-primary" />
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Fila 2: Puestos y Clases en 2 columnas */}
-                                                            <div className="grid grid-cols-2 gap-3">
-                                                                {/* Puestos y Cargos */}
-                                                                <div className="bg-primary/5 border border-primary/10 rounded-xl p-3">
-                                                                    <label className="text-[8px] font-black text-secondary uppercase mb-2 block opacity-60">Puestos / Cargos</label>
-
-                                                                    <div className="flex gap-1.5 mb-2 h-7 overflow-x-auto scrollbar-hide">
-                                                                        {newStaffForm.roles.length === 0 ? (
-                                                                            <span className="text-[8px] text-secondary opacity-40 italic self-center">Ninguno añadido...</span>
-                                                                        ) : (
-                                                                            newStaffForm.roles.map((r, i) => (
-                                                                                <span key={i} className="text-[8px] bg-violet-500/10 text-violet-500 font-black px-2 py-1 rounded-md flex items-center gap-1 border border-violet-500/20 whitespace-nowrap">
-                                                                                    {r}
-                                                                                    <button onClick={() => setNewStaffForm(p => ({ ...p, roles: p.roles.filter((_, idx) => idx !== i) }))} className="text-red-400 hover:text-red-500">✕</button>
-                                                                                </span>
-                                                                            ))
-                                                                        )}
-                                                                    </div>
-
-                                                                    <div className="flex gap-1.5">
-                                                                        <input type="text" list="roles-list-new" value={newStaffForm.tempRole}
-                                                                            onChange={e => setNewStaffForm(p => ({ ...p, tempRole: e.target.value }))}
-                                                                            onKeyDown={e => {
-                                                                                if (e.key === 'Enter' && newStaffForm.tempRole.trim()) {
-                                                                                    e.preventDefault();
-                                                                                    if (!newStaffForm.roles.includes(newStaffForm.tempRole.trim())) {
-                                                                                        setNewStaffForm(p => ({ ...p, roles: [...p.roles, p.tempRole.trim()], tempRole: '' }));
-                                                                                    }
-                                                                                }
-                                                                            }}
-                                                                            placeholder="Añadir..." className="flex-1 bg-primary/5 border border-primary/10 text-[10px] rounded-lg px-2 py-1.5 outline-none focus:border-indigo-500 text-primary" />
-                                                                        <button type="button" onClick={() => {
-                                                                            if (newStaffForm.tempRole.trim() && !newStaffForm.roles.includes(newStaffForm.tempRole.trim())) {
-                                                                                setNewStaffForm(p => ({ ...p, roles: [...p.roles, p.tempRole.trim()], tempRole: '' }));
-                                                                            }
-                                                                        }} className="bg-violet-500 text-white w-7 h-7 rounded-lg flex items-center justify-center font-black shadow-sm">+</button>
-                                                                    </div>
-                                                                </div>
-
-                                                                {/* Asignación de Clases */}
-                                                                <div className="bg-primary/5 border border-primary/10 rounded-xl p-3">
-                                                                    <label className="text-[8px] font-black text-secondary uppercase mb-2 block opacity-60">Asignar Clases</label>
-
-                                                                    <div className="flex gap-1.5 mb-2 h-7 overflow-x-auto scrollbar-hide">
-                                                                        {newStaffForm.assignments.length === 0 ? (
-                                                                            <span className="text-[8px] text-secondary opacity-40 italic self-center">Ninguna...</span>
-                                                                        ) : (
-                                                                            newStaffForm.assignments.map((a, i) => (
-                                                                                <span key={i} className="text-[8px] bg-indigo-500/10 text-indigo-500 font-black px-2 py-1 rounded-md flex items-center gap-1 border border-indigo-500/20 whitespace-nowrap">
-                                                                                    {a.course} {a.group}
-                                                                                    <button onClick={() => setNewStaffForm(p => ({ ...p, assignments: p.assignments.filter((_, idx) => idx !== i) }))} className="text-red-400 hover:text-red-500">✕</button>
-                                                                                </span>
-                                                                            ))
-                                                                        )}
-                                                                    </div>
-
-                                                                    <div className="flex gap-1">
-                                                                        <select value={newStaffForm.tempCourse} onChange={e => setNewStaffForm(p => ({ ...p, tempCourse: e.target.value }))} className="flex-1 bg-primary/5 border border-primary/10 text-[9px] font-bold rounded-lg px-1.5 py-1.5 outline-none">
-                                                                            <option value="">CLASE</option>
-                                                                            {availCourses.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
-                                                                        </select>
-                                                                        <select value={newStaffForm.tempGroup} onChange={e => setNewStaffForm(p => ({ ...p, tempGroup: e.target.value }))} className="w-12 bg-primary/5 border border-primary/10 text-[9px] font-bold rounded-lg px-1 py-1.5 outline-none">
-                                                                            <option value="">GRP</option>
-                                                                            <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option>
-                                                                        </select>
-                                                                        <button type="button" disabled={!newStaffForm.tempCourse} onClick={() => setNewStaffForm(p => ({ ...p, assignments: [...p.assignments, { course: p.tempCourse, group: p.tempGroup }], tempCourse: '', tempGroup: '' }))} className="bg-indigo-500 text-white w-7 h-7 rounded-lg flex items-center justify-center font-black shadow-sm disabled:opacity-30">+</button>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Botón Guardar */}
-                                                            <button
-                                                                disabled={!newStaffForm.name.trim() || (newStaffForm.roles.length === 0 && !newStaffForm.tempRole.trim()) || (newStaffForm.assignments.length === 0 && !newStaffForm.tempCourse)}
-                                                                onClick={() => {
-                                                                    const finalRoles = newStaffForm.tempRole.trim() && !newStaffForm.roles.includes(newStaffForm.tempRole.trim())
-                                                                        ? [...newStaffForm.roles, newStaffForm.tempRole.trim()]
-                                                                        : newStaffForm.roles;
-                                                                    const finalAssignments = newStaffForm.tempCourse
-                                                                        ? [...newStaffForm.assignments, { course: newStaffForm.tempCourse, group: newStaffForm.tempGroup }]
-                                                                        : newStaffForm.assignments;
-
-                                                                    addStaff({
-                                                                        name: newStaffForm.name,
-                                                                        role: finalRoles.join(' • '),
-                                                                        roles: finalRoles,
-                                                                        assignments: finalAssignments,
-                                                                        photoFile: newStaffForm.photoFile
-                                                                    });
-                                                                    setNewStaffForm({ schoolId: '', name: '', role: '', roles: [], tempRole: '', photoFile: '', tempCourse: '', tempGroup: '', assignments: [] });
-                                                                }}
-                                                                className="w-full bg-red-700 text-white font-black text-[10px] rounded-xl py-2.5 hover:bg-red-800 transition-all active:scale-95 disabled:opacity-30 shadow-lg shadow-red-700/20 uppercase tracking-widest">
-                                                                GUARDAR FICHA PERSONAL
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                    <div className="card overflow-hidden">
-                                                        <div className="p-4 border-b border-primary/5 flex flex-col gap-4">
-                                                            <div className="flex items-center justify-between gap-4">
-                                                                <div className="relative flex-1">
-                                                                    <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-indigo-400" />
-                                                                    <input type="text" lang="es" value={shootSearch} onChange={e => { setShootSearch(e.target.value); setSelectedStaffIds([]); }}
-                                                                        placeholder="Buscar por nombre..."
-                                                                        className="w-full bg-primary/5 border border-indigo-400/20 focus:border-indigo-400 rounded-xl pl-10 pr-4 py-2.5 text-sm text-primary placeholder-primary/30 outline-none transition-colors" />
-                                                                </div>
-                                                                {staff.length > 0 && (
-                                                                    <button onClick={() => {
-                                                                        const filtered = shootSearch.trim() ? staff.filter(m => m.name.toLowerCase().includes(shootSearch.trim().toLowerCase())) : staff;
-                                                                        if (selectedStaffIds.length === filtered.length) setSelectedStaffIds([]);
-                                                                        else setSelectedStaffIds(filtered.map(m => m.id));
-                                                                    }} className="px-4 py-2.5 bg-primary/5 border border-primary/10 rounded-xl text-[10px] font-black uppercase tracking-wider text-secondary hover:bg-primary/10 transition-all flex items-center gap-2">
-                                                                        {((sq) => {
-                                                                            const filtered = sq ? staff.filter(m => m.name.toLowerCase().includes(sq)) : staff;
-                                                                            return selectedStaffIds.length > 0 && selectedStaffIds.length === filtered.length ? <CheckSquare size={14} className="text-indigo-500" /> : <Square size={14} />;
-                                                                        })(shootSearch.trim().toLowerCase())}
-                                                                        <span className="hidden sm:inline">Todos</span>
-                                                                    </button>
-                                                                )}
-                                                            </div>
-
-                                                            {selectedStaffIds.length > 0 && (
-                                                                <div className="flex items-center justify-between bg-indigo-500/10 p-3 rounded-xl border border-indigo-500/20 animate-fade-in">
-                                                                    <p className="text-xs font-black text-indigo-600 uppercase tracking-wider flex items-center gap-2">
-                                                                        <Trash2 size={14} /> {selectedStaffIds.length} seleccionados
-                                                                    </p>
-                                                                    <div className="flex gap-2">
-                                                                        <button onClick={() => setSelectedStaffIds([])} className="px-3 py-1.5 text-[10px] font-black uppercase text-secondary hover:text-primary">Cancelar</button>
-                                                                        <button onClick={() => {
-                                                                            if (confirm(`¿Estás seguro de que quieres borrar ${selectedStaffIds.length} miembros del equipo? Esta acción no se puede deshacer.`)) {
-                                                                                selectedStaffIds.forEach(id => deleteStaff(id));
-                                                                                setSelectedStaffIds([]);
-                                                                            }
-                                                                        }} className="px-4 py-1.5 bg-indigo-500 text-white text-[10px] font-black uppercase rounded-lg shadow-sm shadow-indigo-500/20 active:scale-95 transition-all">Borrar selección</button>
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                        <div className="divide-y divide-primary/5 max-h-[55vh] overflow-y-auto">
-                                                            {(() => {
-                                                                const sq = shootSearch.trim().toLowerCase();
-                                                                const filteredStaff = staff.filter(m => {
-                                                                    if (sq && !m.name.toLowerCase().includes(sq)) return false;
-
-                                                                    if (shootFilters.course) {
-                                                                        const asgs = getStaffAssignments(m);
-                                                                        if (!asgs.length) return false;
-                                                                        // Check if any assignment matches the selected course
-                                                                        const matchesCourse = asgs.some(a => a.course === shootFilters.course);
-                                                                        if (!matchesCourse) return false;
-                                                                        // Check if group is required
-                                                                        if (shootFilters.group) {
-                                                                            const matchesGroup = asgs.some(a => a.course === shootFilters.course && (!a.group || a.group === shootFilters.group));
-                                                                            if (!matchesGroup) return false;
-                                                                        }
-                                                                    }
-                                                                    return true;
-                                                                });
-
-                                                                if (filteredStaff.length === 0) {
-                                                                    return <div className="py-16 text-center text-secondary font-semibold opacity-50">{staff.length === 0 ? 'Sin personal registrado' : 'Sin resultados'}</div>;
-                                                                }
-
-                                                                return [...filteredStaff].sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })).map(member => (
-                                                                    <div key={member.id} className="w-full flex items-center hover:bg-indigo-500/3 transition-colors group">
-                                                                        <button
-                                                                            onClick={() => {
-                                                                                setSelectedStaffIds(prev => prev.includes(member.id) ? prev.filter(id => id !== member.id) : [...prev, member.id]);
-                                                                            }}
-                                                                            className="pl-5 py-6 flex-shrink-0"
-                                                                        >
-                                                                            <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all ${selectedStaffIds.includes(member.id) ? 'bg-indigo-500 border-indigo-500 text-white' : 'border-primary/20 bg-primary/5 text-transparent'}`}>
-                                                                                <CheckCircle size={12} strokeWidth={3} />
-                                                                            </div>
-                                                                        </button>
-                                                                        <button onClick={() => {
-                                                                            const initialRoles = member.roles || (member.role ? member.role.split(' • ') : []);
-                                                                            setStaffAssigning({
-                                                                                member,
-                                                                                name: member.name,
-                                                                                roles: initialRoles,
-                                                                                tempRole: '',
-                                                                                assignments: getStaffAssignments(member),
-                                                                                tempCourse: '',
-                                                                                tempGroup: '',
-                                                                                tempFile: member.photoFile || ''
-                                                                            });
-                                                                        }}
-                                                                            className="flex-1 flex items-center gap-4 px-3 py-4 text-left">
-                                                                            <span className={`w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0 ${member.photoFile ? 'bg-emerald-500/10 text-emerald-500' : 'bg-primary/5 text-secondary'}`}>
-                                                                                {member.photoFile ? '✅' : '👤'}
-                                                                            </span>
-                                                                            <div className="flex-1 min-w-0">
-                                                                                <div className="flex items-center gap-2 mb-0.5">
-                                                                                    <p className="text-sm font-black text-primary truncate">{member.name}</p>
-                                                                                    {member.photoFile && (
-                                                                                        <span className="text-[10px] font-mono text-emerald-500 bg-emerald-500/8 border border-emerald-500/20 px-2 py-0.5 rounded-md leading-none">{member.photoFile}</span>
-                                                                                    )}
-                                                                                </div>
-                                                                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                                                                                    <p className="text-[9px] text-amber-500 font-black uppercase tracking-widest">{getSchoolName(member.schoolId)}</p>
-                                                                                    <span className="w-1 h-1 bg-secondary/20 rounded-full"></span>
-                                                                                    <p className="text-[10px] text-indigo-400 font-semibold">{member.role}</p>
-                                                                                    {getStaffAssignments(member).length > 0 && (
-                                                                                        <div className="flex gap-1.5 flex-wrap mt-0.5">
-                                                                                            {getStaffAssignments(member).map((a, i) => (
-                                                                                                <span key={i} className="text-[9px] text-primary/50 font-bold bg-primary/5 px-1.5 py-0.5 rounded-md flex items-center gap-1 border border-primary/10">
-                                                                                                    <Users size={9} /> {a.course} {a.group}
-                                                                                                </span>
-                                                                                            ))}
-                                                                                        </div>
-                                                                                    )}
-                                                                                </div>
-                                                                            </div>
-                                                                        </button>
-                                                                    </div>
-                                                                ));
-                                                            })()}
-                                                        </div>
-                                                    </div>
-                                                </>)}
-                                            </div>
-                                        );
-                                    })()
-                                    }
-
-                                    {/* ── MODAL ASIGNAR FICHERO — PERSONAL ─────────── */}
-                                    {
-                                        staffAssigning && (
-                                            <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-fade-in">
-                                                <div className="w-full max-w-sm bg-card rounded-3xl p-7 border border-primary/10 shadow-2xl animate-slide-up space-y-4">
-                                                    <div className="flex items-center gap-3 mb-2">
-                                                        <div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center text-2xl border border-indigo-500/20">👤</div>
-                                                        <div>
-                                                            <p className="text-lg font-black text-primary leading-tight">Editar Ficha</p>
-                                                            <p className="text-xs text-secondary uppercase tracking-widest font-bold">Personal Docente</p>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="space-y-3">
-                                                        <div>
-                                                            <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1.5 block">Nombre Completo</label>
-                                                            <input type="text" value={staffAssigning.name}
-                                                                onChange={e => setStaffAssigning(p => ({ ...p, name: e.target.value }))}
-                                                                onBlur={e => setStaffAssigning(p => ({ ...p, name: toTitleCase(e.target.value) }))}
-                                                                className="w-full bg-primary/5 border border-primary/10 text-primary text-sm rounded-xl px-4 py-3 outline-none focus:border-indigo-400/50" />
-                                                        </div>
-
-                                                        <div>
-                                                            <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1.5 block">Puestos / Cargos</label>
-                                                            {staffAssigning.roles.length > 0 && (
-                                                                <div className="flex flex-wrap gap-1.5 mb-2">
-                                                                    {staffAssigning.roles.map((r, i) => (
-                                                                        <span key={i} className="text-[9px] bg-indigo-500/10 text-indigo-400 font-bold px-2 py-0.5 rounded-lg flex items-center gap-1 border border-indigo-500/20">
-                                                                            {r}
-                                                                            <button onClick={() => setStaffAssigning(p => ({ ...p, roles: p.roles.filter((_, idx) => idx !== i) }))} className="hover:text-red-500 transition-colors">×</button>
-                                                                        </span>
-                                                                    ))}
-                                                                </div>
-                                                            )}
-                                                            <div className="flex gap-2">
-                                                                <div className="relative flex-1">
-                                                                    <input type="text" list="roles-list-edit" value={staffAssigning.tempRole}
-                                                                        onChange={e => setStaffAssigning(p => ({ ...p, tempRole: e.target.value }))}
-                                                                        onKeyDown={e => {
-                                                                            if (e.key === 'Enter' && staffAssigning.tempRole.trim()) {
-                                                                                e.preventDefault();
-                                                                                if (!staffAssigning.roles.includes(staffAssigning.tempRole.trim())) {
-                                                                                    setStaffAssigning(p => ({ ...p, roles: [...p.roles, p.tempRole.trim()], tempRole: '' }));
-                                                                                }
-                                                                            }
-                                                                        }}
-                                                                        placeholder="Añadir cargo..." className="w-full bg-primary/5 border border-primary/10 text-primary text-[11px] font-bold rounded-xl px-4 py-2.5 outline-none focus:border-indigo-400/50" />
-                                                                    <datalist id="roles-list-edit">
-                                                                        {STAFF_ROLES.flatMap(g => g.roles).map(r => <option key={r} value={r} />)}
-                                                                    </datalist>
-                                                                </div>
-                                                                <button
-                                                                    onClick={() => {
-                                                                        if (staffAssigning.tempRole.trim() && !staffAssigning.roles.includes(staffAssigning.tempRole.trim())) {
-                                                                            setStaffAssigning(p => ({ ...p, roles: [...p.roles, p.tempRole.trim()], tempRole: '' }));
-                                                                        }
-                                                                    }}
-                                                                    className="bg-indigo-500/10 text-indigo-400 rounded-xl px-3 py-1 hover:bg-indigo-500 hover:text-white transition-all font-black text-lg">+</button>
-                                                            </div>
-                                                        </div>
-
-                                                        <div className="flex flex-col gap-2">
-                                                            <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-0.5 block">Clases Asignadas</label>
-                                                            {staffAssigning.assignments.length > 0 && (
-                                                                <div className="flex flex-wrap gap-2 p-2 bg-primary/2 rounded-xl border border-primary/5">
-                                                                    {staffAssigning.assignments.map((a, i) => (
-                                                                        <span key={i} className="text-[10px] bg-indigo-500/10 text-indigo-400 font-bold px-2.5 py-1 rounded-lg flex items-center gap-1.5 border border-indigo-500/20">
-                                                                            {a.course} {a.group}
-                                                                            <button onClick={() => setStaffAssigning(p => ({ ...p, assignments: p.assignments.filter((_, idx) => idx !== i) }))} className="hover:text-red-500 transition-colors ml-1">x</button>
-                                                                        </span>
-                                                                    ))}
-                                                                </div>
-                                                            )}
-                                                            <div className="flex gap-2">
-                                                                <select value={staffAssigning.tempCourse} onChange={e => setStaffAssigning(p => ({ ...p, tempCourse: e.target.value }))} className="flex-1 bg-primary/5 border border-primary/10 text-primary text-xs font-bold rounded-xl px-3 py-3 outline-none focus:border-indigo-400/50">
-                                                                    <option value="">CLASE</option>
-                                                                    {COURSE_GROUPS.flatMap(g => g.courses).map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
-                                                                </select>
-                                                                <select value={staffAssigning.tempGroup} onChange={e => setStaffAssigning(p => ({ ...p, tempGroup: e.target.value }))} className="w-[85px] bg-primary/5 border border-primary/10 text-primary text-xs font-bold rounded-xl px-3 py-3 outline-none focus:border-indigo-400/50 uppercase">
-                                                                    <option value="">GRUPO</option>
-                                                                    <option value="A">A</option>
-                                                                    <option value="B">B</option>
-                                                                    <option value="C">C</option>
-                                                                    <option value="D">D</option>
-                                                                </select>
-                                                                <button
-                                                                    disabled={!staffAssigning.tempCourse}
-                                                                    onClick={() => setStaffAssigning(p => ({ ...p, assignments: [...p.assignments, { course: p.tempCourse, group: p.tempGroup }], tempCourse: '', tempGroup: '' }))}
-                                                                    className="bg-indigo-500/10 text-indigo-400 font-black text-xl rounded-xl px-4 py-2 hover:bg-indigo-500 hover:text-white transition-all active:scale-95 disabled:opacity-30">
-                                                                    +
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    <div>
-                                                        <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1.5 block">Nº Fichero de Cámara</label>
-                                                        <input type="text" value={staffAssigning.tempFile} onChange={e => setStaffAssigning(p => ({ ...p, tempFile: e.target.value }))}
-                                                            placeholder="DSC_0000" className="w-full bg-primary/5 border border-primary/10 text-primary font-mono text-base rounded-xl px-4 py-3 outline-none focus:border-indigo-400/50" />
-                                                    </div>
-
-                                                    <div className="flex gap-3 pt-4">
-                                                        <button onClick={() => setStaffAssigning(null)} className="flex-1 py-3 text-xs font-bold text-secondary border border-primary/10 rounded-2xl hover:bg-primary/5 transition-all">Cancelar</button>
-                                                        <button
-                                                            disabled={!staffAssigning.name.trim() || staffAssigning.roles.length === 0 || staffAssigning.assignments.length === 0}
-                                                            onClick={() => {
-                                                                updateStaffMember(staffAssigning.member.id, {
-                                                                    name: staffAssigning.name,
-                                                                    role: staffAssigning.roles.join(' • '),
-                                                                    roles: staffAssigning.roles,
-                                                                    assignments: staffAssigning.assignments,
-                                                                    photoFile: staffAssigning.tempFile
-                                                                });
-                                                                setStaffAssigning(null);
-                                                            }}
-                                                            className="flex-[1.5] py-3 text-xs font-black bg-gradient-to-r from-indigo-500 to-indigo-400 text-white rounded-2xl active:scale-95 disabled:opacity-30 transition-all shadow-lg shadow-indigo-500/20"
-                                                        >GUARDAR CAMBIOS</button>
-                                                    </div>
-                                                    <button
-                                                        onClick={() => {
-                                                            if (confirm('¿ELIMINAR ESTE DOCENTE?')) {
-                                                                deleteStaff(staffAssigning.member.id);
-                                                                setStaffAssigning(null);
-                                                            }
-                                                        }}
-                                                        className="w-full py-2 text-[10px] font-black text-red-500/50 hover:text-red-500 uppercase tracking-widest mt-2 transition-colors"
-                                                    >
-                                                        Eliminar Docente Permanentemente
-                                                    </button>
-                                                </div>
-                                            </div>
+                    {view === 'admin' && (
+                        <div className="pt-0 pb-8 min-h-screen animate-fade-in">
+                            <div className="max-w-5xl mx-auto px-4">
+                                {/* Logo y Título */}
+                                <div className="flex flex-col md:flex-row items-center md:items-center gap-3 md:gap-6 mb-6 md:mb-8 mt-2">
+                                    <button
+                                        onClick={() => setView('user')}
+                                        className="flex items-center justify-center transition-all active:scale-95 hover:opacity-80"
+                                    >
+                                        {settings.logoUrl || settings.logoUrlDark ? (
+                                            <img
+                                                src={theme === 'dark' ? (settings.logoUrlDark || settings.logoUrl) : (settings.logoUrl || settings.logoUrlDark)}
+                                                alt={photographerId}
+                                                className="h-8 md:h-14 w-auto object-contain transition-all duration-500"
+                                                style={{ filter: (isDemo && theme === 'light') ? 'brightness(0)' : 'none' }}
+                                            />
+                                        ) : (
+                                            <img
+                                                src={`${import.meta.env.BASE_URL}logo.png`}
+                                                alt="Logo"
+                                                className="h-8 md:h-14 w-auto transition-all duration-500"
+                                                style={{ filter: theme === 'light' ? 'brightness(0)' : 'none' }}
+                                            />
                                         )}
-
-                                    {/* ── GESTIÓN DE PEDIDOS ──────────────────────────────── */}
-                                    {
-                                        adminTab === 'orders' && (
-                                            <div className="space-y-8">
-                                                {/* 1. BLOQUE DE ALUMNOS (PRIMERO) */}
-                                                <div className="card overflow-hidden">
-                                                    <div className="p-4 border-b border-primary/5">
-                                                        <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-                                                            {/* Buscador: Siempre visible */}
-                                                            <div className="md:col-span-4 relative">
-                                                                <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-primary opacity-40" />
-                                                                <input className="w-full bg-primary/5 border border-primary/10 rounded-2xl pl-12 pr-4 py-3 text-sm text-primary placeholder-primary/30 outline-none focus:border-indigo-500/30 transition-all font-medium" placeholder="Buscar alumno..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-                                                            </div>
-
-                                                            {/* Toggle Filtros Móvil */}
-                                                            <div className="md:hidden">
-                                                                <button
-                                                                    onClick={() => setMobileOrdersFiltersOpen(!mobileOrdersFiltersOpen)}
-                                                                    className={`w-full py-3 rounded-2xl border text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${mobileOrdersFiltersOpen ? 'bg-indigo-600 text-white border-indigo-400 shadow-lg shadow-indigo-600/20' : 'bg-primary/5 text-secondary border-primary/10'}`}
-                                                                >
-                                                                    <Tag size={14} /> {mobileOrdersFiltersOpen ? 'Ocultar Filtros' : 'Filtros Avanzados'}
-                                                                </button>
-                                                            </div>
-
-                                                            {/* Selectores: Grid en escritorio, stack colapsable en móvil */}
-                                                            <div className={`${mobileOrdersFiltersOpen ? 'grid animate-slide-up' : 'hidden md:grid'} md:col-span-8 grid-cols-2 md:grid-cols-4 gap-2 md:gap-3`}>
-                                                                <div className="col-span-1">
-                                                                    <select value={adminSchool} onChange={e => setAdminSchool(e.target.value)} className="w-full bg-primary/5 border border-primary/10 text-primary text-[10px] md:text-xs font-bold rounded-xl md:rounded-2xl px-3 md:px-4 py-3 md:py-3 cursor-pointer outline-none hover:bg-primary/10 transition-all appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%20stroke%3D%22currentColor%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%20%2F%3E%3C%2Fsvg%3E')] bg-[length:12px] md:bg-[length:16px] bg-[right_0.8rem_center] bg-no-repeat min-h-[44px]">
-                                                                        {schools.map(s => <option key={s.id} value={s.id} className="text-slate-900">{s.name}</option>)}
-                                                                    </select>
-                                                                </div>
-
-                                                                <div className="col-span-1">
-                                                                    <select value={ordersFilters.course} onChange={e => setOrdersFilters(p => ({ ...p, course: e.target.value, group: '' }))} className="w-full bg-primary/5 border border-primary/10 text-primary text-[10px] md:text-xs font-bold rounded-xl md:rounded-2xl px-3 md:px-4 py-3 md:py-3 cursor-pointer outline-none hover:bg-primary/10 transition-all appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%20stroke%3D%22currentColor%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%20%2F%3E%3C%2Fsvg%3E')] bg-[length:12px] md:bg-[length:16px] bg-[right_0.8rem_center] bg-no-repeat min-h-[44px]">
-                                                                        <option value="" className="text-slate-900">— Cursos —</option>
-                                                                        {[...new Set(orders.map(o => getCourseBase(o.course)))].filter(Boolean).sort().map(c => <option key={c} value={c} className="text-slate-900">{c}</option>)}
-                                                                    </select>
-                                                                </div>
-
-                                                                <div className="col-span-1">
-                                                                    <select value={ordersFilters.group} onChange={e => setOrdersFilters(p => ({ ...p, group: e.target.value }))} className="w-full bg-primary/5 border border-primary/10 text-primary text-[10px] md:text-xs font-bold rounded-xl md:rounded-2xl px-3 md:px-4 py-3 md:py-3 cursor-pointer outline-none uppercase hover:bg-primary/10 transition-all appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%20stroke%3D%22currentColor%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%20%2F%3E%3C%2Fsvg%3E')] bg-[length:12px] md:bg-[length:16px] bg-[right_0.8rem_center] bg-no-repeat min-h-[44px]">
-                                                                        <option value="" className="text-slate-900">Grupo</option>
-                                                                        {(ordersFilters.course
-                                                                            ? [...new Set(orders.filter(o => getCourseBase(o.course) === ordersFilters.course).map(o => getGroup(o.course)))].filter(Boolean).sort()
-                                                                            : [...new Set(orders.map(o => getGroup(o.course)))].filter(Boolean).sort()
-                                                                        ).map(g => <option key={g} value={g} className="text-slate-900">{g}</option>)}
-                                                                    </select>
-                                                                </div>
-
-                                                                <div className="col-span-1">
-                                                                    <select value={ordersFilters.status} onChange={e => setOrdersFilters(p => ({ ...p, status: e.target.value }))} className="w-full bg-primary/5 border border-primary/10 text-primary text-[10px] md:text-xs font-bold rounded-xl md:rounded-2xl px-3 md:px-4 py-3 md:py-3 cursor-pointer outline-none hover:bg-primary/10 transition-all appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%20stroke%3D%22currentColor%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%20%2F%3E%3C%2Fsvg%3E')] bg-[length:12px] md:bg-[length:16px] bg-[right_0.8rem_center] bg-no-repeat min-h-[44px]">
-                                                                        <option value="" className="text-slate-900">Estado</option>
-                                                                        <option value="Pendiente" className="text-slate-900">Pendiente</option>
-                                                                        <option value="Pagado" className="text-slate-900">Pagado</option>
-                                                                        <option value="Producido" className="text-slate-900">Producido</option>
-                                                                        <option value="Entregado" className="text-slate-900">Entregado</option>
-                                                                    </select>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <div className="hidden sm:grid grid-cols-[minmax(120px,1.5fr)_minmax(110px,1.2fr)_minmax(160px,2fr)_minmax(100px,1fr)_minmax(130px,1.5fr)_minmax(80px,0.7fr)_minmax(80px,0.7fr)_70px] gap-2 px-4 py-2.5 bg-primary/3 border-b border-primary/5">
-                                                            {['Alumno', 'Curso', 'Centro Educativo', 'Pack', 'Extras', 'Pago', 'Estado', ''].map((h, i) => (
-                                                                <span key={i} className="text-[9px] font-black text-secondary uppercase tracking-widest text-center first:text-left last:text-right">{h}</span>
-                                                            ))}
-                                                        </div>
-                                                        {filteredOrders.length === 0 ? <div className="py-16 text-center text-secondary font-semibold opacity-50">Sin resultados</div> : (
-                                                            <div className="divide-y divide-primary/5">
-                                                                {filteredOrders.map(order => (
-                                                                    <OrderRow
-                                                                        key={order.id}
-                                                                        order={order}
-                                                                        onStatusChange={(s) => updateStatus(order.id, s)}
-                                                                        onDelete={() => deleteOrder(order.id)}
-                                                                        onEdit={(o) => setOrderToEdit({
-                                                                            ...o,
-                                                                            tempPhotoFile: o.photoFile || '',
-                                                                            tempStatus: o.status || 'Pendiente',
-                                                                            tempPayment: o.paymentMethod || 'Efectivo',
-                                                                            tempCourse: getCourseBase(o.course),
-                                                                            tempGroup: getGroup(o.course),
-                                                                            packId: o.pack?.id || o.packId || (typeof o.pack === 'string' ? o.pack : 'esencial'),
-                                                                            packQuantity: o.packQuantity || 1,
-                                                                            schoolName: o.schoolName || getSchoolName(o.schoolId)
-                                                                        })}
-                                                                    />
-                                                                ))}
-                                                            </div>
-                                                        )}
-                                                    </div>
-
-                                                    {/* 2. MÉTRICAS Y GRÁFICAS (MÁS COMPACTAS AL FINAL) */}
-                                                    <div className="pt-8 border-t border-primary/10">
-                                                        <h3 className="text-[11px] font-black text-indigo-400 uppercase tracking-[0.3em] mb-6 flex items-center gap-3">
-                                                            <TrendingUp size={16} /> Resumen de Métricas
-                                                        </h3>
-
-                                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
-                                                            <StatCard icon={<Users size={14} />} label="Pedidos Totales" value={stats.count} color="indigo" />
-                                                            <StatCard icon={<DollarSign size={14} />} label="Ingresos Brutos" value={`${stats.revenue.toFixed(0)}€`} color="blue" />
-                                                            <StatCard icon={<Package size={14} />} label="Entregas Pendientes" value={stats.pending} color="amber" />
-                                                        </div>
-
-                                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                                            {/* Donut mini */}
-                                                            <div className="card p-5 flex flex-col items-center justify-center min-h-[140px]">
-                                                                <h3 className="text-[9px] font-black text-secondary uppercase tracking-widest mb-4 opacity-50">Ventas Pack</h3>
-                                                                <div className="flex items-center gap-6">
-                                                                    <div className="relative w-20 h-20">
-                                                                        <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
-                                                                            {(() => {
-                                                                                const packStats = orders.reduce((acc, o) => {
-                                                                                    const id = o.packId || 'esencial';
-                                                                                    acc[id] = (acc[id] || 0) + 1;
-                                                                                    return acc;
-                                                                                }, {});
-                                                                                const totalPacks = Object.values(packStats).reduce((a, b) => a + b, 0);
-                                                                                let currentOffset = 0;
-                                                                                const colors = ['#6366f1', '#10b981', '#f59e0b', '#ec4899'];
-                                                                                return Object.entries(packStats).map(([id, count], i) => {
-                                                                                    const percentage = (count / totalPacks) * 100;
-                                                                                    const dashArray = `${percentage} ${100 - percentage}`;
-                                                                                    const offset = -currentOffset;
-                                                                                    currentOffset += percentage;
-                                                                                    return <circle key={id} cx="50" cy="50" r="40" fill="transparent" stroke={colors[i % colors.length]} strokeWidth="15" strokeDasharray={dashArray} strokeDashoffset={offset} />;
-                                                                                });
-                                                                            })()}
-                                                                            <circle cx="50" cy="50" r="28" className="fill-card" />
-                                                                        </svg>
-                                                                    </div>
-                                                                    <div className="space-y-1">
-                                                                        {(() => {
-                                                                            const packStats = orders.reduce((acc, o) => {
-                                                                                const id = o.packId || 'esencial';
-                                                                                acc[id] = (acc[id] || 0) + 1;
-                                                                                return acc;
-                                                                            }, {});
-                                                                            const colors = ['#6366f1', '#10b981', '#f59e0b', '#ec4899'];
-                                                                            return Object.entries(packStats).slice(0, 3).map(([id, count], i) => (
-                                                                                <div key={id} className="flex items-center gap-1.5 leading-none">
-                                                                                    <div className="w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: colors[i % colors.length] }} />
-                                                                                    <span className="text-[8px] font-bold text-secondary uppercase tracking-tighter truncate w-16 opacity-60">{id}</span>
-                                                                                </div>
-                                                                            ));
-                                                                        })()}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Barras mini */}
-                                                            <div className="card p-5 flex flex-col col-span-1 md:col-span-2 min-h-[140px]">
-                                                                <h3 className="text-[9px] font-black text-secondary uppercase tracking-widest mb-4 opacity-50">Distribución por Nivel</h3>
-                                                                <div className="flex-1 flex items-end gap-2 h-16">
-                                                                    {(() => {
-                                                                        const courseStats = orders.reduce((acc, o) => {
-                                                                            const level = o.course?.split(' ')[0] || 'S/D';
-                                                                            acc[level] = (acc[level] || 0) + 1;
-                                                                            return acc;
-                                                                        }, {});
-                                                                        const max = Math.max(...Object.values(courseStats), 1);
-                                                                        return Object.entries(courseStats).slice(0, 10).map(([level, count]) => (
-                                                                            <div key={level} className="flex-1 flex flex-col items-center gap-1.5 group">
-                                                                                <div className="w-full bg-indigo-500/20 group-hover:bg-indigo-500/40 rounded-t-md transition-all h-full flex items-end">
-                                                                                    <div className="w-full bg-indigo-500/40 rounded-t-md" style={{ height: `${(count / max) * 100}%` }} />
-                                                                                </div>
-                                                                                <span className="text-[7px] font-black text-secondary opacity-40 uppercase truncate w-full text-center tracking-tighter">{level}</span>
-                                                                            </div>
-                                                                        ));
-                                                                    })()}
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Métrica Ticket Medio */}
-                                                            <div className="card p-5 lg:col-span-3 min-h-[100px] flex items-center justify-between bg-gradient-to-br from-indigo-500/5 to-transparent border-indigo-500/10">
-                                                                <div className="flex items-center gap-5">
-                                                                    <div className="w-14 h-14 bg-indigo-500/10 rounded-2xl flex items-center justify-center text-3xl border border-indigo-500/20 shadow-inner">🎫</div>
-                                                                    <div>
-                                                                        <p className="text-[10px] font-black text-secondary uppercase tracking-[0.2em] mb-1 opacity-60">Ticket Medio de Venta</p>
-                                                                        <div className="flex items-baseline gap-2">
-                                                                            <p className="text-3xl font-black text-primary leading-none tracking-tighter">
-                                                                                {stats.count > 0 ? (stats.revenue / stats.count).toFixed(2) : '0.00'}€
-                                                                            </p>
-                                                                            <span className="text-[10px] font-bold text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-full uppercase tracking-widest">Ratio Óptimo</span>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                                <div className="hidden lg:block text-right">
-                                                                    <p className="text-[9px] font-black text-secondary uppercase tracking-widest opacity-40 mb-1">Cálculo en tiempo real</p>
-                                                                    <p className="text-[10px] font-bold text-primary/60 italic">Ingresos brutos ÷ nº alumnos</p>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )
-                                    }
-
-                                    {/* ── MODAL EDITAR PEDIDO ────────────────────────────────── */}
-                                    {
-                                        orderToEdit && (
-                                            <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-fade-in">
-                                                <div className="w-full max-w-md bg-card rounded-3xl p-7 border border-primary/10 shadow-2xl animate-slide-up space-y-5">
-                                                    <div className="flex items-center gap-3 mb-2">
-                                                        <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center text-2xl border border-emerald-500/20">📝</div>
-                                                        <div>
-                                                            <p className="text-lg font-black text-primary leading-tight">Editar Pedido</p>
-                                                            <p className="text-xs text-secondary uppercase tracking-widest font-bold">{orderToEdit.schoolName}</p>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="space-y-4">
-                                                        <div>
-                                                            <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1.5 block">Nombre del Alumno</label>
-                                                            <input type="text" value={orderToEdit.studentName}
-                                                                onChange={e => setOrderToEdit(p => ({ ...p, studentName: e.target.value }))}
-                                                                onBlur={e => setOrderToEdit(p => ({ ...p, studentName: toTitleCase(e.target.value) }))}
-                                                                className="w-full bg-primary/5 border border-primary/10 text-primary text-sm rounded-xl px-4 py-3 outline-none focus:border-emerald-400/50" />
-                                                        </div>
-
-                                                        <div className="grid grid-cols-2 gap-4">
-                                                            <div>
-                                                                <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1.5 block">Curso</label>
-                                                                <select value={orderToEdit.tempCourse} onChange={e => setOrderToEdit(p => ({ ...p, tempCourse: e.target.value, tempGroup: '' }))}
-                                                                    className="w-full bg-primary/5 border border-primary/10 text-primary text-xs font-bold rounded-xl px-4 py-3 outline-none">
-                                                                    <option value="" className="text-slate-900">— Seleccionar —</option>
-                                                                    {COURSE_GROUPS.flatMap(g => g.courses).map(c => <option key={c.name} value={c.name} className="text-slate-900">{c.name}</option>)}
-                                                                </select>
-                                                            </div>
-                                                            <div>
-                                                                <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1.5 block">Grupo</label>
-                                                                <select value={orderToEdit.tempGroup} onChange={e => setOrderToEdit(p => ({ ...p, tempGroup: e.target.value }))}
-                                                                    className="w-full bg-primary/5 border border-primary/10 text-primary text-xs font-bold rounded-xl px-4 py-3 outline-none">
-                                                                    <option value="" className="text-slate-900">— G —</option>
-                                                                    {['A', 'B', 'C', 'D'].map(g => <option key={g} value={g} className="text-slate-900">{g}</option>)}
-                                                                </select>
-                                                            </div>
-                                                        </div>
-
-                                                        <div className="grid grid-cols-2 gap-4">
-                                                            <div>
-                                                                <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1.5 block">Pack Seleccionado</label>
-                                                                <select value={orderToEdit.packId} onChange={e => setOrderToEdit(p => ({ ...p, packId: e.target.value }))}
-                                                                    className="w-full bg-primary/5 border border-primary/10 text-primary text-xs font-bold rounded-xl px-4 py-3 outline-none focus:border-emerald-400/50">
-                                                                    {allPacks.map(pack => <option key={pack.id} value={pack.id} className="text-slate-900">{pack.name}</option>)}
-                                                                    <option value="manual" className="text-slate-900">Personalizado / Manual</option>
-                                                                </select>
-                                                            </div>
-                                                            <div>
-                                                                <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1.5 block">Nº de Packs</label>
-                                                                <div className="flex items-center gap-2">
-                                                                    <button onClick={() => setOrderToEdit(p => ({ ...p, packQuantity: Math.max(1, p.packQuantity - 1) }))}
-                                                                        className="w-10 h-10 bg-primary/5 border border-primary/10 text-primary rounded-xl flex items-center justify-center hover:bg-primary/10 transition-all active:scale-90">
-                                                                        <Minus size={14} />
-                                                                    </button>
-                                                                    <span className="flex-1 text-center font-black text-lg text-primary">{orderToEdit.packQuantity}</span>
-                                                                    <button onClick={() => setOrderToEdit(p => ({ ...p, packQuantity: p.packQuantity + 1 }))}
-                                                                        className="w-10 h-10 bg-primary/5 border border-primary/10 text-primary rounded-xl flex items-center justify-center hover:bg-primary/10 transition-all active:scale-90">
-                                                                        <Plus size={14} />
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-
-                                                        <div className="grid grid-cols-2 gap-4">
-                                                            <div>
-                                                                <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1.5 block">Estado</label>
-                                                                <select value={orderToEdit.tempStatus} onChange={e => setOrderToEdit(p => ({ ...p, tempStatus: e.target.value }))}
-                                                                    className="w-full bg-primary/5 border border-primary/10 text-primary text-xs font-bold rounded-xl px-4 py-3 outline-none">
-                                                                    <option value="Pendiente" className="text-slate-900">Pendiente</option>
-                                                                    <option value="Pagado" className="text-slate-900">Pagado</option>
-                                                                    <option value="Producido" className="text-slate-900">Producido</option>
-                                                                    <option value="Entregado" className="text-slate-900">Entregado</option>
-                                                                </select>
-                                                            </div>
-                                                            <div>
-                                                                <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1.5 block">Pago</label>
-                                                                <select value={orderToEdit.tempPayment} onChange={e => setOrderToEdit(p => ({ ...p, tempPayment: e.target.value }))}
-                                                                    className="w-full bg-primary/5 border border-primary/10 text-primary text-xs font-bold rounded-xl px-4 py-3 outline-none">
-                                                                    <option value="Bizum" className="text-slate-900">Bizum</option>
-                                                                    <option value="Efectivo" className="text-slate-900">Efectivo</option>
-                                                                </select>
-                                                            </div>
-                                                        </div>
-
-                                                        <div>
-                                                            <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1.5 block">Nº Fichero Cámara</label>
-                                                            <input type="text" value={orderToEdit.tempPhotoFile} onChange={e => setOrderToEdit(p => ({ ...p, tempPhotoFile: e.target.value }))}
-                                                                placeholder="DSC_0000" className="w-full bg-primary/10 border border-primary/20 text-emerald-400 font-mono text-base rounded-xl px-4 py-3 outline-none" />
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="flex gap-3 pt-2">
-                                                        <button onClick={() => setOrderToEdit(null)} className="flex-1 py-3 text-xs font-bold text-secondary border border-primary/10 rounded-2xl hover:bg-primary/5 transition-all">Cancelar</button>
-                                                        <button
-                                                            onClick={() => {
-                                                                const selectedPackObj = allPacks.find(pk => pk.id === orderToEdit.packId);
-                                                                const updatedOrder = {
-                                                                    studentName: orderToEdit.studentName,
-                                                                    course: orderToEdit.tempGroup ? `${orderToEdit.tempCourse} ${orderToEdit.tempGroup}`.trim() : orderToEdit.tempCourse,
-                                                                    pack: selectedPackObj ? { id: selectedPackObj.id, label: selectedPackObj.name } : { id: 'manual', label: 'Personalizado' },
-                                                                    packQuantity: orderToEdit.packQuantity,
-                                                                    photoFile: orderToEdit.tempPhotoFile,
-                                                                    status: orderToEdit.tempStatus,
-                                                                    paymentMethod: orderToEdit.tempPayment
-                                                                };
-                                                                updateOrder(orderToEdit.id, updatedOrder);
-                                                                setOrderToEdit(null);
-                                                            }}
-                                                            className="flex-[1.5] py-3 text-xs font-black bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-2xl active:scale-95 transition-all shadow-lg shadow-emerald-500/20"
-                                                        >ACTUALIZAR PEDIDO</button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )
-                                    }
-
-                                    {/* ── SECCIÓN CENTROS EDUCATIVOS ───────────────────────── */}
-                                    {
-                                        adminTab === 'schools' && (
-                                            <div className="space-y-6 pb-20">
-                                                <div className="card p-8">
-                                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-8">
-                                                        <h3 className="text-2xl font-black text-primary flex items-center gap-3 tracking-tight">
-                                                            <GraduationCap size={28} className="text-orange-500" /> Gestión de Centros
-                                                        </h3>
-                                                        <div className="flex gap-3 w-full sm:w-96 relative group">
-                                                            <input
-                                                                value={newSchoolName}
-                                                                onChange={e => setNewSchoolName(e.target.value)}
-                                                                list="predefined-schools-list"
-                                                                className="input-dark flex-1 py-4 text-sm px-6 hover:border-orange-500/30 transition-all"
-                                                                placeholder="Escribe o elige un centro..."
-                                                                onKeyDown={e => {
-                                                                    if (e.key === 'Enter' && newSchoolName.trim()) {
-                                                                        addSchool(newSchoolName.trim());
-                                                                        setNewSchoolName('');
-                                                                    }
-                                                                }}
-                                                            />
-                                                            <datalist id="predefined-schools-list">
-                                                                {sortedSchools.map(s => (
-                                                                    <option key={s.id} value={s.name}>{s.code}</option>
-                                                                ))}
-                                                            </datalist>
-                                                            <button
-                                                                onClick={() => {
-                                                                    if (newSchoolName.trim()) {
-                                                                        addSchool(newSchoolName.trim());
-                                                                        setNewSchoolName('');
-                                                                    }
-                                                                }}
-                                                                className="w-14 h-14 bg-orange-600 hover:bg-orange-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-orange-600/20 active:scale-95 transition-all shrink-0"
-                                                            >
-                                                                <Plus size={24} />
-                                                            </button>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                                                        {sortedSchools.map(s => (
-                                                            <div key={s.id} className={`flex flex-col p-5 rounded-[24px] border transition-all ${adminSchool === s.id ? 'bg-orange-500/5 border-orange-500/30 ring-1 ring-orange-500/20' : 'bg-primary/5 border-primary/5 hover:border-primary/20'}`}>
-                                                                {schoolToEdit === s.id ? (
-                                                                    <div className="space-y-3 animate-fade-in shadow-inner p-1">
-                                                                        <div>
-                                                                            <label className="text-[8px] font-black text-orange-500 uppercase tracking-widest ml-1 mb-1 block">Nombre del Centro</label>
-                                                                            <input
-                                                                                type="text"
-                                                                                defaultValue={s.name}
-                                                                                className="w-full bg-white/10 border border-primary/20 rounded-xl px-4 py-2.5 text-xs font-black uppercase outline-none focus:border-orange-500 text-primary"
-                                                                                onBlur={(e) => updateSchool(s.id, { name: e.target.value })}
-                                                                                autoFocus
-                                                                            />
-                                                                        </div>
-                                                                        <div className="flex gap-2 items-end">
-                                                                            <div className="flex-1">
-                                                                                <label className="text-[8px] font-black text-orange-500 uppercase tracking-widest ml-1 mb-1 block">Código</label>
-                                                                                <input
-                                                                                    type="text"
-                                                                                    defaultValue={s.code}
-                                                                                    className="w-full bg-white/10 border border-primary/20 rounded-xl px-4 py-2.5 text-[10px] font-black uppercase outline-none focus:border-orange-500 text-primary"
-                                                                                    onBlur={(e) => updateSchool(s.id, { code: e.target.value.toUpperCase() })}
-                                                                                    placeholder="CÓDIGO"
-                                                                                />
-                                                                            </div>
-                                                                            <button
-                                                                                onClick={() => setSchoolToEdit(null)}
-                                                                                className="h-[42px] px-6 bg-orange-600 hover:bg-orange-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-orange-600/20 active:scale-95"
-                                                                            >LISTO</button>
-                                                                        </div>
-                                                                    </div>
-                                                                ) : (
-                                                                    <div className="flex justify-between items-center w-full">
-                                                                        <button onClick={() => setAdminSchool(s.id)} className="flex-1 text-left group">
-                                                                            <span className={`text-sm font-black uppercase tracking-wider block transition-colors ${adminSchool === s.id ? 'text-orange-400' : 'text-primary group-hover:text-orange-500'}`}>{s.name}</span>
-                                                                            <div className="flex items-center gap-2 mt-1">
-                                                                                <p className="text-[10px] font-black opacity-40 uppercase tracking-widest">Código: {s.code}</p>
-                                                                                {adminSchool === s.id && <span className="text-[8px] font-black bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded-md">ACTUAL</span>}
-                                                                            </div>
-                                                                        </button>
-                                                                        <div className="flex gap-1">
-                                                                            <button onClick={() => setSchoolToEdit(s.id)} className="w-9 h-9 flex items-center justify-center text-secondary hover:text-indigo-500 hover:bg-indigo-500/10 rounded-xl transition-all" title="Editar">
-                                                                                <Edit size={14} />
-                                                                            </button>
-                                                                            <button onClick={() => deleteSchool(s.id)} className="w-9 h-9 flex items-center justify-center text-secondary hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all" title="Eliminar">
-                                                                                <Trash2 size={14} />
-                                                                            </button>
-                                                                        </div>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        ))}
-                                                    </div>
-
-                                                </div>
-                                            </div>
-                                        )
-                                    }
-
-                                    {/* ── AJUSTES DE LA APP ────────────────────────────────── */}
-                                    {
-                                        adminTab === 'settings' && (
-                                            <div className="space-y-6 pb-20">
-
-                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                                    {/* Bloque 1: Pagos y Seguridad */}
-                                                    <div className="card p-6 flex flex-col h-full">
-                                                        <div className="flex flex-col h-full">
-                                                            <h3 className="text-lg font-black text-primary flex items-center gap-2 mb-6"><CreditCard size={18} className="text-accent" /> Pagos y Seguridad</h3>
-
-                                                            <div className="grid grid-cols-1 gap-3 mb-4">
-                                                                {paymentMethods.map(method => {
-                                                                    return (
-                                                                        <div key={method.id} className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${method.enabled ? 'bg-indigo-500/5 border-indigo-500/20 shadow-sm' : 'bg-primary/2 border-primary/5 opacity-60'}`}>
-                                                                            <div className="flex items-center gap-3">
-                                                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg ${method.enabled ? 'bg-indigo-500/10 text-indigo-400' : 'bg-primary/5 text-secondary'}`}>
-                                                                                    {method.icon}
-                                                                                </div>
-                                                                                <span className={`text-[11px] font-black uppercase tracking-wider transition-colors ${method.enabled ? 'text-primary' : 'text-secondary'}`}>{method.label}</span>
-                                                                            </div>
-                                                                            <button onClick={() => togglePaymentMethod(method.id)} className={`w-10 h-6 rounded-full relative transition-all duration-300 ${method.enabled ? 'bg-indigo-500' : 'bg-primary/20'}`}>
-                                                                                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-all duration-300 ${method.enabled ? 'right-1' : 'left-1'}`} />
-                                                                            </button>
-                                                                        </div>
-                                                                    );
-                                                                })}
-                                                            </div>
-
-                                                            <div className="mt-auto pt-6 space-y-4 h-[220px] flex flex-col justify-center">
-                                                                <div>
-                                                                    <h3 className="text-lg font-black text-primary flex items-center gap-2 mb-3">
-                                                                        <Shield size={18} className="text-accent" /> Cambiar PIN de Acceso
-                                                                    </h3>
-                                                                    <input type="text" maxLength={4} className="input-dark w-full py-4 text-sm tracking-[1em] font-black text-center rounded-2xl" placeholder="XXXX" onChange={e => {
-                                                                        const val = e.target.value.replace(/\D/g, '').substring(0, 4);
-                                                                        if (val.length === 4) { updateAdminPin(val); alert('✅ PIN actualizado'); e.target.value = ''; }
-                                                                    }} />
-                                                                </div>
-                                                                <div>
-                                                                    <h3 className="text-lg font-black text-primary flex items-center gap-2 mb-3">
-                                                                        <Gift size={18} className="text-pink-500" /> % Regalo Comercial
-                                                                    </h3>
-                                                                    <div className="relative">
-                                                                        <input type="number" min="0" max="100" defaultValue={settings?.giftDiscount || 25} className="input-dark w-full py-4 text-sm font-black text-center rounded-2xl pr-10" placeholder="25" onChange={e => {
-                                                                            const val = parseInt(e.target.value);
-                                                                            if (!isNaN(val) && val >= 0 && val <= 100) {
-                                                                                updateSettings({ giftDiscount: val });
-                                                                            }
-                                                                        }} />
-                                                                        <span className="absolute right-6 top-1/2 -translate-y-1/2 text-secondary font-black text-sm">%</span>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Bloque 2: Identidad y Logo Inteligente */}
-                                                    <div className="card p-6 flex flex-col h-full">
-                                                        <h3 className="text-lg font-black text-primary flex items-center gap-2 mb-6"><Sparkles size={18} className="text-indigo-500" /> Identidad y Logo Inteligente</h3>
-                                                        <div className="grid grid-cols-2 gap-4 mb-6">
-                                                            {/* Logo Versión Luz */}
-                                                            <div className="space-y-2">
-                                                                <label className="text-[9px] font-black text-secondary uppercase tracking-widest block opacity-70">Logo para Modo Claro</label>
-                                                                <div className="relative group">
-                                                                    <input
-                                                                        type="file" accept="image/png" id="logo-light-upload" className="hidden"
-                                                                        onChange={(e) => {
-                                                                            const file = e.target.files[0];
-                                                                            if (file) {
-                                                                                const reader = new FileReader();
-                                                                                reader.onload = (ev) => {
-                                                                                    const img = new Image();
-                                                                                    img.src = ev.target.result;
-                                                                                    img.onload = () => {
-                                                                                        const canvas = document.createElement('canvas');
-                                                                                        const scale = Math.min(1, 800 / img.width);
-                                                                                        canvas.width = img.width * scale;
-                                                                                        canvas.height = img.height * scale;
-                                                                                        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-                                                                                        updateSettings({ logoUrl: canvas.toDataURL('image/png', 0.8) });
-                                                                                    };
-                                                                                };
-                                                                                reader.readAsDataURL(file);
-                                                                            }
-                                                                        }}
-                                                                    />
-                                                                    <label htmlFor="logo-light-upload" className="w-full h-24 bg-white border-2 border-dashed border-indigo-200 rounded-2xl flex items-center justify-center cursor-pointer hover:border-indigo-400 transition-all overflow-hidden p-3">
-                                                                        {settings.logoUrl ? (
-                                                                            <img src={settings.logoUrl} alt="Light" className="w-full h-full object-contain" />
-                                                                        ) : (
-                                                                            <div className="flex flex-col items-center opacity-40">
-                                                                                <Sun size={16} />
-                                                                                <span className="text-[8px] font-black mt-1">LIGERO</span>
-                                                                            </div>
-                                                                        )}
-                                                                    </label>
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Logo Versión Noche */}
-                                                            <div className="space-y-2">
-                                                                <label className="text-[9px] font-black text-secondary uppercase tracking-widest block opacity-70">Logo para Modo Oscuro</label>
-                                                                <div className="relative group">
-                                                                    <input
-                                                                        type="file" accept="image/png" id="logo-dark-upload" className="hidden"
-                                                                        onChange={(e) => {
-                                                                            const file = e.target.files[0];
-                                                                            if (file) {
-                                                                                const reader = new FileReader();
-                                                                                reader.onload = (ev) => {
-                                                                                    const img = new Image();
-                                                                                    img.src = ev.target.result;
-                                                                                    img.onload = () => {
-                                                                                        const canvas = document.createElement('canvas');
-                                                                                        const scale = Math.min(1, 800 / img.width);
-                                                                                        canvas.width = img.width * scale;
-                                                                                        canvas.height = img.height * scale;
-                                                                                        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-                                                                                        updateSettings({ logoUrlDark: canvas.toDataURL('image/png', 0.8) });
-                                                                                    };
-                                                                                };
-                                                                                reader.readAsDataURL(file);
-                                                                            }
-                                                                        }}
-                                                                    />
-                                                                    <label htmlFor="logo-dark-upload" className="w-full h-24 bg-slate-900 border-2 border-dashed border-slate-700 rounded-2xl flex items-center justify-center cursor-pointer hover:border-indigo-500 transition-all overflow-hidden p-3">
-                                                                        {settings.logoUrlDark ? (
-                                                                            <img src={settings.logoUrlDark} alt="Dark" className="w-full h-full object-contain" />
-                                                                        ) : (
-                                                                            <div className="flex flex-col items-center text-white opacity-40">
-                                                                                <Moon size={16} />
-                                                                                <span className="text-[8px] font-black mt-1">OSCURO</span>
-                                                                            </div>
-                                                                        )}
-                                                                    </label>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-
-                                                        <div className="space-y-4">
-                                                            <div className="flex flex-col flex-1 justify-center">
-                                                                <div className="flex flex-row items-center gap-2 mb-2">
-                                                                    <Tag size={16} className="text-violet-500 shrink-0" />
-                                                                    <span className="text-sm font-black text-primary leading-none">Nombre de tu Marca</span>
-                                                                </div>
-                                                                <input
-                                                                    type="text" value={settings.brandName || ''}
-                                                                    onChange={(e) => setSettings(prev => ({ ...prev, brandName: e.target.value }))}
-                                                                    onBlur={(e) => updateSettings({ brandName: e.target.value })}
-                                                                    className="input-dark w-full py-3 text-sm font-black px-4 rounded-xl"
-                                                                />
-                                                            </div>
-                                                            <div className="flex flex-col flex-1 justify-center">
-                                                                <div className="flex flex-row items-center gap-2 mb-2">
-                                                                    <Mail size={16} className="text-indigo-400 shrink-0" />
-                                                                    <span className="text-sm font-black text-primary leading-none">Email Avisos</span>
-                                                                </div>
-                                                                <input
-                                                                    type="email" value={settings.notificationEmail || ''}
-                                                                    onChange={(e) => setSettings(prev => ({ ...prev, notificationEmail: e.target.value }))}
-                                                                    onBlur={(e) => updateSettings({ notificationEmail: e.target.value })}
-                                                                    className="input-dark w-full py-3 text-sm font-black px-4 rounded-xl"
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Bloque 3: Gestión de Datos */}
-                                                    <div className="card p-6 flex flex-col h-full">
-                                                        <div className="flex flex-col h-full">
-                                                            <h3 className="text-lg font-black text-primary flex items-center gap-2 mb-6"><Database size={18} className="text-indigo-500" /> Gestión de Datos</h3>
-
-                                                            <div className="grid grid-cols-1 gap-3 mb-4">
-                                                                <div className="space-y-2 text-center flex flex-col items-center">
-                                                                    <button onClick={downloadMasterBackup} className="w-full py-4 bg-primary/5 border border-primary/10 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-primary/10 transition-all">
-                                                                        <Download size={14} /> Descargar Copia JSON
-                                                                    </button>
-                                                                    <button onClick={syncWithDrive} className={`w-full py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${isBackingUp ? 'bg-indigo-500/20 text-indigo-400 cursor-not-allowed' : 'bg-primary/5 border border-primary/10 hover:bg-primary/10'}`}>
-                                                                        <Upload size={14} className={isBackingUp ? 'animate-spin' : ''} />
-                                                                        {isBackingUp ? 'Sincronizando...' : 'Subir a Google Drive (PRO)'}
-                                                                    </button>
-                                                                    <p className="text-[9px] text-secondary/60 font-medium px-4 text-center leading-tight">Guarda una copia de seguridad con todos tus pedidos, diseños y configuraciones actuales.</p>
-                                                                </div>
-
-                                                                <div className="space-y-2">
-                                                                    <button onClick={() => {
-                                                                        const input = document.createElement('input');
-                                                                        input.type = 'file'; input.id = 'restore-input'; input.accept = '.json';
-                                                                        input.onchange = (e) => {
-                                                                            const file = e.target.files[0];
-                                                                            const reader = new FileReader();
-                                                                            reader.onload = (event) => {
-                                                                                try {
-                                                                                    const data = JSON.parse(event.target.result);
-                                                                                    if (confirm('⚠️ Esto sobrescribirá todos los datos actuales. ¿Estás seguro?')) {
-                                                                                        Object.keys(data).forEach(key => { if (key.startsWith('orlas2026_')) localStorage.setItem(key, JSON.stringify(data[key])); });
-                                                                                        window.location.reload();
-                                                                                    }
-                                                                                } catch (err) { alert('Archivo no válido'); }
-                                                                            };
-                                                                            reader.readAsText(file);
-                                                                        };
-                                                                        input.click();
-                                                                    }} className="w-full py-4 bg-primary/5 border border-primary/10 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-primary/10 transition-all">
-                                                                        <Upload size={14} /> Restaurar Copia JSON
-                                                                    </button>
-                                                                    <p className="text-[9px] text-secondary/60 font-medium px-4 text-center leading-tight">Recupera tus datos desde un archivo backup guardado previamente en tu equipo.</p>
-                                                                </div>
-                                                            </div>
-
-                                                            <div className="mt-auto pt-6 h-[220px] flex flex-col justify-center">
-                                                                <h3 className="text-lg font-black text-primary flex items-center gap-2 mb-6">
-                                                                    <Download size={18} className="text-indigo-500" /> Listado para Excel
-                                                                </h3>
-                                                                <div className="space-y-4">
-                                                                    <button onClick={() => {
-                                                                        const selectedSchoolObj = schools.find(s => s.id === adminSchool);
-                                                                        if (!selectedSchoolObj) return alert('Selecciona un centro primero');
-                                                                        exportCSV({ school: adminSchool });
-                                                                    }} className="w-full py-4 bg-indigo-600 text-white rounded-[24px] font-black text-[11px] uppercase tracking-widest flex flex-col items-center justify-center gap-1 hover:bg-indigo-500 shadow-lg shadow-indigo-600/20 active:scale-95 transition-all">
-                                                                        <span>EXCEL MAESTRO</span>
-                                                                        <span className="text-[10px] opacity-70">{schools.find(s => s.id === adminSchool)?.name.replace('Maestro ', '').replace('MAESTRO ', '')}</span>
-                                                                    </button>
-                                                                    <p className="text-[9px] text-secondary font-black opacity-40 uppercase tracking-widest text-center italic">Tabla de alumnos compatible con Excel/Drive</p>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Bloque 4: Datos de Facturación */}
-                                                    <div className="card p-6 col-span-1 md:col-span-2 lg:col-span-3">
-                                                        <h3 className="text-lg font-black text-primary flex items-center gap-2 mb-6"><FileText size={18} className="text-indigo-500" /> Datos de Facturación</h3>
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                                            <div>
-                                                                <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-2 block">Nombre Fiscal / Razón Social</label>
-                                                                <input
-                                                                    type="text"
-                                                                    value={settings.fiscalName || ''}
-                                                                    onChange={(e) => setSettings(prev => ({ ...prev, fiscalName: e.target.value }))}
-                                                                    onBlur={(e) => updateSettings({ fiscalName: e.target.value })}
-                                                                    className="input-dark w-full py-4 text-sm font-black px-6 rounded-2xl"
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-2 block">CIF / NIF</label>
-                                                                <input
-                                                                    type="text"
-                                                                    value={settings.cif || ''}
-                                                                    onChange={(e) => setSettings(prev => ({ ...prev, cif: e.target.value }))}
-                                                                    onBlur={(e) => updateSettings({ cif: e.target.value })}
-                                                                    className="input-dark w-full py-4 text-sm font-black px-6 rounded-2xl"
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-2 block">Dirección</label>
-                                                                <input
-                                                                    type="text"
-                                                                    value={settings.address || ''}
-                                                                    onChange={(e) => setSettings(prev => ({ ...prev, address: e.target.value }))}
-                                                                    onBlur={(e) => updateSettings({ address: e.target.value })}
-                                                                    className="input-dark w-full py-4 text-sm font-black px-6 rounded-2xl"
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-2 block">Código Postal</label>
-                                                                <input
-                                                                    type="text"
-                                                                    value={settings.postalCode || ''}
-                                                                    onChange={(e) => setSettings(prev => ({ ...prev, postalCode: e.target.value }))}
-                                                                    onBlur={(e) => updateSettings({ postalCode: e.target.value })}
-                                                                    className="input-dark w-full py-4 text-sm font-black px-6 rounded-2xl"
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-2 block">Ciudad</label>
-                                                                <input
-                                                                    type="text"
-                                                                    value={settings.city || ''}
-                                                                    onChange={(e) => setSettings(prev => ({ ...prev, city: e.target.value }))}
-                                                                    onBlur={(e) => updateSettings({ city: e.target.value })}
-                                                                    className="input-dark w-full py-4 text-sm font-black px-6 rounded-2xl"
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-2 block">Provincia</label>
-                                                                <input
-                                                                    type="text"
-                                                                    value={settings.province || ''}
-                                                                    onChange={(e) => setSettings(prev => ({ ...prev, province: e.target.value }))}
-                                                                    onBlur={(e) => updateSettings({ province: e.target.value })}
-                                                                    className="input-dark w-full py-4 text-sm font-black px-6 rounded-2xl"
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-
-                                            </div>
-                                        )
-                                    }
-
-                                    {/* ── SECCIÓN PRECIOS ────────────────────────────────── */}
-                                    {
-                                        adminTab === 'precios' && (
-                                            <div className="space-y-8 animate-fade-in pb-20">
-                                                {/* BLOQUE TARIFA PROVEEDOR (NUEVO) */}
-                                                <div className="card p-8 bg-gradient-to-br from-indigo-500/5 to-transparent border-indigo-500/20">
-                                                    <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                                                        <div className="flex items-center gap-5">
-                                                            <div className="w-16 h-16 bg-white dark:bg-slate-800 rounded-[24px] flex items-center justify-center text-3xl shadow-xl border border-indigo-500/20">📂</div>
-                                                            <div>
-                                                                <h3 className="text-xl font-black text-primary uppercase tracking-tight">Tarifa de Proveedor</h3>
-                                                                <p className="text-[10px] font-bold text-secondary uppercase tracking-[0.2em] opacity-60">Sube el PDF de tu laboratorio para calcular márgenes</p>
-                                                            </div>
-                                                        </div>
-                                                        <div className="w-full md:w-auto">
-                                                            <input
-                                                                type="file"
-                                                                id="provider-pdf-upload"
-                                                                accept=".pdf"
-                                                                className="hidden"
-                                                                onChange={(e) => {
-                                                                    const file = e.target.files[0];
-                                                                    if (file) {
-                                                                        // Simulamos la carga guardando el nombre y una marca de tiempo
-                                                                        updateSettings({
-                                                                            providerRateName: file.name,
-                                                                            providerRateDate: new Date().toLocaleDateString()
-                                                                        });
-                                                                        alert(`✅ Tarifa "${file.name}" vinculada correctamente.`);
-                                                                    }
-                                                                }}
-                                                            />
-                                                            <label
-                                                                htmlFor="provider-pdf-upload"
-                                                                className="flex items-center justify-center gap-3 px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-xl shadow-indigo-600/20 cursor-pointer active:scale-95"
-                                                            >
-                                                                <FileText size={18} /> {settings.providerRateName ? 'CAMBIAR PDF TARIFA' : 'VINCULAR PDF TARIFA'}
-                                                            </label>
-                                                            {settings.providerRateName && (
-                                                                <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest mt-3 text-center">
-                                                                    Archivo actual: {settings.providerRateName} ({settings.providerRateDate})
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                {/* GESTIÓN DE PACKS */}
-                                                <div className="card p-6">
-                                                    <div className="flex items-center justify-between mb-8">
-                                                        <h3 className="text-xl font-black text-primary flex items-center gap-3">
-                                                            <Package size={24} className="text-amber-500" /> Gestión de Packs
-                                                        </h3>
-                                                        <button
-                                                            onClick={() => {
-                                                                const newPack = {
-                                                                    id: `pack_${Date.now()}`,
-                                                                    name: 'Nuevo Pack',
-                                                                    subtitle: 'Descripción breve',
-                                                                    items: ['Item 1', 'Item 2'],
-                                                                    price: 20,
-                                                                    cost: 5,
-                                                                    popular: false
-                                                                };
-                                                                updateSettings({ packs: [...allPacks, newPack] });
-                                                            }}
-                                                            className="px-4 py-2 bg-amber-500/10 border border-amber-500/20 text-amber-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-amber-500/20 transition-all flex items-center gap-2"
-                                                        >
-                                                            <Plus size={14} /> Nuevo Pack
-                                                        </button>
-                                                    </div>
-
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                                        {allPacks.map((pack, idx) => (
-                                                            <div key={pack.id} className="relative group bg-primary/3 rounded-3xl p-6 border border-primary/10 hover:border-amber-500/30 transition-all">
-                                                                <button
-                                                                    onClick={() => {
-                                                                        if (confirm('¿Borrar este pack?')) {
-                                                                            updateSettings({ packs: allPacks.filter(p => p.id !== pack.id) });
-                                                                        }
-                                                                    }}
-                                                                    className="absolute top-4 right-4 p-2 text-secondary hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
-                                                                >
-                                                                    <Trash2 size={16} />
-                                                                </button>
-
-                                                                <div className="space-y-4">
-                                                                    <div>
-                                                                        <label className="text-[9px] font-black text-secondary uppercase tracking-[0.2em] mb-1.5 block">Nombre del Pack</label>
-                                                                        <input
-                                                                            type="text"
-                                                                            value={pack.name}
-                                                                            onChange={e => {
-                                                                                const newPacks = [...allPacks];
-                                                                                newPacks[idx].name = e.target.value;
-                                                                                updateSettings({ packs: newPacks });
-                                                                            }}
-                                                                            className="w-full bg-primary/5 border border-primary/10 rounded-xl px-4 py-2.5 text-sm font-black text-primary outline-none focus:border-amber-500/50"
-                                                                        />
-                                                                    </div>
-                                                                    <div>
-                                                                        <label className="text-[9px] font-black text-secondary uppercase tracking-[0.2em] mb-1.5 block">Subtítulo</label>
-                                                                        <input
-                                                                            type="text"
-                                                                            value={pack.subtitle}
-                                                                            onChange={e => {
-                                                                                const newPacks = [...allPacks];
-                                                                                newPacks[idx].subtitle = e.target.value;
-                                                                                updateSettings({ packs: newPacks });
-                                                                            }}
-                                                                            className="w-full bg-primary/5 border border-primary/10 rounded-xl px-4 py-2.5 text-xs font-bold text-secondary outline-none focus:border-amber-500/50"
-                                                                        />
-                                                                    </div>
-
-                                                                    <div className="grid grid-cols-2 gap-4">
-                                                                        <div>
-                                                                            <label className="text-[9px] font-black text-secondary uppercase tracking-[0.2em] mb-1.5 block">Precio Venta</label>
-                                                                            <div className="relative">
-                                                                                <input
-                                                                                    type="number"
-                                                                                    value={pack.price}
-                                                                                    onChange={e => {
-                                                                                        const newPacks = [...allPacks];
-                                                                                        newPacks[idx].price = parseFloat(e.target.value) || 0;
-                                                                                        updateSettings({ packs: newPacks });
-                                                                                    }}
-                                                                                    className="w-full bg-primary/5 border border-primary/10 rounded-xl pl-4 pr-8 py-2.5 text-sm font-black text-emerald-500 outline-none"
-                                                                                />
-                                                                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 font-bold">€</span>
-                                                                            </div>
-                                                                        </div>
-                                                                        <div>
-                                                                            <label className="text-[9px] font-black text-secondary uppercase tracking-[0.2em] mb-1.5 block">Coste (Base)</label>
-                                                                            <div className="relative">
-                                                                                <input
-                                                                                    type="number"
-                                                                                    value={pack.cost}
-                                                                                    onChange={e => {
-                                                                                        const newPacks = [...allPacks];
-                                                                                        newPacks[idx].cost = parseFloat(e.target.value) || 0;
-                                                                                        updateSettings({ packs: newPacks });
-                                                                                    }}
-                                                                                    className="w-full bg-primary/5 border border-primary/10 rounded-xl pl-4 pr-8 py-2.5 text-sm font-black text-red-500 outline-none"
-                                                                                />
-                                                                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-red-500 font-bold">€</span>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-
-                                                                    {/* CÁLCULO DE BENEFICIO (NUEVO) */}
-                                                                    <div className="p-3 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl flex items-center justify-between">
-                                                                        <div>
-                                                                            <p className="text-[8px] font-black text-emerald-600/60 uppercase tracking-widest">Beneficio por Pack</p>
-                                                                            <p className="text-lg font-black text-emerald-600 leading-none">{(pack.price - pack.cost).toFixed(2)}€</p>
-                                                                        </div>
-                                                                        <div className="text-right">
-                                                                            <p className="text-[8px] font-black text-emerald-600/60 uppercase tracking-widest">Margen Bruto</p>
-                                                                            <p className="text-[11px] font-black text-emerald-600 opacity-60 leading-none">
-                                                                                {pack.price > 0 ? (((pack.price - pack.cost) / pack.price) * 100).toFixed(0) : 0}%
-                                                                            </p>
-                                                                        </div>
-                                                                    </div>
-
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            const newPacks = [...allPacks];
-                                                                            newPacks.forEach((p, i) => p.popular = i === idx);
-                                                                            updateSettings({ packs: newPacks });
-                                                                        }}
-                                                                        className={`w-full py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${pack.popular ? 'bg-amber-500 text-white border-amber-600 shadow-lg shadow-amber-500/20' : 'bg-primary/5 text-secondary border-primary/10 hover:border-amber-500/30'}`}
-                                                                    >
-                                                                        {pack.popular ? '🌟 Pack Destacado' : 'Marcar como popular'}
-                                                                    </button>
-
-                                                                    <div className="pt-2">
-                                                                        <p className="text-[9px] font-black text-secondary uppercase tracking-[0.2em] mb-2 opacity-50">Contenido del Pack</p>
-                                                                        <div className="space-y-1.5">
-                                                                            {(pack.items || []).map((item, iIdx) => (
-                                                                                <div key={iIdx} className="flex gap-2">
-                                                                                    <input
-                                                                                        type="text"
-                                                                                        value={item}
-                                                                                        onChange={e => {
-                                                                                            const newPacks = [...allPacks];
-                                                                                            newPacks[idx].items[iIdx] = e.target.value;
-                                                                                            updateSettings({ packs: newPacks });
-                                                                                        }}
-                                                                                        className="flex-1 bg-white/5 border border-white/5 rounded-lg px-3 py-1.5 text-[10px] text-primary outline-none"
-                                                                                    />
-                                                                                    <button onClick={() => {
-                                                                                        const newPacks = [...allPacks];
-                                                                                        newPacks[idx].items.splice(iIdx, 1);
-                                                                                        updateSettings({ packs: newPacks });
-                                                                                    }} className="text-secondary hover:text-red-500">
-                                                                                        <Minus size={12} />
-                                                                                    </button>
-                                                                                </div>
-                                                                            ))}
-                                                                            <button
-                                                                                onClick={() => {
-                                                                                    const newPacks = [...allPacks];
-                                                                                    newPacks[idx].items = [...(newPacks[idx].items || []), 'Nuevo item'];
-                                                                                    updateSettings({ packs: newPacks });
-                                                                                }}
-                                                                                className="text-[9px] font-black text-indigo-400 uppercase tracking-wider flex items-center gap-1.5 mt-2 hover:text-indigo-300"
-                                                                            >
-                                                                                <Plus size={10} /> Añadir Item
-                                                                            </button>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-
-                                                {/* GESTIÓN DE EXTRAS */}
-                                                <div className="card p-6">
-                                                    <div className="flex items-center justify-between mb-8">
-                                                        <h3 className="text-xl font-black text-primary flex items-center gap-3">
-                                                            <Tag size={24} className="text-emerald-500" /> Productos Extras
-                                                        </h3>
-                                                        <button
-                                                            onClick={() => {
-                                                                const newExtra = {
-                                                                    id: `extra_${Date.now()}`,
-                                                                    name: 'Nuevo Extra',
-                                                                    price: 5,
-                                                                    cost: 1,
-                                                                    emoji: '🎁'
-                                                                };
-                                                                updateSettings({ extras: [...allExtras, newExtra] });
-                                                            }}
-                                                            className="px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-emerald-500/20 transition-all flex items-center gap-2"
-                                                        >
-                                                            <Plus size={14} /> Nuevo Extra
-                                                        </button>
-                                                    </div>
-
-                                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                                                        {allExtras.map((extra, idx) => (
-                                                            <div key={extra.id} className="group bg-primary/3 rounded-2xl p-4 border border-primary/10 hover:border-emerald-500/30 transition-all relative">
-                                                                <button
-                                                                    onClick={() => {
-                                                                        if (confirm('¿Borrar este extra?')) {
-                                                                            updateSettings({ extras: allExtras.filter(e => e.id !== extra.id) });
-                                                                        }
-                                                                    }}
-                                                                    className="absolute top-3 right-3 p-1.5 text-secondary hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
-                                                                >
-                                                                    <Trash2 size={14} />
-                                                                </button>
-                                                                <div className="flex flex-col gap-3">
-                                                                    <div className="flex gap-2">
-                                                                        <input
-                                                                            type="text"
-                                                                            value={extra.emoji}
-                                                                            onChange={e => {
-                                                                                const newExtras = [...allExtras];
-                                                                                newExtras[idx].emoji = e.target.value;
-                                                                                updateSettings({ extras: newExtras });
-                                                                            }}
-                                                                            className="w-10 h-10 bg-white/5 border border-white/5 rounded-xl text-center text-lg outline-none"
-                                                                        />
-                                                                        <input
-                                                                            type="text"
-                                                                            value={extra.name}
-                                                                            onChange={e => {
-                                                                                const newExtras = [...allExtras];
-                                                                                newExtras[idx].name = e.target.value;
-                                                                                updateSettings({ extras: newExtras });
-                                                                            }}
-                                                                            className="flex-1 bg-white/5 border border-white/5 rounded-xl px-3 text-xs font-bold text-primary outline-none"
-                                                                        />
-                                                                    </div>
-                                                                    <div className="grid grid-cols-2 gap-2">
-                                                                        <div className="relative">
-                                                                            <input
-                                                                                type="number"
-                                                                                value={extra.price}
-                                                                                onChange={e => {
-                                                                                    const newExtras = [...allExtras];
-                                                                                    newExtras[idx].price = parseFloat(e.target.value) || 0;
-                                                                                    updateSettings({ extras: newExtras });
-                                                                                }}
-                                                                                className="w-full bg-white/5 border border-white/5 rounded-xl pl-3 pr-6 py-2 text-xs font-black text-emerald-500 outline-none"
-                                                                            />
-                                                                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-emerald-500 font-bold">€</span>
-                                                                        </div>
-                                                                        <div className="relative">
-                                                                            <input
-                                                                                type="number"
-                                                                                value={extra.cost}
-                                                                                onChange={e => {
-                                                                                    const newExtras = [...allExtras];
-                                                                                    newExtras[idx].cost = parseFloat(e.target.value) || 0;
-                                                                                    updateSettings({ extras: newExtras });
-                                                                                }}
-                                                                                className="w-full bg-white/5 border border-white/5 rounded-xl pl-3 pr-6 py-2 text-xs font-black text-red-500 outline-none"
-                                                                            />
-                                                                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-red-500 font-bold">€</span>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className="flex items-center justify-between px-1">
-                                                                        <span className="text-[8px] font-black text-emerald-500/50 uppercase tracking-widest">Beneficio:</span>
-                                                                        <span className="text-[10px] font-black text-emerald-500">{(extra.price - extra.cost).toFixed(2)}€</span>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )
-                                    }
-
-                                    {adminTab === 'design' && (
-                                        <div className={`animate-fade-in max-w-7xl mx-auto ${isFullScreenDesign ? 'fixed inset-0 z-[600] bg-card p-0 flex flex-col overflow-hidden' : 'space-y-6 pb-20'}`}>
-
-                                            {/* BARRA LATERAL (Desktop Only) — oculta en fullscreen, usa barra inferior en su lugar */}
-                                            {isFullScreenDesign && (
-                                                <div className="hidden">
-                                                    {/* Sidebar desactivada en fullscreen — controles en barra inferior Snapseed */}
-                                                </div>
-                                            )}
-
-                                            {/* ÁREA DE TRABAJO (Canvas) */}
-                                            <div className={`flex-1 flex flex-col relative ${isFullScreenDesign ? 'h-full overflow-hidden' : ''}`}>
-
-                                                {/* Header Especial para FullScreen (Minimalista Mobile) */}
-
-
-                                                {/* ═══ SNAPSEED BOTTOM BAR — Barra única persistente ═══ */}
-                                                {isFullScreenDesign && (() => {
-                                                    const isDark = theme === 'dark';
-                                                    const barBg = isDark ? 'bg-black/95 border-white/10' : 'bg-white/98 border-black/8';
-                                                    const textMuted = isDark ? 'text-white/30' : 'text-black/40';
-                                                    const textLabel = isDark ? 'text-white/40' : 'text-black/50';
-                                                    const dividerColor = isDark ? 'border-white/5' : 'border-black/5';
-                                                    const TOOLS = [
-                                                        // ALUMNOS
-                                                        { icon: LayoutGrid, label: 'Filas', key: 'aCols', min: 1, max: 12, step: 1, unit: 'UD', group: 'Alumnos' },
-                                                        { icon: Maximize, label: 'Escala', key: 'aScale', min: 0.5, max: 2.0, step: 0.05, unit: 'x', group: 'Alumnos' },
-                                                        { icon: MoveHorizontal, label: 'Separación Fotos', key: 'aGapX', min: 0, max: mmToPx(100), group: 'Alumnos' },
-                                                        { icon: ArrowUpDown, label: 'Eje Y', key: 'aStartY', min: mmToPx(50), max: mmToPx(280), group: 'Alumnos' },
-                                                        { icon: MoveVertical, label: 'Separación Filas', key: 'aGapY', min: mmToPx(2), max: mmToPx(150), group: 'Alumnos' },
-                                                        { icon: Baseline, label: 'Tamaño Texto', key: 'fontSizeAlu', min: 6, max: 18, unit: 'pt', group: 'Alumnos' },
-                                                        { icon: ChevronsUpDown, label: 'Separación Texto', key: 'aTextOffset', min: 0, max: mmToPx(20), group: 'Alumnos' },
-                                                        {
-                                                            icon: AlignCenterHorizontal, label: 'Centrar Alu', key: 'centrar-alu', group: 'Alumnos', action: () => {
-                                                                const dynamicW = configOrla.aW * (configOrla.aScale || 1.0);
-                                                                const totalW = configOrla.aCols * dynamicW + (configOrla.aCols - 1) * configOrla.aGapX;
-                                                                const centeredX = (configOrla.canvasW - totalW) / 2;
-                                                                updateConfig('aStartX', Math.max(0, centeredX));
-                                                            }
-                                                        },
-                                                        {
-                                                            icon: AlignCenterHorizontal, label: 'Auto-Ancho', key: 'auto-ancho', group: 'Alumnos', action: () => {
-                                                                const dynamicW = configOrla.aW * (configOrla.aScale || 1.0);
-                                                                const totalW = configOrla.aCols * dynamicW;
-                                                                const availableW = configOrla.canvasW - (configOrla.margin * 2);
-                                                                const idealGap = (availableW - totalW) / (configOrla.aCols - 1);
-                                                                updateConfig('aGapX', Math.max(0, idealGap));
-                                                            }
-                                                        },
-
-                                                        // DOCENTES
-                                                        { icon: UserSquare2, label: 'Eje Y', key: 'dY', min: mmToPx(10), max: mmToPx(150), group: 'Docentes' },
-                                                        { icon: Maximize, label: 'Escala', key: 'dScale', min: 0.5, max: 2.5, step: 0.05, unit: 'x', group: 'Docentes' },
-                                                        { icon: MoveHorizontal, label: 'Separación Fotos', key: 'dGapX', min: 0, max: mmToPx(100), group: 'Docentes' },
-                                                        { icon: Baseline, label: 'Tamaño Texto', key: 'fontSizeDoc', min: 6, max: 18, unit: 'pt', group: 'Docentes' },
-                                                        { icon: Baseline, label: 'Separación Texto', key: 'dTextOffset', min: 0, max: mmToPx(25), group: 'Docentes' },
-                                                        {
-                                                            icon: AlignCenterHorizontal, label: 'Centrar Doc', key: 'centrar-doc', group: 'Docentes', action: () => {
-                                                                // Los docentes ya se centran automáticamente al eje X mediante justify-center en preview
-                                                                // y cálculo matemático en el script. Esta acción simplemente confirma el estado.
-                                                                const btn = document.getElementById('btn-guardar-orla');
-                                                                if (btn) { btn.classList.add('text-blue-400'); setTimeout(() => btn.classList.remove('text-blue-400'), 1000); }
-                                                            }
-                                                        },
-
-                                                        // GENERAL
-                                                        { icon: Box, label: 'Margen', key: 'margin', min: mmToPx(5), max: mmToPx(50), group: 'General' },
-                                                        {
-                                                            icon: Download, label: 'Descargar Config', key: 'download-config', group: 'General', action: () => {
-                                                                const data = JSON.stringify(configOrla, null, 2);
-                                                                const blob = new Blob([data], { type: 'application/json' });
-                                                                const url = URL.createObjectURL(blob);
-                                                                const a = document.createElement('a');
-                                                                a.href = url;
-                                                                a.download = `config_orla_${new Date().getTime()}.json`;
-                                                                a.click();
-                                                            }
-                                                        },
-                                                        {
-                                                            icon: History, label: 'Restaurar', key: 'restore-config', group: 'General', action: () => {
-                                                                const backup = localStorage.getItem('configOrla_backup');
-                                                                if (backup) {
-                                                                    if (confirm('¿Restaurar la última copia guardada?')) {
-                                                                        setConfigOrla(JSON.parse(backup));
-                                                                    }
-                                                                } else {
-                                                                    alert('No hay ninguna copia de seguridad guardada.');
-                                                                }
-                                                            }
-                                                        }
-                                                    ];
-                                                    return (
-                                                        <div
-                                                            className={`fixed bottom-0 left-0 right-0 z-[200] backdrop-blur-xl border-t select-none ${barBg}`}
-                                                            style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
-                                                            onTouchStart={e => e.stopPropagation()}
-                                                            onTouchMove={e => e.stopPropagation()}
-                                                            onTouchEnd={e => e.stopPropagation()}
-                                                        >
-                                                            {/* — SLIDER AREA — solo visible cuando hay herramienta activa */}
-                                                            {activeDesignParam && (
-                                                                <div className="px-5 pt-4 pb-2">
-                                                                    <div className="flex items-center justify-between mb-2">
-                                                                        <span className={`text-[9px] font-black uppercase tracking-widest ${textLabel}`}>{activeDesignParam.label}</span>
-                                                                        <span className="text-[13px] font-black text-violet-400 tabular-nums">
-                                                                            {
-                                                                                activeDesignParam.key.includes('Scale') || activeDesignParam.unit === 'UD' || activeDesignParam.key.includes('fontSize')
-                                                                                    ? activeDesignParam.key.includes('Scale') ? configOrla[activeDesignParam.key].toFixed(2) : Math.round(configOrla[activeDesignParam.key])
-                                                                                    : Math.round(pxToMm(configOrla[activeDesignParam.key]))
-                                                                            }
-                                                                            <span className="text-[9px] text-violet-300 ml-0.5">{activeDesignParam.unit || 'MM'}</span>
-                                                                        </span>
-                                                                    </div>
-                                                                    {activeDesignParam.type === 'select' ? (
-                                                                        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                                                                            {activeDesignParam.options.map(opt => (
-                                                                                <button
-                                                                                    key={opt}
-                                                                                    onClick={() => updateConfig(activeDesignParam.key, opt)}
-                                                                                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${configOrla[activeDesignParam.key] === opt ? 'bg-violet-600 text-white shadow-lg' : isDark ? 'bg-white/5 text-white/40' : 'bg-black/5 text-black/40'}`}
-                                                                                >
-                                                                                    {opt}
-                                                                                </button>
-                                                                            ))}
-                                                                        </div>
-                                                                    ) : (
-                                                                        <input
-                                                                            type="range"
-                                                                            min={activeDesignParam.min}
-                                                                            max={activeDesignParam.max}
-                                                                            step={activeDesignParam.step || (activeDesignParam.key.includes('fontSize') ? 0.5 : 1)}
-                                                                            value={configOrla[activeDesignParam.key]}
-                                                                            onChange={(e) => updateConfig(activeDesignParam.key, parseFloat(e.target.value))}
-                                                                            className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-violet-500/20"
-                                                                            style={{ accentColor: '#7c3aed' }}
-                                                                        />
-                                                                    )}
-                                                                </div>
-                                                            )}
-
-                                                            {/* — HERRAMIENTAS ROW — siempre visible, scroll horizontal */}
-                                                            <div className="flex items-center w-full max-w-7xl mx-auto">
-                                                                {/* Btn GUARDAR */}
-                                                                <button
-                                                                    onClick={() => {
-                                                                        try { localStorage.setItem('configOrla_backup', JSON.stringify(configOrla)); } catch (e) { }
-                                                                        const btn = document.getElementById('btn-guardar-orla');
-                                                                        if (btn) { btn.classList.add('text-green-400'); setTimeout(() => btn.classList.remove('text-green-400'), 1500); }
-                                                                    }}
-                                                                    id="btn-guardar-orla"
-                                                                    className={`flex-shrink-0 flex flex-col items-center gap-1 px-4 py-3 active:scale-90 transition-all border-r ${textMuted} ${dividerColor}`}
-                                                                >
-                                                                    <Check size={18} />
-                                                                    <span className="text-[7px] font-black uppercase tracking-widest">Guardar</span>
-                                                                </button>
-
-                                                                {/* ZOOM Y RESTO DE HERRAMIENTAS */}
-                                                                <div className="flex-1 flex items-center overflow-hidden">
-                                                                    {/* ZOOM CONTROLS — BOTÓN + POPOVER VERTICAL */}
-                                                                    {/* ZOOM CONTROLS — DESPLIEGUE HORIZONTAL */}
-                                                                    <div className="flex items-center ml-2 flex-shrink-0">
-                                                                        <button
-                                                                            onClick={() => {
-                                                                                const nextState = !showZoomBar;
-                                                                                setShowZoomBar(nextState);
-                                                                                if (nextState) {
-                                                                                    setActiveToolGroup(null);
-                                                                                    setActiveDesignParam(null);
-                                                                                }
-                                                                            }}
-                                                                            className={`flex flex-col items-center justify-center gap-1 w-14 h-14 rounded-2xl transition-all active:scale-90 z-10 ${showZoomBar ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/30' : isDark ? 'bg-white/5 text-white/50 border border-white/5 hover:bg-white/10' : 'bg-black/5 text-black/50 border border-black/5 hover:bg-black/10'}`}
-                                                                        >
-                                                                            <Search size={20} />
-                                                                            <span className="text-[7px] font-black uppercase tracking-tighter">{Math.round(canvasZoom * 100)}%</span>
-                                                                        </button>
-
-                                                                        <div
-                                                                            className={`flex items-center gap-4 transition-all duration-500 ease-out overflow-hidden h-14 ${showZoomBar ? 'max-w-[300px] opacity-100 ml-3 px-4 bg-violet-500/5 rounded-2xl border border-violet-500/10' : 'max-w-0 opacity-0 ml-0 pointer-events-none'}`}
-                                                                        >
-                                                                            <button
-                                                                                onClick={() => { setCanvasZoom(1); setPanOffset({ x: 0, y: 0 }); }}
-                                                                                className="text-[8px] font-black uppercase text-violet-500 hover:text-white hover:bg-violet-500 px-2 py-1 rounded-md transition-all flex-shrink-0"
-                                                                            >
-                                                                                RESET
-                                                                            </button>
-
-                                                                            <div className="w-32 flex items-center flex-shrink-0 mr-2">
-                                                                                <input
-                                                                                    type="range"
-                                                                                    min="10"
-                                                                                    max="300"
-                                                                                    value={Math.round(canvasZoom * 100)}
-                                                                                    onChange={e => setCanvasZoom(parseInt(e.target.value) / 100)}
-                                                                                    className="w-full h-1.5 bg-violet-500/20 rounded-lg appearance-none cursor-pointer accent-violet-500"
-                                                                                />
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-
-                                                                    <div className={`w-px h-8 mx-2 flex-shrink-0 ${isDark ? 'bg-white/10' : 'bg-black/10'}`} />
-
-                                                                    {/* Tira de herramientas */}
-                                                                    <div className="flex-1 overflow-x-auto scrollbar-hide" style={{ WebkitOverflowScrolling: 'touch' }}>
-                                                                        <div className="flex items-center gap-4 px-4 py-2" style={{ minWidth: 'max-content' }}>
-                                                                            {['Alumnos', 'Docentes', 'General'].map(groupName => {
-                                                                                const isGroupActive = activeToolGroup === groupName;
-                                                                                const groupTools = TOOLS.filter(t => t.group === groupName);
-
-                                                                                return (
-                                                                                    <div key={groupName} className="flex items-center">
-                                                                                        {/* BOTÓN DEL GRUPO */}
-                                                                                        <button
-                                                                                            onClick={() => {
-                                                                                                const nextState = !isGroupActive;
-                                                                                                setActiveToolGroup(nextState ? groupName : null);
-                                                                                                setActiveDesignParam(null);
-                                                                                                if (nextState) setShowZoomBar(false);
-                                                                                            }}
-                                                                                            className={`flex flex-col items-center justify-center min-w-[60px] px-3 py-2 transition-all active:scale-95 ${isGroupActive ? 'opacity-100' : 'opacity-40 hover:opacity-100'}`}
-                                                                                        >
-                                                                                            <span className={`text-[9px] font-black uppercase tracking-widest ${isGroupActive ? 'text-violet-500' : isDark ? 'text-white' : 'text-black'}`}>
-                                                                                                {groupName}
-                                                                                            </span>
-                                                                                            <div className={`w-full h-0.5 mt-1.5 rounded-full transition-all duration-500 ${isGroupActive ? 'bg-violet-600' : 'bg-transparent'}`} />
-                                                                                        </button>
-
-                                                                                        {/* HIJOS (DESPLEGABLE HACIA LA DERECHA) */}
-                                                                                        <div
-                                                                                            className={`flex items-center gap-1 transition-all duration-500 ease-out overflow-hidden ${isGroupActive ? 'max-w-[1000px] opacity-100 ml-4 pointer-events-auto' : 'max-w-0 opacity-0 ml-0 pointer-events-none'}`}
-                                                                                        >
-                                                                                            {groupTools.map(tool => {
-                                                                                                const isParamActive = activeDesignParam?.key === tool.key;
-                                                                                                return (
-                                                                                                    <button
-                                                                                                        key={tool.key}
-                                                                                                        onClick={() => {
-                                                                                                            if (tool.action) {
-                                                                                                                tool.action();
-                                                                                                            } else {
-                                                                                                                setActiveDesignParam(isParamActive ? null : tool);
-                                                                                                            }
-                                                                                                        }}
-                                                                                                        className={`flex flex-col items-center gap-1.5 px-3 py-2.5 rounded-2xl transition-all active:scale-90 flex-shrink-0 ${isParamActive
-                                                                                                            ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/30'
-                                                                                                            : tool.action ? (isDark ? 'text-cyan-400/70 hover:text-cyan-300 hover:bg-cyan-500/10' : 'text-cyan-600/70 hover:text-cyan-700 hover:bg-cyan-500/10')
-                                                                                                                : (isDark ? 'text-white/40 hover:text-white hover:bg-white/5' : 'text-black/40 hover:text-black hover:bg-black/5')
-                                                                                                            }`}
-                                                                                                    >
-                                                                                                        <tool.icon size={18} />
-                                                                                                        <span className={`text-[8px] font-black uppercase tracking-tight whitespace-nowrap ${isParamActive ? 'text-white' : isDark ? 'text-white/40' : 'text-black/50'}`}>
-                                                                                                            {tool.label}
-                                                                                                        </span>
-                                                                                                    </button>
-                                                                                                );
-                                                                                            })}
-                                                                                        </div>
-
-                                                                                        {/* SEPARADOR ENTRE GRUPOS */}
-                                                                                        {!isGroupActive && groupName !== 'General' && (
-                                                                                            <div className={`w-px h-6 mx-3 flex-shrink-0 ${isDark ? 'bg-white/10' : 'bg-black/10'}`} />
-                                                                                        )}
-                                                                                    </div>
-                                                                                );
-                                                                            })}
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-
-                                                                {/* Btn CERRAR */}
-                                                                <button
-                                                                    onClick={() => setIsFullScreenDesign(false)}
-                                                                    className={`flex-shrink-0 flex flex-col items-center gap-1 px-4 py-3 active:scale-90 transition-all border-l ${textMuted} ${dividerColor}`}
-                                                                >
-                                                                    <X size={18} />
-                                                                    <span className="text-[7px] font-black uppercase tracking-widest">Cerrar</span>
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })()}
-
-                                                <div className={`card ${isFullScreenDesign ? 'border-none bg-transparent h-full p-0 flex flex-col' : 'p-8 border-violet-500/20 bg-violet-500/5 dark:bg-violet-500/5 relative overflow-hidden'}`}>
-                                                    {/* Header Previa */}
-                                                    {!isFullScreenDesign && (
-                                                        <div className="flex flex-col sm:flex-row items-center gap-3 mb-8 relative z-10">
-                                                            <div className="flex items-center gap-4 flex-1">
-                                                                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20">
-                                                                    <Eye size={24} />
-                                                                </div>
-                                                                <div className="text-left">
-                                                                    <h2 className="text-xl font-black text-primary uppercase tracking-tighter">Previsualización Técnica (A3)</h2>
-                                                                    <p className="text-[10px] font-bold text-secondary uppercase tracking-[0.2em] opacity-60">Escala Visual 1:10 • 300 DPI</p>
-                                                                </div>
-                                                            </div>
-                                                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-                                                                <button
-                                                                    onClick={() => setIsFullScreenDesign(true)}
-                                                                    className="w-full sm:w-auto px-5 py-3 bg-violet-600 hover:bg-violet-500 text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.15em] flex items-center justify-center gap-2 transition-all shadow-xl shadow-violet-600/20 active:scale-95 group whitespace-nowrap"
-                                                                >
-                                                                    <Maximize2 size={16} className="group-hover:rotate-12 transition-transform flex-shrink-0" />
-                                                                    <span>Editar Orla</span>
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => setView('command')}
-                                                                    className="w-full sm:w-auto px-5 py-3 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.15em] flex items-center justify-center gap-2 transition-all shadow-xl shadow-emerald-500/30 active:scale-95 group border border-white/10 animate-pulse-slow whitespace-nowrap"
-                                                                >
-                                                                    <Layers size={16} className="group-hover:scale-110 transition-transform flex-shrink-0" />
-                                                                    <span>Finalizar Orla</span>
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-                                                    <div
-                                                        ref={canvasContainerRef}
-                                                        onMouseDown={handleCanvasMouseDown}
-                                                        onMouseMove={handleCanvasMouseMove}
-                                                        onMouseUp={handleCanvasMouseUp}
-                                                        onMouseLeave={handleCanvasMouseUp}
-                                                        onWheel={handleCanvasWheel}
-                                                        onTouchStart={handleCanvasMouseDown}
-                                                        onTouchMove={handleCanvasMouseMove}
-                                                        onTouchEnd={handleCanvasMouseUp}
-                                                        className={`relative select-none touch-none ${isFullScreenDesign
-                                                            ? `flex-1 ${theme === 'dark' ? 'bg-[#0a0a0a]' : 'bg-[#f0f2f5]'} overflow-auto flex items-center justify-center`
-                                                            : 'w-full overflow-hidden bg-black/20 rounded-3xl border border-white/5 cursor-grab active:cursor-grabbing'}`}
-                                                        style={(() => {
-                                                            if (isFullScreenDesign) return { cursor: 'grab', paddingBottom: '100px' };
-                                                            const availableW = (canvasContainerRef?.current?.offsetWidth || window.innerWidth) - 32;
-                                                            const canvasW = configOrla.canvasW / 10;
-                                                            const canvasH = configOrla.canvasH / 10;
-                                                            const scale = Math.min(1, availableW / canvasW);
-                                                            return { cursor: 'grab', height: Math.round(canvasH * scale + 32) + 'px' };
-                                                        })()}
-                                                    >
-                                                        {/* Preview del Canvas */}
-                                                        <div style={{
-                                                            width: '100%',
-                                                            height: '100%',
-                                                            display: 'flex',
-                                                            alignItems: isFullScreenDesign ? 'center' : 'flex-start',
-                                                            justifyContent: 'center',
-                                                            padding: isFullScreenDesign ? '2rem' : '16px 16px 0 16px',
-                                                            minWidth: isFullScreenDesign ? 'max-content' : undefined,
-                                                            minHeight: isFullScreenDesign ? 'max-content' : undefined
-                                                        }}>
-                                                            <div className="relative bg-white shadow-[0_0_100px_rgba(0,0,0,0.5)] rounded-sm overflow-hidden"
-                                                                style={{
-                                                                    width: configOrla.canvasW / 10 + 'px',
-                                                                    height: configOrla.canvasH / 10 + 'px',
-                                                                    backgroundImage: `
-                                                                            linear-gradient(to right, #f0f0f0 1px, transparent 1px),
-                                                                            linear-gradient(to bottom, #f0f0f0 1px, transparent 1px)
-                                                                        `,
-                                                                    backgroundSize: '20px 20px',
-                                                                    transform: isFullScreenDesign
-                                                                        ? `translate(${panOffset.x}px, ${panOffset.y}px) scale(${window.innerWidth < 1024 ? canvasZoom * 0.75 : canvasZoom * 1.5})`
-                                                                        : (() => { const aw = (canvasContainerRef?.current?.offsetWidth || window.innerWidth) - 32; const s = Math.min(1, aw / (configOrla.canvasW / 10)); return `scale(${s})`; })(),
-                                                                    transformOrigin: isFullScreenDesign ? 'center center' : 'top center',
-                                                                    transition: isDraggingCanvasRef.current ? 'none' : 'transform 0.1s ease-out',
-                                                                    flexShrink: 0
-                                                                }}>
-
-                                                                {/* Margen */}
-                                                                <div className="absolute border border-red-500/30 border-dashed pointer-events-none z-50"
-                                                                    style={{ inset: configOrla.margin / 10 + 'px' }} />
-
-                                                                {/* Guías centro: solo en fullscreen */}
-                                                                {isFullScreenDesign && <>
-                                                                    <div className="absolute top-0 bottom-0 pointer-events-none z-50" style={{ left: '50%', width: '1px', background: 'rgba(0,190,230,0.45)', transform: 'translateX(-0.5px)' }} />
-                                                                    <div className="absolute left-0 right-0 pointer-events-none z-50" style={{ top: '50%', height: '1px', background: 'rgba(0,190,230,0.45)', transform: 'translateY(-0.5px)' }} />
-                                                                </>}
-
-                                                                {(() => {
-                                                                    const groupsForCourse = designFilter.course ? [...new Set(orders.filter(o => getCourseBase(o.course) === designFilter.course).map(o => getGroup(o.course)))].filter(Boolean) : [];
-                                                                    const needsGroup = groupsForCourse.length > 0;
-                                                                    const isSelectionComplete = designFilter.school && designFilter.course && (!needsGroup || designFilter.group);
-
-                                                                    if (!isSelectionComplete) {
-                                                                        return (
-                                                                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-50/50 backdrop-blur-[2px] z-50">
-                                                                                <div className="w-16 h-16 bg-violet-500/10 rounded-full flex items-center justify-center text-violet-500 mb-4 animate-bounce">
-                                                                                    <LayoutGrid size={32} />
-                                                                                </div>
-                                                                                <p className="text-[10px] font-black text-violet-600 uppercase tracking-[0.2em] animate-pulse px-10 text-center">
-                                                                                    {!designFilter.school ? "Selecciona el Centro" : !designFilter.course ? "Selecciona el Curso" : "Selecciona el Grupo"}
-                                                                                </p>
-                                                                            </div>
-                                                                        );
-                                                                    }
-
-                                                                    return (
-                                                                        <>
-                                                                            {/* Docentes */}
-                                                                            <div className="absolute top-0 w-full flex justify-center z-20" style={{ top: configOrla.dY / 10 + 'px', columnGap: (configOrla.dGapX || 150) / 10 + 'px' }}>
-                                                                                {selectedStaffIds.map(id => staff.find(m => m.id === id)).filter(Boolean).map((member, i) => {
-                                                                                    const staffNameParts = (member.name || '').trim().split(/\s+/);
-                                                                                    const staffFirstName = staffNameParts[0] || '';
-                                                                                    const staffSurnames = staffNameParts.slice(1).join(' ');
-
-                                                                                    return (
-                                                                                        <div key={member.id} className="relative flex flex-col items-center">
-                                                                                            <div className="bg-slate-200 border border-slate-300 rounded-sm relative flex items-center justify-center overflow-hidden"
-                                                                                                style={{
-                                                                                                    width: (configOrla.aW * configOrla.dScale) / 10 + 'px',
-                                                                                                    height: (configOrla.aH * configOrla.dScale) / 10 + 'px',
-                                                                                                    marginBottom: configOrla.dTextOffset / 10 + 'px'
-                                                                                                }}>
-                                                                                                {member.photoFile ? (
-                                                                                                    <div className="w-full h-full bg-slate-400 flex items-center justify-center text-[8px] font-black text-white/50">{member.photoFile}</div>
-                                                                                                ) : (
-                                                                                                    <div className="w-full h-full flex items-center justify-center opacity-40"><UserCheck size={configOrla.dScale * 12} /></div>
-                                                                                                )}
-                                                                                            </div>
-                                                                                            <div className="mt-[4px] text-center" style={{ width: (configOrla.aW * configOrla.dScale) / 10 + 'px' }}>
-                                                                                                <p className="leading-[1.1] uppercase truncate text-black" style={{
-                                                                                                    fontFamily: configOrla.fontFamily,
-                                                                                                    fontSize: (configOrla.fontSizeDoc / 2) + 'px',
-                                                                                                    fontWeight: 'normal',
-                                                                                                    fontStyle: 'normal',
-                                                                                                    color: '#000000'
-                                                                                                }}>{staffFirstName}</p>
-                                                                                                {staffSurnames && (
-                                                                                                    <p className="leading-[1.1] uppercase truncate text-black" style={{
-                                                                                                        fontFamily: configOrla.fontFamily,
-                                                                                                        fontSize: (configOrla.fontSizeDoc / 2) + 'px',
-                                                                                                        fontWeight: 'normal',
-                                                                                                        fontStyle: 'normal',
-                                                                                                        color: '#000000'
-                                                                                                    }}>{staffSurnames}</p>
-                                                                                                )}
-                                                                                                <p className="text-[5px] mt-[1.5px] font-bold uppercase truncate leading-none text-black" style={{ fontFamily: configOrla.fontFamily, color: '#000000' }}>{member.role}</p>
-                                                                                            </div>
-                                                                                        </div>
-                                                                                    );
-                                                                                })}
-                                                                            </div>
-
-                                                                            {/* Alumnos Grid */}
-                                                                            <div className="absolute w-full z-10" style={{ top: configOrla.aStartY / 10 + 'px', left: 0, paddingLeft: configOrla.aStartX / 10 + 'px', paddingRight: configOrla.aStartX / 10 + 'px' }}>
-                                                                                <div className="grid justify-items-center" style={{
-                                                                                    gridTemplateColumns: `repeat(${configOrla.aCols}, ${(configOrla.aW * (configOrla.aScale || 1.0)) / 10}px)`,
-                                                                                    rowGap: configOrla.aGapY / 10 + 'px',
-                                                                                    columnGap: configOrla.aGapX / 10 + 'px'
-                                                                                }}>
-                                                                                    {orders.filter(o =>
-                                                                                        (!designFilter.course || getCourseBase(o.course) === designFilter.course) &&
-                                                                                        (!designFilter.group || getGroup(o.course) === designFilter.group)
-                                                                                    ).sort((a, b) => {
-                                                                                        const partsA = (a.studentName || '').trim().split(/\s+/);
-                                                                                        const partsB = (b.studentName || '').trim().split(/\s+/);
-                                                                                        const surA = partsA[1] || partsA[0] || '';
-                                                                                        const surB = partsB[1] || partsB[0] || '';
-                                                                                        return surA.localeCompare(surB, 'es', { sensitivity: 'base' });
-                                                                                    }).map((order, i) => {
-                                                                                        const nameParts = (order.studentName || '').trim().split(/\s+/);
-                                                                                        const firstName = nameParts[0] || '';
-                                                                                        const surnames = nameParts.slice(1).join(' ');
-
-                                                                                        return (
-                                                                                            <div key={order.id} className="flex flex-col items-center">
-                                                                                                <div className="bg-slate-50 border border-slate-100 rounded-sm relative flex items-center justify-center overflow-hidden"
-                                                                                                    style={{
-                                                                                                        width: (configOrla.aW * (configOrla.aScale || 1.0)) / 10 + 'px',
-                                                                                                        height: (configOrla.aH * (configOrla.aScale || 1.0)) / 10 + 'px',
-                                                                                                        marginBottom: configOrla.aTextOffset / 10 + 'px'
-                                                                                                    }}>
-                                                                                                    {order.photoFile ? (
-                                                                                                        <span className="text-[8px] font-black text-slate-600">{order.photoFile}</span>
-                                                                                                    ) : (
-                                                                                                        <span className="font-black opacity-[0.2]" style={{ fontSize: (6 * (configOrla.aScale || 1.0)) + 'px' }}>{i + 1}</span>
-                                                                                                    )}
-                                                                                                </div>
-                                                                                                <p className="leading-[1.1] uppercase truncate text-black" style={{
-                                                                                                    fontFamily: configOrla.fontFamily,
-                                                                                                    fontSize: (configOrla.fontSizeAlu / 2) + 'px',
-                                                                                                    fontWeight: 'normal',
-                                                                                                    fontStyle: 'normal',
-                                                                                                    color: '#000000'
-                                                                                                }}>{firstName}</p>
-                                                                                                {surnames && (
-                                                                                                    <p className="leading-[1.1] uppercase truncate text-black" style={{
-                                                                                                        fontFamily: configOrla.fontFamily,
-                                                                                                        fontSize: (configOrla.fontSizeAlu / 2) + 'px',
-                                                                                                        fontWeight: 'normal',
-                                                                                                        fontStyle: 'normal',
-                                                                                                        color: '#000000'
-                                                                                                    }}>{surnames}</p>
-                                                                                                )}
-                                                                                            </div>
-                                                                                        );
-                                                                                    })}
-                                                                                </div>
-                                                                            </div>
-
-                                                                            {/* Pie de Orla (Nombre Centro y Promoción) */}
-                                                                            <div className="absolute w-full flex flex-col items-center z-10" style={{
-                                                                                bottom: configOrla.margin / 10 + 'px',
-                                                                                left: 0,
-                                                                                padding: `0 ${configOrla.margin / 10}px`
-                                                                            }}>
-                                                                                <h2 className="uppercase font-black leading-none text-black" style={{
-                                                                                    fontFamily: configOrla.fontFamily,
-                                                                                    fontSize: '18px',
-                                                                                    letterSpacing: '0.05em',
-                                                                                    marginBottom: '2px'
-                                                                                }}>
-                                                                                    {schools.find(s => s.id === designFilter.school)?.name || 'NOMBRE DEL CENTRO'}
-                                                                                </h2>
-                                                                                <p className="uppercase font-medium text-black" style={{
-                                                                                    fontFamily: configOrla.fontFamily,
-                                                                                    fontSize: '10px',
-                                                                                    letterSpacing: '0.2em',
-                                                                                    opacity: 0.8
-                                                                                }}>
-                                                                                    PROMOCIÓN 2026
-                                                                                </p>
-                                                                            </div>
-                                                                        </>
-                                                                    );
-                                                                })()}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Selectores de Curso - AHORA DEBAJO */}
-                                                    {!isFullScreenDesign && (
-                                                        <div className="mt-8 pt-8 border-t border-violet-500/10 flex flex-col items-center gap-4 text-center">
-                                                            <div className="flex items-center gap-2 p-1.5 bg-black/20 rounded-2xl border border-white/5">
-                                                                {/* SELECTOR CENTRO */}
-                                                                <select
-                                                                    value={designFilter.school || ''}
-                                                                    onChange={e => {
-                                                                        const sid = e.target.value;
-                                                                        setDesignFilter(p => ({ ...p, school: sid, course: '', group: '' }));
-                                                                        if (sid) setAdminSchool(sid); // Sincronizar para cargar órdenes de ese centro
-                                                                    }}
-                                                                    className="bg-transparent text-white text-[11px] font-black uppercase tracking-wider px-4 py-2 outline-none cursor-pointer hover:text-violet-400 transition-colors"
-                                                                >
-                                                                    <option value="" className="bg-slate-900">— CENTRO —</option>
-                                                                    {schools.map(s => <option key={s.id} value={s.id} className="bg-slate-900">{s.name}</option>)}
-                                                                </select>
-                                                                <div className="w-px h-4 bg-white/10" />
-                                                                {/* SELECTOR CURSO */}
-                                                                <select
-                                                                    value={designFilter.course}
-                                                                    onChange={e => {
-                                                                        const nextCourse = e.target.value;
-                                                                        const courseGroups = nextCourse ? [...new Set(orders.filter(o => getCourseBase(o.course) === nextCourse).map(o => getGroup(o.course)))].filter(Boolean).sort() : [];
-                                                                        // Si solo hay un grupo, lo seleccionamos automáticamente
-                                                                        const autoGroup = courseGroups.length === 1 ? courseGroups[0] : '';
-                                                                        setDesignFilter(p => ({ ...p, course: nextCourse, group: autoGroup }));
-                                                                    }}
-                                                                    disabled={!designFilter.school}
-                                                                    className="bg-transparent text-white text-[11px] font-black uppercase tracking-wider px-4 py-2 outline-none cursor-pointer disabled:opacity-30 hover:text-violet-400 transition-colors"
-                                                                >
-                                                                    <option value="" className="bg-slate-900">— CURSO —</option>
-                                                                    {[...new Set(
-                                                                        orders
-                                                                            .filter(o => !designFilter.school || o.schoolId === designFilter.school)
-                                                                            .map(o => getCourseBase(o.course))
-                                                                    )].filter(Boolean).sort().map(c => <option key={c} value={c} className="bg-slate-900">{c}</option>)}
-                                                                </select>
-                                                                <div className="w-px h-4 bg-white/10" />
-                                                                {/* SELECTOR GRUPO */}
-                                                                <select
-                                                                    value={designFilter.group}
-                                                                    onChange={e => setDesignFilter(p => ({ ...p, group: e.target.value }))}
-                                                                    disabled={!designFilter.course}
-                                                                    className="bg-transparent text-white text-[11px] font-black uppercase tracking-wider px-4 py-2 outline-none cursor-pointer disabled:opacity-30 hover:text-violet-400 transition-colors"
-                                                                >
-                                                                    <option value="" className="bg-slate-900">G</option>
-                                                                    {(designFilter.course ? [...new Set(orders.filter(o => getCourseBase(o.course) === designFilter.course).map(o => getGroup(o.course)))].filter(Boolean).sort() : []).map(g => <option key={g} value={g} className="bg-slate-900">{g}</option>)}
-                                                                </select>
-                                                            </div>
-                                                            <p className="w-full text-[10px] font-bold text-violet-400/60 uppercase tracking-widest italic text-center">Selecciona el curso para cargar los alumnos automáticamente en la previa.</p>
-                                                        </div>
-                                                    )}
-                                                </div>
+                                    </button>
+
+                                    <div className="flex flex-col text-center md:text-left text-primary md:border-l md:border-primary/10 md:pl-6 leading-none">
+                                        <div className="flex items-center justify-center md:justify-start gap-2 mb-1">
+                                            <Shield size={10} className="text-amber-500 md:size-[14px]" />
+                                            <span className="text-[7px] md:text-[10px] font-black text-amber-500 uppercase tracking-widest leading-none">Panel de Control</span>
+                                            <div className="px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/20 rounded text-[6px] md:text-[8px] font-black text-amber-600 uppercase tracking-tighter ml-1 leading-none shadow-sm">
+                                                MASTER
                                             </div>
                                         </div>
-                                    )}
-                                    <BackgroundOrbs />
+                                        <h2 className="text-xl md:text-3xl font-black tracking-tight uppercase md:normal-case mt-1 text-primary">Gestión Estratégica</h2>
+                                    </div>
                                 </div>
+
+                                {/* Tabs de Navegación */}
+                                <div className="sticky top-16 md:top-24 z-50 py-2 md:py-4 bg-background/80 dark:bg-black/80 backdrop-blur-2xl -mx-4 px-4 mb-4 border-b border-primary/10 transition-colors">
+                                    <div className="max-w-5xl mx-auto">
+                                        {/* Escritorio */}
+                                        <div className="hidden md:flex flex-wrap items-center justify-center gap-1.5 bg-card/60 dark:bg-white/5 p-1.5 rounded-[2rem] border border-primary/10 dark:border-white/10 backdrop-blur-md w-full shadow-2xl shadow-black/20">
+                                            <button onClick={() => setAdminTab('shooting')} className={`px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${adminTab === 'shooting' ? 'bg-red-700 text-white shadow-xl shadow-red-700/30' : 'text-secondary hover:text-primary hover:bg-primary/10'}`}>📸 Shooting</button>
+                                            <button onClick={() => setAdminTab('schools')} className={`px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${adminTab === 'schools' ? 'bg-orange-500 text-white shadow-lg' : 'text-secondary hover:text-primary hover:bg-primary/5'}`}><GraduationCap size={14} /> Centros</button>
+                                            <button onClick={() => setAdminTab('settings')} className={`px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${adminTab === 'settings' ? 'bg-indigo-500 text-white shadow-lg' : 'text-secondary hover:text-primary hover:bg-primary/5'}`}><Settings size={14} /> Ajustes App</button>
+                                            <button onClick={() => setAdminTab('orders')} className={`px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${adminTab === 'orders' ? 'bg-emerald-500 text-white shadow-lg' : 'text-secondary hover:text-primary hover:bg-primary/5'}`}><Users size={14} /> Gestión Pedid.</button>
+                                            <button onClick={() => setAdminTab('precios')} className={`px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${adminTab === 'precios' ? 'bg-amber-500 text-white shadow-lg' : 'text-secondary hover:text-primary hover:bg-primary/5'}`}><Euro size={14} /> Precios</button>
+                                            <button onClick={() => setAdminTab('design')} className={`px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${adminTab === 'design' ? 'bg-violet-600 text-white shadow-lg' : 'text-secondary hover:text-primary hover:bg-primary/5'}`}><Palette size={14} /> Diseño Orla</button>
+                                        </div>
+
+                                        {/* Móvil */}
+                                        <div className="md:hidden relative">
+                                            <button
+                                                onClick={() => setMobileAdminMenuOpen(!mobileAdminMenuOpen)}
+                                                className="w-full flex items-center justify-between p-3 bg-card/60 border border-primary/10 rounded-2xl backdrop-blur-md shadow-xl"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-white shadow-md ${adminTab === 'shooting' ? 'bg-red-700' :
+                                                        adminTab === 'schools' ? 'bg-orange-500' :
+                                                            adminTab === 'settings' ? 'bg-indigo-500' :
+                                                                adminTab === 'orders' ? 'bg-emerald-500' :
+                                                                    adminTab === 'precios' ? 'bg-amber-500' : 'bg-violet-600'
+                                                        }`}>
+                                                        {adminTab === 'shooting' ? '📸' :
+                                                            adminTab === 'schools' ? <GraduationCap size={18} /> :
+                                                                adminTab === 'settings' ? <Settings size={18} /> :
+                                                                    adminTab === 'orders' ? <Users size={18} /> :
+                                                                        adminTab === 'precios' ? <Euro size={18} /> : <Palette size={18} />}
+                                                    </div>
+                                                    <span className="text-sm font-black uppercase tracking-wider text-primary">{adminTab}</span>
+                                                </div>
+                                                <ChevronDown size={20} className={`text-primary/40 transition-transform ${mobileAdminMenuOpen ? 'rotate-180' : ''}`} />
+                                            </button>
+                                            {mobileAdminMenuOpen && (
+                                                <div className="absolute top-full left-0 right-0 mt-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-primary/10 rounded-3xl shadow-2xl z-[100] p-2 grid grid-cols-2 gap-2">
+                                                    <button onClick={() => { setAdminTab('shooting'); setMobileAdminMenuOpen(false); }} className="p-4 rounded-2xl text-[10px] font-black uppercase flex flex-col items-center gap-2">📸 Shooting</button>
+                                                    <button onClick={() => { setAdminTab('schools'); setMobileAdminMenuOpen(false); }} className="p-4 rounded-2xl text-[10px] font-black uppercase flex flex-col items-center gap-2"><GraduationCap size={20} /> Centros</button>
+                                                    <button onClick={() => { setAdminTab('settings'); setMobileAdminMenuOpen(false); }} className="p-4 rounded-2xl text-[10px] font-black uppercase flex flex-col items-center gap-2"><Settings size={20} /> Ajustes</button>
+                                                    <button onClick={() => { setAdminTab('orders'); setMobileAdminMenuOpen(false); }} className="p-4 rounded-2xl text-[10px] font-black uppercase flex flex-col items-center gap-2"><Users size={20} /> Pedidos</button>
+                                                    <button onClick={() => { setAdminTab('precios'); setMobileAdminMenuOpen(false); }} className="p-4 rounded-2xl text-[10px] font-black uppercase flex flex-col items-center gap-2"><Euro size={20} /> Precios</button>
+                                                    <button onClick={() => { setAdminTab('design'); setMobileAdminMenuOpen(false); }} className="p-4 rounded-2xl text-[10px] font-black uppercase flex flex-col items-center gap-2"><Palette size={20} /> Diseño</button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Bloque: Mi Plan Master */}
+                                <div className="card p-4 bg-gradient-to-br from-indigo-900/10 dark:from-indigo-500/10 to-transparent border-indigo-500/20 mb-6 border-2 sticky top-[100px] md:top-[152px] z-[35] backdrop-blur-xl mx-2 md:mx-0 shadow-2xl">
+                                    <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                                        <div className="flex items-center gap-3 w-full md:w-auto">
+                                            <div className="w-10 h-10 md:w-14 md:h-14 rounded-xl flex items-center justify-center border-2 border-indigo-500/30 text-indigo-500 bg-indigo-500/10">
+                                                <Crown size={22} className="md:size-[32px]" />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-sm md:text-xl font-black text-primary uppercase leading-none">Plan: <span className="text-indigo-500">{settings.plan?.toUpperCase() || 'STARTER'}</span></h3>
+                                            </div>
+                                        </div>
+                                        <button onClick={() => setShowPlanSelector(true)} className="w-full md:w-auto px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-[9px] md:text-[10px] uppercase rounded-xl transition-all flex items-center justify-center gap-3 shadow-xl shadow-indigo-600/20">
+                                            Cambiar Plan <ArrowRight size={14} />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Renderizado Condicional de Paneles */}
+                                {adminTab === 'shooting' && (
+                                    <ShootingPanel
+                                        orders={orders}
+                                        staff={staff}
+                                        shootFilters={shootFilters}
+                                        setShootFilters={setShootFilters}
+                                        shootSearch={shootSearch}
+                                        setShootSearch={setShootSearch}
+                                        shootMode={shootMode}
+                                        setShootMode={setShootMode}
+                                        adminSchool={adminSchool}
+                                        setAdminSchool={setAdminSchool}
+                                        selectedOrderIds={selectedOrderIds}
+                                        setSelectedOrderIds={setSelectedOrderIds}
+                                        selectedStaffIds={selectedStaffIds}
+                                        setSelectedStaffIds={setSelectedStaffIds}
+                                        newStudentForm={newStudentForm}
+                                        setNewStudentForm={setNewStudentForm}
+                                        newStaffForm={newStaffForm}
+                                        setNewStaffForm={setNewStaffForm}
+                                        setOrderToEdit={setOrderToEdit}
+                                        setStaffAssigning={setStaffAssigning}
+                                        addOrder={addOrder}
+                                        deleteOrder={deleteOrder}
+                                        updateStatus={updateStatus}
+                                        addStaff={addStaff}
+                                        deleteStaff={deleteStaff}
+                                        downloadMasterBackup={downloadMasterBackup}
+                                        getSchoolName={getSchoolName}
+                                        sortedSchools={sortedSchools}
+                                        schools={schools}
+                                    />
+                                )}
+
+                                {/* MODAL ASIGNAR FICHERO — PERSONAL */}
+                                <StaffEditModal
+                                    staffAssigning={staffAssigning}
+                                    setStaffAssigning={setStaffAssigning}
+                                    updateStaffMember={updateStaffMember}
+                                    deleteStaff={deleteStaff}
+                                />
+
+                                {/* ── GESTIÓN DE PEDIDOS ──────────────────────────────── */}
+                                {adminTab === 'orders' && (
+                                    <OrdersPanel
+                                        orders={orders}
+                                        filteredOrders={filteredOrders}
+                                        searchTerm={searchTerm}
+                                        setSearchTerm={setSearchTerm}
+                                        mobileOrdersFiltersOpen={mobileOrdersFiltersOpen}
+                                        setMobileOrdersFiltersOpen={setMobileOrdersFiltersOpen}
+                                        adminSchool={adminSchool}
+                                        setAdminSchool={setAdminSchool}
+                                        schools={schools}
+                                        ordersFilters={ordersFilters}
+                                        setOrdersFilters={setOrdersFilters}
+                                        updateStatus={updateStatus}
+                                        deleteOrder={deleteOrder}
+                                        setOrderToEdit={setOrderToEdit}
+                                        getSchoolName={getSchoolName}
+                                        stats={stats}
+                                    />
+                                )}
+
+
+                                {/* ── SECCIÓN CENTROS EDUCATIVOS ───────────────────────── */}
+                                {adminTab === 'schools' && (
+                                    <div className="space-y-6 pb-20">
+                                        <SchoolsPanel
+                                            sortedSchools={sortedSchools}
+                                            adminSchool={adminSchool}
+                                            setAdminSchool={setAdminSchool}
+                                            schoolToEdit={schoolToEdit}
+                                            setSchoolToEdit={setSchoolToEdit}
+                                            newSchoolName={newSchoolName}
+                                            setNewSchoolName={setNewSchoolName}
+                                            addSchool={addSchool}
+                                            updateSchool={updateSchool}
+                                            deleteSchool={deleteSchool}
+                                        />
+                                        <TutorsPanel
+                                            settings={settings}
+                                            updateSettings={updateSettings}
+                                            schools={schools}
+                                            theme={theme}
+                                        />
+                                        <CriticalDatesPanel
+                                            settings={settings}
+                                            updateSettings={updateSettings}
+                                            schools={schools}
+                                            theme={theme}
+                                        />
+                                    </div>
+                                )}
+
+                                {/* ── AJUSTES DE LA APP ────────────────────────────────── */}
+                                {adminTab === 'settings' && (
+                                    <SettingsPanel
+                                        settings={settings}
+                                        setSettings={setSettings}
+                                        updateSettings={updateSettings}
+                                        paymentMethods={paymentMethods}
+                                        togglePaymentMethod={togglePaymentMethod}
+                                        updateAdminPin={updateAdminPin}
+                                        downloadMasterBackup={downloadMasterBackup}
+                                        syncWithDrive={syncWithDrive}
+                                        isBackingUp={isBackingUp}
+                                        exportCSV={exportCSV}
+                                        adminSchool={adminSchool}
+                                        schools={schools}
+                                        photographerId={photographerId}
+                                    />
+                                )}
+
+                                {/* ── SECCIÓN PRECIOS ────────────────────────────────── */}
+                                {adminTab === 'precios' && (
+                                    <PricingPanel
+                                        settings={settings}
+                                        updateSettings={updateSettings}
+                                        allPacks={allPacks}
+                                        allExtras={allExtras}
+                                        theme={theme}
+                                    />
+                                )}
+
+                                {adminTab === 'design' && (
+                                    <DesignPanel
+                                        isFullScreenDesign={isFullScreenDesign}
+                                        setIsFullScreenDesign={setIsFullScreenDesign}
+                                        theme={theme}
+                                        configOrla={configOrla}
+                                        setConfigOrla={setConfigOrla}
+                                        updateConfig={updateConfig}
+                                        activeDesignParam={activeDesignParam}
+                                        setActiveDesignParam={setActiveDesignParam}
+                                        canvasZoom={canvasZoom}
+                                        setCanvasZoom={setCanvasZoom}
+                                        panOffset={panOffset}
+                                        setPanOffset={setPanOffset}
+                                        mmToPx={mmToPx}
+                                        pxToMm={pxToMm}
+                                        schools={schools}
+                                        adminSchool={adminSchool}
+                                        orders={orders}
+                                        allPacks={allPacks}
+                                        settings={settings}
+                                        designFilter={designFilter}
+                                        setDesignFilter={setDesignFilter}
+                                        staff={staff}
+                                        selectedStaffIds={selectedStaffIds}
+                                        setSelectedStaffIds={setSelectedStaffIds}
+                                        setAdminSchool={setAdminSchool}
+                                        setView={setView}
+                                        isDraggingCanvasRef={isDraggingCanvasRef}
+                                        canvasContainerRef={canvasContainerRef}
+                                        handleCanvasMouseDown={handleCanvasMouseDown}
+                                        handleCanvasMouseMove={handleCanvasMouseMove}
+                                        handleCanvasMouseUp={handleCanvasMouseUp}
+                                        handleCanvasWheel={handleCanvasWheel}
+                                    />
+                                )}
+
+                                <BackgroundOrbs />
                             </div>
-                        )
-                    }
+
+                            {/* Modales de Administración */}
+                            <EditOrderModal
+                                orderToEdit={orderToEdit}
+                                setOrderToEdit={setOrderToEdit}
+                                allPacks={allPacks}
+                                updateOrder={updateOrder}
+                            />
+                        </div>
+                    )}
+
                     {/* MODAL REGALO */}
                     {
                         showGiftModal && (
@@ -4757,6 +2107,6 @@ export default function App() {
                     <CondicionesVenta isOpen={showLandingCondiciones} onClose={() => setShowLandingCondiciones(false)} />
                 </>
             )}
-        </div >
+        </div>
     );
 }

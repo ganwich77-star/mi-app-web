@@ -124,28 +124,40 @@ export default defineConfig(({ mode }) => ({
     downloadScriptPlugin(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
+      includeAssets: ['favicon.svg', 'apple-touch-icon.png', 'logo.png'],
       manifest: {
         name: 'Orlas 2026 - Pujalte Studio',
-        short_name: 'Orlas 2026',
-        description: 'Gestor de pedidos de orlas escolares',
-        theme_color: '#0f172a',
+        short_name: 'Pujalte Orlas',
+        description: 'Gestor de pedidos de orlas escolares de alta calidad',
+        theme_color: '#4f46e5', // Brand indigo
         background_color: '#0f172a',
         display: 'standalone',
         orientation: 'portrait',
-        start_url: './',
+        start_url: '/graduaciones2026/?utm_source=pwa',
         icons: [
-          { src: 'favicon.svg', sizes: '32x32', type: 'image/svg+xml' }
+          { src: 'favicon.svg', sizes: '32x32', type: 'image/svg+xml' },
+          { src: 'logo.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }
         ]
       },
       workbox: {
-        maximumFileSizeToCacheInBytes: 5000000,
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        maximumFileSizeToCacheInBytes: 10000000,
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,webp}'],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
             handler: 'CacheFirst',
-            options: { cacheName: 'google-fonts-cache' }
+            options: {
+              cacheName: 'google-fonts-cache',
+              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 }
+            }
+          },
+          {
+            urlPattern: /\.(?:png|jpg|jpeg|svg|webp)$/,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'images-cache',
+              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 30 }
+            }
           }
         ]
       }

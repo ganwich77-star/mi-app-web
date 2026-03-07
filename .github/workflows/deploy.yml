@@ -1,4 +1,4 @@
-name: 🚀 Build y Despliegue a Hostinger
+name: 🚀 Build y Despliegue (Hostinger + Firebase)
 
 on:
   push:
@@ -15,22 +15,31 @@ jobs:
       - name: 🟢 Configurar Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20' # La versión recomendada para Vite
+          node-version: '20'
 
-      - name: 🛠️ Instalar y Compilar (Build)
+      - name: 🛠️ Instalar Dependencias
         run: |
           npm install
-          npm run build
+          cd functions && npm install
 
-      - name: 🔄 Subir carpeta DIST a Hostinger
+      - name: 🏗️ Compilar (Build)
+        run: npm run build
+
+      - name: 🔄 Desplegar Frontend a Hostinger (FTP)
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          # Ruta absoluta desde la raíz del FTP
           local-dir: ./dist/ 
           server-dir: /public_html/graduaciones2026/
           protocol: ftp
           port: 21
           dangerous-clean-slate: true
+
+      - name: 🔥 Desplegar Functions a Firebase
+        uses: w9jds/firebase-action@v13.6.0
+        with:
+          args: deploy --only functions
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}

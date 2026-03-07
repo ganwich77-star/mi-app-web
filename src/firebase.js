@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getFunctions } from "firebase/functions";
+import { getMessaging } from "firebase/messaging";
 
 const firebaseConfig = {
     apiKey: "AIzaSyBsiG9CByzLlrvGgjctJshIrc2k-Ck1DMM",
@@ -15,3 +16,4 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const functions = getFunctions(app, 'us-central1');
+export const messaging = (typeof window !== 'undefined' && 'serviceWorker' in navigator) ? getMessaging(app) : null;

@@ -179,3 +179,160 @@ exports.handlePaymentNotification = onRequest(async (req, res) => {
         res.status(500).send("Internal Error");
     }
 });
+
+const axios = require("axios");
+const sharp = require("sharp");
+const webpush = require("web-push");
+const jwt = require("jsonwebtoken");
+
+// CLAVES VAPID (PROTOCOL IDENTIFICATION)
+const VAPID_PUBLIC_KEY = "BHlRMHtNv7wtwckffZPgnTtk5fOFLw60QBV665hnkaO8nqo6YlOM7Pj12x3V_oZ2TeXcYWRdzWpb0VBDfWJp9RU";
+const VAPID_PRIVATE_KEY = "wZxyN7EeB5EVheXAzWSnnIvLMbbysigteU43eWDAI7w";
+const JWT_SECRET = "PUJALTE_SECRET_2026_ORLAS"; // Cambiar por variable de entorno real
+
+webpush.setVapidDetails(
+    "mailto:info@pujaltecreativestudio.com",
+    VAPID_PUBLIC_KEY,
+    VAPID_PRIVATE_KEY
+);
+
+/**
+ * MIDDLEWARE DE SEGURIDAD (Adaptado para Firebase onCall)
+ * Verifica que el token JWT sea válido para el estudio solicitante.
+ */
+const authenticateAdmin = (token, photographerId) => {
+    if (!token) throw new HttpsError("unauthenticated", "Token no proporcionado.");
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        if (decoded.photographerId !== photographerId && decoded.role !== 'superadmin') {
+            throw new HttpsError("permission-denied", "No tienes permiso para este estudio.");
+        }
+        return decoded;
+    } catch (err) {
+        throw new HttpsError("unauthenticated", "Token inválido o expirado.");
+    }
+};
+
+/**
+ * FUNCIÓN PARA GENERAR TOKEN (Llamada desde Login/PIN en el front)
+ */
+exports.getAdminToken = onCall(async (request) => {
+    const { photographerId, pin } = request.data || {};
+    // Verificamos contra la config en Firestore (Paso extra de seguridad)
+    const configSnap = await db.collection("orlas2026_photographers").doc(photographerId).collection("config").doc("main").get();
+    const serverPin = configSnap.exists ? configSnap.data().adminPin : "7373";
+
+    if (pin !== serverPin) {
+        throw new HttpsError("permission-denied", "PIN incorrecto.");
+    }
+
+    const token = jwt.sign({ photographerId, role: 'admin' }, JWT_SECRET, { expiresIn: '12h' });
+    return { token };
+});
+
+/**
+ * ENVÍO MASIVO DE NOTIFICACIONES (Fase C del Plan)
+ * Protegido por JWT + Validación Multi-tenant
+ */
+exports.sendMassiveNotifications = onCall(async (request) => {
+    const { title, body, url, photographerId, auth_token } = request.data || {};
+
+    // 1. VALIDACIÓN DE IDENTIDAD (JWT)
+    authenticateAdmin(auth_token, photographerId);
+
+    if (!title || !body) {
+        throw new HttpsError("invalid-argument", "Faltan datos del mensaje.");
+    }
+
+    try {
+        // 2. CONSULTA: Suscripciones restringidas al estudio
+        const snapshot = await db.collection("notif_subscriptions")
+            .where("photographerId", "==", photographerId)
+            .get();
+
+        if (snapshot.empty) return { sent: 0, message: "No hay suscriptores." };
+
+        const payload = JSON.stringify({
+            title,
+            body,
+            url: url || `https://basecode.es/graduaciones2026/?f=${photographerId}`
+        });
+
+        // 3. ENVÍO ASÍNCRONO + LIMPIEZA (Plan de Acción v2)
+        const sendPromises = snapshot.docs.map(async (doc) => {
+            const sub = doc.data();
+            try {
+                await webpush.sendNotification(sub, payload);
+                return { success: true };
+            } catch (error) {
+                // Borrar si ya no existe (404) o caducó (410)
+                if (error.statusCode === 404 || error.statusCode === 410) {
+                    await doc.ref.delete();
+                }
+                return { success: false };
+            }
+        });
+
+        const results = await Promise.allSettled(sendPromises);
+        const successfulCount = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
+
+        return { success: true, sent: successfulCount, total: snapshot.size };
+    } catch (error) {
+        logger.error("Error en envío masivo:", error);
+        throw new HttpsError("internal", "Fallo durante el envío masivo.");
+    }
+});
+
+/**
+ * Cloud Function para Redimensionar Imágenes
+ */
+exports.resizeImage = onRequest({ memory: "512MiB", timeoutSeconds: 60 }, async (req, res) => {
+    const imageUrl = req.query.url;
+    const width = parseInt(req.query.w) || 800;
+    const quality = parseInt(req.query.q) || 80;
+
+    if (!imageUrl) return res.status(400).send("Falta parámetro 'url'");
+
+    try {
+        const responseData = await axios({
+            url: decodeURIComponent(imageUrl),
+            responseType: "arraybuffer",
+            timeout: 5000
+        });
+
+        const outputBuffer = await sharp(Buffer.from(responseData.data))
+            .resize({ width, withoutEnlargement: true, fit: "inside" })
+            .webp({ quality })
+            .toBuffer();
+
+        res.set("Content-Type", "image/webp");
+        res.set("Cache-Control", "public, max-age=31536000, immutable");
+        res.send(outputBuffer);
+    } catch (error) {
+        logger.error("Error redimensionando imagen:", error);
+        res.status(500).send("Error procesando imagen: " + error.message);
+    }
+});
+
+/**
+ * Guardar suscripción PWA
+ */
+exports.saveSubscription = onCall(async (request) => {
+    const { subscription, photographerId } = request.data || {};
+    if (!subscription || !photographerId) {
+        throw new HttpsError("invalid-argument", "Datos incompletos.");
+    }
+
+    try {
+        const id = crypto.createHash("md5").update(subscription.endpoint).digest("hex");
+        await db.collection("notif_subscriptions").doc(id).set({
+            ...subscription,
+            photographerId,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+        return { success: true };
+    } catch (error) {
+        logger.error("Error al guardar suscripción:", error);
+        throw new HttpsError("internal", "No se pudo guardar suscripción.");
+    }
+});

@@ -1,5 +1,4 @@
-// RE-DEPLOY: 2026-03-06 - UI & Security Fixes
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     Zap,
     Target,
@@ -21,6 +20,7 @@ import {
     Shield
 } from 'lucide-react';
 import PricingTiers from './components/PricingTiers.jsx';
+import OptimizedImage from './components/common/OptimizedImage.jsx';
 
 /**
  * LANDING PAGE INTEGRAL V8.3 - FULL COLOR RESTORED
@@ -124,7 +124,7 @@ const Landing = ({ onAdminAccess, onOpenAvisoLegal, onOpenPrivacidad, onOpenCond
             icon: <Zap size={48} />,
             miniIcon: <Zap size={20} />,
             conditions: "0€ Inversión. 2,00€ por alumno.",
-            description: "Ideal para menos de 60 alumnos."
+            description: "Sin riesgo. Ideal para probar o uso ocasional."
         },
         {
             id: 'starter',
@@ -139,7 +139,7 @@ const Landing = ({ onAdminAccess, onOpenAvisoLegal, onOpenPrivacidad, onOpenCond
             icon: <Target size={48} />,
             miniIcon: <Target size={20} />,
             conditions: "Tarifa Plana. Máx 150 alumnos / 2 centros.",
-            description: "Más rentable a partir de 60 alumnos."
+            description: "Opción más rentable entre 75 y 150 alumnos."
         },
         {
             id: 'pro',
@@ -154,7 +154,7 @@ const Landing = ({ onAdminAccess, onOpenAvisoLegal, onOpenPrivacidad, onOpenCond
             icon: <Crown size={48} />,
             miniIcon: <Crown size={20} />,
             conditions: "Ilimitado. Máximo ahorro por volumen.",
-            description: "La inversión deja de ser un gasto variable."
+            description: "A partir de 225 alumnos, este es tu plan."
         }
     ];
 
@@ -182,9 +182,18 @@ const Landing = ({ onAdminAccess, onOpenAvisoLegal, onOpenPrivacidad, onOpenCond
     }, [numStudents, numSchools, avgTicket]);
 
     const filteredResults = useMemo(() => {
-        // Regla: Si supera 150 alumnos, Starter desaparece del DOM
+        // Regla 2026: Si supera 150 alumnos, Starter desaparece (límite técnico)
         return results.filter(p => !(p.id === 'starter' && numStudents > 150));
     }, [results, numStudents]);
+
+    const verdictMessage = useMemo(() => {
+        if (numStudents < 75) return "Estás en zona protegida FLEX. Ideal para arrancar sin riesgo.";
+        if (numStudents >= 75 && numStudents < 225) {
+            if (numSchools > 2 || numStudents > 150) return "Campaña de volumen. El Plan PRO es tu única opción segura.";
+            return "Punto de ahorro Starter. Estás pagando menos de 1€ por alumno.";
+        }
+        return "Eficiencia PRO detectada. Tu coste por alumno es marginal.";
+    }, [numStudents, numSchools]);
 
     const bestPlan = useMemo(() => {
         // Regla: Solo puede seleccionar planesEnabled
@@ -209,7 +218,7 @@ const Landing = ({ onAdminAccess, onOpenAvisoLegal, onOpenPrivacidad, onOpenCond
                     <img
                         src={`${import.meta.env.BASE_URL || '/'}logo.png`}
                         alt="Pujalte Studio"
-                        className="h-12 md:h-20 w-auto brightness-0 invert cursor-pointer active:scale-95 transition-transform"
+                        className="h-12 md:h-16 w-auto cursor-pointer active:scale-95 transition-transform"
                         onClick={onAdminAccess}
                     />
                 </div>
@@ -225,8 +234,9 @@ const Landing = ({ onAdminAccess, onOpenAvisoLegal, onOpenPrivacidad, onOpenCond
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[100%] h-[100%] bg-gradient-to-b from-indigo-600/20 via-transparent to-transparent blur-[120px] -z-10 animate-pulse" />
                 <div className="max-w-7xl mx-auto relative z-10 text-center reveal">
                     <span className="inline-block px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[8px] md:text-[9px] font-black tracking-[0.4em] mb-4 md:mb-8 uppercase">v8.3 integral precision</span>
-                    <h1 className="text-3xl sm:text-5xl md:text-[110px] font-black tracking-tight mb-4 md:mb-8 leading-[1] md:leading-[0.95] text-glow px-4 py-2">
-                        <span className="gradient-text-white">EL FIN DE </span> <br /> <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 via-indigo-600 to-indigo-300">LAS ERRATAS.</span>
+                    <h1 className="text-3xl sm:text-5xl md:text-[110px] font-black tracking-tight mb-4 md:mb-8 leading-[1.2] md:leading-[1.15] text-glow px-4 py-8">
+                        <span className="gradient-text-white inline-block pr-6">EL FIN DE </span> <br />
+                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 via-indigo-600 to-indigo-300 inline-block pr-6">LAS ERRATAS.</span>
                     </h1>
                     <p className="max-w-xl mx-auto text-slate-400 text-sm md:text-xl font-medium mb-8 md:pb-12 italic tracking-tight leading-relaxed reveal px-4">
                         Automatización <span className="relative inline-block px-2 group">
@@ -258,26 +268,8 @@ const Landing = ({ onAdminAccess, onOpenAvisoLegal, onOpenPrivacidad, onOpenCond
                                     <p className="text-slate-500 text-[9px] font-black uppercase tracking-widest">Ajusta los parámetros reales</p>
                                 </div>
 
-                                <div className="grid grid-cols-2 xl:grid-cols-1 gap-4 md:gap-12 relative z-10">
-                                    <div>
-                                        <div className="flex justify-between mb-2 md:mb-3 items-end">
-                                            <label className="text-[8px] md:text-[10px] font-black text-slate-300 tracking-widest uppercase">Centros</label>
-                                            <span className="text-2xl md:text-5xl font-black text-white leading-none tracking-tighter">{numSchools}</span>
-                                        </div>
-                                        <input
-                                            type="range"
-                                            min="1"
-                                            max="25"
-                                            step="1"
-                                            value={numSchools}
-                                            onChange={(e) => setNumSchools(parseInt(e.target.value))}
-                                            className="w-full h-1.5 md:h-2 bg-white/5 rounded-full appearance-none cursor-pointer"
-                                            style={{
-                                                background: `linear-gradient(to right, #6366f1 0%, #6366f1 ${(numSchools - 1) / (25 - 1) * 100}%, rgba(255, 255, 255, 0.05) ${(numSchools - 1) / (25 - 1) * 100}%, rgba(255, 255, 255, 0.05) 100%)`
-                                            }}
-                                        />
-                                    </div>
-                                    <div>
+                                <div className="flex flex-row xl:flex-col gap-4 md:gap-12 relative z-10">
+                                    <div className="flex-[1.8] xl:flex-1">
                                         <div className="flex justify-between mb-2 md:mb-3 items-end">
                                             <label className="text-[8px] md:text-[10px] font-black text-slate-300 tracking-widest uppercase">Alumnos</label>
                                             <span className="text-2xl md:text-5xl font-black text-white leading-none tracking-tighter">{numStudents}</span>
@@ -325,6 +317,24 @@ const Landing = ({ onAdminAccess, onOpenAvisoLegal, onOpenPrivacidad, onOpenCond
                                             }}
                                         />
                                     </div>
+                                    <div className="flex-1">
+                                        <div className="flex justify-between mb-2 md:mb-3 items-end">
+                                            <label className="text-[8px] md:text-[10px] font-black text-slate-300 tracking-widest uppercase">Centros</label>
+                                            <span className="text-2xl md:text-5xl font-black text-white leading-none tracking-tighter">{numSchools}</span>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            min="1"
+                                            max="25"
+                                            step="1"
+                                            value={numSchools}
+                                            onChange={(e) => setNumSchools(parseInt(e.target.value))}
+                                            className="w-full h-1.5 md:h-2 bg-white/5 rounded-full appearance-none cursor-pointer"
+                                            style={{
+                                                background: `linear-gradient(to right, #6366f1 0%, #6366f1 ${(numSchools - 1) / (25 - 1) * 100}%, rgba(255, 255, 255, 0.05) ${(numSchools - 1) / (25 - 1) * 100}%, rgba(255, 255, 255, 0.05) 100%)`
+                                            }}
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -359,13 +369,11 @@ const Landing = ({ onAdminAccess, onOpenAvisoLegal, onOpenPrivacidad, onOpenCond
                                         </div>
                                     </div>
 
-                                    {bestPlan.id === 'pro' && (
-                                        <div className="mt-2 md:mt-8 p-3 md:p-5 bg-black/20 rounded-xl md:rounded-[30px] border border-white/10 backdrop-blur-md animate-reveal hidden md:block">
-                                            <p className="text-[8px] md:text-[10px] font-bold text-indigo-100 uppercase tracking-[0.15em] leading-relaxed italic">
-                                                <span className="text-white font-black">Veredicto Senior:</span> El software deja de ser un gasto variable para convertirse en una inversión marginal frente al beneficio de la orla.
-                                            </p>
-                                        </div>
-                                    )}
+                                    <div className="mt-2 md:mt-8 p-3 md:p-5 bg-black/20 rounded-xl md:rounded-[30px] border border-white/10 backdrop-blur-md animate-reveal hidden md:block">
+                                        <p className="text-[8px] md:text-[10px] font-bold text-indigo-100 uppercase tracking-[0.15em] leading-relaxed italic">
+                                            <span className="text-white font-black">Veredicto 2026:</span> {verdictMessage}
+                                        </p>
+                                    </div>
 
                                     <div className="relative z-10 pt-4 md:pt-8 border-t border-white/20 flex items-center justify-between text-white uppercase font-black text-[9px] md:text-[11px] tracking-[0.2em] mt-auto">
                                         <div className="flex items-center gap-2">
@@ -422,6 +430,39 @@ const Landing = ({ onAdminAccess, onOpenAvisoLegal, onOpenPrivacidad, onOpenCond
                     </div>
                 </div>
 
+                {/* ARGUMENTARIO ESTRATÉGICO 2026 */}
+                <div className="max-w-[1500px] mx-auto w-full px-3 md:px-0 py-12 md:py-20 grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-10">
+                    <div className="glass-card-dark p-8 md:p-10 rounded-[40px] border-white/5 reveal relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-30 transition-opacity">
+                            <ShieldCheck size={60} className="text-emerald-500" />
+                        </div>
+                        <h4 className="text-xl md:text-2xl font-black italic text-emerald-400 mb-4 uppercase tracking-tighter">Seguro de Erratas</h4>
+                        <p className="text-slate-400 text-[11px] md:text-sm font-medium leading-relaxed uppercase italic">
+                            Un nombre mal escrito en una orla A3 te obliga a repetir la impresión para <span className="text-white font-black">toda la clase</span>. Nuestro software traslada la responsabilidad al padre: el riesgo de error desaparece.
+                        </p>
+                    </div>
+
+                    <div className="glass-card-dark p-8 md:p-10 rounded-[40px] border-white/5 reveal relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-30 transition-opacity">
+                            <TrendingUp size={60} className="text-indigo-500" />
+                        </div>
+                        <h4 className="text-xl md:text-2xl font-black italic text-indigo-400 mb-4 uppercase tracking-tighter">Recupera tu tiempo</h4>
+                        <p className="text-slate-400 text-[11px] md:text-sm font-medium leading-relaxed uppercase italic">
+                            De <span className="text-white font-black">20 horas</span> de oficina por campaña a solo <span className="text-white font-black">10 minutos</span> con nuestro script. Recupera tus fines de semana de mayo y junio.
+                        </p>
+                    </div>
+
+                    <div className="glass-card-dark p-8 md:p-10 rounded-[40px] border-white/5 reveal relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-30 transition-opacity">
+                            <Smartphone size={60} className="text-violet-500" />
+                        </div>
+                        <h4 className="text-xl md:text-2xl font-black italic text-violet-400 mb-4 uppercase tracking-tighter">Imagen & Bizum</h4>
+                        <p className="text-slate-400 text-[11px] md:text-sm font-medium leading-relaxed uppercase italic">
+                            Gestionar pagos por <span className="text-white font-black">Bizum</span> te permite subir el precio de tu pack. Si subes solo 3€ por niño, ¡el software te sale gratis y además ganas más margen neto!
+                        </p>
+                    </div>
+                </div>
+
                 {/* CTA de contacto directo post-calculadora - POSICIONADO DEBAJO */}
                 <div className="max-w-[1500px] mx-auto w-full px-3 md:px-0">
                     <div className="mt-12 md:mt-16 flex flex-col md:flex-row items-center justify-between p-8 md:p-12 bg-indigo-600 rounded-[30px] md:rounded-[50px] shadow-[0_30px_60px_-15px_rgba(79,70,229,0.5)] gap-6 md:gap-8 relative overflow-hidden group animate-reveal">
@@ -464,7 +505,7 @@ const Landing = ({ onAdminAccess, onOpenAvisoLegal, onOpenPrivacidad, onOpenCond
                     <div className="lg:w-[45%] relative group reveal w-full max-w-[400px] lg:max-w-none mx-auto">
                         <div className="absolute inset-0 bg-indigo-600 rounded-[40px] md:rounded-[60px] rotate-2 -z-10 opacity-10" />
                         <div className="aspect-[4/5] rounded-[40px] md:rounded-[60px] overflow-hidden border-[8px] md:border-[12px] border-[#0c0f14] shadow-2xl grayscale group-hover:grayscale-0 transition-all duration-1000 transform group-hover:scale-[1.01]">
-                            <img src="https://images.unsplash.com/photo-1554048612-b6a482bc67e5?q=80&w=1470" alt="Pujalte" className="w-full h-full object-cover" />
+                            <OptimizedImage src="https://images.unsplash.com/photo-1554048612-b6a482bc67e5?q=80&w=1470" alt="Pujalte" className="w-full h-full object-cover" />
                         </div>
                         <div className="absolute -bottom-6 md:-bottom-10 -right-4 md:-right-10 glass-card bg-white/10 text-white p-5 md:p-8 rounded-[30px] md:rounded-[40px] shadow-xl border border-white/20 animate-float-gentle backdrop-blur-xl">
                             <Camera size={24} className="mb-3 text-indigo-400 md:size-[32px]" />
