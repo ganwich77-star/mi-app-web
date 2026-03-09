@@ -184,7 +184,7 @@ export default defineConfig(({ mode }) => ({
         stringArrayEncoding: ['rc4'],
         stringArrayThreshold: 1,
         unicodeEscapeSequence: false,
-        domainLock: ['basecode.es', 'localhost', '127.0.0.1'] // Permitir local para pruebas
+        domainLock: ['basecode.es', 'www.basecode.es', 'localhost', '127.0.0.1'] // Permitir local y www para evitar bloqueos
       },
     })
   ].filter(Boolean)
