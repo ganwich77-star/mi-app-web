@@ -51,10 +51,20 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
 
         if (type === 'CONSTRUCTOR') {
             const staffLines = Array.isArray(staff) && staff.length > 0 ? (() => {
-                const docW = (design.aW * design.dScale);
-                const dGap = design.dGapX || 150;
+                const aW = design.aW || 350;
+                const aH = design.aH || 450;
+                const dScale = design.dScale || 1.2;
+                const docW = (aW * dScale);
+                const docH = (aH * dScale);
+                const dGap = design.dGapX ?? 150;
+                const canvasW = design.canvasW || 4961;
+
+                // Centrado horizontal de la fila de docentes
                 const totalStaffWidth = (staff.length * docW) + ((staff.length - 1) * dGap);
-                const startX = (design.canvasW / 2) - (totalStaffWidth / 2);
+                const startX = (canvasW / 2) - (totalStaffWidth / 2);
+
+                // dY fallback 0 como en DesignPanel (línea 405)
+                const startY = design.dY || 0;
 
                 return staff.map((s, i) => {
                     const x = startX + i * (docW + dGap);
@@ -66,12 +76,24 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                     if (surnames) psText += "\\r" + surnames;
                     if (role) psText += "\\r" + role;
                     const containerId = s.photoFile || s.id;
-                    return `createItem(docentesGroup, "${psText}", "${containerId}", ${x}, ${design.dY}, ${docW}, ${design.aH * design.dScale}, ${design.fontSizeDoc}, true);`;
+                    return `createItem(docentesGroup, "${psText}", "${containerId}", ${x}, ${startY}, ${docW}, ${docH}, ${design.fontSizeDoc || 10}, true, ${dGap});`;
                 }).join('\n');
             })() : '// Sin docentes';
 
 
             const aluLines = Array.isArray(graduates) ? (() => {
+                const totalAlus = graduates.length;
+                const aW = design.aW || 350;
+                const aH = design.aH || 450;
+                const aScale = design.aScale || 1.0;
+                const dynamicW = aW * aScale;
+                const dynamicH = aH * aScale;
+                const aCols = parseInt(design.aCols) || 8;
+                const aGapX = design.aGapX ?? 0;
+                const aGapY = design.aGapY ?? 650;
+                const canvasW = design.canvasW || 4961;
+                const aStartY = design.aStartY || 1350; // Fallback crítico
+
                 return graduates
                     .filter(o => o.schoolId === graduates[0]?.schoolId)
                     .sort((a, b) => {
@@ -82,14 +104,18 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                         return surA.localeCompare(surB, 'es', { sensitivity: 'base' });
                     })
                     .map((g, i) => {
-                        const col = i % design.aCols;
-                        const row = Math.floor(i / design.aCols);
-                        const dynamicW = design.aW * (design.aScale || 1.0);
-                        const dynamicH = design.aH * (design.aScale || 1.0);
+                        const row = Math.floor(i / aCols);
+                        const totalRows = Math.ceil(totalAlus / aCols);
+                        const isLastRow = row === totalRows - 1;
+                        const itemsInThisRow = isLastRow ? (totalAlus % aCols || aCols) : aCols;
 
-                        // Posición absoluta basada en margin (aStartX) y gaps
-                        const x = design.aStartX + (col * (dynamicW + design.aGapX));
-                        const y = design.aStartY + (row * (dynamicH + design.aGapY));
+                        // Centrado horizontal dinámico por fila
+                        const rowWidth = (itemsInThisRow * dynamicW) + ((itemsInThisRow - 1) * aGapX);
+                        const rowStartX = (canvasW / 2) - (rowWidth / 2);
+
+                        const colInRow = i % aCols;
+                        const x = rowStartX + (colInRow * (dynamicW + aGapX));
+                        const y = aStartY + (row * (dynamicH + aGapY));
 
                         const nameParts = g.studentName.trim().split(/\s+/);
                         const firstName = nameParts[0] || '';
@@ -98,12 +124,12 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                         if (surnames) psText += "\\r" + surnames;
                         const containerId = g.photoFile || g.id;
 
-                        return `createItem(alumnosGroup, "${psText}", "${containerId}", ${x}, ${y}, ${dynamicW}, ${dynamicH}, ${design.fontSizeAlu}, false);`;
+                        return `createItem(alumnosGroup, "${psText}", "${containerId}", ${x}, ${y}, ${dynamicW}, ${dynamicH}, ${design.fontSizeAlu || 10}, false);`;
                     }).join('\n');
             })() : '';
 
             content = [
-                '/* FINALIZAR ORLA V2.9 - CONSTRUCTOR PSD */',
+                '/* FINALIZAR ORLA V3.3 - CONSTRUCTOR PSD */',
                 'app.preferences.rulerUnits = Units.PIXELS;',
                 'app.preferences.typeUnits = TypeUnits.POINTS;',
                 `var doc = app.documents.add(${design.canvasW}, ${design.canvasH}, 300, "${groupName}", NewDocumentMode.RGB);`,
@@ -122,21 +148,21 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                 '    doc.selection.fill(fillColor);',
                 '    doc.selection.deselect();',
                 '',
-                '    // 2. Crear el texto después para que quede encima',
+                '    // VOLVER A POINT TEXT PARA CENTRADO PERFECTO (V8)',
                 '    var textLayer = group.artLayers.add();',
                 '    textLayer.kind = LayerKind.TEXT;',
                 '    var textItem = textLayer.textItem;',
                 '    textItem.contents = name.toUpperCase();',
                 '',
-                '    // Ajuste de tamaño para fidelidad absoluta (El navegador renderiza más grande)',
-                '    var fSize = (fontSize || 10) * 1.65;',
+                '    // Escalado conservador para evitar solapamientos (V8)',
+                '    var fSize = (fontSize || 10) * 1.15; ',
                 '    textItem.size = new UnitValue(fSize, "pt");',
-                '    textItem.leading = new UnitValue(fSize * 1.3, "pt");',
+                '    textItem.leading = new UnitValue(fSize * 1.1, "pt");',
+                '    textItem.tracking = 0;',
                 '    textItem.antiAliasMethod = AntiAlias.STRONG;',
                 '',
                 '    var psFont = "MyriadPro-Regular";',
                 `    var reactFont = "${design.fontFamily}";`,
-                '    // Forced for testing Myriad Pro',
                 '    try { textItem.font = psFont; } catch(e) {',
                 '        try { textItem.font = "Myriad Pro"; } catch(e2) { textItem.font = "ArialMT"; }',
                 '    }',
@@ -147,8 +173,9 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                 '    textColor.rgb.hexValue = "000000";',
                 '    textItem.color = textColor;',
                 '',
-                '    // Posición del texto (centro del ancho, debajo del alto + offset)',
-                '    var textY = y + h + (isStaff ? fontSize * 1.2 : fontSize * 1.5);',
+                '    // Posición técnica V13: Separación de exactamente 6mm (3mm + 3mm extra)',
+                '    var gap6mm = (6 * 300) / 25.4;',
+                '    var textY = y + h + gap6mm + (fSize * 0.8); ',
                 '    textItem.position = [x + w/2, textY];',
                 '}',
                 '',
@@ -166,20 +193,23 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                 'var schoolLayer = footerGroup.artLayers.add();',
                 'schoolLayer.kind = LayerKind.TEXT;',
                 'var schoolText = schoolLayer.textItem;',
-                `schoolText.contents = "${groupName.toUpperCase()}";`,
-                'schoolText.size = 36;',
+                // Usar groupName como fallback pero priorizar el nombre editado si existiera en un futuro
+                `schoolText.contents = "${(groupName || "").toUpperCase()}";`,
+                'schoolText.size = 38;',
+                'schoolText.tracking = 120;',
                 `schoolText.font = "${design.fontFamily}";`,
                 'schoolText.justification = Justification.CENTER;',
-                `schoolText.position = [${design.canvasW / 2}, ${design.canvasH - design.margin - 40}];`,
+                `schoolText.position = [${design.canvasW / 2}, ${design.canvasH - design.margin - 160}];`,
                 '',
                 'var promoLayer = footerGroup.artLayers.add();',
                 'promoLayer.kind = LayerKind.TEXT;',
                 'var promoText = promoLayer.textItem;',
-                'promoText.contents = "PROMOCIÓN 2026";',
-                'promoText.size = 20;',
+                `promoText.contents = "${(design.promoText || "PROMOCIÓN 2026").toUpperCase()}";`,
+                'promoText.size = 16;',
+                'promoText.tracking = 600;',
                 `promoText.font = "${design.fontFamily}";`,
                 'promoText.justification = Justification.CENTER;',
-                `promoText.position = [${design.canvasW / 2}, ${design.canvasH - design.margin}];`,
+                `promoText.position = [${design.canvasW / 2}, ${design.canvasH - design.margin - 40}];`,
                 '',
                 '// CONFIGURACIÓN FINAL DE GUÍAS EN MM Y REGLAS',
                 'app.preferences.rulerUnits = Units.MM;',
@@ -190,68 +220,80 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                 `doc.guides.add(Direction.VERTICAL,   ${((design.canvasW - design.margin) / (design.dpi || 300) * 25.4).toFixed(2)});`,
                 `doc.guides.add(Direction.HORIZONTAL, ${(design.margin / (design.dpi || 300) * 25.4).toFixed(2)});`,
                 `doc.guides.add(Direction.HORIZONTAL, ${((design.canvasH - design.margin) / (design.dpi || 300) * 25.4).toFixed(2)});`,
-                'alert("Estructura V3.0 Generada.\\rby PUJALTE CREATIVE STUDIO");',
+                'alert("Estructura V13.0 - (Margen Técnico 6mm)\\rby PUJALTE CREATIVE STUDIO");',
             ].join('\n');
 
 
         } else if (type === 'RASTER') {
-            const idsList = allIds.join('","'); // Use allIds for raster injection
             content = [
-                '/* INYECCIÓN RÁPIDA V2.0 - Pujalte Studio */',
-                'var fileIds = ["' + idsList + '"];',
+                '/* INYECCIÓN POR CARPETA V3.0 - Pujalte Studio */',
                 'function main() {',
                 '    var doc = app.activeDocument;',
-                '    var alumnosGroup = doc.layerSets.getByName("ALUMNOS");',
+                '    var folder = Folder.selectDialog("Selecciona la CARPETA con las fotos de los protagonistas");',
+                '    if (!folder) return;',
+                '',
+                '    // Escanear carpeta buscando formatos comunes',
+                '    var files = folder.getFiles(/\\.(jpg|jpeg|png|tif|tiff)$/i);',
+                '    var fileMap = {};',
+                '    for (var f = 0; f < files.length; f++) {',
+                '        var name = decodeURI(files[f].name).split(".")[0];',
+                '        fileMap[name] = files[f];',
+                '    }',
+                '',
+                '    var groups = ["ALUMNOS", "DOCENTES"];',
                 '    var count = 0;',
-                '    for(var i=0; i<fileIds.length; i++) {',
-                '        var targetId = fileIds[i];',
-                '        var layerGroup;',
-                '        try { layerGroup = alumnosGroup.layerSets.getByName(targetId); } catch(e) { continue; }',
-                '        ',
-                '        var placeholder;',
-                '        try { placeholder = layerGroup.artLayers.getByName("PLACEHOLDER"); } catch(e) { continue; }',
-                '        ',
-                '        var file = File.openDialog("Selecciona FOTO para: " + targetId);',
-                '        if(file) {',
+                '',
+                '    for (var g = 0; g < groups.length; g++) {',
+                '        var parentGroup;',
+                '        try { parentGroup = doc.layerSets.getByName(groups[g]); } catch(e) { continue; }',
+                '',
+                '        // Iteramos por subgrupos (cada ID de estudiante/docente)',
+                '        for (var i = 0; i < parentGroup.layerSets.length; i++) {',
+                '            var layerGroup = parentGroup.layerSets[i];',
+                '            var targetId = layerGroup.name;',
+                '            var file = fileMap[targetId];',
+                '',
+                '            if (!file) continue;',
+                '',
+                '            var placeholder;',
+                '            try { placeholder = layerGroup.artLayers.getByName("PLACEHOLDER"); } catch(e) { continue; }',
+                '',
                 '            try {',
-                '                var isStaff = id.indexOf("staff_") !== -1;',
-                '                var placeholder = targetGroup.artLayers.getByName("PLACEHOLDER");',
-                '                ',
-                '                // Tomamos dimensiones y POSICIÓN del placeholder ANTES de abrir la foto',
                 '                app.activeDocument = doc;',
                 '                doc.activeLayer = placeholder;',
                 '                var pBounds = placeholder.bounds;',
                 '                var targetW = pBounds[2] - pBounds[0];',
                 '                var targetH = pBounds[3] - pBounds[1];',
-                '                ',
+                '',
                 '                app.open(file);',
                 '                var photoDoc = app.activeDocument;',
-                '                photoDoc.resizeImage(targetW, targetH, (design.dpi || 300), ResampleMethod.BICUBICSHARPER);',
+                '                // Redimensionar con la resolución del diseño',
+                `                photoDoc.resizeImage(targetW, targetH, ${design.dpi || 300}, ResampleMethod.BICUBICSHARPER);`,
                 '                photoDoc.selection.selectAll();',
                 '                photoDoc.selection.copy();',
                 '                photoDoc.close(SaveOptions.DONOTSAVECHANGES);',
-                '                ',
+                '',
                 '                app.activeDocument = doc;',
                 '                doc.activeLayer = placeholder;',
                 '                var pastedLayer = doc.paste();',
-                '                pastedLayer.name = "FOTO_FINAL";',
-                '                ',
-                '                // ALINEACIÓN EXACTA',
+                '                pastedLayer.name = "FOTO_" + targetId;',
+                '',
+                '                // Alineación exacta con el placeholder',
                 '                var deltaX = pBounds[0] - pastedLayer.bounds[0];',
                 '                var deltaY = pBounds[1] - pastedLayer.bounds[1];',
                 '                pastedLayer.translate(deltaX, deltaY);',
-                '                ',
+                '',
+                '                // Mover encima del placeholder y crear máscara de recorte',
                 '                pastedLayer.move(placeholder, ElementPlacement.PLACEBEFORE);',
-                '                ',
-                '                // CREAR MÁSCARA DE RECORTE (Clipping Mask)',
                 '                pastedLayer.grouped = true;',
                 '                placeholder.visible = true;',
                 '                count++;',
                 '            } catch(e) { }',
                 '        }',
                 '    }',
-                '    alert("Proceso finalizado.\\rby PUJALTE CREATIVE STUDIO\\r\\rFotos inyectadas: " + count);',
+                '    alert("Proceso finalizado.\\rby PUJALTE CREATIVE STUDIO\\r\\rFotos inyectadas AUTOMÁTICAMENTE: " + count);',
                 '}',
+                'main();',
             ].join('\n');
         }
 
@@ -267,6 +309,12 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                 if (data.success) {
                     // Si el servidor pudo abrir el diálogo y guardar, tenemos la ruta real completa
                     setScriptModal({ content, filename: data.filename, copied: false, saved: true, savedPath: data.path });
+                    // Apertura automática de la ventana de la carpeta (Reveal in Finder)
+                    fetch('/graduaciones2026/api/reveal-file', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ path: data.path })
+                    }).catch(() => { });
                 } else if (data.cancelled) {
                     // El usuario canceló el diálogo, no hacemos nada
                     return;

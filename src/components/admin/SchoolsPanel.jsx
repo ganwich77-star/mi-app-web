@@ -31,8 +31,8 @@ const SchoolsPanel = ({
                 className={`flex items-center justify-between p-8 cursor-pointer transition-colors ${isOpen ? 'bg-orange-500/5' : 'hover:bg-primary/2'}`}
             >
                 <div className="flex items-center gap-6">
-                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-500 shadow-lg ${isOpen ? 'bg-orange-600 text-white scale-110 rotate-3' : 'bg-orange-500/10 text-orange-500'}`}>
-                        <GraduationCap size={30} />
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-500 shadow-lg ${isOpen ? 'bg-orange-600 text-white' : 'bg-orange-500/10 text-orange-500'}`}>
+                        <GraduationCap size={24} />
                     </div>
                     <div>
                         <h3 className="text-2xl font-black text-primary tracking-tight">Gestión de Centros</h3>

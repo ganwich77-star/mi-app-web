@@ -61,7 +61,7 @@ export function useStaff(photographerId, schoolId) {
         }
     };
 
-    const addStaff = ({ name, role, course = '', group = '', assignments = [], photoFile = '' }) => {
+    const addStaff = ({ name, role, course = '', group = '', assignments = [], photoFile = '', schoolId: mSchoolId }) => {
         const newMember = {
             id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             name,
@@ -70,6 +70,7 @@ export function useStaff(photographerId, schoolId) {
             group,
             assignments,
             photoFile,
+            schoolId: mSchoolId || schoolId
         };
         const updated = [...staff, newMember];
         setStaff(updated);

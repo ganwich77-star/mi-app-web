@@ -513,7 +513,7 @@ const ShootingPanel = ({
                                             <option value="">CLASE</option>
                                             {availCourses.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
                                         </select>
-                                        <select value={newStaffForm.tempGroup} onChange={e => setNewStaffForm(p => ({ ...p, tempGroup: e.target.value }))} className="w-12 bg-primary/5 border border-primary/10 text-[9px] font-bold rounded-lg px-1 py-1.5 outline-none">
+                                        <select value={newStaffForm.tempGroup} onChange={e => setNewStaffForm(p => ({ ...p, tempGroup: e.target.value }))} className="w-20 bg-primary/5 border border-primary/10 text-[9px] font-bold rounded-lg px-1 py-1.5 outline-none">
                                             <option value="">GRP</option>
                                             <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option>
                                         </select>
@@ -538,7 +538,8 @@ const ShootingPanel = ({
                                         role: finalRoles.join(' • '),
                                         roles: finalRoles,
                                         assignments: finalAssignments,
-                                        photoFile: newStaffForm.photoFile
+                                        photoFile: newStaffForm.photoFile,
+                                        schoolId: newStaffForm.schoolId || adminSchool
                                     });
                                     setNewStaffForm({ schoolId: '', name: '', role: '', roles: [], tempRole: '', photoFile: '', tempCourse: '', tempGroup: '', assignments: [] });
                                 }}
@@ -610,7 +611,8 @@ const ShootingPanel = ({
                                                 assignments: getStaffAssignments(member),
                                                 tempCourse: '',
                                                 tempGroup: '',
-                                                tempFile: member.photoFile || ''
+                                                tempFile: member.photoFile || '',
+                                                schoolId: member.schoolId || adminSchool || ''
                                             });
                                         }}
                                             className="flex-1 flex items-center gap-4 px-3 py-4 text-left">

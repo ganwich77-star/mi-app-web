@@ -6,7 +6,8 @@ const StaffEditModal = ({
     staffAssigning,
     setStaffAssigning,
     updateStaffMember,
-    deleteStaff
+    deleteStaff,
+    schools = []
 }) => {
     if (!staffAssigning) return null;
 
@@ -28,6 +29,19 @@ const StaffEditModal = ({
                             onChange={e => setStaffAssigning(p => ({ ...p, name: e.target.value }))}
                             onBlur={e => setStaffAssigning(p => ({ ...p, name: toTitleCase(e.target.value) }))}
                             className="w-full bg-primary/5 border border-primary/10 text-primary text-sm rounded-xl px-4 py-3 outline-none focus:border-indigo-400/50" />
+                    </div>
+
+                    <div>
+                        <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1.5 block">Centro Educativo</label>
+                        <select
+                            value={staffAssigning.schoolId}
+                            onChange={e => setStaffAssigning(p => ({ ...p, schoolId: e.target.value }))}
+                            className="w-full bg-primary/5 border border-primary/10 text-primary text-sm rounded-xl px-4 py-3 outline-none focus:border-indigo-400/50"
+                        >
+                            {schools.map(s => (
+                                <option key={s.id} value={s.id}>{s.name}</option>
+                            ))}
+                        </select>
                     </div>
 
                     <div>
@@ -86,7 +100,7 @@ const StaffEditModal = ({
                                 <option value="">CLASE</option>
                                 {COURSE_GROUPS.flatMap(g => g.courses).map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
                             </select>
-                            <select value={staffAssigning.tempGroup} onChange={e => setStaffAssigning(p => ({ ...p, tempGroup: e.target.value }))} className="w-[85px] bg-primary/5 border border-primary/10 text-primary text-xs font-bold rounded-xl px-3 py-3 outline-none focus:border-indigo-400/50 uppercase">
+                            <select value={staffAssigning.tempGroup} onChange={e => setStaffAssigning(p => ({ ...p, tempGroup: e.target.value }))} className="w-[110px] bg-primary/5 border border-primary/10 text-primary text-xs font-bold rounded-xl px-3 py-3 outline-none focus:border-indigo-400/50 uppercase">
                                 <option value="">GRUPO</option>
                                 <option value="A">A</option>
                                 <option value="B">B</option>
@@ -119,7 +133,8 @@ const StaffEditModal = ({
                                 role: staffAssigning.roles.join(' • '),
                                 roles: staffAssigning.roles,
                                 assignments: staffAssigning.assignments,
-                                photoFile: staffAssigning.tempFile
+                                photoFile: staffAssigning.tempFile,
+                                schoolId: staffAssigning.schoolId
                             });
                             setStaffAssigning(null);
                         }}

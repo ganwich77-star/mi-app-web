@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
     LayoutGrid, Maximize, MoveHorizontal, ArrowUpDown, MoveVertical,
     Baseline, ChevronsUpDown, AlignCenterHorizontal, UserSquare2,
     Box, Download, History, Search, Check, X, Maximize2, Minimize2,
     ChevronLeft, ChevronRight, Layers, Type, Trash2, Edit, ZoomIn, ZoomOut, Eye, Settings2, UserCheck,
-    Type as TypeIcon, Ruler, Users, Grid, Square, List, AlignCenterVertical, MousePointer2
+    Type as TypeIcon, Ruler, Users, Grid, Square, List, AlignCenterVertical, MousePointer2,
+    MoreVertical, Save, Trash, Minus, Plus
 } from 'lucide-react';
 import { getCourseBase, getGroup } from '../../utils/formatters.js';
 
@@ -12,344 +13,686 @@ const DesignPanel = ({
     isFullScreenDesign,
     setIsFullScreenDesign,
     theme,
-    configOrla,
+    configOrla = {},
     setConfigOrla,
     updateConfig,
     activeDesignParam,
     setActiveDesignParam,
-    canvasZoom,
-    setCanvasZoom,
-    panOffset,
-    setPanOffset,
-    mmToPx,
-    pxToMm,
-    schools,
+    schools = [],
     adminSchool,
-    orders,
-    allPacks,
-    settings,
-    previewMode = 'full',
-    designFilter,
+    orders = [],
+    settings = {},
+    designFilter = { course: '', group: '' },
     setDesignFilter,
-    staff,
-    selectedStaffIds,
+    staff = [],
+    selectedStaffIds = [],
     setSelectedStaffIds,
     setAdminSchool,
     setView,
-    isDraggingCanvasRef,
     canvasContainerRef,
-    handleCanvasMouseDown,
-    handleCanvasMouseMove,
-    handleCanvasMouseUp,
-    handleCanvasWheel
+    COURSE_GROUPS = [],
+    updateSchool,
+    updateOrder,
+    updateStaffMember
 }) => {
-    const [showZoomBar, setShowZoomBar] = useState(false);
-    const [activeToolGroup, setActiveToolGroup] = useState(null);
-
+    // ESTADO PARA PESTAÑAS DEL EDITOR
+    const [activeTab, setActiveTab] = useState('ALUMNOS');
     const isDark = theme === 'dark';
-    const barBg = isDark ? 'bg-black/95 border-white/10' : 'bg-white/98 border-black/8';
-    const textMuted = isDark ? 'text-white/30' : 'text-black/40';
-    const textLabel = isDark ? 'text-white/40' : 'text-black/50';
-    const dividerColor = isDark ? 'border-white/5' : 'border-black/5';
 
-    const TOOLS = [
-        // ALUMNOS
-        { icon: LayoutGrid, label: 'Columnas', key: 'aCols', min: 1, max: 15, step: 1, unit: 'UD', group: 'Alumnos' },
-        { icon: Maximize, label: 'Escala Fotos', key: 'aScale', min: 0.2, max: 3.0, step: 0.05, unit: 'x', group: 'Alumnos' },
-        { icon: MoveVertical, label: 'Inicio (Y)', key: 'aStartY', min: mmToPx(0), max: mmToPx(300), group: 'Alumnos' },
-        { icon: ArrowUpDown, label: 'Separación (Y)', key: 'aGapY', min: mmToPx(0), max: mmToPx(150), group: 'Alumnos' },
-        { icon: TypeIcon, label: 'Tamaño Texto', key: 'fontSizeAlu', min: 4, max: 24, step: 0.5, unit: 'PT', group: 'Alumnos' },
+    // Conversiones Internas Robustas para Orla A3 (420mm -> 4961px)
+    const factor = 4961 / 420; // 11.8119
+    const safeMmToPx = (mm) => (mm || 0) * factor;
+    const safePxToMm = (px) => (px || 0) / factor;
 
-        // DOCENTES
-        { icon: UserSquare2, label: 'Escala Docentes', key: 'dScale', min: 0.2, max: 3.0, step: 0.05, unit: 'x', group: 'Docentes' },
-        { icon: MoveVertical, label: 'Altura (Y)', key: 'dY', min: mmToPx(0), max: mmToPx(200), group: 'Docentes' },
-        { icon: TypeIcon, label: 'Tamaño Texto', key: 'fontSizeDoc', min: 4, max: 24, step: 0.5, unit: 'PT', group: 'Docentes' },
-        { icon: Users, label: 'Gestionar Equipo', action: () => setActiveToolGroup('DocentesList'), group: 'Docentes' },
+    // CONFIGURACIÓN DE HERRAMIENTAS POR PESTAÑA
+    const TOOLBAR_CONFIG = {
+        'ALUMNOS': [
+            { icon: LayoutGrid, label: 'ALUMNOS POR FILA', key: 'aCols', min: 1, max: 20, step: 1, unit: 'ALUMNOS' },
+            { icon: Maximize, label: 'ESCALA', key: 'aScale', min: 0.2, max: 4.0, step: 0.05, unit: 'x' },
+            { icon: TypeIcon, label: 'TEXTO', key: 'fontSizeAlu', min: 4, max: 80, step: 0.5, unit: 'PT' },
+            { icon: MoveHorizontal, label: 'SEP. HORIZ', key: 'aGapX', min: safeMmToPx(0), max: safeMmToPx(300), unit: 'MM' },
+            { icon: ArrowUpDown, label: 'SEP. VERT', key: 'aGapY', min: safeMmToPx(0), max: safeMmToPx(500), unit: 'MM' },
+            { icon: MoveVertical, label: 'EJE Y', key: 'aStartY', min: safeMmToPx(0), max: safeMmToPx(350), unit: 'MM' },
+            { icon: AlignCenterHorizontal, label: 'EJE X', key: 'aOffsetX', isImmediate: true },
+        ],
+        'DOCENTES': [
+            { icon: UserSquare2, label: 'ESCALA', key: 'dScale', min: 0.2, max: 5.0, step: 0.05, unit: 'x' },
+            { icon: TypeIcon, label: 'TEXTO', key: 'fontSizeDoc', min: 4, max: 80, step: 0.5, unit: 'PT' },
+            { icon: MoveHorizontal, label: 'SEPARACIÓN', key: 'dGapX', min: safeMmToPx(0), max: safeMmToPx(500), unit: 'MM' },
+            { icon: MoveVertical, label: 'EJE Y', key: 'dY', min: safeMmToPx(0), max: safeMmToPx(350), unit: 'MM' },
+            { icon: AlignCenterHorizontal, label: 'EJE X', key: 'dOffsetX', isImmediate: true },
+        ],
+        'GENERAL': [
+            { icon: Ruler, label: 'MARGENES', key: 'margin', min: safeMmToPx(0), max: safeMmToPx(150) },
+            { icon: Layers, label: 'ANCHO', key: 'canvasW', min: 2000, max: 10000, unit: 'PX' },
+            { icon: Layers, label: 'ALTO', key: 'canvasH', min: 2000, max: 10000, unit: 'PX' },
+            { icon: Grid, label: 'GUIAS', key: 'showGuides', isToggle: true },
+        ]
+    };
 
-        // GENERAL / ESTRUCTURA
-        { icon: Ruler, label: 'Margen Global', key: 'margin', min: mmToPx(0), max: mmToPx(100), group: 'General' },
-        { icon: Grid, label: 'Ancho Canvas', key: 'canvasW', min: 1000, max: 8000, group: 'General', unit: 'PX' },
-        { icon: Grid, label: 'Alto Canvas', key: 'canvasH', min: 1000, max: 8000, group: 'General', unit: 'PX' },
-        { icon: MousePointer2, label: 'Reset Vista', action: () => { setCanvasZoom(1); setPanOffset({ x: 0, y: 0 }); }, group: 'General' }
-    ];
+    const [zoom, setZoom] = useState(1);
+    const [offset, setOffset] = useState({ x: 0, y: 0 });
+    const [isDragging, setIsDragging] = useState(false);
+    const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
+    const [showGuides, setShowGuides] = useState(false);
 
-    const TOOL_GROUPS = [
-        { id: 'Alumnos', label: 'Alumnos', icon: LayoutGrid },
-        { id: 'Docentes', label: 'Docentes', icon: UserSquare2 },
-        { id: 'General', label: 'Lienzo', icon: Ruler }
-    ];
+    const handleWheel = (e) => {
+        if (!isFullScreenDesign) return;
+        e.preventDefault();
+        const zoomSpeed = 0.001;
+        const delta = -e.deltaY;
+        const newZoom = Math.min(Math.max(zoom + delta * zoomSpeed, 0.5), 3);
+        setZoom(newZoom);
+    };
+
+    const handleMouseDown = (e) => {
+        if (!isFullScreenDesign) return;
+        setIsDragging(true);
+        setLastMousePos({ x: e.clientX, y: e.clientY });
+    };
+
+    const handleMouseMove = (e) => {
+        if (!isDragging || !isFullScreenDesign) return;
+        const dx = e.clientX - lastMousePos.x;
+        const dy = e.clientY - lastMousePos.y;
+        setOffset(prev => ({ x: prev.x + dx, y: prev.y + dy }));
+        setLastMousePos({ x: e.clientX, y: e.clientY });
+    };
+
+    const handleMouseUp = () => setIsDragging(false);
+
+    // Soporte para gestos táctiles (Pinch & Pan)
+    const lastTouchDistance = useRef(null);
+    const handleTouchMove = (e) => {
+        if (!isFullScreenDesign) return;
+        if (e.touches.length === 2) {
+            e.preventDefault();
+            const dist = Math.hypot(
+                e.touches[0].pageX - e.touches[1].pageX,
+                e.touches[0].pageY - e.touches[1].pageY
+            );
+            if (lastTouchDistance.current !== null) {
+                const delta = dist - lastTouchDistance.current;
+                setZoom(prev => Math.min(Math.max(prev + delta * 0.01, 0.5), 3));
+            }
+            lastTouchDistance.current = dist;
+        } else if (e.touches.length === 1 && isDragging) {
+            const touch = e.touches[0];
+            const dx = touch.clientX - lastMousePos.x;
+            const dy = touch.clientY - lastMousePos.y;
+            setOffset(prev => ({ x: prev.x + dx, y: prev.y + dy }));
+            setLastMousePos({ x: touch.clientX, y: touch.clientY });
+        }
+    };
+
+    const handleTouchStart = (e) => {
+        if (!isFullScreenDesign) return;
+        if (e.touches.length === 1) {
+            setIsDragging(true);
+            setLastMousePos({ x: e.touches[0].clientX, y: e.touches[0].clientY });
+        } else if (e.touches.length === 2) {
+            lastTouchDistance.current = null;
+        }
+    };
+
+    const handleTouchEnd = () => {
+        setIsDragging(false);
+        lastTouchDistance.current = null;
+    };
+
+    const currentSchool = schools.find(s => s.id === adminSchool) || { name: 'NOMBRE DEL CENTRO' };
+
+    // Filtrado automático de docentes por centro, curso y grupo
+    const getStaffAssignments = (m) => {
+        if (m.assignments && m.assignments.length > 0) return m.assignments;
+        if (m.course) return [{ course: m.course, group: m.group || '' }];
+        return [];
+    };
+
+    const filteredStaff = (staff || []).filter(m => {
+        const asgs = getStaffAssignments(m);
+
+        // Si no hay filtro de curso en la orla, mostramos todos los del centro
+        if (!designFilter.course) return true;
+
+        // Comprobamos si el docente está asignado a ese curso (normalizado)
+        return asgs.some(a => {
+            const normalize = (str) => {
+                if (!str) return '';
+                return str.toString().toLowerCase()
+                    .normalize("NFD")
+                    .replace(/[\u0300-\u036f]/g, "")
+                    .replace(/\s+/g, ' ')
+                    .trim();
+            };
+
+            const staffCourseNormal = normalize(getCourseBase(a.course));
+            const filterCourseNormal = normalize(designFilter.course);
+
+            const courseMatch = staffCourseNormal === filterCourseNormal;
+
+            // Si el filtro de grupo está vacío (Todos los grupos), mostramos a todos los docentes de ese curso
+            if (!designFilter.group) return courseMatch;
+
+            // Si hay un grupo específico seleccionado, comprobamos si el docente es de ese grupo o de curso general
+            const groupNormal = normalize(a.group);
+            const filterGroupNormal = normalize(designFilter.group);
+            const groupMatch = !groupNormal || groupNormal === filterGroupNormal;
+
+            return courseMatch && groupMatch;
+        });
+    });
+
+    const splitName = (fullName) => {
+        if (!fullName) return { nombre: '', apellidos: '' };
+        const parts = fullName.trim().split(' ');
+        if (parts.length === 1) return { nombre: parts[0], apellidos: '' };
+        return { nombre: parts[0], apellidos: parts.slice(1).join(' ') };
+    };
+
+    const filteredOrders = orders
+        .filter(o =>
+            (!designFilter.course || getCourseBase(o.course) === designFilter.course) &&
+            (!designFilter.group || getGroup(o.course) === designFilter.group)
+        )
+        .sort((a, b) => {
+            const apellidosA = splitName(a.studentName).apellidos;
+            const apellidosB = splitName(b.studentName).apellidos;
+            return apellidosA.localeCompare(apellidosB);
+        });
 
     return (
-        <div className={`animate-fade-in max-w-7xl mx-auto ${isFullScreenDesign ? 'fixed inset-0 z-[600] bg-card p-0 flex flex-col overflow-hidden' : 'space-y-6 pb-20'}`}>
-            <div className={`flex-1 flex flex-col relative ${isFullScreenDesign ? 'h-full overflow-hidden' : ''}`}>
-                {/* ═══ SNAPSEED BOTTOM BAR ═══ */}
-                {isFullScreenDesign && (
-                    <div
-                        className={`fixed bottom-0 left-0 right-0 z-[700] backdrop-blur-xl border-t select-none ${barBg}`}
-                        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
-                    >
-                        {/* SLIDER AREA */}
-                        {activeDesignParam && activeDesignParam.key && (
-                            <div className="px-5 pt-4 pb-2">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className={`text-[9px] font-black uppercase tracking-widest ${textLabel}`}>{activeDesignParam.label}</span>
-                                    <span className="text-[13px] font-black text-violet-400 tabular-nums">
-                                        {
-                                            activeDesignParam.key.includes('Scale') || activeDesignParam.unit === 'UD' || activeDesignParam.key.includes('fontSize') || activeDesignParam.key.includes('Cols')
-                                                ? (activeDesignParam.key.includes('Scale') ? (configOrla[activeDesignParam.key] || 1).toFixed(2) : Math.round(configOrla[activeDesignParam.key] || 0))
-                                                : Math.round(pxToMm(configOrla[activeDesignParam.key] || 0))
-                                        }
-                                        <span className="text-[9px] text-violet-300 ml-0.5">{activeDesignParam.unit || 'MM'}</span>
-                                    </span>
-                                </div>
-                                <input
-                                    type="range"
-                                    min={activeDesignParam.min}
-                                    max={activeDesignParam.max}
-                                    step={activeDesignParam.step || 1}
-                                    value={configOrla[activeDesignParam.key] || activeDesignParam.min}
-                                    onChange={(e) => updateConfig(activeDesignParam.key, parseFloat(e.target.value))}
-                                    className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-violet-500/20"
-                                    style={{ accentColor: '#7c3aed' }}
-                                />
+        <div className={`animate-fade-in ${isFullScreenDesign ? 'fixed inset-0 z-[600] bg-slate-950 p-0 overflow-hidden' : 'max-w-7xl mx-auto space-y-12 pb-32'}`}>
+
+            {/* ═══ 1. CARD DE PREVISUALIZACIÓN TÉCNICA (MODO NORMAL) ═══ */}
+            {!isFullScreenDesign && (
+                <div className="main-card overflow-hidden animate-slide-up shadow-2xl shadow-indigo-900/10">
+                    {/* Header Púrpura Premium */}
+                    <div className="bg-accent p-8 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 blur-[80px] rounded-full -mr-32 -mt-32 pointer-events-none" />
+                        <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-500/10 blur-[60px] rounded-full -ml-20 -mb-20 pointer-events-none" />
+
+                        <div className="flex items-center gap-7 relative z-10">
+                            <div className="w-16 h-16 bg-white/20 backdrop-blur-xl rounded-2xl flex items-center justify-center text-white border border-white/30 shadow-2xl transform hover:rotate-3 transition-transform">
+                                <Eye size={36} className="drop-shadow-lg" />
                             </div>
-                        )}
-
-                        <div className="flex items-center w-full max-w-7xl mx-auto">
-                            <button
-                                onClick={() => {
-                                    try { localStorage.setItem('configOrla_backup', JSON.stringify(configOrla)); } catch (e) { }
-                                    const btn = document.getElementById('btn-guardar-orla-snapseed');
-                                    if (btn) { btn.classList.add('text-green-400'); setTimeout(() => btn.classList.remove('text-green-400'), 1500); }
-                                }}
-                                id="btn-guardar-orla-snapseed"
-                                className={`flex-shrink-0 flex flex-col items-center gap-1 px-4 py-3 active:scale-90 transition-all border-r ${textMuted} ${dividerColor}`}
-                            >
-                                <Check size={18} />
-                                <span className="text-[7px] font-black uppercase tracking-widest">Guardar</span>
-                            </button>
-
-                            <div className="flex-1 flex items-center overflow-hidden">
-                                {activeToolGroup !== 'DocentesList' && (
-                                    <div className="flex items-center ml-2 flex-shrink-0">
-                                        <button
-                                            onClick={() => {
-                                                const nextState = !showZoomBar;
-                                                setShowZoomBar(nextState);
-                                                if (nextState) {
-                                                    setActiveToolGroup(null);
-                                                    setActiveDesignParam(null);
-                                                }
-                                            }}
-                                            className={`flex flex-col items-center justify-center gap-1 w-14 h-14 rounded-2xl transition-all active:scale-90 z-10 ${showZoomBar ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/30' : isDark ? 'bg-white/5 text-white/50 border border-white/5 hover:bg-white/10' : 'bg-black/5 text-black/50 border border-black/5 hover:bg-black/10'}`}
-                                        >
-                                            <Search size={20} />
-                                            <span className="text-[7px] font-black uppercase tracking-tighter">{Math.round(canvasZoom * 100)}%</span>
-                                        </button>
-
-                                        <div className={`flex items-center gap-4 transition-all duration-500 ease-out overflow-hidden h-14 ${showZoomBar ? 'max-w-[300px] opacity-100 ml-3 px-4 bg-violet-500/5 rounded-2xl border border-violet-500/10' : 'max-w-0 opacity-0 ml-0 pointer-events-none'}`}>
-                                            <button onClick={() => { setCanvasZoom(1); setPanOffset({ x: 0, y: 0 }); }} className="text-[8px] font-black uppercase text-violet-500 flex-shrink-0">RESET</button>
-                                            <input type="range" min="10" max="300" value={Math.round(canvasZoom * 100)} onChange={e => setCanvasZoom(parseInt(e.target.value) / 100)} className="w-32 h-1.5 bg-violet-500/20 rounded-lg appearance-none cursor-pointer accent-violet-500" />
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div className="h-14 flex-1 flex items-center overflow-x-auto scrollbar-hide px-3 scroll-smooth">
-                                    <div className="flex items-center gap-1.5 min-w-max">
-                                        {activeToolGroup === 'DocentesList' ? (
-                                            <div className="flex items-center gap-3 animate-slide-up px-2">
-                                                <button onClick={() => setActiveToolGroup('Docentes')} className={`flex items-center justify-center w-8 h-8 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-black/5 text-black'}`}><ChevronLeft size={16} /></button>
-                                                <div className="flex items-center gap-2 max-w-[500px] overflow-x-auto scrollbar-hide">
-                                                    {staff.map(member => (
-                                                        <button
-                                                            key={member.id}
-                                                            onClick={() => {
-                                                                const newSelected = selectedStaffIds.includes(member.id)
-                                                                    ? selectedStaffIds.filter(id => id !== member.id)
-                                                                    : [...selectedStaffIds, member.id];
-                                                                setSelectedStaffIds(newSelected);
-                                                            }}
-                                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all text-[9px] font-black uppercase truncate max-w-[150px] ${selectedStaffIds.includes(member.id) ? 'bg-violet-500 border-violet-500 text-white' : isDark ? 'bg-white/5 border-white/10 text-white/50' : 'bg-black/5 border-black/10 text-black/50'}`}
-                                                        >
-                                                            {member.name}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        ) : activeToolGroup ? (
-                                            <div className="flex items-center gap-1.5 animate-slide-right">
-                                                <button onClick={() => { setActiveToolGroup(null); setActiveDesignParam(null); }} className={`flex items-center justify-center w-10 h-10 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-black/5 text-black'}`}><ChevronLeft size={16} /></button>
-                                                <div className={`h-8 w-[1px] ${dividerColor} mx-1`} />
-                                                {TOOLS.filter(t => t.group === activeToolGroup).map(tool => (
-                                                    <button
-                                                        key={tool.key || tool.label}
-                                                        onClick={() => tool.action ? tool.action() : setActiveDesignParam(tool)}
-                                                        className={`flex flex-col items-center justify-center gap-0.5 px-3 h-14 min-w-[56px] transition-all relative ${activeDesignParam?.key === tool.key ? 'text-violet-500' : textMuted}`}
-                                                    >
-                                                        <tool.icon size={18} strokeWidth={activeDesignParam?.key === tool.key ? 2.5 : 2} />
-                                                        <span className="text-[7px] font-black uppercase tracking-tight">{tool.label}</span>
-                                                        {activeDesignParam?.key === tool.key && <div className="absolute bottom-1 w-1 h-1 bg-violet-500 rounded-full" />}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <div className="flex items-center gap-1.5 animate-slide-left">
-                                                {TOOL_GROUPS.map(group => (
-                                                    <button
-                                                        key={group.id}
-                                                        onClick={() => { setActiveToolGroup(group.id); setShowZoomBar(false); }}
-                                                        className={`flex flex-col items-center justify-center gap-1 px-4 h-14 min-w-[70px] hover:bg-violet-500/5 transition-all outline-none ${textMuted}`}
-                                                    >
-                                                        <group.icon size={20} />
-                                                        <span className="text-[8px] font-black uppercase tracking-widest">{group.label}</span>
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
+                            <div>
+                                <h3 className="text-2xl md:text-3xl font-black text-white tracking-tighter uppercase leading-tight">
+                                    PREVISUALIZACIÓN ORLA
+                                </h3>
+                                <p className="text-white/60 text-[9px] uppercase tracking-[0.4em] font-black mt-1 flex items-center gap-2">
+                                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                                    Sistema de Renderizado Vectorial
+                                </p>
                             </div>
+                        </div>
 
+                        <div className="flex items-center gap-4 relative z-10 w-full md:w-auto mr-8">
                             <button
-                                onClick={() => setIsFullScreenDesign(false)}
-                                className={`flex-shrink-0 flex flex-col items-center gap-1 px-5 py-3 active:scale-90 transition-all border-l ${textMuted} ${dividerColor}`}
+                                onClick={() => setIsFullScreenDesign(true)}
+                                className="flex-1 md:flex-none h-12 px-8 bg-violet-600 hover:bg-violet-500 text-white rounded-2xl flex items-center justify-center gap-3 transition-all shadow-glow-indigo text-[10px] font-black uppercase tracking-widest active:scale-95 border border-white/20 hover:border-white/40"
                             >
-                                <X size={20} />
-                                <span className="text-[7px] font-black uppercase tracking-widest">Cerrar</span>
+                                <Maximize2 size={18} />
+                                EDITAR ORLA
                             </button>
                         </div>
                     </div>
-                )}
 
-                {/* Visualizador de Orla */}
-                <div className={`flex-1 bg-slate-900/40 backdrop-blur-md rounded-[32px] border border-white/5 relative overflow-hidden group shadow-2xl ${isFullScreenDesign ? 'm-2 rounded-2xl' : ''}`}>
-                    <div className="absolute top-6 right-6 z-10 flex gap-2">
-                        <button
-                            onClick={() => setIsFullScreenDesign(!isFullScreenDesign)}
-                            className="w-12 h-12 bg-white/10 hover:bg-white/20 text-white rounded-2xl flex items-center justify-center transition-all backdrop-blur-md border border-white/10"
-                        >
-                            {isFullScreenDesign ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
-                        </button>
-                    </div>
+                    {/* Canvas de Previsualización */}
+                    <div className="p-10">
+                        <div className="bg-slate-950/20 rounded-[3rem] border border-primary/10 relative overflow-hidden h-[550px] flex items-center justify-center shadow-inner group">
+                            <div
+                                ref={canvasContainerRef}
+                                className="w-full h-full flex items-center justify-center overflow-hidden"
+                            >
+                                <div className="relative bg-white shadow-[0_40px_100px_rgba(0,0,0,0.3)] rounded-sm overflow-hidden flex-shrink-0 transition-transform duration-300"
+                                    style={{
+                                        width: (configOrla.canvasW || 4961) / 10 + 'px',
+                                        height: (configOrla.canvasH || 3508) / 10 + 'px',
+                                        backgroundImage: `
+                                            linear-gradient(to right, rgba(0,0,0,0.05) 1px, transparent 1px),
+                                            linear-gradient(to bottom, rgba(0,0,0,0.05) 1px, transparent 1px)
+                                        `,
+                                        backgroundSize: '20px 20px',
+                                        transform: `scale(1.35)`, // Tamaño maximizado fijo para la previsualización
+                                        transformOrigin: 'center center',
+                                    }}>
 
-                    <div
-                        ref={canvasContainerRef}
-                        onMouseDown={handleCanvasMouseDown}
-                        onMouseMove={handleCanvasMouseMove}
-                        onMouseUp={handleCanvasMouseUp}
-                        onMouseLeave={handleCanvasMouseUp}
-                        className={`relative select-none overflow-hidden touch-none h-full w-full flex items-center justify-center ${isFullScreenDesign ? 'p-4' : 'p-8'} cursor-grab active:cursor-grabbing`}
-                    >
-                        {/* Preview del Canvas */}
-                        <div className="relative bg-white shadow-2xl rounded-sm overflow-hidden flex-shrink-0"
-                            style={{
-                                width: (configOrla.canvasW || 4961) / 10 + 'px',
-                                height: (configOrla.canvasH || 3508) / 10 + 'px',
-                                backgroundImage: `
-                                    linear-gradient(to right, #f0f0f0 1px, transparent 1px),
-                                    linear-gradient(to bottom, #f0f0f0 1px, transparent 1px)
-                                `,
-                                backgroundSize: '20px 20px',
-                                transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${(isFullScreenDesign ? canvasZoom * 1.5 : (canvasZoom * 0.8)) || 1})`,
-                                transformOrigin: 'center center',
-                                transition: isDraggingCanvasRef.current ? 'none' : 'transform 0.1s ease-out',
-                            }}>
+                                    {/* Márgenes */}
+                                    <div className="absolute border border-red-500/40 border-dashed pointer-events-none z-50"
+                                        style={{ inset: (configOrla.margin || 20) / 10 + 'px' }} />
 
-                            {/* Margen */}
-                            <div className="absolute border border-red-500/30 border-dashed pointer-events-none z-50"
-                                style={{
-                                    inset: (configOrla.margin || 20) / 10 + 'px'
-                                }} />
-
-                            {/* Docentes */}
-                            <div className="absolute top-0 w-full flex justify-center gap-[15px] z-20" style={{ top: (configOrla.dY || 0) / 10 + 'px' }}>
-                                {staff.filter(m => selectedStaffIds.includes(m.id)).map((member, i) => (
-                                    <div key={member.id} className="relative flex flex-col items-center">
-                                        <div className="bg-slate-200 border border-slate-300 rounded-sm relative flex items-center justify-center overflow-hidden"
-                                            style={{
-                                                width: ((configOrla.aW || 350) * (configOrla.dScale || 1.2)) / 10 + 'px',
-                                                height: ((configOrla.aH || 450) * (configOrla.dScale || 1.2)) / 10 + 'px'
-                                            }}>
-                                            {member.photoFile ? (
-                                                <div className="w-full h-full bg-slate-400 flex items-center justify-center text-[8px] font-black text-white/50">{member.photoFile}</div>
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center opacity-40 text-slate-400"><UserCheck size={(configOrla.dScale || 1.2) * 12} /></div>
-                                            )}
-                                        </div>
-                                        <div className="mt-[4px] text-center" style={{ width: ((configOrla.aW || 350) * (configOrla.dScale || 1.2)) / 10 + 'px' }}>
-                                            <p className="font-black leading-none uppercase truncate text-slate-900" style={{
-                                                fontFamily: configOrla.fontFamily || 'sans-serif',
-                                                fontSize: ((configOrla.fontSizeDoc || 10) / 2) + 'px',
-                                                fontWeight: configOrla.isBold ? '900' : 'normal',
-                                                fontStyle: configOrla.isItalic ? 'italic' : 'normal'
-                                            }}>{member.name}</p>
-                                            <p className="text-[5px] mt-[1px] opacity-40 font-bold uppercase truncate text-slate-900">{member.role}</p>
+                                    {/* Contenido Orla */}
+                                    <div className="absolute top-0 w-full flex justify-center gap-[15px] z-20" style={{ top: (configOrla.dY || 0) / 10 + 'px' }}>
+                                        {filteredStaff.length === 0 ? (
+                                            <div className="flex flex-col items-center opacity-20 mt-4">
+                                                <Users size={40} className="text-slate-400" />
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-2">Sin docentes asignados</p>
+                                            </div>
+                                        ) : (
+                                            filteredStaff.map((member) => {
+                                                const { nombre, apellidos } = splitName(member.name);
+                                                return (
+                                                    <div key={member.id} className="relative flex flex-col items-center text-center">
+                                                        <div className="bg-slate-200 rounded-sm" style={{ width: ((configOrla.aW || 350) * (configOrla.dScale || 1.2)) / 10 + 'px', height: ((configOrla.aH || 450) * (configOrla.dScale || 1.2)) / 10 + 'px' }} />
+                                                        <p className="font-normal uppercase text-slate-900 mt-1 leading-tight" style={{ fontSize: '5px' }}>{nombre}</p>
+                                                        <p className="font-normal uppercase text-slate-900 leading-tight" style={{ fontSize: '4.5px' }}>{apellidos}</p>
+                                                        <p className="font-normal uppercase text-slate-900 leading-tight mt-0.5" style={{ fontSize: '4px' }}>{member.role || 'DOCENTE'}</p>
+                                                    </div>
+                                                );
+                                            })
+                                        )}
+                                    </div>
+                                    <div className="absolute w-full z-10" style={{ top: (configOrla.aStartY || 1350) / 10 + 'px', padding: `0 ${(configOrla.margin || 20) / 10}px` }}>
+                                        <div className="grid justify-items-center" style={{ gridTemplateColumns: `repeat(${configOrla.aCols || 8}, 1fr)`, rowGap: (configOrla.aGapY || 650) / 10 + 'px' }}>
+                                            {filteredOrders.map((o) => {
+                                                const { nombre, apellidos } = splitName(o.studentName);
+                                                return (
+                                                    <div key={o.id} className="flex flex-col items-center text-center">
+                                                        <div className="bg-slate-100 rounded-sm" style={{ width: (configOrla.aW || 350) / 10 + 'px', height: (configOrla.aH || 450) / 10 + 'px' }} />
+                                                        <p className="font-normal uppercase text-slate-900 mt-0.5 leading-tight" style={{ fontSize: '3.5px' }}>{nombre}</p>
+                                                        <p className="font-normal uppercase text-slate-900 leading-tight" style={{ fontSize: '3px' }}>{apellidos}</p>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     </div>
+
+                                    {/* Pie de Orla */}
+                                    <div className="absolute bottom-[20px] w-full text-center" style={{ bottom: (configOrla.margin || 20) / 10 + 'px' }}>
+                                        <h2 className="text-[20px] font-normal text-slate-900 tracking-tighter uppercase">{currentSchool.name}</h2>
+                                        <p className="text-[8px] font-normal text-slate-900 tracking-[0.6em] mt-1">PROMOCIÓN 2026</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        {/* Selectores de Centro / Curso */}
+                        <div className="mt-8 grid grid-cols-1 md:grid-cols-[2.5fr_1.5fr_0.8fr] gap-4">
+                            <div className="space-y-2">
+                                <label className="text-[9px] font-black text-secondary tracking-widest uppercase ml-1">CENTRO EDUCATIVO</label>
+                                <select value={adminSchool} onChange={e => setAdminSchool(e.target.value)} className="input-dark">{schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[9px] font-black text-secondary tracking-widest uppercase ml-1">CURSO BASE</label>
+                                <select value={designFilter.course} onChange={e => setDesignFilter(p => ({ ...p, course: e.target.value, group: '' }))} className="input-dark">
+                                    <option value="">TODOS LOS CURSOS</option>
+                                    {[...new Set(orders.map(o => getCourseBase(o.course)))].filter(Boolean).sort().map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[9px] font-black text-secondary tracking-widest uppercase ml-1">GRUPOS</label>
+                                <select value={designFilter.group} onChange={e => setDesignFilter(p => ({ ...p, group: e.target.value }))} disabled={!designFilter.course} className="input-dark !px-4">
+                                    <option value="">TODOS</option>
+                                    {(() => {
+                                        if (!designFilter.course) return null;
+
+                                        // 1. Grupos definidos en constantes para este curso
+                                        let definedLines = [];
+                                        COURSE_GROUPS.forEach(g => {
+                                            const courseData = g.courses.find(c => c.name === designFilter.course);
+                                            if (courseData && courseData.lines) {
+                                                definedLines = [...definedLines, ...courseData.lines];
+                                            }
+                                        });
+
+                                        // 2. Grupos detectados en pedidos reales
+                                        const detectedGroups = orders
+                                            .filter(o => getCourseBase(o.course) === designFilter.course)
+                                            .map(o => getGroup(o.course))
+                                            .filter(Boolean);
+
+                                        // Combinar, limpiar duplicados y ordenar
+                                        return [...new Set([...definedLines, ...detectedGroups])]
+                                            .sort()
+                                            .map(g => <option key={g} value={g}>{g}</option>);
+                                    })()}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ═══ 2. EDITOR EN PANTALLA COMPLETA ═══ */}
+            {isFullScreenDesign && (
+                <div
+                    className={`absolute inset-0 z-0 flex items-center justify-center overflow-hidden select-none transition-colors duration-500 ${isDark ? 'bg-slate-950 cursor-grab' : 'bg-slate-100 cursor-grab'} ${isDragging ? 'cursor-grabbing' : ''}`}
+                    onWheel={handleWheel}
+                    onMouseDown={handleMouseDown}
+                    onMouseMove={handleMouseMove}
+                    onMouseUp={handleMouseUp}
+                    onMouseLeave={handleMouseUp}
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
+                >
+                    {/* Background Grid Layer - Adaptive */}
+                    <div className={`absolute inset-0 pointer-events-none transition-opacity duration-500 ${isDark ? 'opacity-[0.03]' : 'opacity-[0.05]'}`}
+                        style={{ backgroundImage: `radial-gradient(circle, ${isDark ? '#fff' : '#000'} 1px, transparent 1px)`, backgroundSize: '100px 100px' }}
+                    />
+
+                    <div className="relative flex items-center justify-center flex-shrink-0 transition-transform duration-75 ease-out pointer-events-none"
+                        style={{
+                            transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
+                        }}
+                    >
+                        {/* Canvas Principal (Gris seda en modo oscuro para evitar fatiga visual) */}
+                        <div className={`relative shadow-[0_0_100px_rgba(0,0,0,0.3)] transition-colors duration-500 ${isDark ? 'bg-slate-200' : 'bg-white'}`}
+                            style={{
+                                width: (configOrla.canvasW || 4961) / 10 + 'px',
+                                height: (configOrla.canvasH || 3508) / 10 + 'px'
+                            }}>
+
+                            {/* Grid de diseño (visible solo en editor) */}
+                            <div className={`absolute inset-0 opacity-[0.2] transition-colors duration-500`}
+                                style={{ backgroundImage: `linear-gradient(${isDark ? '#cbd5e1' : '#e2e8f0'} 1px, transparent 1px), linear-gradient(90deg, ${isDark ? '#cbd5e1' : '#e2e8f0'} 1px, transparent 1px)`, backgroundSize: '50px 50px' }}
+                            />
+
+                            {/* Márgenes */}
+                            <div className="absolute border border-red-500/30 border-dashed pointer-events-none z-50"
+                                style={{ inset: (configOrla.margin || 20) / 10 + 'px' }} />
+
+                            {/* Guías de Centrado dinámicas */}
+                            {showGuides && (
+                                <>
+                                    <div className="absolute top-0 bottom-0 left-1/2 w-px bg-red-400/40 z-50 pointer-events-none shadow-[0_0_8px_rgba(248,113,113,0.3)]" />
+                                    <div className="absolute left-0 right-0 top-1/2 h-px bg-red-400/40 z-50 pointer-events-none shadow-[0_0_8px_rgba(248,113,113,0.3)]" />
+                                </>
+                            )}
+
+                            {/* Contenido Completo del Canvas */}
+                            <div className="absolute top-0 w-full flex justify-center z-20 pointer-events-auto"
+                                style={{
+                                    top: (configOrla.dY || 0) / 10 + 'px',
+                                    gap: (configOrla.dGapX ?? 0) / 10 + 'px',
+                                    transform: `translateX(${(configOrla.dOffsetX || 0) / 10}px)`
+                                }}>
+                                {filteredStaff.map((member) => {
+                                    const { nombre, apellidos } = splitName(member.name);
+                                    const baseSize = configOrla.fontSizeDoc || 10;
+                                    const baseScale = configOrla.dScale || 1.2;
+                                    return (
+                                        <div key={member.id}
+                                            className="relative flex flex-col items-center text-center transition-transform group/member"
+                                            style={{ transform: `scale(${baseScale})`, transformOrigin: 'top center' }}
+                                        >
+                                            <div className="bg-slate-100 rounded-sm mb-1" style={{ width: (configOrla.aW || 350) / 10 + 'px', height: (configOrla.aH || 450) / 10 + 'px' }} />
+                                            <div className="flex flex-col items-center">
+                                                <div
+                                                    contentEditable={true}
+                                                    suppressContentEditableWarning={true}
+                                                    className="font-normal uppercase text-slate-900 leading-tight outline-none cursor-text hover:bg-black/5 rounded px-1 transition-colors group-hover/member:text-accent focus:bg-white focus:shadow-sm"
+                                                    style={{ fontSize: (baseSize * 0.55) + 'px', minWidth: '40px' }}
+                                                    onBlur={(e) => {
+                                                        const newName = e.target.innerText.trim();
+                                                        if (newName && newName !== member.name) {
+                                                            updateStaffMember(member.id, { name: newName });
+                                                        }
+                                                    }}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') {
+                                                            e.preventDefault();
+                                                            e.target.blur();
+                                                        }
+                                                    }}
+                                                >
+                                                    <div className="whitespace-nowrap">{nombre}</div>
+                                                    <div className="whitespace-nowrap">{apellidos}</div>
+                                                </div>
+                                            </div>
+                                            <p className="font-normal uppercase text-slate-500 leading-tight mt-0.5 pointer-events-none" style={{ fontSize: (baseSize * 0.4) + 'px' }}>{member.role || 'DOCENTE'}</p>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            <div className="absolute w-full z-10 pointer-events-auto"
+                                style={{
+                                    top: (configOrla.aStartY || 1350) / 10 + 'px',
+                                    padding: `0 ${(configOrla.margin || 20) / 10}px`,
+                                    transform: `translateX(${(configOrla.aOffsetX || 0) / 10}px)`
+                                }}>
+                                <div className="grid justify-center"
+                                    style={{
+                                        gridTemplateColumns: `repeat(${configOrla.aCols || 8}, auto)`,
+                                        columnGap: (configOrla.aGapX ?? 0) / 10 + 'px',
+                                        rowGap: (configOrla.aGapY ?? 650) / 10 + 'px'
+                                    }}>
+                                    {filteredOrders.map((o) => {
+                                        const { nombre, apellidos } = splitName(o.studentName);
+                                        const baseSize = configOrla.fontSizeAlu || 10;
+                                        const baseScale = configOrla.aScale || 1;
+                                        return (
+                                            <div key={o.id}
+                                                className="flex flex-col items-center text-center transition-transform group/alu"
+                                                style={{ transform: `scale(${baseScale})`, transformOrigin: 'top center' }}
+                                            >
+                                                <div className="bg-slate-100 rounded-sm mb-1" style={{ width: (configOrla.aW || 350) / 10 + 'px', height: (configOrla.aH || 450) / 10 + 'px' }} />
+                                                <div className="flex flex-col items-center">
+                                                    <div
+                                                        contentEditable={true}
+                                                        suppressContentEditableWarning={true}
+                                                        className="font-normal uppercase text-slate-900 leading-tight outline-none cursor-text hover:bg-black/5 rounded px-1 transition-colors group-hover/alu:text-accent focus:bg-white focus:shadow-sm"
+                                                        style={{ fontSize: (baseSize * 0.45) + 'px', minWidth: '30px' }}
+                                                        onBlur={(e) => {
+                                                            const newName = e.target.innerText.trim();
+                                                            if (newName && newName !== o.studentName) {
+                                                                updateOrder(o.id, { studentName: newName });
+                                                            }
+                                                        }}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') {
+                                                                e.preventDefault();
+                                                                e.target.blur();
+                                                            }
+                                                        }}
+                                                    >
+                                                        <div className="whitespace-nowrap">{nombre}</div>
+                                                        <div className="whitespace-nowrap">{apellidos}</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            <div className="absolute bottom-[20px] w-full text-center" style={{ bottom: (configOrla.margin || 20) / 10 + 'px' }}>
+                                <h2
+                                    contentEditable={true}
+                                    suppressContentEditableWarning={true}
+                                    className="text-[20px] font-normal text-slate-900 uppercase tracking-tighter outline-none cursor-text hover:text-accent transition-colors focus:bg-white focus:shadow-sm inline-block px-4 rounded"
+                                    onBlur={(e) => {
+                                        const newName = e.target.innerText.trim();
+                                        if (newName && newName !== currentSchool.name) {
+                                            updateSchool(currentSchool.id, { name: newName });
+                                        }
+                                    }}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            e.target.blur();
+                                        }
+                                    }}
+                                >
+                                    {currentSchool.name}
+                                </h2>
+                                <div className="clear-both"></div>
+                                <p
+                                    contentEditable={true}
+                                    suppressContentEditableWarning={true}
+                                    className="text-[8px] font-normal text-slate-900 tracking-[0.5em] mt-1 outline-none cursor-text hover:text-accent transition-colors focus:bg-white focus:shadow-sm inline-block px-2 rounded ml-[0.5em]"
+                                    onBlur={(e) => {
+                                        const newText = e.target.innerText.trim();
+                                        if (newText && newText !== (configOrla.promoText || "PROMOCIÓN 2026")) {
+                                            updateConfig('promoText', newText);
+                                        }
+                                    }}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            e.target.blur();
+                                        }
+                                    }}
+                                >
+                                    {configOrla.promoText || "PROMOCIÓN 2026"}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ═══ 3. DOCK DINÁMICO DEL EDITOR (ADAPTATIVO) ═══ */}
+            {isFullScreenDesign && (
+                <div className="fixed bottom-0 left-0 right-0 z-[700] p-8 animate-slide-up pointer-events-none flex flex-col items-center gap-4">
+                    <div className={`w-full max-w-4xl overflow-hidden pointer-events-auto rounded-[32px] transition-all duration-500 shadow-2xl ${isDark ? 'bg-slate-900/40 backdrop-blur-3xl border border-white/20 shadow-black' : 'bg-white/80 backdrop-blur-3xl border border-black/5 shadow-slate-200'}`}>
+
+                        {/* 1. Navegación Minimalista */}
+                        <div className={`flex backdrop-blur-md ${isDark ? 'bg-black/20' : 'bg-slate-100/50'}`}>
+                            {['ALUMNOS', 'DOCENTES', 'GENERAL'].map(tab => (
+                                <button
+                                    key={tab}
+                                    onClick={() => setActiveTab(tab)}
+                                    className={`flex-1 py-3 text-[9px] font-black tracking-[0.2em] transition-all border-b-2 ${activeTab === tab
+                                        ? 'border-accent text-accent bg-accent/5'
+                                        : `${isDark ? 'border-transparent text-white/40 hover:text-white hover:bg-white/5' : 'border-transparent text-slate-400 hover:text-slate-900 hover:bg-black/5'}`}`}
+                                >
+                                    {tab}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* 2. Dock de Herramientas Principal */}
+                        <div className="p-4 flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide flex-1 py-1">
+                                {TOOLBAR_CONFIG[activeTab].map(tool => (
+                                    <button
+                                        key={tool.label}
+                                        onClick={() => {
+                                            if (tool.isImmediate) {
+                                                updateConfig(tool.key, 0);
+                                                setActiveDesignParam(null);
+                                            } else {
+                                                setActiveDesignParam(tool);
+                                            }
+                                        }}
+                                        className={`flex flex-col items-center justify-center gap-1.5 p-3 min-w-[85px] rounded-2xl transition-all active:scale-95 border ${activeDesignParam?.key === tool.key
+                                            ? 'bg-accent text-white shadow-glow-indigo border-white/20'
+                                            : `${isDark ? 'bg-white/5 border-transparent text-white/40 hover:text-white hover:bg-white/10' : 'bg-slate-100 border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-200'}`}`}
+                                    >
+                                        <tool.icon size={18} />
+                                        <span className="text-[9px] font-black uppercase tracking-tighter text-center leading-none">
+                                            {tool.label}
+                                        </span>
+                                    </button>
                                 ))}
                             </div>
 
-                            {/* Alumnos Grid */}
-                            <div className="absolute w-full px-[20px] z-10" style={{ top: (configOrla.aStartY || 1350) / 10 + 'px', padding: `0 ${(configOrla.margin || 20) / 10}px` }}>
-                                <div className="grid justify-items-center" style={{
-                                    gridTemplateColumns: `repeat(${configOrla.aCols || 8}, 1fr)`,
-                                    rowGap: (configOrla.aGapY || 650) / 10 + 'px'
-                                }}>
-                                    {orders.filter(o =>
-                                        (!designFilter.course || getCourseBase(o.course) === designFilter.course) &&
-                                        (!designFilter.group || getGroup(o.course) === designFilter.group)
-                                    ).sort((a, b) => (a.studentName || '').localeCompare(b.studentName || '')).map((order, i) => (
-                                        <div key={order.id} className="flex flex-col items-center">
-                                            <div className="bg-slate-50 border border-slate-100 rounded-sm relative flex items-center justify-center overflow-hidden"
-                                                style={{ width: (configOrla.aW || 350) / 10 + 'px', height: (configOrla.aH || 450) / 10 + 'px' }}>
-                                                {order.photoFile ? (
-                                                    <span className="text-[6px] font-mono font-bold opacity-30 text-slate-900">{order.photoFile}</span>
-                                                ) : (
-                                                    <span className="text-[6px] font-black opacity-[0.05] text-slate-900">{i + 1}</span>
-                                                )}
-                                            </div>
-                                            <div className="mt-[3px] text-center" style={{ width: (configOrla.aW || 350) / 10 + 'px' }}>
-                                                <p className="font-black leading-tight uppercase truncate text-slate-900" style={{
-                                                    fontFamily: configOrla.fontFamily || 'sans-serif',
-                                                    fontSize: ((configOrla.fontSizeAlu || 10) / 2) + 'px',
-                                                    fontWeight: configOrla.isBold ? '900' : 'normal',
-                                                    fontStyle: configOrla.isItalic ? 'italic' : 'normal'
-                                                }}>{order.studentName}</p>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                            <div className={`w-px h-10 mx-2 shrink-0 ${isDark ? 'bg-white/10' : 'bg-black/5'}`} />
 
-                    {!isFullScreenDesign && (
-                        <div className="absolute bottom-6 left-6 right-6 flex flex-wrap items-center justify-between gap-4">
-                            <div className="flex items-center gap-2 p-1.5 bg-black/20 rounded-2xl border border-white/5 backdrop-blur-md">
-                                <select
-                                    value={designFilter.course}
-                                    onChange={e => setDesignFilter(p => ({ ...p, course: e.target.value, group: '' }))}
-                                    className="bg-transparent text-white text-[10px] font-black uppercase tracking-wider px-4 py-2 outline-none cursor-pointer hover:text-violet-400 transition-colors"
+                            <div className="flex items-center gap-2 shrink-0">
+                                <button
+                                    onClick={() => setView('command')}
+                                    className="px-5 py-3 bg-emerald-500 text-white rounded-2xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 active:scale-95 flex flex-col items-center gap-1"
                                 >
-                                    <option value="" className="bg-slate-900">— CURSO —</option>
-                                    {[...new Set(orders.map(o => getCourseBase(o.course)))].filter(Boolean).sort().map(c => <option key={c} value={c} className="bg-slate-900">{c}</option>)}
-                                </select>
-                                <div className="w-px h-4 bg-white/10" />
-                                <select
-                                    value={designFilter.group}
-                                    onChange={e => setDesignFilter(p => ({ ...p, group: e.target.value }))}
-                                    disabled={!designFilter.course}
-                                    className="bg-transparent text-white text-[10px] font-black uppercase tracking-wider px-4 py-2 outline-none cursor-pointer disabled:opacity-30 hover:text-violet-400 transition-colors"
+                                    <LayoutGrid size={18} />
+                                    <span className="text-[8px] font-black uppercase tracking-wider">FINALIZAR</span>
+                                </button>
+                                <button
+                                    onClick={() => setIsFullScreenDesign(false)}
+                                    className={`p-3 rounded-2xl border transition-all active:scale-95 ${isDark ? 'bg-white/5 hover:bg-red-500/20 hover:text-red-500 text-white/40 border-white/10' : 'bg-slate-100 hover:bg-red-50 text-red-500 text-slate-400 border-slate-200'}`}
+                                    title="Cerrar Editor"
                                 >
-                                    <option value="" className="bg-slate-900">G</option>
-                                    {(designFilter.course ? [...new Set(orders.filter(o => getCourseBase(o.course) === designFilter.course).map(o => getGroup(o.course)))].filter(Boolean).sort() : []).map(g => <option key={g} value={g} className="bg-slate-900">{g}</option>)}
-                                </select>
+                                    <X size={20} />
+                                </button>
                             </div>
-                            <p className="hidden md:block text-[9px] font-bold text-white/40 uppercase tracking-[0.2em] italic">Vista Técnica Activa • {orders.filter(o => (!designFilter.course || getCourseBase(o.course) === designFilter.course) && (!designFilter.group || getGroup(o.course) === designFilter.group)).length} Alumnos</p>
                         </div>
-                    )}
+
+                        {/* 3. Slider de Ajuste Adaptive */}
+                        {activeDesignParam && (
+                            <div className={`px-8 py-5 border-t animate-slide-up flex items-center gap-8 ${isDark ? 'bg-accent border-white/30 shadow-[0_-10px_40px_rgba(0,0,0,0.3)]' : 'bg-slate-50 border-black/5 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]'}`}>
+                                <div className="flex-shrink-0 min-w-[120px] relative">
+                                    <div className="flex items-center justify-between mb-1.5">
+                                        <span className={`text-[9px] font-black uppercase tracking-[0.2em] block leading-none ${isDark ? 'text-white/70' : 'text-slate-400'}`}>{activeDesignParam.label}</span>
+                                        {activeDesignParam.isToggle && (
+                                            <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full border ${showGuides ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-500' : 'bg-slate-500/20 border-slate-500/50 text-slate-500'}`}>
+                                                {showGuides ? 'ACTIVADAS' : 'DESACTIVADAS'}
+                                            </span>
+                                        )}
+                                        {(activeDesignParam.key === 'aOffsetX' || activeDesignParam.key === 'dOffsetX') && (
+                                            <button
+                                                onClick={() => updateConfig(activeDesignParam.key, 0)}
+                                                className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full border transition-all active:scale-90 ${isDark ? 'bg-white/10 border-white/20 text-white hover:bg-white/20' : 'bg-slate-200 border-black/5 text-slate-900 hover:bg-slate-300'}`}
+                                            >
+                                                CENTRAR
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className={`text-3xl font-black tabular-nums leading-none flex items-baseline ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                                        {activeDesignParam.key.includes('Scale')
+                                            ? (configOrla[activeDesignParam.key] || 1).toFixed(2)
+                                            : activeDesignParam.key === 'aCols'
+                                                ? (configOrla[activeDesignParam.key] || 8)
+                                                : Math.round(activeDesignParam.unit === 'PX' ? configOrla[activeDesignParam.key] : safePxToMm(configOrla[activeDesignParam.key] || 0))}
+                                        <span className={`text-xs ml-1.5 font-black ${isDark ? 'text-white/60' : 'text-slate-400'}`}>
+                                            {activeDesignParam.key === 'aCols' ? 'ALUMNOS' : (activeDesignParam.unit || 'MM')}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="flex-1 flex items-center gap-4">
+                                    {activeDesignParam.isToggle ? (
+                                        <button
+                                            onClick={() => setShowGuides(!showGuides)}
+                                            className={`flex-1 h-12 rounded-2xl border-2 font-black uppercase tracking-[0.2em] text-xs transition-all active:scale-95 flex items-center justify-center gap-3 ${showGuides
+                                                ? 'bg-emerald-500 border-emerald-500 text-white shadow-glow-emerald'
+                                                : 'bg-transparent border-slate-500/30 text-slate-500'
+                                                }`}
+                                        >
+                                            <Grid size={20} />
+                                            {showGuides ? 'Ocultar Guías de Diseño' : 'Mostrar Guías de Diseño'}
+                                        </button>
+                                    ) : (
+                                        <>
+                                            <button
+                                                onClick={() => updateConfig(activeDesignParam.key, Math.max(activeDesignParam.min, (configOrla[activeDesignParam.key] || (activeDesignParam.key === 'aCols' ? 8 : 0)) - (activeDesignParam.step || 1)))}
+                                                className={`w-10 h-10 rounded-full border flex items-center justify-center transition-colors ${isDark ? 'bg-black/40 hover:bg-black/60 border-white/10 text-white' : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-600 shadow-sm'}`}
+                                            >
+                                                <Minus size={20} strokeWidth={3} />
+                                            </button>
+                                            <div className="flex-1 relative flex items-center h-8">
+                                                <div className={`absolute inset-x-0 h-2 rounded-full border shadow-inner ${isDark ? 'bg-black/60 border-white/5' : 'bg-slate-200 border-black/5'}`} />
+                                                <input
+                                                    type="range"
+                                                    min={activeDesignParam.min}
+                                                    max={activeDesignParam.max}
+                                                    step={activeDesignParam.step || 1}
+                                                    value={configOrla[activeDesignParam.key] || (activeDesignParam.key === 'aCols' ? 8 : activeDesignParam.min)}
+                                                    onChange={(e) => updateConfig(activeDesignParam.key, parseFloat(e.target.value))}
+                                                    className={`relative z-10 w-full bg-transparent appearance-none cursor-pointer ${isDark ? 'accent-white' : 'accent-accent'}`}
+                                                />
+                                            </div>
+                                            <button
+                                                onClick={() => updateConfig(activeDesignParam.key, Math.min(activeDesignParam.max, configOrla[activeDesignParam.key] + (activeDesignParam.step || 1)))}
+                                                className={`w-10 h-10 rounded-full border flex items-center justify-center transition-colors ${isDark ? 'bg-black/40 hover:bg-black/60 border-white/10 text-white' : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-600 shadow-sm'}`}
+                                            >
+                                                <Plus size={20} strokeWidth={3} />
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                                <button
+                                    onClick={() => setActiveDesignParam(null)}
+                                    className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-2xl active:scale-90 transition-all ${isDark ? 'bg-white text-accent' : 'bg-accent text-white'}`}
+                                >
+                                    <Check size={28} className="stroke-[4]" />
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 };

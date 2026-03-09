@@ -92,16 +92,28 @@ const DevNav = React.memo(({ view, setView }) => (
             <Settings size={12} className={view === 'master' ? 'animate-spin-slow' : ''} /> <span className="hidden xs:inline">CENTRO DE CONTROL</span><span className="xs:hidden">MASTER</span>
         </button>
         <button
+            onClick={() => setView('admin')}
+            className={`px-3 py-2 rounded-[18px] text-[8px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${view === 'admin' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+        >
+            <Settings size={12} /> <span className="hidden xs:inline">PANEL GESTIÓN</span><span className="xs:hidden">ADMIN</span>
+        </button>
+        <button
             onClick={() => setView('command')}
             className={`px-3 py-2 rounded-[18px] text-[8px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${view === 'command' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
         >
-            <LayoutGrid size={12} /> <span className="hidden xs:inline">PANEL ADMINISTRADOR</span><span className="xs:hidden">ADMIN</span>
+            <LayoutGrid size={12} /> <span className="hidden xs:inline">PRODUCCIÓN</span><span className="xs:hidden">SCRIPTS</span>
         </button>
         <button
             onClick={() => setView('landing')}
             className={`px-3 py-2 rounded-[18px] text-[8px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${view === 'landing' ? 'bg-white text-black shadow-lg shadow-white/40' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
         >
             <Layers size={12} /> <span className="hidden xs:inline">LANDING</span><span className="xs:hidden">WEB</span>
+        </button>
+        <button
+            onClick={() => setView('user')}
+            className={`px-3 py-2 rounded-[18px] text-[8px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${view === 'user' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+        >
+            <Users size={12} /> <span className="hidden xs:inline">VISTA USUARIO</span><span className="xs:hidden">USER</span>
         </button>
     </div>
 ));
@@ -126,24 +138,29 @@ export default function App() {
         const params = new URLSearchParams(window.location.search);
         const v = params.get('view');
         const f = params.get('f');
-        if (v) return v;
+        if (v === 'admin' || v === 'master' || v === 'command' || v === 'user') return v;
         if (f) return 'user';
         return 'landing';
     });
 
     useEffect(() => {
+        // Sincronizar atributo para CSS nativo
         document.documentElement.setAttribute('data-theme', theme);
         document.body.setAttribute('data-theme', theme);
+
+        // Sincronizar clase para Tailwind dark mode
+        if (theme === 'dark') {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+
         localStorage.setItem('theme', theme);
     }, [theme]);
 
     const [isLoaded, setIsLoaded] = useState(true);
     const toggleTheme = () => {
-        const newTheme = theme === 'light' ? 'dark' : 'light';
-        setTheme(newTheme);
-        document.documentElement.setAttribute('data-theme', newTheme);
-        document.body.setAttribute('data-theme', newTheme);
-        localStorage.setItem('theme', newTheme);
+        setTheme(prev => prev === 'light' ? 'dark' : 'light');
     };
 
     const [adminTab, setAdminTab] = useState(() => {
@@ -179,6 +196,7 @@ export default function App() {
     const [btnDemo, setBtnDemo] = useState(false);
     const [newMethodLabel, setNewMethodLabel] = useState('');
     const [showExportModal, setShowExportModal] = useState(false);
+    const [showNewStudentForm, setShowNewStudentForm] = useState(false);
     const [exportFilters, setExportFilters] = useState({ school: '', course: '', group: '' });
     // Shooting
     const [shootSearch, setShootSearch] = useState('');
@@ -286,7 +304,8 @@ export default function App() {
             fontSizeAlu: 10, fontSizeDoc: 10,
             dScale: 1.2, dY: mmToPx(60), dGapX: mmToPx(15), dTextOffset: mmToPx(12),
             aScale: 1.0, aW: mmToPx(35), aH: mmToPx(45), aStartY: mmToPx(135), aStartX: mmToPx(20),
-            aCols: 8, aGapY: mmToPx(65), aGapX: mmToPx(10), aTextOffset: mmToPx(10)
+            aCols: 8, aGapY: mmToPx(65), aGapX: mmToPx(10), aTextOffset: mmToPx(10),
+            promoText: "PROMOCIÓN 2026"
         };
         try {
             const stored = localStorage.getItem(`orlas2026_configOrla`);
@@ -380,8 +399,10 @@ export default function App() {
     };
 
     // Listas ordenadas alfabéticamente
-    const sortedSchools = useMemo(() =>
-        [...schools].sort((a, b) => a.name.localeCompare(b.name)), [schools]);
+    const sortedSchools = useMemo(() => {
+        if (!schools || !Array.isArray(schools)) return [];
+        return [...schools].sort((a, b) => a.name.localeCompare(b.name));
+    }, [schools]);
 
 
 
@@ -1291,12 +1312,41 @@ export default function App() {
                                 (!designFilter.course || getCourseBase(o.course) === designFilter.course) &&
                                 (!designFilter.group || getGroup(o.course) === designFilter.group)
                             )}
-                            staff={staff.filter(m => selectedStaffIds.includes(m.id))}
+                            staff={staff.filter(m => {
+                                const getStaffAsgs = (mem) => {
+                                    if (mem.assignments && mem.assignments.length > 0) return mem.assignments;
+                                    if (mem.course) return [{ course: mem.course, group: mem.group || '' }];
+                                    return [];
+                                };
+                                const asgs = getStaffAsgs(m);
+                                if (!designFilter.course) return true;
+
+                                return asgs.some(a => {
+                                    const normalize = (str) => {
+                                        if (!str) return '';
+                                        return str.toString().toLowerCase()
+                                            .normalize("NFD")
+                                            .replace(/[\u0300-\u036f]/g, "")
+                                            .replace(/\s+/g, ' ')
+                                            .trim();
+                                    };
+                                    const staffCourseNormal = normalize(getCourseBase(a.course));
+                                    const filterCourseNormal = normalize(designFilter.course);
+                                    const courseMatch = staffCourseNormal === filterCourseNormal;
+                                    if (!designFilter.group) return courseMatch;
+                                    const groupNormal = normalize(a.group);
+                                    const filterGroupNormal = normalize(designFilter.group);
+                                    const groupMatch = !groupNormal || groupNormal === filterGroupNormal;
+                                    return courseMatch && groupMatch;
+                                });
+                            })}
                             design={configOrla}
                             onBack={() => setView('admin')}
                             groupName={schools.find(s => s.id === adminSchool)?.name || 'Grupo de Orla'}
                             course={designFilter.course}
                             group={designFilter.group}
+                            theme={theme}
+                            onToggleTheme={toggleTheme}
                         />
                     )}
 
@@ -1497,6 +1547,7 @@ export default function App() {
                                     setStaffAssigning={setStaffAssigning}
                                     updateStaffMember={updateStaffMember}
                                     deleteStaff={deleteStaff}
+                                    schools={schools}
                                 />
 
                                 {/* ── GESTIÓN DE PEDIDOS ──────────────────────────────── */}
@@ -1518,6 +1569,8 @@ export default function App() {
                                         setOrderToEdit={setOrderToEdit}
                                         getSchoolName={getSchoolName}
                                         stats={stats}
+                                        setShowNewStudentForm={setShowNewStudentForm}
+                                        setShowExportModal={setShowExportModal}
                                     />
                                 )}
 
@@ -1592,16 +1645,9 @@ export default function App() {
                                         updateConfig={updateConfig}
                                         activeDesignParam={activeDesignParam}
                                         setActiveDesignParam={setActiveDesignParam}
-                                        canvasZoom={canvasZoom}
-                                        setCanvasZoom={setCanvasZoom}
-                                        panOffset={panOffset}
-                                        setPanOffset={setPanOffset}
-                                        mmToPx={mmToPx}
-                                        pxToMm={pxToMm}
                                         schools={schools}
                                         adminSchool={adminSchool}
                                         orders={orders}
-                                        allPacks={allPacks}
                                         settings={settings}
                                         designFilter={designFilter}
                                         setDesignFilter={setDesignFilter}
@@ -1610,12 +1656,11 @@ export default function App() {
                                         setSelectedStaffIds={setSelectedStaffIds}
                                         setAdminSchool={setAdminSchool}
                                         setView={setView}
-                                        isDraggingCanvasRef={isDraggingCanvasRef}
                                         canvasContainerRef={canvasContainerRef}
-                                        handleCanvasMouseDown={handleCanvasMouseDown}
-                                        handleCanvasMouseMove={handleCanvasMouseMove}
-                                        handleCanvasMouseUp={handleCanvasMouseUp}
-                                        handleCanvasWheel={handleCanvasWheel}
+                                        COURSE_GROUPS={COURSE_GROUPS}
+                                        updateSchool={updateSchool}
+                                        updateOrder={updateOrder}
+                                        updateStaffMember={updateStaffMember}
                                     />
                                 )}
 
@@ -2099,7 +2144,6 @@ export default function App() {
                         )
                     }
 
-                    {isCreator && <DevNav view={view} setView={setView} />}
 
                     {/* MODALES LEGALES GLOBALES (PASARELA) */}
                     <AvisoLegal isOpen={showLandingAviso} onClose={() => setShowLandingAviso(false)} />

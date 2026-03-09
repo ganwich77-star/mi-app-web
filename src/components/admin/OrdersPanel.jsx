@@ -1,4 +1,4 @@
-import { Search, Tag, Users, DollarSign, Package, TrendingUp, LayoutGrid, List, Trash2, ChevronDown } from 'lucide-react';
+import { Search, Tag, Users, DollarSign, Package, TrendingUp, LayoutGrid, List, Trash2, ChevronDown, Download } from 'lucide-react';
 import OrderRow from '../OrderRow.jsx';
 import StatCard from '../StatCard.jsx';
 import { getCourseBase, getGroup } from '../../utils/formatters.js';
@@ -20,7 +20,9 @@ const OrdersPanel = ({
     deleteOrder,
     setOrderToEdit,
     getSchoolName,
-    stats
+    stats,
+    setShowNewStudentForm,
+    setShowExportModal
 }) => {
     const [viewMode, setViewMode] = useState('list'); // 'list' | 'grid'
     const [ordersOpen, setOrdersOpen] = useState(true);
@@ -44,8 +46,28 @@ const OrdersPanel = ({
                             <p className="text-[9px] font-bold text-secondary uppercase tracking-[0.2em] opacity-60">Listado, filtros y estados de pedido</p>
                         </div>
                     </div>
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-500 ${ordersOpen ? 'bg-indigo-500/20 text-indigo-400 rotate-180' : 'bg-primary/5 text-secondary'}`}>
-                        <ChevronDown size={22} />
+
+                    <div className="flex items-center gap-2">
+                        {/* Botones de acción rápida en el header de la isla */}
+                        {ordersOpen && (
+                            <div className="flex items-center gap-2 mr-4 animate-fade-in" onClick={e => e.stopPropagation()}>
+                                <button
+                                    onClick={() => setShowNewStudentForm(true)}
+                                    className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-indigo-900/20 transition-all active:scale-95"
+                                >
+                                    <Users size={14} /> Nuevo Alumno
+                                </button>
+                                <button
+                                    onClick={() => setShowExportModal(true)}
+                                    className="flex items-center gap-2 px-4 py-2.5 bg-primary/5 hover:bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest rounded-xl border border-primary/10 transition-all active:scale-95"
+                                >
+                                    <Download size={14} /> Exportar
+                                </button>
+                            </div>
+                        )}
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-500 ${ordersOpen ? 'bg-indigo-500/20 text-indigo-400 rotate-180' : 'bg-primary/5 text-secondary'}`}>
+                            <ChevronDown size={22} />
+                        </div>
                     </div>
                 </div>
 
@@ -134,9 +156,9 @@ const OrdersPanel = ({
                                         <div key={order.id} className="bg-primary/2 border border-primary/5 rounded-[2.5rem] p-6 flex flex-col gap-4 hover:border-indigo-500/30 hover:bg-indigo-500/5 transition-all group relative overflow-hidden">
                                             <div className="absolute top-4 right-4">
                                                 <div className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${order.status === 'Pagado' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                                                        order.status === 'Producido' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
-                                                            order.status === 'Entregado' ? 'bg-slate-500/10 text-secondary border border-slate-500/20' :
-                                                                'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                                    order.status === 'Producido' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
+                                                        order.status === 'Entregado' ? 'bg-slate-500/10 text-secondary border border-slate-500/20' :
+                                                            'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                                                     }`}>
                                                     {order.status || 'Pendiente'}
                                                 </div>

@@ -72,15 +72,15 @@ const CriticalDatesPanel = ({
     };
 
     return (
-        <div className={`card overflow-hidden transition-all duration-500 ${isOpen ? 'ring-2 ring-indigo-500/20 shadow-2xl shadow-indigo-500/10' : 'hover:ring-1 hover:ring-indigo-500/10 shadow-lg'}`}>
+        <div className={`card overflow-hidden transition-all duration-500 ${isOpen ? 'ring-2 ring-orange-500/20 shadow-2xl shadow-orange-500/10' : 'hover:ring-1 hover:ring-orange-500/10 shadow-lg'}`}>
             {/* Header / Trigger */}
             <div
                 onClick={() => setIsOpen(!isOpen)}
-                className={`flex items-center justify-between p-8 cursor-pointer transition-colors ${isOpen ? 'bg-indigo-500/5' : 'hover:bg-primary/2'}`}
+                className={`flex items-center justify-between p-8 cursor-pointer transition-colors ${isOpen ? 'bg-orange-500/5' : 'hover:bg-primary/2'}`}
             >
                 <div className="flex items-center gap-6">
-                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-500 shadow-lg ${isOpen ? 'bg-indigo-600 text-white scale-110 rotate-3' : 'bg-indigo-500/10 text-indigo-400'}`}>
-                        <Calendar size={30} />
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-500 shadow-lg ${isOpen ? 'bg-orange-600 text-white' : 'bg-orange-500/10 text-orange-500'}`}>
+                        <Calendar size={24} />
                     </div>
                     <div>
                         <h3 className="text-2xl font-black text-primary tracking-tight">Fechas importantes</h3>
@@ -92,12 +92,12 @@ const CriticalDatesPanel = ({
                     <div className={`transition-all duration-500 ${isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none translate-x-4'}`}>
                         <button
                             onClick={addDateException}
-                            className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl font-black flex items-center gap-2 transition-all shadow-lg shadow-indigo-900/20 uppercase text-[10px] active:scale-95 shrink-0"
+                            className="bg-orange-600 hover:bg-orange-500 text-white px-5 py-2.5 rounded-xl font-black flex items-center gap-2 transition-all shadow-lg shadow-orange-900/20 uppercase text-[10px] active:scale-95 shrink-0"
                         >
                             <Plus size={16} /> AÑADIR EXCEPCIÓN
                         </button>
                     </div>
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-500 ${isOpen ? 'bg-indigo-500/20 text-indigo-400 rotate-180' : 'bg-primary/5 text-secondary'}`}>
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-500 ${isOpen ? 'bg-orange-500/20 text-orange-500 rotate-180' : 'bg-primary/5 text-secondary'}`}>
                         <ChevronDown size={24} />
                     </div>
                 </div>
