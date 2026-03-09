@@ -263,7 +263,12 @@ const DesignPanel = ({
                                         style={{ inset: (configOrla.margin || 20) / 10 + 'px' }} />
 
                                     {/* Contenido Orla */}
-                                    <div className="absolute top-0 w-full flex justify-center gap-[15px] z-20" style={{ top: (configOrla.dY || 0) / 10 + 'px' }}>
+                                    <div className="absolute top-0 w-full flex justify-center z-20"
+                                        style={{
+                                            top: (configOrla.dY || 0) / 10 + 'px',
+                                            gap: (configOrla.dGapX ?? 0) / 10 + 'px',
+                                            transform: `translateX(${(configOrla.dOffsetX || 0) / 10}px)`
+                                        }}>
                                         {filteredStaff.length === 0 ? (
                                             <div className="flex flex-col items-center opacity-20 mt-4">
                                                 <Users size={40} className="text-slate-400" />
@@ -272,26 +277,54 @@ const DesignPanel = ({
                                         ) : (
                                             filteredStaff.map((member) => {
                                                 const { nombre, apellidos } = splitName(member.name);
+                                                const baseSize = configOrla.fontSizeDoc || 10;
+                                                const baseScale = configOrla.dScale || 1.2;
                                                 return (
-                                                    <div key={member.id} className="relative flex flex-col items-center text-center">
-                                                        <div className="bg-slate-200 rounded-sm" style={{ width: ((configOrla.aW || 350) * (configOrla.dScale || 1.2)) / 10 + 'px', height: ((configOrla.aH || 450) * (configOrla.dScale || 1.2)) / 10 + 'px' }} />
-                                                        <p className="font-normal uppercase text-slate-900 mt-1 leading-tight" style={{ fontSize: '5px' }}>{nombre}</p>
-                                                        <p className="font-normal uppercase text-slate-900 leading-tight" style={{ fontSize: '4.5px' }}>{apellidos}</p>
-                                                        <p className="font-normal uppercase text-slate-900 leading-tight mt-0.5" style={{ fontSize: '4px' }}>{member.role || 'DOCENTE'}</p>
+                                                    <div key={member.id}
+                                                        className="relative flex flex-col items-center text-center transition-transform"
+                                                        style={{ transform: `scale(${baseScale})`, transformOrigin: 'top center' }}
+                                                    >
+                                                        <div className="bg-slate-200 rounded-sm mb-1" style={{ width: (configOrla.aW || 350) / 10 + 'px', height: (configOrla.aH || 450) / 10 + 'px' }} />
+                                                        <div className="flex flex-col items-center">
+                                                            <div className="font-normal uppercase text-slate-900 leading-tight" style={{ fontSize: (baseSize * 0.55) + 'px' }}>
+                                                                <div className="whitespace-nowrap">{nombre}</div>
+                                                                <div className="whitespace-nowrap">{apellidos}</div>
+                                                            </div>
+                                                        </div>
+                                                        <p className="font-normal uppercase text-slate-500 leading-tight mt-0.5" style={{ fontSize: (baseSize * 0.4) + 'px' }}>{member.role || 'DOCENTE'}</p>
                                                     </div>
                                                 );
                                             })
                                         )}
                                     </div>
-                                    <div className="absolute w-full z-10" style={{ top: (configOrla.aStartY || 1350) / 10 + 'px', padding: `0 ${(configOrla.margin || 20) / 10}px` }}>
-                                        <div className="grid justify-items-center" style={{ gridTemplateColumns: `repeat(${configOrla.aCols || 8}, 1fr)`, rowGap: (configOrla.aGapY || 650) / 10 + 'px' }}>
+                                    <div className="absolute w-full z-10"
+                                        style={{
+                                            top: (configOrla.aStartY || 1350) / 10 + 'px',
+                                            padding: `0 ${(configOrla.margin || 20) / 10}px`,
+                                            transform: `translateX(${(configOrla.aOffsetX || 0) / 10}px)`
+                                        }}>
+                                        <div className="grid justify-center"
+                                            style={{
+                                                gridTemplateColumns: `repeat(${configOrla.aCols || 8}, auto)`,
+                                                columnGap: (configOrla.aGapX ?? 0) / 10 + 'px',
+                                                rowGap: (configOrla.aGapY || 650) / 10 + 'px'
+                                            }}>
                                             {filteredOrders.map((o) => {
                                                 const { nombre, apellidos } = splitName(o.studentName);
+                                                const baseSize = configOrla.fontSizeAlu || 10;
+                                                const baseScale = configOrla.aScale || 1;
                                                 return (
-                                                    <div key={o.id} className="flex flex-col items-center text-center">
-                                                        <div className="bg-slate-100 rounded-sm" style={{ width: (configOrla.aW || 350) / 10 + 'px', height: (configOrla.aH || 450) / 10 + 'px' }} />
-                                                        <p className="font-normal uppercase text-slate-900 mt-0.5 leading-tight" style={{ fontSize: '3.5px' }}>{nombre}</p>
-                                                        <p className="font-normal uppercase text-slate-900 leading-tight" style={{ fontSize: '3px' }}>{apellidos}</p>
+                                                    <div key={o.id}
+                                                        className="flex flex-col items-center text-center transition-transform"
+                                                        style={{ transform: `scale(${baseScale})`, transformOrigin: 'top center' }}
+                                                    >
+                                                        <div className="bg-slate-100 rounded-sm mb-1" style={{ width: (configOrla.aW || 350) / 10 + 'px', height: (configOrla.aH || 450) / 10 + 'px' }} />
+                                                        <div className="flex flex-col items-center">
+                                                            <div className="font-normal uppercase text-slate-900 leading-tight" style={{ fontSize: (baseSize * 0.45) + 'px' }}>
+                                                                <div className="whitespace-nowrap">{nombre}</div>
+                                                                <div className="whitespace-nowrap">{apellidos}</div>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 );
                                             })}
@@ -301,7 +334,7 @@ const DesignPanel = ({
                                     {/* Pie de Orla */}
                                     <div className="absolute bottom-[20px] w-full text-center" style={{ bottom: (configOrla.margin || 20) / 10 + 'px' }}>
                                         <h2 className="text-[20px] font-normal text-slate-900 tracking-tighter uppercase">{currentSchool.name}</h2>
-                                        <p className="text-[8px] font-normal text-slate-900 tracking-[0.6em] mt-1">PROMOCIÓN 2026</p>
+                                        <p className="text-[8px] font-normal text-slate-900 tracking-[0.5em] mt-1 ml-[0.5em]">{configOrla.promoText || "PROMOCIÓN 2026"}</p>
                                     </div>
                                 </div>
                             </div>
