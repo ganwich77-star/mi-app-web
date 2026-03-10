@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-    UserCircle, Plus, Trash2, Mail, Phone, ChevronDown, Search, MessageCircle
+    UserCircle, Plus, Trash2, Mail, Phone, ChevronDown, Search, MessageCircle, LayoutGrid, List
 } from 'lucide-react';
 import { COURSE_GROUPS } from '../../constants.js';
 
@@ -12,6 +12,7 @@ const TutorsPanel = ({
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [viewMode, setViewMode] = useState('grid');
     const [selectedIds, setSelectedIds] = useState([]);
     const [expandedId, setExpandedId] = useState(null);
 
@@ -28,7 +29,8 @@ const TutorsPanel = ({
             email: '',
             schoolId: '',
             courseName: '',
-            groupName: ''
+            groupName: '',
+            newsletter: true
         };
         updateSettings({ tutors: [...(settings.tutors || []), newTutor] });
         setExpandedId(newTutor.id);
@@ -106,17 +108,37 @@ const TutorsPanel = ({
                             className="input-dark w-full pl-14 py-4.5 text-[11px] font-black tracking-widest uppercase rounded-2xl"
                         />
                     </div>
-                    {selectedIds.length > 0 && (
-                        <button
-                            onClick={() => removeTutors(selectedIds)}
-                            className="flex items-center gap-3 px-8 py-4.5 bg-rose-500/10 text-rose-500 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/20 transition-all active:scale-95 whitespace-nowrap border border-rose-500/20"
-                        >
-                            <Trash2 size={16} /> ELIMINAR ({selectedIds.length})
-                        </button>
-                    )}
+
+                    <div className="flex gap-4 items-center shrink-0">
+                        <div className="flex bg-primary/5 rounded-xl p-1 gap-1 h-[52px]">
+                            <button
+                                onClick={() => setViewMode('grid')}
+                                className={`w-12 flex items-center justify-center rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white shadow-xl text-orange-600' : 'text-secondary/40 hover:text-orange-500'}`}
+                                title="Vista Cuadrícula"
+                            >
+                                <LayoutGrid size={18} />
+                            </button>
+                            <button
+                                onClick={() => setViewMode('list')}
+                                className={`w-12 flex items-center justify-center rounded-lg transition-all ${viewMode === 'list' ? 'bg-white shadow-xl text-orange-600' : 'text-secondary/40 hover:text-orange-500'}`}
+                                title="Vista Lista"
+                            >
+                                <List size={18} />
+                            </button>
+                        </div>
+
+                        {selectedIds.length > 0 && (
+                            <button
+                                onClick={() => removeTutors(selectedIds)}
+                                className="flex items-center gap-3 px-8 py-4.5 bg-rose-500/10 text-rose-500 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/20 transition-all active:scale-95 whitespace-nowrap border border-rose-500/20"
+                            >
+                                <Trash2 size={16} /> ELIMINAR ({selectedIds.length})
+                            </button>
+                        )}
+                    </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "flex flex-col gap-4"}>
                     {filtered.map(t => {
                         const isExpanded = expandedId === t.id;
                         const schoolName = schools.find(s => s.id === t.schoolId)?.name || 'SIN ASIGNAR';
@@ -124,10 +146,11 @@ const TutorsPanel = ({
                         return (
                             <div
                                 key={t.id}
-                                className={`group relative flex flex-col p-6 rounded-[2rem] border transition-all duration-500 cursor-pointer
+                                className={`group relative flex flex-col border transition-all duration-500 cursor-pointer
+                                    ${viewMode === 'list' ? 'p-3 px-5 rounded-2xl bg-primary/2' : 'p-6 rounded-[2rem] bg-primary/2'}
                                     ${isExpanded
-                                        ? 'bg-orange-500/10 border-orange-500/40 shadow-xl shadow-orange-500/5'
-                                        : 'bg-primary/2 border-primary/5 hover:border-orange-500/30 hover:bg-orange-500/5 hover:-translate-y-1'}`}
+                                        ? 'border-orange-500/40 shadow-xl shadow-orange-500/5 !bg-orange-500/10'
+                                        : 'border-primary/5 hover:border-orange-500/30 hover:bg-orange-500/5 hover:-translate-y-1'}`}
                                 onClick={() => setExpandedId(isExpanded ? null : t.id)}
                             >
                                 {/* Cabecera / Resumen */}
@@ -142,20 +165,21 @@ const TutorsPanel = ({
                                             </div>
                                         </div>
                                         <div className="flex-1 min-w-0 pr-2">
-                                            <span className={`text-sm font-black uppercase tracking-tight block truncate transition-colors ${isExpanded ? 'text-orange-500' : 'text-primary'}`}>
+                                            <span className={`${viewMode === 'list' ? 'text-[11px]' : 'text-sm'} font-black uppercase tracking-tight block truncate transition-colors ${isExpanded ? 'text-orange-500' : 'text-primary'}`}>
                                                 {t.name || 'NUEVO TUTOR'}
                                             </span>
                                             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 opacity-60">
-                                                <p className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 shrink-0">
-                                                    <Phone size={11} className="text-orange-500" /> {t.phone || 'SIN TELA'}
+                                                <p className={`${viewMode === 'list' ? 'text-[9px]' : 'text-[10px]'} font-bold uppercase tracking-widest flex items-center gap-1.5 shrink-0`}>
+                                                    <Phone size={viewMode === 'list' ? 10 : 11} className="text-orange-500" /> {t.phone || 'SIN TEL'}
                                                 </p>
-                                                <p className="text-[9px] font-black uppercase tracking-[0.1em] truncate">
+                                                <p className={`${viewMode === 'list' ? 'text-[8px]' : 'text-[9px]'} font-black uppercase tracking-[0.1em] truncate`}>
                                                     {schoolName}
                                                 </p>
                                             </div>
                                             {!isExpanded && (
-                                                <div className="mt-2 text-[8px] font-black text-orange-500/60 uppercase tracking-widest">
-                                                    {t.courseName || 'CURSO'} {t.groupName}
+                                                <div className="mt-2 text-[8px] font-black text-orange-500/60 uppercase tracking-widest flex gap-2">
+                                                    <span>{t.courseName || 'CURSO'} {t.groupName}</span>
+                                                    {t.newsletter && <span className="text-emerald-500/60 flex items-center gap-1"><Mail size={8} /> NEWSLETTER ACTIVADO</span>}
                                                 </div>
                                             )}
                                         </div>
@@ -267,6 +291,18 @@ const TutorsPanel = ({
                                                         ))}
                                                     </select>
                                                     <ChevronDown size={10} className="absolute right-4 top-1/2 -translate-y-1/2 text-orange-500 pointer-events-none" />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-primary/5 p-4 rounded-xl border border-primary/10">
+                                            <div className="flex items-center gap-3 cursor-pointer group" onClick={() => updateTutor(t.id, { newsletter: !t.newsletter })}>
+                                                <div className={`w-8 h-4 rounded-full transition-colors relative shrink-0 ${t.newsletter ? 'bg-emerald-500' : 'bg-primary/20'}`}>
+                                                    <div className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white transition-transform ${t.newsletter ? 'translate-x-4' : 'translate-x-0'}`}></div>
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-primary group-hover:text-emerald-500 transition-colors">Permiso Recibir Info Orlas</span>
+                                                    <span className="text-[8px] font-bold uppercase text-secondary/50 pt-1">Mandar información puntual sobre orlas en próximos cursos. No mandaremos nada más.</span>
                                                 </div>
                                             </div>
                                         </div>
