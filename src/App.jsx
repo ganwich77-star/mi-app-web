@@ -434,7 +434,7 @@ export default function App() {
     const [extras, setExtras] = useState({});
     const [formError, setFormError] = useState('');
 
-    const { orders: realOrders, addOrder, updateStatus, deleteOrder, updatePhotoFile, updateOrder } = useOrders(photographerId, adminSchool);
+    const { orders: realOrders, addOrder, updateStatus, deleteOrder, updatePhotoFile, updateOrder, resetOrders } = useOrders(photographerId, adminSchool);
     const { staff: realStaff, addStaff, updateStaffPhoto, updateStaffMember, deleteStaff } = useStaff(photographerId, adminSchool);
 
     // --- SIMULACRO V2.6 (SOLO PARA JESS-PHOTOGRAPHY) ---
@@ -1512,6 +1512,7 @@ export default function App() {
                                     <ShootingPanel
                                         orders={orders}
                                         staff={staff}
+                                        settings={settings}
                                         shootFilters={shootFilters}
                                         setShootFilters={setShootFilters}
                                         shootSearch={shootSearch}
@@ -1538,7 +1539,7 @@ export default function App() {
                                         downloadMasterBackup={downloadMasterBackup}
                                         getSchoolName={getSchoolName}
                                         sortedSchools={sortedSchools}
-                                        schools={schools}
+                                        resetOrders={resetOrders}
                                     />
                                 )}
 
@@ -1590,6 +1591,7 @@ export default function App() {
                                             addSchool={addSchool}
                                             updateSchool={updateSchool}
                                             deleteSchool={deleteSchool}
+                                            updateSettings={updateSettings}
                                         />
                                         <TutorsPanel
                                             settings={settings}

@@ -78,8 +78,12 @@ export function useOrders(photographerId, schoolId) {
         return newOrder;
     };
 
-    const updateStatus = (id, status) => {
-        const updated = orders.map(o => o.id === id ? { ...o, status } : o);
+    const updateStatus = (id, status, photoFile = null) => {
+        const updated = orders.map(o => o.id === id ? {
+            ...o,
+            status,
+            ...(photoFile ? { photoFile } : {})
+        } : o);
         setOrders(updated);
         saveToFirebase(updated);
     };
@@ -110,5 +114,16 @@ export function useOrders(photographerId, schoolId) {
         saveToFirebase(updated);
     };
 
-    return { orders, addOrder, updateStatus, deleteOrder, updatePhotoFile, updateOrder, bulkUpdateStatus };
+    const resetOrders = (ids) => {
+        const idSet = new Set(ids);
+        const updated = orders.map(o => idSet.has(o.id) ? {
+            ...o,
+            status: 'Pendiente',
+            photoFile: null
+        } : o);
+        setOrders(updated);
+        saveToFirebase(updated);
+    };
+
+    return { orders, addOrder, updateStatus, deleteOrder, updatePhotoFile, updateOrder, bulkUpdateStatus, resetOrders };
 }

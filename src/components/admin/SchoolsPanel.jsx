@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { GraduationCap, Plus, Edit, Trash2, ChevronDown, Search, School } from 'lucide-react';
+import { GraduationCap, Plus, Edit, Trash2, ChevronDown, Search, School, RefreshCcw, LayoutGrid, List } from 'lucide-react';
+import { SCHOOLS } from '../../constants.js';
 
 const SchoolsPanel = ({
     sortedSchools,
@@ -12,10 +13,12 @@ const SchoolsPanel = ({
     addSchool,
     updateSchool,
     deleteSchool,
+    updateSettings,
     theme = 'dark'
 }) => {
-    const [isOpen, setIsOpen] = useState(true);
+    const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [viewMode, setViewMode] = useState('grid');
     const isDark = theme === 'dark';
 
     const filteredSchools = sortedSchools.filter(s =>
@@ -76,6 +79,24 @@ const SchoolsPanel = ({
                     </div>
 
                     <div className="flex gap-4 w-full lg:w-auto shrink-0">
+                        {/* Toggle de vistas */}
+                        <div className="flex p-1.5 bg-primary/5 rounded-2xl items-center">
+                            <button
+                                onClick={() => setViewMode('grid')}
+                                className={`w-12 h-12 flex items-center justify-center rounded-xl transition-all ${viewMode === 'grid' ? 'bg-white text-orange-500 shadow-md' : 'text-secondary/40 hover:text-secondary'}`}
+                                title="Vista Cuadrícula"
+                            >
+                                <LayoutGrid size={20} />
+                            </button>
+                            <button
+                                onClick={() => setViewMode('list')}
+                                className={`w-12 h-12 flex items-center justify-center rounded-xl transition-all ${viewMode === 'list' ? 'bg-white text-orange-500 shadow-md' : 'text-secondary/40 hover:text-secondary'}`}
+                                title="Vista Lista"
+                            >
+                                <List size={20} />
+                            </button>
+                        </div>
+
                         <div className="relative flex-1 lg:w-80">
                             <input
                                 id="new-school-input"
@@ -111,8 +132,8 @@ const SchoolsPanel = ({
                     </div>
                 </div>
 
-                {/* Grid of Schools */}
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {/* Grid/List of Schools */}
+                <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6" : "flex flex-col gap-4"}>
                     {filteredSchools.map(s => {
                         const isSelected = adminSchool === s.id;
                         const isEditing = schoolToEdit === s.id;
@@ -120,10 +141,11 @@ const SchoolsPanel = ({
                         return (
                             <div
                                 key={s.id}
-                                className={`group relative p-6 rounded-[2rem] border transition-all duration-500 
+                                className={`group relative border transition-all duration-500 
+                                    ${viewMode === 'list' ? 'p-3 px-5 rounded-2xl bg-primary/2' : 'p-6 rounded-[2rem] bg-primary/2'}
                                     ${isSelected
-                                        ? 'bg-orange-500/10 border-orange-500/40 shadow-xl shadow-orange-500/5'
-                                        : 'bg-primary/2 border-primary/5 hover:border-orange-500/30 hover:bg-orange-500/5 hover:-translate-y-1'}`}
+                                        ? 'border-orange-500/40 shadow-xl shadow-orange-500/5 !bg-orange-500/10'
+                                        : 'border-primary/5 hover:border-orange-500/30 hover:bg-orange-500/5 hover:-translate-y-1'}`}
                             >
                                 {isSelected && (
                                     <div className="absolute -top-3 -right-3 bg-orange-600 text-white text-[9px] font-black px-4 py-1.5 rounded-full shadow-lg shadow-orange-600/30 uppercase tracking-widest z-10 border-2 border-slate-900 group-hover:animate-pulse">
@@ -160,44 +182,53 @@ const SchoolsPanel = ({
                                             >
                                                 LISTO
                                             </button>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); deleteSchool(s.id); setSchoolToEdit(null); }}
+                                                className="h-[52px] w-[52px] flex items-center justify-center rounded-xl bg-rose-500/10 text-rose-500 border border-rose-500/20 hover:bg-rose-500/20 transition-all shadow-lg active:scale-95 shrink-0"
+                                                title="Eliminar Centro"
+                                            >
+                                                <Trash2 size={20} />
+                                            </button>
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="flex flex-col h-full justify-between">
+                                    <div className="flex flex-col h-full justify-center">
                                         <div onClick={() => setAdminSchool(s.id)} className="cursor-pointer flex-1 group">
-                                            <div className="flex items-start gap-4 mb-4">
-                                                <div className={`p-3 rounded-xl transition-all duration-500 ${isSelected ? 'bg-orange-600 text-white rotate-6' : 'bg-primary/5 text-secondary group-hover:bg-orange-500/20 group-hover:text-orange-500 group-hover:rotate-12'}`}>
-                                                    <School size={20} />
+                                            <div className="flex items-center gap-4">
+                                                <div className={`${viewMode === 'list' ? 'p-2' : 'p-3'} rounded-xl transition-all duration-500 shrink-0 ${isSelected ? 'bg-orange-600 text-white rotate-6' : 'bg-primary/5 text-secondary group-hover:bg-orange-500/20 group-hover:text-orange-500 group-hover:rotate-12'}`}>
+                                                    <School size={viewMode === 'list' ? 16 : 20} />
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <h4 className={`text-sm font-black uppercase tracking-tight truncate transition-colors ${isSelected ? 'text-orange-500' : 'text-primary'}`}>
+                                                    <h4 className={`${viewMode === 'list' ? 'text-[11px]' : 'text-[13px] sm:text-sm'} font-black uppercase tracking-tight truncate transition-colors ${isSelected ? 'text-orange-500' : 'text-primary'}`}>
                                                         {s.name}
                                                     </h4>
-                                                    <div className="flex items-center gap-2 mt-1">
-                                                        <span className="text-[10px] font-bold text-secondary opacity-40 uppercase tracking-widest">CÓDIGO:</span>
-                                                        <span className={`text-[10px] font-black uppercase tracking-widest ${isSelected ? 'text-orange-400' : 'text-secondary/60'}`}>
-                                                            {s.code || 'S/C'}
-                                                        </span>
+                                                    <div className={`flex items-center justify-between ${viewMode === 'list' ? 'mt-0.5' : 'mt-1 h-8'}`}>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className={`${viewMode === 'list' ? 'text-[9px]' : 'text-[10px] sm:text-[11px]'} font-bold text-secondary opacity-40 uppercase tracking-widest shrink-0`}>CÓDIGO:</span>
+                                                            <span className={`${viewMode === 'list' ? 'text-[9px]' : 'text-[10px] sm:text-[11px]'} font-black uppercase tracking-widest truncate ${isSelected ? 'text-orange-400' : 'text-secondary/60'}`}>
+                                                                {s.code || 'S/C'}
+                                                            </span>
+                                                        </div>
+                                                        {/* Acciones compactas */}
+                                                        <div className={`flex gap-1 transition-all duration-300 overflow-hidden items-center ${isSelected ? 'opacity-100 translate-x-0 w-auto' : 'opacity-0 translate-x-4 w-0'}`}>
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); setSchoolToEdit(s.id); }}
+                                                                className="w-8 h-8 flex items-center justify-center text-secondary hover:text-orange-500 hover:bg-orange-500/10 rounded-lg transition-all hover:scale-110 shrink-0"
+                                                                title="Editar"
+                                                            >
+                                                                <Edit size={14} />
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); deleteSchool(s.id); }}
+                                                                className="w-8 h-8 flex items-center justify-center text-secondary/30 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all hover:scale-110 shrink-0"
+                                                                title="Eliminar"
+                                                            >
+                                                                <Trash2 size={14} />
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
-
-                                        <div className="flex gap-2 justify-end mt-4 pt-4 border-t border-primary/5">
-                                            <button
-                                                onClick={() => setSchoolToEdit(s.id)}
-                                                className="w-10 h-10 flex items-center justify-center text-secondary hover:text-orange-500 hover:bg-orange-500/10 rounded-xl transition-all hover:scale-110"
-                                                title="Editar"
-                                            >
-                                                <Edit size={16} />
-                                            </button>
-                                            <button
-                                                onClick={() => deleteSchool(s.id)}
-                                                className="w-10 h-10 flex items-center justify-center text-secondary/30 hover:text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all hover:scale-110"
-                                                title="Eliminar"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
                                         </div>
                                     </div>
                                 )}
@@ -214,6 +245,20 @@ const SchoolsPanel = ({
                         <span className="text-[12px] font-black uppercase tracking-[0.2em] text-secondary/30">
                             {searchTerm ? `No hay resultados para "${searchTerm}"` : "No hay centros configurados"}
                         </span>
+
+                        {!searchTerm && (
+                            <button
+                                onClick={() => {
+                                    if (confirm('¿Recuperar los centros por defecto? Todos los alumnos y configuraciones asociadas a los de ahora NO se perderán. ¿Proceder?')) {
+                                        // Excluimos Calatrava específicamente por precaución
+                                        updateSettings({ schools: SCHOOLS.filter(s => !s.name.toLowerCase().includes('calatrava') && s.id !== 'calatraba') });
+                                    }
+                                }}
+                                className="mt-8 px-8 py-4 bg-orange-600 hover:bg-orange-500 text-white rounded-2xl font-black uppercase tracking-widest text-[11px] transition-all shadow-xl shadow-orange-600/20 active:scale-95 flex items-center gap-3"
+                            >
+                                <RefreshCcw size={16} /> Restaurar Centros Base
+                            </button>
+                        )}
                     </div>
                 )}
             </div>
