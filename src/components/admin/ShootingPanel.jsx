@@ -578,25 +578,29 @@ const ShootingPanel = ({
                         <div className="w-full max-w-4xl bg-card rounded-[40px] shadow-2xl overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-10 duration-500 border border-white/20 cursor-default relative">
                             <div className="flex flex-col lg:flex-row h-full">
                                 <div className="w-full lg:w-2/5 p-8 lg:p-12 bg-gradient-to-br from-emerald-500 to-teal-600 flex flex-col justify-between text-white relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 p-8 opacity-10"><Camera size={200} /></div>
+                                    <div className="absolute top-0 right-0 p-8 opacity-10">
+                                        {settings?.logo ? <img src={settings.logo} alt="Logo" className="w-48 h-48 object-contain drop-shadow-2xl brightness-0 invert" /> : <Camera size={200} />}
+                                    </div>
                                     <div className="relative z-10 lg:mt-16">
-                                        <div className="w-16 h-16 bg-white/20 rounded-3xl flex items-center justify-center mb-6 backdrop-blur-sm"><Camera size={32} /></div>
-                                        <h1 className="text-3xl lg:text-5xl font-black uppercase tracking-tight leading-none mb-6 italic text-white drop-shadow-xl">{activeStudent.studentName}</h1>
-                                        <div className="p-5 bg-black/20 rounded-3xl backdrop-blur-md border border-white/10 text-white mb-6">
+                                        <div className="w-16 h-16 bg-white/20 rounded-3xl flex items-center justify-center mb-6 backdrop-blur-sm">
+                                            {settings?.logo ? <img src={settings.logo} alt="Logo" className="w-10 h-10 object-contain drop-shadow-xl brightness-0 invert" /> : <Camera size={32} />}
+                                        </div>
+                                        <h1 className={`text-3xl lg:text-5xl font-black uppercase tracking-tight leading-none italic text-white drop-shadow-xl ${activeStudent.photoFile ? 'mb-2' : 'mb-6'}`}>
+                                            {activeStudent.studentName}
+                                        </h1>
+                                        {activeStudent.photoFile && (
+                                            <p className="text-3xl lg:text-4xl font-black tracking-widest mb-6 text-white drop-shadow-xl break-all">
+                                                {activeStudent.photoFile}
+                                            </p>
+                                        )}
+                                        <div className="p-5 bg-black/20 rounded-3xl backdrop-blur-md border border-white/10 text-white mb-6 mt-2">
                                             <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-2 opacity-60">Centro y Curso</p>
                                             <p className="text-sm font-bold leading-tight mb-1">{getSchoolName(activeStudent.schoolId)}</p>
                                             <p className="text-[11px] font-black uppercase tracking-widest text-emerald-200">{activeStudent.course}</p>
                                         </div>
                                         <div className="p-6 bg-white/10 rounded-3xl backdrop-blur-md border border-white/10 text-white">
                                             <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-1 opacity-60">Pack Seleccionado</p>
-                                            <p className="text-xl font-black italic text-emerald-100 mb-4">{getPackName(activeStudent.pack)}</p>
-
-                                            {activeStudent.photoFile && (
-                                                <div className="pt-4 border-t border-white/10">
-                                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-1 opacity-60">Archivo Guardado</p>
-                                                    <p className="text-lg font-black tracking-widest text-indigo-200">{activeStudent.photoFile}</p>
-                                                </div>
-                                            )}
+                                            <p className="text-xl font-black italic text-emerald-100 mb-0">{getPackName(activeStudent.pack)}</p>
                                         </div>
                                     </div>
                                 </div>
