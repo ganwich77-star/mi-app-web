@@ -296,9 +296,9 @@ const ShootingPanel = ({
 
                                 {/* CABECERA DE SESIÓN */}
                                 <div className="text-center space-y-6 w-full">
-                                    <div className="shoot-badge-active mb-4">
-                                        <div className="shoot-badge-dot"></div>
-                                        <span className="text-[11px] font-black tracking-[0.4em] uppercase italic" style={{ color: 'var(--accent-gold)' }}>Sesión Activa</span>
+                                    <div className="inline-flex items-center gap-3 bg-[#1ec08d]/10 px-8 py-3 rounded-full border border-[#1ec08d]/20 mb-4">
+                                        <div className="w-2.5 h-2.5 rounded-full bg-[#1ec08d] animate-pulse"></div>
+                                        <span className="text-[11px] font-black text-[#1ec08d] tracking-[0.4em] uppercase italic">Sesión Activa</span>
                                     </div>
 
                                     <div className="space-y-0 leading-none">
@@ -321,11 +321,10 @@ const ShootingPanel = ({
 
                                     {/* ISLA DE BÚSQUEDA CON AUTOCOMPLETADO */}
                                     <div className="w-full max-w-md mx-auto group">
-                                        <div className="relative flex items-center bg-white/5 border border-[rgba(255,193,7,0.15)] hover:border-[rgba(255,193,7,0.3)] focus-within:border-[var(--accent-gold)] rounded-2xl pl-14 pr-6 shadow-xl backdrop-blur-md transition-all" style={{ boxShadow: 'none' }}>
+                                        <div className="relative flex items-center bg-white/5 border border-white/10 hover:border-white/20 focus-within:border-indigo-500/50 rounded-2xl pl-14 pr-6 shadow-xl backdrop-blur-md transition-all">
                                             <Search
                                                 size={18}
-                                                className="absolute left-5 opacity-40 group-focus-within:opacity-100 transition-all"
-                                                style={{ color: 'var(--accent-gold)' }}
+                                                className="absolute left-5 text-indigo-400 opacity-50 group-focus-within:opacity-100 group-focus-within:scale-110 transition-all"
                                             />
 
                                             <div className="relative flex-1 flex items-center overflow-hidden">
@@ -400,12 +399,12 @@ const ShootingPanel = ({
                                     </div>
                                 </div>
 
-                                {/* ISLA DE ENTRADA — NÚMERO DE FOTO */}
-                                <div className="w-full max-w-2xl shoot-card p-1 px-1 shadow-[0_40px_100px_rgba(0,0,0,0.7)] relative">
-                                    <div className="p-10 md:p-14 space-y-10 border-[2px] border-[rgba(255,193,7,0.08)] rounded-[54px]">
+                                {/* ISLA DE ENTRADA (ESTILO NEÓN / CAPTURA) */}
+                                <div className="w-full max-w-2xl bg-[#11141a]/80 backdrop-blur-xl border-2 border-primary/5 p-1 px-1 rounded-[56px] shadow-[0_40px_100px_rgba(0,0,0,0.5)] relative">
+                                    <div className="p-10 md:p-14 space-y-10 border-[3px] border-emerald-500/10 rounded-[54px]">
 
                                         <div className="space-y-2">
-                                            <p className="text-center text-[10px] font-black tracking-[0.4em] uppercase italic" style={{ color: 'var(--accent-gold)', opacity: 0.6 }}>Introduce nº de foto (cámara)</p>
+                                            <p className="text-center text-[10px] font-black text-secondary/40 tracking-[0.4em] uppercase italic">Introduce nº de foto (cámara)</p>
                                             <form onSubmit={validateAndNext} className="relative group">
                                                 <input
                                                     ref={inputRef}
@@ -414,7 +413,7 @@ const ShootingPanel = ({
                                                     onChange={(e) => setPhotoNumber(e.target.value)}
                                                     placeholder="000"
                                                     autoFocus
-                                                    className="shoot-input w-full py-10 text-7xl md:text-9xl font-black text-center text-[#d1d5db] tracking-tighter placeholder:opacity-[0.05]"
+                                                    className="w-full bg-[#0a0c10]/50 border-2 border-indigo-500/20 rounded-[32px] py-10 text-7xl md:text-9xl font-black text-center text-[#d1d5db] outline-none tracking-tighter focus:border-indigo-500/50 focus:shadow-[0_0_50px_rgba(99,102,241,0.15)] transition-all placeholder:text-primary/5"
                                                     required
                                                 />
                                             </form>
@@ -423,9 +422,9 @@ const ShootingPanel = ({
                                         <button
                                             onClick={validateAndNext}
                                             disabled={!photoNumber}
-                                            className="btn-shoot-cta"
+                                            className="group w-full bg-[#11141a] hover:bg-[#1a1f26] border-2 border-primary/10 hover:border-emerald-500/30 text-secondary hover:text-emerald-400 py-8 rounded-[36px] font-black text-xl tracking-[0.3em] flex items-center justify-center gap-4 transition-all active:scale-[0.98] disabled:opacity-10 shadow-xl"
                                         >
-                                            <CheckCircle2 size={28} />
+                                            <CheckCircle2 size={32} className="group-hover:scale-110 transition-transform" />
                                             VALIDAR Y SIGUIENTE
                                         </button>
                                     </div>
@@ -433,8 +432,8 @@ const ShootingPanel = ({
 
                                 {/* INFO DEL CONTEXTO (CENTRO/CURSO/GRUPO) EN LUGAR DE CANCELAR */}
                                 <div className="flex flex-col items-center gap-1 opacity-40 animate-fade-in py-4">
-                                    <div className="px-4 py-1.5 rounded-full border shadow-sm" style={{ background: 'rgba(255,193,7,0.08)', borderColor: 'rgba(255,193,7,0.2)' }}>
-                                        <span className="text-[10px] font-black tracking-[0.2em] uppercase italic" style={{ color: 'var(--accent-gold)' }}>
+                                    <div className="px-4 py-1.5 bg-white/5 rounded-full border border-white/10 shadow-sm">
+                                        <span className="text-[10px] font-black text-indigo-400 tracking-[0.2em] uppercase italic">
                                             {getSchoolName(adminSchool) || 'Sin Centro'}
                                         </span>
                                     </div>
@@ -444,241 +443,187 @@ const ShootingPanel = ({
                                 </div>
                             </div>
                         ) : (
-                            <div className="w-full h-full flex flex-col items-center justify-start max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500 overflow-y-auto no-scrollbar pb-20">
-                                {/* CABECERA ALTA RÁPIDA / NOMBRE */}
-                                <div className="text-center space-y-4 w-full pt-10">
-                                    <div className="inline-flex items-center gap-2 bg-amber-500/10 px-6 py-2 rounded-full border border-amber-500/20 mb-2">
-                                        <Zap size={14} className="text-amber-500 animate-pulse" />
-                                        <span className="text-[10px] font-black text-amber-500 tracking-[0.3em] uppercase italic">Inscripción rápida</span>
-                                    </div>
+                            <div className="w-full h-full flex flex-col gap-5 animate-in fade-in duration-500 overflow-hidden">
 
-                                    <div className="space-y-0 leading-none min-h-[140px] flex flex-col justify-center">
-                                        {!newStudentForm.name ? (
-                                            <h2 className="text-6xl md:text-8xl font-black italic tracking-tighter text-primary/5 uppercase animate-pulse">
-                                                Siguiente Alumno
-                                            </h2>
-                                        ) : (
-                                            (() => {
-                                                const { first, rest } = getStudentNameParts(newStudentForm.name);
-                                                return (
-                                                    <>
-                                                        <h2 className={`${getFontSize(first)} font-black italic tracking-tighter text-primary uppercase animate-in slide-in-from-bottom-4`}>
-                                                            {first}
-                                                        </h2>
-                                                        {rest && (
-                                                            <h3 className="text-3xl md:text-5xl font-black italic tracking-tighter text-primary/40 uppercase mt-[-5px] animate-in slide-in-from-bottom-2">
-                                                                {rest}
-                                                            </h3>
-                                                        )}
-                                                    </>
-                                                );
-                                            })()
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* CUADRÍCULA DE ISLAS DE DATOS */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl px-4 italic">
-
-                                    {/* Isla 1: Identificación y Búsqueda */}
-                                    <div className="card p-8 bg-card/60 backdrop-blur-xl border-primary/5 space-y-6 flex flex-col">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <div className="p-2.5 bg-indigo-500/10 rounded-2xl">
-                                                    <Search size={20} className="text-indigo-400 font-black" strokeWidth={3} />
-                                                </div>
-                                                <div>
-                                                    <p className="text-[10px] font-black tracking-widest text-indigo-400/60 uppercase">Identificación</p>
-                                                    <h4 className="text-sm font-black text-primary uppercase">Nombre y Búsqueda</h4>
-                                                </div>
-                                            </div>
+                                {/* ── ISLA ALTA RÁPIDA HORIZONTAL ── */}
+                                <div className="card bg-card/60 backdrop-blur-xl border-primary/5 px-6 py-5 flex-shrink-0">
+                                    {/* Cabecera */}
+                                    <div className="flex items-center gap-3 mb-5">
+                                        <div className="p-2 bg-amber-500/10 rounded-xl">
+                                            <Zap size={16} className="text-amber-400 animate-pulse" strokeWidth={3} />
                                         </div>
+                                        <div>
+                                            <p className="text-[9px] font-black text-amber-400/60 tracking-[0.3em] uppercase">Inscripción</p>
+                                            <h4 className="text-sm font-black text-primary uppercase tracking-tight">Alta Rápida</h4>
+                                        </div>
+                                        <div className="ml-auto flex items-center gap-2 text-[9px] font-black text-primary/30 uppercase italic">
+                                            {shootFilters.course && <span className="bg-primary/5 px-3 py-1 rounded-full border border-primary/10">{shootFilters.course}{shootFilters.group ? ` · ${shootFilters.group}` : ''}</span>}
+                                        </div>
+                                    </div>
 
-                                        <div className="space-y-4">
-                                            <div className="relative group">
-                                                <input
-                                                    type="text"
-                                                    value={newStudentForm.name}
-                                                    onChange={e => setNewStudentForm(p => ({ ...p, name: e.target.value }))}
-                                                    placeholder="NOMBRE COMPLETO"
-                                                    className="w-full bg-primary/5 border border-primary/10 rounded-2xl px-5 py-4 text-xs font-black text-primary outline-none focus:border-indigo-500/50 transition-all uppercase placeholder:opacity-30"
-                                                />
-                                            </div>
+                                    {/* Fila de campos */}
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-start">
 
-                                            {/* Sugerencia rápida si coincide con alguien de la lista */}
+                                        {/* Nombre completo con búsqueda */}
+                                        <div className="space-y-1.5 relative">
+                                            <label className="text-[8px] font-black uppercase text-secondary/40 tracking-widest ml-1">Nombre del Alumno</label>
+                                            <input
+                                                type="text"
+                                                value={newStudentForm.name}
+                                                onChange={e => setNewStudentForm(p => ({ ...p, name: e.target.value }))}
+                                                placeholder="NOMBRE COMPLETO"
+                                                className="w-full bg-primary/5 border border-primary/10 rounded-2xl px-4 py-3 text-[10px] font-black text-primary outline-none focus:border-amber-500/50 transition-all uppercase placeholder:opacity-30"
+                                            />
                                             {newStudentForm.name.trim().length > 2 && visibleOrders.length > 0 && (
-                                                <div className="bg-emerald-500/5 border border-emerald-500/10 p-4 rounded-2xl animate-in fade-in zoom-in-95">
-                                                    <p className="text-[9px] font-black text-emerald-500/60 uppercase tracking-widest mb-2">¿Ya existe en la lista?</p>
-                                                    <button
-                                                        onClick={() => {
-                                                            selectStudent(visibleOrders[0]);
-                                                            setNewStudentForm(p => ({ ...p, name: '' }));
-                                                        }}
-                                                        className="w-full flex items-center justify-between p-3 bg-card rounded-xl border border-emerald-500/20 hover:bg-emerald-500/10 transition-all group"
-                                                    >
-                                                        <div className="text-left">
-                                                            <p className="text-[11px] font-black text-emerald-400 uppercase italic leading-none">{visibleOrders[0].studentName}</p>
-                                                            <p className="text-[8px] font-bold text-secondary opacity-40 uppercase tracking-widest mt-1">{visibleOrders[0].course}</p>
-                                                        </div>
-                                                        <CheckCircle2 size={18} className="text-emerald-400 animate-pulse" />
-                                                    </button>
-                                                </div>
+                                                <button
+                                                    onClick={() => { selectStudent(visibleOrders[0]); setNewStudentForm(p => ({ ...p, name: '' })); }}
+                                                    className="absolute top-full left-0 right-0 mt-1 z-20 flex items-center justify-between px-3 py-2 bg-emerald-950 border border-emerald-500/30 rounded-xl shadow-xl hover:bg-emerald-900 transition-all"
+                                                >
+                                                    <span className="text-[9px] font-black text-emerald-400 uppercase italic truncate">{visibleOrders[0].studentName}</span>
+                                                    <CheckCircle2 size={12} className="text-emerald-400 flex-shrink-0 ml-2" />
+                                                </button>
                                             )}
                                         </div>
-                                        <p className="text-[9px] font-bold text-secondary opacity-30 uppercase mt-auto">Si el alumno ya existe, selecciónalo arriba o en la lista lateral</p>
-                                    </div>
 
-                                    {/* Isla 2: Contacto */}
-                                    <div className="card p-8 bg-card/60 backdrop-blur-xl border-primary/5 space-y-6">
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2.5 bg-sky-500/10 rounded-2xl">
-                                                <Phone size={20} className="text-sky-400" strokeWidth={3} />
-                                            </div>
-                                            <div>
-                                                <p className="text-[10px] font-black tracking-widest text-sky-400/60 uppercase">Contacto</p>
-                                                <h4 className="text-sm font-black text-primary uppercase">Datos de aviso</h4>
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 gap-4">
-                                            <div className="space-y-1.5">
-                                                <label className="text-[8px] font-black uppercase text-secondary/40 tracking-widest ml-1">Teléfono móvil</label>
-                                                <div className="relative">
-                                                    <Phone size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-primary opacity-20" />
-                                                    <input
-                                                        type="tel"
-                                                        value={newStudentForm.phone}
-                                                        onChange={e => setNewStudentForm(p => ({ ...p, phone: e.target.value }))}
-                                                        placeholder="600 000 000"
-                                                        className="w-full bg-primary/5 border border-primary/10 rounded-2xl pl-12 pr-5 py-3.5 text-xs font-black text-primary outline-none focus:border-sky-500/50 transition-all placeholder:opacity-20"
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <label className="text-[8px] font-black uppercase text-secondary/40 tracking-widest ml-1">Correo electrónico</label>
-                                                <div className="relative">
-                                                    <Mail size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-primary opacity-20" />
-                                                    <input
-                                                        type="email"
-                                                        value={newStudentForm.email}
-                                                        onChange={e => setNewStudentForm(p => ({ ...p, email: e.target.value }))}
-                                                        placeholder="nombre@email.com"
-                                                        className="w-full bg-primary/5 border border-primary/10 rounded-2xl pl-12 pr-5 py-3.5 text-xs font-black text-primary outline-none focus:border-sky-500/50 transition-all placeholder:opacity-20"
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Isla 3: Detalles del Pedido */}
-                                    <div className="card p-8 bg-card/60 backdrop-blur-xl border-primary/5 space-y-6">
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2.5 bg-violet-500/10 rounded-2xl">
-                                                <CreditCard size={20} className="text-violet-400" strokeWidth={3} />
-                                            </div>
-                                            <div>
-                                                <p className="text-[10px] font-black tracking-widest text-violet-400/60 uppercase">Configuración</p>
-                                                <h4 className="text-sm font-black text-primary uppercase">Pack y Pago</h4>
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-1.5">
-                                                <label className="text-[8px] font-black uppercase text-secondary/40 tracking-widest ml-1">Pack Elegido</label>
-                                                <select
-                                                    value={newStudentForm.packId}
-                                                    onChange={e => setNewStudentForm(p => ({ ...p, packId: e.target.value }))}
-                                                    className="w-full bg-primary/5 border border-primary/10 rounded-2xl px-4 py-3.5 text-[10px] font-black text-primary outline-none appearance-none cursor-pointer"
-                                                >
-                                                    <option value="">SELECCIONAR PACK</option>
-                                                    {PACKS.map(p => <option key={p.id} value={p.id} className="text-black">{(p.label || p.id || '').split('(')[0]}</option>)}
-                                                    <option value="manual" className="text-black">SIN PACK (PENDIENTE)</option>
-                                                </select>
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <label className="text-[8px] font-black uppercase text-secondary/40 tracking-widest ml-1">MÉTODO PAGO</label>
-                                                <select
-                                                    value={newStudentForm.paymentMethod}
-                                                    onChange={e => setNewStudentForm(p => ({ ...p, paymentMethod: e.target.value }))}
-                                                    className="w-full bg-primary/5 border border-primary/10 rounded-2xl px-4 py-3.5 text-[10px] font-black text-primary outline-none appearance-none cursor-pointer"
-                                                >
-                                                    <option value="">MÉTODO PAGO</option>
-                                                    <option value="Efectivo" className="text-black">EFECTIVO</option>
-                                                    <option value="Bizum" className="text-black">BIZUM</option>
-                                                    <option value="Tarjeta" className="text-black">TARJETA</option>
-                                                    <option value="Pendiente" className="text-black">PENDIENTE</option>
-                                                </select>
-                                            </div>
-                                        </div>
-
+                                        {/* Teléfono + WhatsApp */}
                                         <div className="space-y-1.5">
-                                            <label className="text-[8px] font-black uppercase text-secondary/40 tracking-widest ml-1">Notas especiales</label>
+                                            <label className="text-[8px] font-black uppercase text-secondary/40 tracking-widest ml-1">Teléfono (madre/padre)</label>
                                             <div className="relative">
-                                                <FileText size={14} className="absolute left-4 top-4 text-primary opacity-20" />
-                                                <textarea
-                                                    value={newStudentForm.notes || ''}
-                                                    onChange={e => setNewStudentForm(p => ({ ...p, notes: e.target.value }))}
-                                                    placeholder="Indicaciones adicionales..."
-                                                    className="w-full bg-primary/5 border border-primary/10 rounded-2xl pl-12 pr-5 py-4 text-[10px] font-black text-primary outline-none focus:border-violet-500/50 transition-all min-h-[100px] resize-none placeholder:opacity-20"
+                                                <Phone size={12} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-primary opacity-20" />
+                                                <input
+                                                    type="tel"
+                                                    value={newStudentForm.phone}
+                                                    onChange={e => setNewStudentForm(p => ({ ...p, phone: e.target.value }))}
+                                                    placeholder="600 000 000"
+                                                    className="w-full bg-primary/5 border border-primary/10 rounded-2xl pl-9 pr-4 py-3 text-[10px] font-black text-primary outline-none focus:border-sky-500/50 transition-all placeholder:opacity-20"
                                                 />
                                             </div>
+                                            {newStudentForm.phone.replace(/\s/g,'').length >= 9 && (
+                                                <a
+                                                    href={`https://wa.me/34${newStudentForm.phone.replace(/\s/g,'')}?text=${encodeURIComponent('Hola, le escribimos del colegio. Su hijo/a ' + (newStudentForm.name || '') + ' ya está registrado/a para las fotos del orla. ¡Gracias!')}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-[#25D366]/10 border border-[#25D366]/20 rounded-xl text-[9px] font-black text-[#25D366] hover:bg-[#25D366]/20 transition-all"
+                                                >
+                                                    <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                                                    Enviar WhatsApp
+                                                </a>
+                                            )}
+                                        </div>
+
+                                        {/* Pack + Método de pago */}
+                                        <div className="space-y-2">
+                                            <label className="text-[8px] font-black uppercase text-secondary/40 tracking-widest ml-1">Pack</label>
+                                            <select
+                                                value={newStudentForm.packId}
+                                                onChange={e => setNewStudentForm(p => ({ ...p, packId: e.target.value }))}
+                                                className="w-full bg-primary/5 border border-primary/10 rounded-2xl px-4 py-3 text-[10px] font-black text-primary outline-none appearance-none cursor-pointer"
+                                            >
+                                                <option value="">SIN PACK</option>
+                                                {PACKS.map(p => <option key={p.id} value={p.id} className="text-black">{(p.label || p.id || '').split('(')[0]}</option>)}
+                                                <option value="manual" className="text-black">PENDIENTE</option>
+                                            </select>
+                                            <select
+                                                value={newStudentForm.paymentMethod}
+                                                onChange={e => setNewStudentForm(p => ({ ...p, paymentMethod: e.target.value }))}
+                                                className="w-full bg-primary/5 border border-primary/10 rounded-2xl px-4 py-3 text-[10px] font-black text-primary outline-none appearance-none cursor-pointer"
+                                            >
+                                                <option value="">MÉTODO PAGO</option>
+                                                <option value="Efectivo" className="text-black">EFECTIVO</option>
+                                                <option value="Bizum" className="text-black">BIZUM</option>
+                                                <option value="Tarjeta" className="text-black">TARJETA</option>
+                                                <option value="Pendiente" className="text-black">PENDIENTE</option>
+                                            </select>
+                                        </div>
+
+                                        {/* Notas + Botón Alta */}
+                                        <div className="space-y-2 flex flex-col">
+                                            <label className="text-[8px] font-black uppercase text-secondary/40 tracking-widest ml-1">Notas</label>
+                                            <textarea
+                                                value={newStudentForm.notes || ''}
+                                                onChange={e => setNewStudentForm(p => ({ ...p, notes: e.target.value }))}
+                                                placeholder="Indicaciones..."
+                                                rows={2}
+                                                className="w-full bg-primary/5 border border-primary/10 rounded-2xl px-4 py-3 text-[10px] font-black text-primary outline-none focus:border-violet-500/50 transition-all resize-none placeholder:opacity-20"
+                                            />
+                                            <button
+                                                disabled={!newStudentForm.name.trim() || !shootFilters.course}
+                                                onClick={() => {
+                                                    const sid = adminSchool;
+                                                    const pack = PACKS.find(p => p.id === newStudentForm.packId) || { id: 'manual', label: 'PENDIENTE' };
+                                                    const newOrder = {
+                                                        studentName: toTitleCase(newStudentForm.name),
+                                                        schoolId: sid,
+                                                        schoolName: schools.find(s => s.id === sid)?.name || '',
+                                                        course: shootFilters.course + (shootFilters.group ? ` ${shootFilters.group}` : ''),
+                                                        phone: newStudentForm.phone,
+                                                        email: newStudentForm.email,
+                                                        notes: newStudentForm.notes,
+                                                        pack: pack,
+                                                        packQuantity: 1,
+                                                        extras: [],
+                                                        paymentMethod: newStudentForm.paymentMethod || 'Efectivo',
+                                                        status: newStudentForm.paymentMethod && newStudentForm.paymentMethod !== 'Pendiente' ? 'Pagado' : 'Pendiente',
+                                                        total: 0,
+                                                        cost: 0,
+                                                        id: `MANUAL_${Date.now()}`,
+                                                        timestamp: Date.now()
+                                                    };
+                                                    addOrder(newOrder);
+                                                    setNewStudentForm({ schoolId: '', name: '', course: '', group: '', phone: '', email: '', packId: '', photoFile: '', status: 'Pendiente', paymentMethod: '', notes: '' });
+                                                    selectStudent(newOrder);
+                                                }}
+                                                className="w-full py-3 bg-[#1ec08d] text-white font-black text-[11px] tracking-[0.25em] rounded-2xl shadow-lg hover:bg-[#19a87d] disabled:opacity-20 transition-all active:scale-95 flex items-center justify-center gap-2"
+                                            >
+                                                <Zap size={14} />
+                                                ALTA Y EMPEZAR
+                                            </button>
+                                            {!shootFilters.course && (
+                                                <p className="text-[8px] font-black text-amber-500/60 uppercase italic text-center flex items-center justify-center gap-1">
+                                                    <AlertCircle size={10} /> Selecciona un curso arriba
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
+                                </div>
 
-                                    {/* Isla 4: Ubicación y Acción Final */}
-                                    <div className="card p-8 bg-[#1ec08d]/5 border-[#1ec08d]/10 space-y-8 flex flex-col items-center justify-center">
-                                        <div className="text-center space-y-2">
-                                            <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-[#1ec08d]/10 rounded-full border border-[#1ec08d]/20">
-                                                <span className="text-[10px] font-black text-[#1ec08d] tracking-[0.2em] uppercase italic opacity-80">
-                                                    Confirmar Alta
-                                                </span>
-                                            </div>
-                                            <p className="text-[11px] font-black text-primary/40 tracking-widest uppercase italic">
-                                                Se añadirá a: {shootFilters.course || '—'} {shootFilters.group ? `· G. ${shootFilters.group}` : ''}
-                                            </p>
-                                        </div>
-
-                                        <button
-                                            disabled={!newStudentForm.name.trim() || !shootFilters.course}
-                                            onClick={() => {
-                                                const sid = adminSchool;
-                                                const pack = PACKS.find(p => p.id === newStudentForm.packId) || { id: 'manual', label: 'PENDIENTE' };
-                                                const newOrder = {
-                                                    studentName: toTitleCase(newStudentForm.name),
-                                                    schoolId: sid,
-                                                    schoolName: schools.find(s => s.id === sid)?.name || '',
-                                                    course: shootFilters.course + (shootFilters.group ? ` ${shootFilters.group}` : ''),
-                                                    phone: newStudentForm.phone,
-                                                    email: newStudentForm.email,
-                                                    notes: newStudentForm.notes,
-                                                    pack: pack,
-                                                    packQuantity: 1,
-                                                    extras: [],
-                                                    paymentMethod: newStudentForm.paymentMethod || 'Efectivo',
-                                                    status: newStudentForm.paymentMethod && newStudentForm.paymentMethod !== 'Pendiente' ? 'Pagado' : 'Pendiente',
-                                                    total: 0,
-                                                    cost: 0,
-                                                    id: `MANUAL_${Date.now()}`,
-                                                    timestamp: Date.now()
-                                                };
-                                                addOrder(newOrder);
-                                                setNewStudentForm({ schoolId: '', name: '', course: '', group: '', phone: '', email: '', packId: '', photoFile: '', status: 'Pendiente', paymentMethod: '' });
-                                                // Opcional: Seleccionar automáticamente el nuevo alumno para empezar sesión
-                                                selectStudent(newOrder);
-                                            }}
-                                            className="w-full py-10 bg-[#1ec08d] text-white font-black text-2xl tracking-[0.3em] rounded-[32px] shadow-2xl shadow-emerald-500/20 hover:bg-[#19a87d] disabled:opacity-20 transition-all active:scale-95 flex flex-col items-center gap-2 group"
-                                        >
-                                            <Zap size={32} className="group-hover:scale-110 group-hover:rotate-12 transition-transform" />
-                                            ALTA Y EMPEZAR
-                                        </button>
-
-                                        {!shootFilters.course && (
-                                            <div className="flex items-center gap-2 text-[10px] font-black text-amber-500/60 uppercase italic animate-bounce">
-                                                <AlertCircle size={14} /> Selecciona curso en el menú superior
+                                {/* ── LISTA EN GRID 3 COLUMNAS ── */}
+                                <div className="flex-1 overflow-y-auto no-scrollbar min-h-0">
+                                    <div className="grid grid-cols-3 gap-3 pb-4">
+                                        {visibleOrders.map(order => (
+                                            <button
+                                                key={order.id}
+                                                onClick={() => selectStudent(order)}
+                                                className="card p-4 bg-card/50 hover:bg-card hover:border-primary/20 text-left transition-all active:scale-95 group space-y-2"
+                                            >
+                                                <div className="space-y-0.5">
+                                                    {(() => {
+                                                        const { first, rest } = getStudentNameParts(order.studentName || '');
+                                                        return (
+                                                            <>
+                                                                <p className="text-[11px] font-black text-primary uppercase italic leading-none truncate group-hover:text-white transition-colors">{first}</p>
+                                                                {rest && <p className="text-[10px] font-black text-primary/40 uppercase italic leading-none truncate">{rest}</p>}
+                                                            </>
+                                                        );
+                                                    })()}
+                                                </div>
+                                                <div className="flex items-center justify-between gap-1">
+                                                    <span className="text-[8px] font-bold text-secondary/30 uppercase tracking-wide truncate">{order.course}</span>
+                                                    {order.photoFile
+                                                        ? <CheckCircle2 size={12} className="text-emerald-400 flex-shrink-0" />
+                                                        : <div className="w-2 h-2 rounded-full bg-amber-500/40 flex-shrink-0" />
+                                                    }
+                                                </div>
+                                            </button>
+                                        ))}
+                                        {visibleOrders.length === 0 && (
+                                            <div className="col-span-3 py-16 text-center">
+                                                <p className="text-[11px] font-black text-primary/20 uppercase tracking-widest italic">No hay alumnos en el listado</p>
                                             </div>
                                         )}
                                     </div>
                                 </div>
+
                             </div>
                         )}
 
