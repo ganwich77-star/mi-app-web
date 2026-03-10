@@ -443,7 +443,68 @@ const ShootingPanel = ({
                                 </div>
                             </div>
                         ) : (
-                            <div className="w-full h-full flex flex-col gap-5 animate-in fade-in duration-500 overflow-hidden">
+                            <div className="w-full h-full flex flex-col gap-5 animate-in fade-in duration-500 overflow-y-auto no-scrollbar pb-6">
+
+                                {/* ── ISLA BUSCADOR ── */}
+                                <div className="card bg-card/60 backdrop-blur-xl border-primary/5 px-6 py-5 flex-shrink-0">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="p-2 bg-indigo-500/10 rounded-xl">
+                                            <Search size={16} className="text-indigo-400" strokeWidth={3} />
+                                        </div>
+                                        <div>
+                                            <p className="text-[9px] font-black text-indigo-400/60 tracking-[0.3em] uppercase">Sesión de Fotos</p>
+                                            <h4 className="text-sm font-black text-primary uppercase tracking-tight">Buscar Alumno</h4>
+                                        </div>
+                                        <div className="ml-auto text-[9px] font-black text-primary/20 uppercase italic">
+                                            {visibleOrders.length} en lista
+                                        </div>
+                                    </div>
+
+                                    {/* Input buscador con autocomplete */}
+                                    <div className="relative group">
+                                        <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-400 opacity-40 group-focus-within:opacity-100 transition-all" />
+                                        <input
+                                            type="text"
+                                            value={shootSearch}
+                                            onChange={e => setShootSearch(e.target.value)}
+                                            placeholder="ESCRIBE NOMBRE O APELLIDOS..."
+                                            className="w-full bg-primary/5 border border-primary/10 focus-within:border-indigo-500/40 rounded-2xl pl-10 pr-5 py-4 text-xs font-black text-primary outline-none uppercase placeholder:opacity-20 transition-all"
+                                        />
+                                        {/* Dropdown resultados */}
+                                        {(shootSearch || '').trim().length > 0 && (
+                                            <div className="absolute top-full left-0 right-0 mt-2 bg-card border border-primary/10 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                                                <div className="max-h-[260px] overflow-y-auto">
+                                                    {visibleOrders.slice(0, 8).map(order => (
+                                                        <button
+                                                            key={order.id}
+                                                            onClick={() => { selectStudent(order); setShootSearch(''); }}
+                                                            className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-primary/5 transition-colors border-b border-primary/5 last:border-0 text-left group/item"
+                                                        >
+                                                            <div>
+                                                                <p className="text-[11px] font-black text-primary uppercase italic leading-none group-hover/item:text-indigo-400 transition-colors">{order.studentName}</p>
+                                                                <p className="text-[8px] font-bold text-secondary/40 uppercase tracking-widest mt-0.5">{order.course}</p>
+                                                            </div>
+                                                            {order.photoFile
+                                                                ? <CheckCircle2 size={14} className="text-emerald-400" />
+                                                                : <div className="w-2 h-2 rounded-full bg-amber-500/40" />
+                                                            }
+                                                        </button>
+                                                    ))}
+                                                    {visibleOrders.length === 0 && (
+                                                        <div className="p-6 text-center text-[10px] font-black text-primary/20 uppercase italic">
+                                                            No se encontraron alumnos
+                                                        </div>
+                                                    )}
+                                                    {visibleOrders.length > 8 && (
+                                                        <div className="px-4 py-2 text-center text-[8px] font-black text-primary/20 uppercase tracking-widest bg-primary/5">
+                                                            Y {visibleOrders.length - 8} más — sé más específico
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
 
                                 {/* ── ISLA ALTA RÁPIDA HORIZONTAL ── */}
                                 <div className="card bg-card/60 backdrop-blur-xl border-primary/5 px-6 py-5 flex-shrink-0">
@@ -456,7 +517,7 @@ const ShootingPanel = ({
                                             <p className="text-[9px] font-black text-amber-400/60 tracking-[0.3em] uppercase">Inscripción</p>
                                             <h4 className="text-sm font-black text-primary uppercase tracking-tight">Alta Rápida</h4>
                                         </div>
-                                        <div className="ml-auto flex items-center gap-2 text-[9px] font-black text-primary/30 uppercase italic">
+                                        <div className="ml-auto text-[9px] font-black text-primary/30 uppercase italic">
                                             {shootFilters.course && <span className="bg-primary/5 px-3 py-1 rounded-full border border-primary/10">{shootFilters.course}{shootFilters.group ? ` · ${shootFilters.group}` : ''}</span>}
                                         </div>
                                     </div>
@@ -464,7 +525,7 @@ const ShootingPanel = ({
                                     {/* Fila de campos */}
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-start">
 
-                                        {/* Nombre completo con búsqueda */}
+                                        {/* Nombre completo */}
                                         <div className="space-y-1.5 relative">
                                             <label className="text-[8px] font-black uppercase text-secondary/40 tracking-widest ml-1">Nombre del Alumno</label>
                                             <input
@@ -474,15 +535,6 @@ const ShootingPanel = ({
                                                 placeholder="NOMBRE COMPLETO"
                                                 className="w-full bg-primary/5 border border-primary/10 rounded-2xl px-4 py-3 text-[10px] font-black text-primary outline-none focus:border-amber-500/50 transition-all uppercase placeholder:opacity-30"
                                             />
-                                            {newStudentForm.name.trim().length > 2 && visibleOrders.length > 0 && (
-                                                <button
-                                                    onClick={() => { selectStudent(visibleOrders[0]); setNewStudentForm(p => ({ ...p, name: '' })); }}
-                                                    className="absolute top-full left-0 right-0 mt-1 z-20 flex items-center justify-between px-3 py-2 bg-emerald-950 border border-emerald-500/30 rounded-xl shadow-xl hover:bg-emerald-900 transition-all"
-                                                >
-                                                    <span className="text-[9px] font-black text-emerald-400 uppercase italic truncate">{visibleOrders[0].studentName}</span>
-                                                    <CheckCircle2 size={12} className="text-emerald-400 flex-shrink-0 ml-2" />
-                                                </button>
-                                            )}
                                         </div>
 
                                         {/* Teléfono + WhatsApp */}
@@ -584,43 +636,6 @@ const ShootingPanel = ({
                                                 </p>
                                             )}
                                         </div>
-                                    </div>
-                                </div>
-
-                                {/* ── LISTA EN GRID 3 COLUMNAS ── */}
-                                <div className="flex-1 overflow-y-auto no-scrollbar min-h-0">
-                                    <div className="grid grid-cols-3 gap-3 pb-4">
-                                        {visibleOrders.map(order => (
-                                            <button
-                                                key={order.id}
-                                                onClick={() => selectStudent(order)}
-                                                className="card p-4 bg-card/50 hover:bg-card hover:border-primary/20 text-left transition-all active:scale-95 group space-y-2"
-                                            >
-                                                <div className="space-y-0.5">
-                                                    {(() => {
-                                                        const { first, rest } = getStudentNameParts(order.studentName || '');
-                                                        return (
-                                                            <>
-                                                                <p className="text-[11px] font-black text-primary uppercase italic leading-none truncate group-hover:text-white transition-colors">{first}</p>
-                                                                {rest && <p className="text-[10px] font-black text-primary/40 uppercase italic leading-none truncate">{rest}</p>}
-                                                            </>
-                                                        );
-                                                    })()}
-                                                </div>
-                                                <div className="flex items-center justify-between gap-1">
-                                                    <span className="text-[8px] font-bold text-secondary/30 uppercase tracking-wide truncate">{order.course}</span>
-                                                    {order.photoFile
-                                                        ? <CheckCircle2 size={12} className="text-emerald-400 flex-shrink-0" />
-                                                        : <div className="w-2 h-2 rounded-full bg-amber-500/40 flex-shrink-0" />
-                                                    }
-                                                </div>
-                                            </button>
-                                        ))}
-                                        {visibleOrders.length === 0 && (
-                                            <div className="col-span-3 py-16 text-center">
-                                                <p className="text-[11px] font-black text-primary/20 uppercase tracking-widest italic">No hay alumnos en el listado</p>
-                                            </div>
-                                        )}
                                     </div>
                                 </div>
 
