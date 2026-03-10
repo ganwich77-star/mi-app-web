@@ -213,7 +213,7 @@ export default function App() {
     const [selectedOrderIds, setSelectedOrderIds] = useState([]);
     const [selectedStaffIds, setSelectedStaffIds] = useState([]);
 
-    const [newStudentForm, setNewStudentForm] = useState({ schoolId: '', name: '', course: '', group: '', phone: '', email: '', packId: '', photoFile: '', status: 'Pendiente', paymentMethod: '' });
+    const [newStudentForm, setNewStudentForm] = useState({ schoolId: '', name: '', parentName: '', course: '', group: '', phone: '', email: '', packId: '', extras: [], complements: [], notes: '', photoFile: '', status: 'Pendiente', paymentMethod: '' });
 
     // Regalo
     const [showGiftModal, setShowGiftModal] = useState(false);
@@ -1445,12 +1445,12 @@ export default function App() {
                                     <div className="max-w-5xl mx-auto">
                                         {/* Escritorio */}
                                         <div className="hidden md:flex flex-wrap items-center justify-center gap-1.5 bg-card/60 dark:bg-white/5 p-1.5 rounded-[2rem] border border-primary/10 dark:border-white/10 backdrop-blur-md w-full shadow-2xl shadow-black/20">
-                                            <button onClick={() => setAdminTab('shooting')} className={`px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${adminTab === 'shooting' ? 'bg-red-700 text-white shadow-xl shadow-red-700/30' : 'text-secondary hover:text-primary hover:bg-primary/10'}`}>📸 Shooting</button>
                                             <button onClick={() => setAdminTab('schools')} className={`px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${adminTab === 'schools' ? 'bg-orange-500 text-white shadow-lg' : 'text-secondary hover:text-primary hover:bg-primary/5'}`}><GraduationCap size={14} /> Centros</button>
-                                            <button onClick={() => setAdminTab('settings')} className={`px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${adminTab === 'settings' ? 'bg-indigo-500 text-white shadow-lg' : 'text-secondary hover:text-primary hover:bg-primary/5'}`}><Settings size={14} /> Ajustes App</button>
+                                            <button onClick={() => setAdminTab('shooting')} className={`px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${adminTab === 'shooting' ? 'bg-red-700 text-white shadow-xl shadow-red-700/30' : 'text-secondary hover:text-primary hover:bg-primary/10'}`}>📸 Shooting</button>
+                                            <button onClick={() => setAdminTab('design')} className={`px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${adminTab === 'design' ? 'bg-violet-600 text-white shadow-lg' : 'text-secondary hover:text-primary hover:bg-primary/5'}`}><Palette size={14} /> Diseño Orla</button>
                                             <button onClick={() => setAdminTab('orders')} className={`px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${adminTab === 'orders' ? 'bg-emerald-500 text-white shadow-lg' : 'text-secondary hover:text-primary hover:bg-primary/5'}`}><Users size={14} /> Gestión Pedid.</button>
                                             <button onClick={() => setAdminTab('precios')} className={`px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${adminTab === 'precios' ? 'bg-amber-500 text-white shadow-lg' : 'text-secondary hover:text-primary hover:bg-primary/5'}`}><Euro size={14} /> Precios</button>
-                                            <button onClick={() => setAdminTab('design')} className={`px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${adminTab === 'design' ? 'bg-violet-600 text-white shadow-lg' : 'text-secondary hover:text-primary hover:bg-primary/5'}`}><Palette size={14} /> Diseño Orla</button>
+                                            <button onClick={() => setAdminTab('settings')} className={`px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${adminTab === 'settings' ? 'bg-indigo-500 text-white shadow-lg' : 'text-secondary hover:text-primary hover:bg-primary/5'}`}><Settings size={14} /> Ajustes App</button>
                                         </div>
 
                                         {/* Móvil */}
@@ -1460,17 +1460,17 @@ export default function App() {
                                                 className="w-full flex items-center justify-between p-3 bg-card/60 border border-primary/10 rounded-2xl backdrop-blur-md shadow-xl"
                                             >
                                                 <div className="flex items-center gap-3">
-                                                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-white shadow-md ${adminTab === 'shooting' ? 'bg-red-700' :
-                                                        adminTab === 'schools' ? 'bg-orange-500' :
-                                                            adminTab === 'settings' ? 'bg-indigo-500' :
+                                                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-white shadow-md ${adminTab === 'schools' ? 'bg-orange-500' :
+                                                        adminTab === 'shooting' ? 'bg-red-700' :
+                                                            adminTab === 'design' ? 'bg-violet-600' :
                                                                 adminTab === 'orders' ? 'bg-emerald-500' :
-                                                                    adminTab === 'precios' ? 'bg-amber-500' : 'bg-violet-600'
+                                                                    adminTab === 'precios' ? 'bg-amber-500' : 'bg-indigo-500'
                                                         }`}>
-                                                        {adminTab === 'shooting' ? '📸' :
-                                                            adminTab === 'schools' ? <GraduationCap size={18} /> :
-                                                                adminTab === 'settings' ? <Settings size={18} /> :
+                                                        {adminTab === 'schools' ? <GraduationCap size={18} /> :
+                                                            adminTab === 'shooting' ? '📸' :
+                                                                adminTab === 'design' ? <Palette size={18} /> :
                                                                     adminTab === 'orders' ? <Users size={18} /> :
-                                                                        adminTab === 'precios' ? <Euro size={18} /> : <Palette size={18} />}
+                                                                        adminTab === 'precios' ? <Euro size={18} /> : <Settings size={18} />}
                                                     </div>
                                                     <span className="text-sm font-black uppercase tracking-wider text-primary">{adminTab}</span>
                                                 </div>
@@ -1478,12 +1478,12 @@ export default function App() {
                                             </button>
                                             {mobileAdminMenuOpen && (
                                                 <div className="absolute top-full left-0 right-0 mt-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-primary/10 rounded-3xl shadow-2xl z-[100] p-2 grid grid-cols-2 gap-2">
-                                                    <button onClick={() => { setAdminTab('shooting'); setMobileAdminMenuOpen(false); }} className="p-4 rounded-2xl text-[10px] font-black uppercase flex flex-col items-center gap-2">📸 Shooting</button>
                                                     <button onClick={() => { setAdminTab('schools'); setMobileAdminMenuOpen(false); }} className="p-4 rounded-2xl text-[10px] font-black uppercase flex flex-col items-center gap-2"><GraduationCap size={20} /> Centros</button>
-                                                    <button onClick={() => { setAdminTab('settings'); setMobileAdminMenuOpen(false); }} className="p-4 rounded-2xl text-[10px] font-black uppercase flex flex-col items-center gap-2"><Settings size={20} /> Ajustes</button>
+                                                    <button onClick={() => { setAdminTab('shooting'); setMobileAdminMenuOpen(false); }} className="p-4 rounded-2xl text-[10px] font-black uppercase flex flex-col items-center gap-2">📸 Shooting</button>
+                                                    <button onClick={() => { setAdminTab('design'); setMobileAdminMenuOpen(false); }} className="p-4 rounded-2xl text-[10px] font-black uppercase flex flex-col items-center gap-2"><Palette size={20} /> Diseño</button>
                                                     <button onClick={() => { setAdminTab('orders'); setMobileAdminMenuOpen(false); }} className="p-4 rounded-2xl text-[10px] font-black uppercase flex flex-col items-center gap-2"><Users size={20} /> Pedidos</button>
                                                     <button onClick={() => { setAdminTab('precios'); setMobileAdminMenuOpen(false); }} className="p-4 rounded-2xl text-[10px] font-black uppercase flex flex-col items-center gap-2"><Euro size={20} /> Precios</button>
-                                                    <button onClick={() => { setAdminTab('design'); setMobileAdminMenuOpen(false); }} className="p-4 rounded-2xl text-[10px] font-black uppercase flex flex-col items-center gap-2"><Palette size={20} /> Diseño</button>
+                                                    <button onClick={() => { setAdminTab('settings'); setMobileAdminMenuOpen(false); }} className="p-4 rounded-2xl text-[10px] font-black uppercase flex flex-col items-center gap-2"><Settings size={20} /> Ajustes</button>
                                                 </div>
                                             )}
                                         </div>
