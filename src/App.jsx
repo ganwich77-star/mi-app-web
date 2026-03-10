@@ -213,7 +213,7 @@ export default function App() {
     const [selectedOrderIds, setSelectedOrderIds] = useState([]);
     const [selectedStaffIds, setSelectedStaffIds] = useState([]);
 
-    const [newStudentForm, setNewStudentForm] = useState({ schoolId: '', name: '', course: '', group: '', phone: '', photoFile: '', status: 'Pendiente', paymentMethod: '' });
+    const [newStudentForm, setNewStudentForm] = useState({ schoolId: '', name: '', course: '', group: '', phone: '', email: '', packId: '', photoFile: '', status: 'Pendiente', paymentMethod: '' });
 
     // Regalo
     const [showGiftModal, setShowGiftModal] = useState(false);
@@ -1347,6 +1347,7 @@ export default function App() {
                             group={designFilter.group}
                             theme={theme}
                             onToggleTheme={toggleTheme}
+                            settings={settings}
                         />
                     )}
 

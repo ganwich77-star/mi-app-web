@@ -227,7 +227,14 @@ const DesignPanel = ({
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-4 relative z-10 w-full md:w-auto mr-8">
+                        <div className="flex items-center gap-4 relative z-10 w-full md:w-auto mr-2">
+                            <button
+                                onClick={() => setView('command')}
+                                className="flex-1 md:flex-none h-12 px-8 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl flex items-center justify-center gap-3 transition-all shadow-glow-emerald text-[10px] font-black uppercase tracking-widest active:scale-95 border border-white/20 hover:border-white/40"
+                            >
+                                <LayoutGrid size={18} />
+                                FINALIZAR
+                            </button>
                             <button
                                 onClick={() => setIsFullScreenDesign(true)}
                                 className="flex-1 md:flex-none h-12 px-8 bg-violet-600 hover:bg-violet-500 text-white rounded-2xl flex items-center justify-center gap-3 transition-all shadow-glow-indigo text-[10px] font-black uppercase tracking-widest active:scale-95 border border-white/20 hover:border-white/40"

@@ -26,7 +26,7 @@ const SettingsPanel = ({
 }) => {
     // Estados de apertura de secciones
     const [openSections, setOpenSections] = useState({
-        general: true,
+        general: false,
         billing: false,
         notifications: false
     });

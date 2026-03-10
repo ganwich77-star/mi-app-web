@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Camera, Layers, Zap, Copy, Download, ArrowLeft, CheckCircle2, Binary, X, FileCode, Star, Package, Tag, Users, UserCheck, Globe, GraduationCap, Sun, Moon } from 'lucide-react';
+import { Camera, Layers, Zap, Copy, Download, ArrowLeft, CheckCircle2, Binary, X, FileCode, Star, Package, Tag, Users, UserCheck, Globe, GraduationCap, Sun, Moon, Sparkles, Search } from 'lucide-react';
 import { PACKS, EXTRAS } from '../constants.js';
 
-const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "ORLA-GENERICA", course = "", group = "", onBack, theme, onToggleTheme }) => {
+const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "ORLA-GENERICA", course = "", group = "", onBack, theme, onToggleTheme, settings = {} }) => {
     const [copiedStep1, setCopiedStep1] = useState(false);
     const [scriptModal, setScriptModal] = useState(null);
     const [activeFilter, setActiveFilter] = useState({ type: 'role', id: 'ALL' });
@@ -18,11 +18,15 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
             return false;
         }
         if (type === 'pack') {
+            if (id === 'esencial') return true; // Lógica inteligente: el pack esencial lo llevan todos
             const gPackId = typeof g.pack === 'object' ? g.pack.id : g.pack;
             return gPackId === id;
         }
+        if (type === 'supplement') {
+            return g.supplements && g.supplements[id] === true;
+        }
         if (type === 'extra') {
-            return g.extras && (g.extras[id] > 0 || Object.values(g.extras).some(e => e.id === id));
+            return g.extras && (g.extras[id] > 0 || (typeof g.extras[id] === 'object' && g.extras[id].quantity > 0));
         }
         return false;
     }).sort((a, b) => (a.studentName || '').localeCompare(b.studentName || '', 'es', { sensitivity: 'base' }));
@@ -418,7 +422,9 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
 
                                     <div className="space-y-6">
                                         <div className="space-y-3">
-                                            <p className={`text-[9px] font-black uppercase ${theme === 'dark' ? 'text-white/20' : 'text-slate-400'} tracking-[0.3em] flex items-center gap-2`}><Users size={12} /> Roles Disponibles</p>
+                                            <p className={`text-[9px] font-black uppercase ${theme === 'dark' ? 'text-white/60' : 'text-slate-500'} tracking-[0.3em] flex items-center gap-2`}>
+                                                <Users size={14} className="text-[#f06418]" /> ROLES DISPONIBLES
+                                            </p>
                                             <div className="flex flex-wrap gap-2">
                                                 {[
                                                     { id: 'ALL', label: 'Todo' },
@@ -426,7 +432,7 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                                                     { id: 'STAFF', label: 'Docentes' }
                                                 ].map(f => (
                                                     <button key={f.id} onClick={() => setActiveFilter({ type: 'role', id: f.id })}
-                                                        className={`py-2 px-4 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${activeFilter.type === 'role' && activeFilter.id === f.id ? 'bg-violet-600 border-violet-500 text-white shadow-lg' : `${theme === 'dark' ? 'bg-white/5 border-white/10 text-white/40' : 'bg-slate-50 border-slate-200 text-slate-500'} hover:bg-violet-600/10`}`}>
+                                                        className={`py-2 px-4 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${activeFilter.type === 'role' && activeFilter.id === f.id ? 'bg-violet-600 border-violet-500 text-white shadow-lg shadow-violet-500/20' : `${theme === 'dark' ? 'bg-white/5 border-white/10 text-white/40 shadow-inner' : 'bg-slate-50 border-slate-200 text-slate-500'} hover:bg-violet-600/10`}`}>
                                                         {f.label}
                                                     </button>
                                                 ))}
@@ -434,23 +440,43 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                                         </div>
 
                                         <div className="space-y-3">
-                                            <p className={`text-[9px] font-black uppercase ${theme === 'dark' ? 'text-white/20' : 'text-slate-400'} tracking-[0.3em] flex items-center gap-2`}><Package size={12} /> Packs Contratados</p>
+                                            <p className={`text-[9px] font-black uppercase ${theme === 'dark' ? 'text-white/60' : 'text-slate-500'} tracking-[0.3em] flex items-center gap-2`}>
+                                                <Package size={14} className="text-[#f06418]" /> PACKS CONTRATADOS
+                                            </p>
                                             <div className="flex flex-wrap gap-2">
                                                 {PACKS.map(p => (
                                                     <button key={p.id} onClick={() => setActiveFilter({ type: 'pack', id: p.id })}
-                                                        className={`py-2 px-4 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${activeFilter.type === 'pack' && activeFilter.id === p.id ? 'bg-blue-600 border-blue-500 text-white shadow-lg' : `${theme === 'dark' ? 'bg-white/5 border-white/10 text-white/40' : 'bg-slate-50 border-slate-200 text-slate-500'} hover:bg-blue-600/10`}`}>
+                                                        className={`py-2 px-4 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${activeFilter.type === 'pack' && activeFilter.id === p.id ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/20' : `${theme === 'dark' ? 'bg-white/5 border-white/10 text-white/40 shadow-inner' : 'bg-slate-50 border-slate-200 text-slate-500'} hover:bg-indigo-600/10`}`}>
                                                         {p.name}
                                                     </button>
                                                 ))}
                                             </div>
                                         </div>
 
+                                        {settings.supplements && settings.supplements.length > 0 && (
+                                            <div className="space-y-3">
+                                                <p className={`text-[9px] font-black uppercase ${theme === 'dark' ? 'text-white/60' : 'text-slate-500'} tracking-[0.3em] flex items-center gap-2`}>
+                                                    <Sparkles size={14} className="text-[#f06418]" /> SUPLEMENTOS ACTIVOS
+                                                </p>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {settings.supplements.filter(s => s.active).map(s => (
+                                                        <button key={s.id} onClick={() => setActiveFilter({ type: 'supplement', id: s.id })}
+                                                            className={`py-2 px-4 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${activeFilter.type === 'supplement' && activeFilter.id === s.id ? 'bg-emerald-600 border-emerald-500 text-white shadow-lg shadow-emerald-500/20' : `${theme === 'dark' ? 'bg-white/5 border-white/10 text-white/40 shadow-inner' : 'bg-slate-50 border-slate-200 text-slate-500'} hover:bg-emerald-600/10`}`}>
+                                                            {s.name}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
                                         <div className="space-y-3">
-                                            <p className={`text-[9px] font-black uppercase ${theme === 'dark' ? 'text-white/20' : 'text-slate-400'} tracking-[0.3em] flex items-center gap-2`}><Tag size={12} /> Extras y Complementos</p>
+                                            <p className={`text-[9px] font-black uppercase ${theme === 'dark' ? 'text-white/60' : 'text-slate-500'} tracking-[0.3em] flex items-center gap-2`}>
+                                                <Tag size={14} className="text-[#f06418]" /> EXTRAS Y COMPLEMENTOS
+                                            </p>
                                             <div className="flex flex-wrap gap-2">
                                                 {EXTRAS.map(e => (
                                                     <button key={e.id} onClick={() => setActiveFilter({ type: 'extra', id: e.id })}
-                                                        className={`py-2 px-4 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${activeFilter.type === 'extra' && activeFilter.id === e.id ? 'bg-amber-600 border-amber-500 text-white shadow-lg' : `${theme === 'dark' ? 'bg-white/5 border-white/10 text-white/40' : 'bg-slate-50 border-slate-200 text-slate-500'} hover:bg-amber-600/10`}`}>
+                                                        className={`py-2 px-4 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${activeFilter.type === 'extra' && activeFilter.id === e.id ? 'bg-amber-600 border-amber-500 text-white shadow-lg shadow-amber-500/20' : `${theme === 'dark' ? 'bg-white/5 border-white/10 text-white/40 shadow-inner' : 'bg-slate-50 border-slate-200 text-slate-500'} hover:bg-amber-600/10`}`}>
                                                         {e.name}
                                                     </button>
                                                 ))}
@@ -482,7 +508,9 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                                                     <span className={`text-[8px] uppercase font-black tracking-widest ${theme === 'dark' ? 'text-white/60' : 'text-slate-500'}`}>
                                                         {activeFilter.type === 'extra' ?
                                                             (EXTRAS.find(ex => ex.id === activeFilter.id)?.name || 'Extra') :
-                                                            (typeof g.pack === 'object' ? (g.pack.name || g.pack.label) : (PACKS.find(p => p.id === g.pack)?.name || g.pack || 'No Pack'))
+                                                            activeFilter.type === 'supplement' ?
+                                                                (settings.supplements?.find(s => s.id === activeFilter.id)?.name || 'Suplemento') :
+                                                                (g.pack && typeof g.pack === 'object' ? (g.pack.name || g.pack.label) : (PACKS.find(p => p.id === g.pack)?.name || g.pack || 'No Pack'))
                                                         }
                                                     </span>
                                                 </div>
