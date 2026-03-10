@@ -331,332 +331,268 @@ const ShootingPanel = ({
                             </div>
                         </div>
                     </div>
-                        {/* COLUMNA CENTRAL: ESTACIÓN DE DISPARO (Isla de Sesión) */}
-                        <main className="flex-1 flex flex-col overflow-hidden relative">
+                    {/* COLUMNA CENTRAL: ESTACIÓN DE DISPARO (Isla de Sesión) */}
+                    <main className="flex-1 flex flex-col overflow-hidden relative">
 
-                            {/* Botón de volver en la esquina superior derecha */}
-                            {isFocused && (
-                                <button
-                                    onClick={() => setIsFocused(false)}
-                                    className="absolute top-10 right-10 p-4 bg-primary/5 hover:bg-primary/10 rounded-full border border-primary/10 text-secondary hover:text-primary transition-all active:scale-95 group z-50 flex items-center justify-center shadow-lg"
-                                    title="Volver a la lista"
-                                >
-                                    <ArrowLeft size={28} className="group-hover:-translate-x-1 transition-transform" />
-                                </button>
-                            )}
+                        {/* Botón de volver en la esquina superior derecha */}
+                        {isFocused && (
+                            <button
+                                onClick={() => setIsFocused(false)}
+                                className="absolute top-10 right-10 p-4 bg-primary/5 hover:bg-primary/10 rounded-full border border-primary/10 text-secondary hover:text-primary transition-all active:scale-95 group z-50 flex items-center justify-center shadow-lg"
+                                title="Volver a la lista"
+                            >
+                                <ArrowLeft size={28} className="group-hover:-translate-x-1 transition-transform" />
+                            </button>
+                        )}
 
-                            {activeStudent ? (
-                                <div className="w-full flex flex-col items-center justify-start max-w-4xl mx-auto space-y-8 animate-in fade-in zoom-in-95 duration-500">
+                        {activeStudent ? (
+                            <div className="w-full flex flex-col items-center justify-start max-w-4xl mx-auto space-y-8 animate-in fade-in zoom-in-95 duration-500">
 
-                                    {/* CABECERA DE SESIÓN */}
-                                    <div className="text-center space-y-6 w-full">
-                                        <div className="inline-flex items-center gap-3 bg-[#1ec08d]/10 px-8 py-3 rounded-full border border-[#1ec08d]/20 mb-4">
-                                            <div className="w-2.5 h-2.5 rounded-full bg-[#1ec08d] animate-pulse"></div>
-                                            <span className="text-[11px] font-black text-[#1ec08d] tracking-[0.4em] uppercase italic">Sesión Activa</span>
-                                        </div>
+                                {/* CABECERA DE SESIÓN */}
+                                <div className="text-center space-y-6 w-full">
+                                    <div className="inline-flex items-center gap-3 bg-[#1ec08d]/10 px-8 py-3 rounded-full border border-[#1ec08d]/20 mb-4">
+                                        <div className="w-2.5 h-2.5 rounded-full bg-[#1ec08d] animate-pulse"></div>
+                                        <span className="text-[11px] font-black text-[#1ec08d] tracking-[0.4em] uppercase italic">Sesión Activa</span>
+                                    </div>
 
-                                        <div className="space-y-0 leading-none">
-                                            {(() => {
-                                                const { first, rest } = getStudentNameParts(activeStudent.studentName);
-                                                return (
-                                                    <>
-                                                        <h2 className={`${getFontSize(first)} font-black italic tracking-tighter text-primary uppercase`}>
-                                                            {first}
-                                                        </h2>
-                                                        {rest && (
-                                                            <h3 className="text-3xl md:text-5xl font-black italic tracking-tighter text-primary/40 uppercase mt-[-5px]">
-                                                                {rest}
-                                                            </h3>
-                                                        )}
-                                                    </>
-                                                );
-                                            })()}
-                                        </div>
+                                    <div className="space-y-0 leading-none">
+                                        {(() => {
+                                            const { first, rest } = getStudentNameParts(activeStudent.studentName);
+                                            return (
+                                                <>
+                                                    <h2 className={`${getFontSize(first)} font-black italic tracking-tighter text-primary uppercase`}>
+                                                        {first}
+                                                    </h2>
+                                                    {rest && (
+                                                        <h3 className="text-3xl md:text-5xl font-black italic tracking-tighter text-primary/40 uppercase mt-[-5px]">
+                                                            {rest}
+                                                        </h3>
+                                                    )}
+                                                </>
+                                            );
+                                        })()}
+                                    </div>
 
-                                        {/* ISLA DE BÚSQUEDA CON AUTOCOMPLETADO */}
-                                        <div className="w-full max-w-md mx-auto group">
-                                            <div className="relative flex items-center bg-white/5 border border-white/10 hover:border-white/20 focus-within:border-indigo-500/50 rounded-2xl pl-14 pr-6 shadow-xl backdrop-blur-md transition-all">
-                                                <Search
-                                                    size={18}
-                                                    className="absolute left-5 text-indigo-400 opacity-50 group-focus-within:opacity-100 group-focus-within:scale-110 transition-all"
+                                    {/* ISLA DE BÚSQUEDA CON AUTOCOMPLETADO */}
+                                    <div className="w-full max-w-md mx-auto group">
+                                        <div className="relative flex items-center bg-white/5 border border-white/10 hover:border-white/20 focus-within:border-indigo-500/50 rounded-2xl pl-14 pr-6 shadow-xl backdrop-blur-md transition-all">
+                                            <Search
+                                                size={18}
+                                                className="absolute left-5 text-indigo-400 opacity-50 group-focus-within:opacity-100 group-focus-within:scale-110 transition-all"
+                                            />
+
+                                            <div className="relative flex-1 flex items-center overflow-hidden">
+                                                {/* Ghost Text (Sugerencia) */}
+                                                {(() => {
+                                                    const cleanSearch = (shootSearch || '').trim();
+                                                    const bestMatch = cleanSearch && visibleOrders.length > 0 ? visibleOrders[0].studentName : '';
+                                                    const showGhost = bestMatch && bestMatch.toLowerCase().startsWith(cleanSearch.toLowerCase());
+
+                                                    return showGhost && (
+                                                        <div className="absolute left-0 text-xs font-bold text-white/20 pointer-events-none uppercase italic whitespace-nowrap">
+                                                            <span className="opacity-0">{shootSearch}</span>
+                                                            {bestMatch.slice(shootSearch.length)}
+                                                        </div>
+                                                    );
+                                                })()}
+
+                                                <input
+                                                    type="text"
+                                                    value={shootSearch}
+                                                    onChange={(e) => setShootSearch(e.target.value)}
+                                                    onKeyDown={(e) => {
+                                                        const bestMatch = (shootSearch || '').trim() && visibleOrders.length > 0 ? visibleOrders[0] : null;
+                                                        if (e.key === 'Enter' && bestMatch) {
+                                                            e.preventDefault();
+                                                            selectStudent(bestMatch);
+                                                            setShootSearch('');
+                                                        }
+                                                    }}
+                                                    placeholder={!shootSearch ? "BUSCAR POR NOMBRE O APELLIDOS..." : ""}
+                                                    className="w-full bg-transparent py-4 text-xs font-bold text-white outline-none uppercase placeholder:text-white/20 italic"
                                                 />
-
-                                                <div className="relative flex-1 flex items-center overflow-hidden">
-                                                    {/* Ghost Text (Sugerencia) */}
-                                                    {(() => {
-                                                        const cleanSearch = (shootSearch || '').trim();
-                                                        const bestMatch = cleanSearch && visibleOrders.length > 0 ? visibleOrders[0].studentName : '';
-                                                        const showGhost = bestMatch && bestMatch.toLowerCase().startsWith(cleanSearch.toLowerCase());
-
-                                                        return showGhost && (
-                                                            <div className="absolute left-0 text-xs font-bold text-white/20 pointer-events-none uppercase italic whitespace-nowrap">
-                                                                <span className="opacity-0">{shootSearch}</span>
-                                                                {bestMatch.slice(shootSearch.length)}
-                                                            </div>
-                                                        );
-                                                    })()}
-
-                                                    <input
-                                                        type="text"
-                                                        value={shootSearch}
-                                                        onChange={(e) => setShootSearch(e.target.value)}
-                                                        onKeyDown={(e) => {
-                                                            const bestMatch = (shootSearch || '').trim() && visibleOrders.length > 0 ? visibleOrders[0] : null;
-                                                            if (e.key === 'Enter' && bestMatch) {
-                                                                e.preventDefault();
-                                                                selectStudent(bestMatch);
-                                                                setShootSearch('');
-                                                            }
-                                                        }}
-                                                        placeholder={!shootSearch ? "BUSCAR POR NOMBRE O APELLIDOS..." : ""}
-                                                        className="w-full bg-transparent py-4 text-xs font-bold text-white outline-none uppercase placeholder:text-white/20 italic"
-                                                    />
-                                                </div>
                                             </div>
+                                        </div>
 
-                                            {/* Resultados de Búsqueda Flotantes */}
-                                            {(shootSearch || '').trim().length > 0 && (
-                                                <div className="absolute top-full left-0 right-0 mt-2 bg-[#1a1c20]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
-                                                    <div className="max-h-[200px] overflow-y-auto custom-scrollbar">
-                                                        {visibleOrders.slice(0, 5).map((order) => (
-                                                            <button
-                                                                key={order.id}
-                                                                onClick={() => {
-                                                                    selectStudent(order);
-                                                                    setShootSearch('');
-                                                                }}
-                                                                className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors border-b border-white/5 last:border-0 text-left"
-                                                            >
-                                                                <div className="flex flex-col">
-                                                                    <span className="text-[11px] font-black text-white/90 uppercase italic">{order.studentName}</span>
-                                                                    <span className="text-[9px] font-bold text-white/40 uppercase tracking-widest">{order.course}</span>
-                                                                </div>
-                                                                <div className="flex items-center gap-2">
-                                                                    {order.photoFile && <CheckCircle2 size={12} className="text-emerald-400" />}
-                                                                    <ArrowLeft size={12} className="text-white/20 rotate-180" />
-                                                                </div>
-                                                            </button>
-                                                        ))}
-                                                        {visibleOrders.length === 0 && (
-                                                            <div className="p-4 text-center text-[10px] font-bold text-white/40 uppercase tracking-widest italic">
-                                                                No se encontraron alumnos
+                                        {/* Resultados de Búsqueda Flotantes */}
+                                        {(shootSearch || '').trim().length > 0 && (
+                                            <div className="absolute top-full left-0 right-0 mt-2 bg-[#1a1c20]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
+                                                <div className="max-h-[200px] overflow-y-auto custom-scrollbar">
+                                                    {visibleOrders.slice(0, 5).map((order) => (
+                                                        <button
+                                                            key={order.id}
+                                                            onClick={() => {
+                                                                selectStudent(order);
+                                                                setShootSearch('');
+                                                            }}
+                                                            className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors border-b border-white/5 last:border-0 text-left"
+                                                        >
+                                                            <div className="flex flex-col">
+                                                                <span className="text-[11px] font-black text-white/90 uppercase italic">{order.studentName}</span>
+                                                                <span className="text-[9px] font-bold text-white/40 uppercase tracking-widest">{order.course}</span>
                                                             </div>
-                                                        )}
-                                                    </div>
-                                                    {visibleOrders.length > 5 && (
-                                                        <div className="bg-white/5 px-4 py-1.5 text-center text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">
-                                                            Y {visibleOrders.length - 5} más...
+                                                            <div className="flex items-center gap-2">
+                                                                {order.photoFile && <CheckCircle2 size={12} className="text-emerald-400" />}
+                                                                <ArrowLeft size={12} className="text-white/20 rotate-180" />
+                                                            </div>
+                                                        </button>
+                                                    ))}
+                                                    {visibleOrders.length === 0 && (
+                                                        <div className="p-4 text-center text-[10px] font-bold text-white/40 uppercase tracking-widest italic">
+                                                            No se encontraron alumnos
                                                         </div>
                                                     )}
                                                 </div>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* ISLA DE ENTRADA (ESTILO NEÓN / CAPTURA) */}
-                                    <div className="w-full max-w-2xl bg-[#11141a]/80 backdrop-blur-xl border-2 border-primary/5 p-1 px-1 rounded-[56px] shadow-[0_40px_100px_rgba(0,0,0,0.5)] relative">
-                                        <div className="p-10 md:p-14 space-y-10 border-[3px] border-emerald-500/10 rounded-[54px]">
-
-                                            <div className="space-y-2">
-                                                <p className="text-center text-[10px] font-black text-secondary/40 tracking-[0.4em] uppercase italic">Introduce nº de foto (cámara)</p>
-                                                <form onSubmit={validateAndNext} className="relative group">
-                                                    <input
-                                                        ref={inputRef}
-                                                        type="text"
-                                                        value={photoNumber}
-                                                        onChange={(e) => setPhotoNumber(e.target.value)}
-                                                        placeholder="000"
-                                                        autoFocus
-                                                        className="w-full bg-[#0a0c10]/50 border-2 border-indigo-500/20 rounded-[32px] py-10 text-7xl md:text-9xl font-black text-center text-[#d1d5db] outline-none tracking-tighter focus:border-indigo-500/50 focus:shadow-[0_0_50px_rgba(99,102,241,0.15)] transition-all placeholder:text-primary/5"
-                                                        required
-                                                    />
-                                                </form>
-                                            </div>
-
-                                            <button
-                                                onClick={validateAndNext}
-                                                disabled={!photoNumber}
-                                                className="group w-full bg-[#11141a] hover:bg-[#1a1f26] border-2 border-primary/10 hover:border-emerald-500/30 text-secondary hover:text-emerald-400 py-8 rounded-[36px] font-black text-xl tracking-[0.3em] flex items-center justify-center gap-4 transition-all active:scale-[0.98] disabled:opacity-10 shadow-xl"
-                                            >
-                                                <CheckCircle2 size={32} className="group-hover:scale-110 transition-transform" />
-                                                VALIDAR Y SIGUIENTE
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {/* INFO DEL CONTEXTO (CENTRO/CURSO/GRUPO) EN LUGAR DE CANCELAR */}
-                                    <div className="flex flex-col items-center gap-1 opacity-40 animate-fade-in py-4">
-                                        <div className="px-4 py-1.5 bg-white/5 rounded-full border border-white/10 shadow-sm">
-                                            <span className="text-[10px] font-black text-indigo-400 tracking-[0.2em] uppercase italic">
-                                                {getSchoolName(adminSchool) || 'Sin Centro'}
-                                            </span>
-                                        </div>
-                                        <p className="text-[11px] font-black text-white/50 tracking-widest uppercase italic">
-                                            {shootFilters.course || 'TODOS LOS CURSOS'} {shootFilters.group ? `· GRUPO ${shootFilters.group}` : ''}
-                                        </p>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="flex-1 overflow-y-auto custom-scrollbar">
-                                    {visibleOrders.length === 0 ? (
-                                        <div className="flex flex-col items-center justify-center h-64 text-primary/20">
-                                            <p className="text-[11px] font-black uppercase italic tracking-widest">Sin alumnos que mostrar</p>
-                                            <p className="text-[9px] font-black uppercase italic tracking-widest mt-1 opacity-60">Ajusta los filtros de arriba</p>
-                                        </div>
-                                    ) : (
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-1">
-                                            {visibleOrders.map((order) => (
-                                                <button
-                                                    key={order.id}
-                                                    onClick={() => selectStudent(order)}
-                                                    className="card p-4 flex flex-col gap-2 text-left hover:border-amber-500/40 hover:shadow-lg transition-all active:scale-95 group"
-                                                >
-                                                    <div className="flex items-center justify-between">
-                                                        <p className="text-sm font-black text-primary uppercase italic leading-tight tracking-tight">{order.studentName}</p>
-                                                        {order.photoFile
-                                                            ? <CheckCircle2 size={16} className="text-emerald-400 flex-shrink-0" />
-                                                            : <div className="w-2.5 h-2.5 rounded-full bg-amber-500/30 flex-shrink-0" />
-                                                        }
+                                                {visibleOrders.length > 5 && (
+                                                    <div className="bg-white/5 px-4 py-1.5 text-center text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">
+                                                        Y {visibleOrders.length - 5} más...
                                                     </div>
-                                                    <p className="text-[9px] font-bold text-secondary opacity-40 uppercase tracking-widest">{order.course}</p>
-                                                    {order.pack && (
-                                                        <span className="text-[8px] font-black uppercase tracking-wider px-2 py-0.5 bg-primary/5 border border-primary/10 rounded-full text-primary/40">
-                                                            {typeof order.pack === "object" ? order.pack.label : order.pack}
-                                                        </span>
-                                                    )}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                            )}
-                            ) : (
-                                <div className="w-full h-full flex flex-col gap-5 animate-in fade-in duration-500 overflow-y-auto no-scrollbar pb-6">
 
-                                    {/* ── ISLA BUSCADOR ── */}
-                                    <div className="card bg-card/60 backdrop-blur-xl border-primary/5 px-6 py-5 flex-shrink-0">
-                                        <div className="flex items-center gap-3 mb-4">
-                                            <div className="p-2 bg-indigo-500/10 rounded-xl">
-                                                <Search size={16} className="text-indigo-400" strokeWidth={3} />
+                                {/* ISLA DE ENTRADA (ESTILO NEÓN / CAPTURA) */}
+                                <div className="w-full max-w-2xl bg-[#11141a]/80 backdrop-blur-xl border-2 border-primary/5 p-1 px-1 rounded-[56px] shadow-[0_40px_100px_rgba(0,0,0,0.5)] relative">
+                                    <div className="p-10 md:p-14 space-y-10 border-[3px] border-emerald-500/10 rounded-[54px]">
+
+                                        <div className="space-y-2">
+                                            <p className="text-center text-[10px] font-black text-secondary/40 tracking-[0.4em] uppercase italic">Introduce nº de foto (cámara)</p>
+                                            <form onSubmit={validateAndNext} className="relative group">
+                                                <input
+                                                    ref={inputRef}
+                                                    type="text"
+                                                    value={photoNumber}
+                                                    onChange={(e) => setPhotoNumber(e.target.value)}
+                                                    placeholder="000"
+                                                    autoFocus
+                                                    className="w-full bg-[#0a0c10]/50 border-2 border-indigo-500/20 rounded-[32px] py-10 text-7xl md:text-9xl font-black text-center text-[#d1d5db] outline-none tracking-tighter focus:border-indigo-500/50 focus:shadow-[0_0_50px_rgba(99,102,241,0.15)] transition-all placeholder:text-primary/5"
+                                                    required
+                                                />
+                                            </form>
+                                        </div>
+
+                                        <button
+                                            onClick={validateAndNext}
+                                            disabled={!photoNumber}
+                                            className="group w-full bg-[#11141a] hover:bg-[#1a1f26] border-2 border-primary/10 hover:border-emerald-500/30 text-secondary hover:text-emerald-400 py-8 rounded-[36px] font-black text-xl tracking-[0.3em] flex items-center justify-center gap-4 transition-all active:scale-[0.98] disabled:opacity-10 shadow-xl"
+                                        >
+                                            <CheckCircle2 size={32} className="group-hover:scale-110 transition-transform" />
+                                            VALIDAR Y SIGUIENTE
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* INFO DEL CONTEXTO (CENTRO/CURSO/GRUPO) EN LUGAR DE CANCELAR */}
+                                <div className="flex flex-col items-center gap-1 opacity-40 animate-fade-in py-4">
+                                    <div className="px-4 py-1.5 bg-white/5 rounded-full border border-white/10 shadow-sm">
+                                        <span className="text-[10px] font-black text-indigo-400 tracking-[0.2em] uppercase italic">
+                                            {getSchoolName(adminSchool) || 'Sin Centro'}
+                                        </span>
+                                    </div>
+                                    <p className="text-[11px] font-black text-white/50 tracking-widest uppercase italic">
+                                        {shootFilters.course || 'TODOS LOS CURSOS'} {shootFilters.group ? `· GRUPO ${shootFilters.group}` : ''}
+                                    </p>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex-1 overflow-y-auto custom-scrollbar">
+                                {visibleOrders.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center h-64 text-primary/20">
+                                        <p className="text-[11px] font-black uppercase italic tracking-widest">Sin alumnos que mostrar</p>
+                                        <p className="text-[9px] font-black uppercase italic tracking-widest mt-1 opacity-60">Ajusta los filtros de arriba</p>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-1">
+                                        {visibleOrders.map((order) => (
+                                            <button
+                                                key={order.id}
+                                                onClick={() => selectStudent(order)}
+                                                className="card p-4 flex flex-col gap-2 text-left hover:border-amber-500/40 hover:shadow-lg transition-all active:scale-95 group"
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <p className="text-sm font-black text-primary uppercase italic leading-tight tracking-tight">{order.studentName}</p>
+                                                    {order.photoFile
+                                                        ? <CheckCircle2 size={16} className="text-emerald-400 flex-shrink-0" />
+                                                        : <div className="w-2.5 h-2.5 rounded-full bg-amber-500/30 flex-shrink-0" />
+                                                    }
+                                                </div>
+                                                <p className="text-[9px] font-bold text-secondary opacity-40 uppercase tracking-widest">{order.course}</p>
+                                                {order.pack && (
+                                                    <span className="text-[8px] font-black uppercase tracking-wider px-2 py-0.5 bg-primary/5 border border-primary/10 rounded-full text-primary/40">
+                                                        {typeof order.pack === "object" ? order.pack.label : order.pack}
+                                                    </span>
+                                                )}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+
+
+                        {/* Indicador inferior SHOOTING */}
+                        {activeStudent && (
+                            <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-3 text-rose-500/30">
+                                <Zap size={14} fill="currentColor" />
+                                <span className="text-[10px] font-black tracking-[0.4em] uppercase italic">Shooting</span>
+                            </div>
+                        )}
+                    </main>
+
+                    {/* VENTANA EMERGENTE DE DETALLES (MINI-MODAL) */}
+                    {showDetails && (
+                        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
+                            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowDetails(null)}></div>
+                            <div className="bg-card w-full max-w-sm rounded-[32px] border border-primary/10 shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-200">
+                                <div className="p-6 space-y-6">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center text-xl">
+                                                {showDetails.photoFile ? '✅' : '👤'}
                                             </div>
                                             <div>
-                                                <p className="text-[9px] font-black text-indigo-400/60 tracking-[0.3em] uppercase">Sesión de Fotos</p>
-                                                <h4 className="text-sm font-black text-primary uppercase tracking-tight">Buscar Alumno</h4>
-                                            </div>
-                                            <div className="ml-auto text-[9px] font-black text-primary/20 uppercase italic">
-                                                {visibleOrders.length} en lista
+                                                <h4 className="text-sm font-black text-primary leading-tight">{showDetails.studentName}</h4>
+                                                <p className="text-[10px] font-bold text-secondary opacity-60 uppercase">{showDetails.course}</p>
                                             </div>
                                         </div>
-
-                                        {/* Input buscador con autocomplete */}
-                                        <div className="relative group">
-                                            <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-400 opacity-40 group-focus-within:opacity-100 transition-all" />
-                                            <input
-                                                type="text"
-                                                value={shootSearch}
-                                                onChange={e => setShootSearch(e.target.value)}
-                                                placeholder="ESCRIBE NOMBRE O APELLIDOS..."
-                                                className="w-full bg-primary/5 border border-primary/10 focus-within:border-indigo-500/40 rounded-2xl pl-10 pr-5 py-4 text-xs font-black text-primary outline-none uppercase placeholder:opacity-20 transition-all"
-                                            />
-                                            {/* Dropdown resultados */}
-                                            {(shootSearch || '').trim().length > 0 && (
-                                                <div className="absolute top-full left-0 right-0 mt-2 bg-card border border-primary/10 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-                                                    <div className="max-h-[260px] overflow-y-auto">
-                                                        {visibleOrders.slice(0, 8).map(order => (
-                                                            <button
-                                                                key={order.id}
-                                                                onClick={() => { selectStudent(order); setShootSearch(''); }}
-                                                                className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-primary/5 transition-colors border-b border-primary/5 last:border-0 text-left group/item"
-                                                            >
-                                                                <div>
-                                                                    <p className="text-[11px] font-black text-primary uppercase italic leading-none group-hover/item:text-indigo-400 transition-colors">{order.studentName}</p>
-                                                                    <p className="text-[8px] font-bold text-secondary/40 uppercase tracking-widest mt-0.5">{order.course}</p>
-                                                                </div>
-                                                                {order.photoFile
-                                                                    ? <CheckCircle2 size={14} className="text-emerald-400" />
-                                                                    : <div className="w-2 h-2 rounded-full bg-amber-500/40" />
-                                                                }
-                                                            </button>
-                                                        ))}
-                                                        {visibleOrders.length === 0 && (
-                                                            <div className="p-6 text-center text-[10px] font-black text-primary/20 uppercase italic">
-                                                                No se encontraron alumnos
-                                                            </div>
-                                                        )}
-                                                        {visibleOrders.length > 8 && (
-                                                            <div className="px-4 py-2 text-center text-[8px] font-black text-primary/20 uppercase tracking-widest bg-primary/5">
-                                                                Y {visibleOrders.length - 8} más — sé más específico
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
+                                        <button onClick={() => setShowDetails(null)} className="p-2 hover:bg-primary/5 rounded-full transition-colors">
+                                            <XCircle size={20} className="text-secondary opacity-40" />
+                                        </button>
                                     </div>
 
-                                </div>
-                            )}
-
-                            {/* Indicador inferior SHOOTING */}
-                            {activeStudent && (
-                                <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-3 text-rose-500/30">
-                                    <Zap size={14} fill="currentColor" />
-                                    <span className="text-[10px] font-black tracking-[0.4em] uppercase italic">Shooting</span>
-                                </div>
-                            )}
-                        </main>
-
-                        {/* VENTANA EMERGENTE DE DETALLES (MINI-MODAL) */}
-                        {showDetails && (
-                            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
-                                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowDetails(null)}></div>
-                                <div className="bg-card w-full max-w-sm rounded-[32px] border border-primary/10 shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-200">
-                                    <div className="p-6 space-y-6">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center text-xl">
-                                                    {showDetails.photoFile ? '✅' : '👤'}
-                                                </div>
-                                                <div>
-                                                    <h4 className="text-sm font-black text-primary leading-tight">{showDetails.studentName}</h4>
-                                                    <p className="text-[10px] font-bold text-secondary opacity-60 uppercase">{showDetails.course}</p>
-                                                </div>
+                                    <div className="space-y-3">
+                                        <div className="bg-primary/5 p-4 rounded-2xl space-y-2">
+                                            <div className="flex justify-between items-center text-[10px] font-black tracking-wider uppercase">
+                                                <span className="opacity-40">Pedido Actual</span>
+                                                <span className="text-indigo-500">{(typeof showDetails.pack === 'object' ? showDetails.pack.label : showDetails.pack) || 'SIN PACK'}</span>
                                             </div>
-                                            <button onClick={() => setShowDetails(null)} className="p-2 hover:bg-primary/5 rounded-full transition-colors">
-                                                <XCircle size={20} className="text-secondary opacity-40" />
-                                            </button>
+                                            <div className="flex justify-between items-center text-[10px] font-black tracking-wider uppercase">
+                                                <span className="opacity-40">Estado Pago</span>
+                                                <span className={showDetails.status === 'Pagado' ? 'text-emerald-500' : 'text-amber-500'}>{showDetails.status}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center text-[10px] font-black tracking-wider uppercase">
+                                                <span className="opacity-40">Centro</span>
+                                                <span className="text-primary truncate ml-4">{showDetails.schoolName}</span>
+                                            </div>
                                         </div>
 
-                                        <div className="space-y-3">
-                                            <div className="bg-primary/5 p-4 rounded-2xl space-y-2">
-                                                <div className="flex justify-between items-center text-[10px] font-black tracking-wider uppercase">
-                                                    <span className="opacity-40">Pedido Actual</span>
-                                                    <span className="text-indigo-500">{(typeof showDetails.pack === 'object' ? showDetails.pack.label : showDetails.pack) || 'SIN PACK'}</span>
-                                                </div>
-                                                <div className="flex justify-between items-center text-[10px] font-black tracking-wider uppercase">
-                                                    <span className="opacity-40">Estado Pago</span>
-                                                    <span className={showDetails.status === 'Pagado' ? 'text-emerald-500' : 'text-amber-500'}>{showDetails.status}</span>
-                                                </div>
-                                                <div className="flex justify-between items-center text-[10px] font-black tracking-wider uppercase">
-                                                    <span className="opacity-40">Centro</span>
-                                                    <span className="text-primary truncate ml-4">{showDetails.schoolName}</span>
-                                                </div>
-                                            </div>
-
-                                            <button
-                                                onClick={() => {
-                                                    selectStudent(showDetails);
-                                                    setShowDetails(null);
-                                                }}
-                                                className="w-full py-4 bg-emerald-400 text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl shadow-lg shadow-emerald-400/20 active:scale-95 transition-all"
-                                            >
-                                                Iniciar Sesión
-                                            </button>
-                                        </div>
+                                        <button
+                                            onClick={() => {
+                                                selectStudent(showDetails);
+                                                setShowDetails(null);
+                                            }}
+                                            className="w-full py-4 bg-emerald-400 text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl shadow-lg shadow-emerald-400/20 active:scale-95 transition-all"
+                                        >
+                                            Iniciar Sesión
+                                        </button>
                                     </div>
                                 </div>
                             </div>
-                        )}
+                        </div>
+                    )}
                 </div>
             )}
 
