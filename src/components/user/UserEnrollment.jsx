@@ -425,69 +425,88 @@ const UserEnrollment = ({
 
             {/* MODAL LEGAL - POSICIÓN GLOBAL */}
             {showLegalModal && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xl animate-fade-in overflow-y-auto">
-                    <div className="w-full max-w-md bg-champagne border border-white/50 rounded-[45px] p-9 shadow-[0_30px_100px_rgba(0,0,0,0.5)] animate-slide-up space-y-8 relative my-auto">
-                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-2 bg-gradient-to-r from-transparent via-white/40 to-transparent rounded-full blur-sm"></div>
-
-                        <div className="text-center space-y-3 relative">
-                            <div className="w-16 h-16 bg-white rounded-[24px] flex items-center justify-center mx-auto border border-primary/5 text-indigo-600 mb-2 shadow-xl shadow-indigo-500/10">
-                                <Shield size={32} />
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in overflow-y-auto">
+                    <div className="w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[32px] p-6 shadow-2xl animate-slide-up space-y-5 relative my-auto">
+                        
+                        <div className="text-center space-y-2 relative">
+                            <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-500/10 rounded-2xl flex items-center justify-center mx-auto text-indigo-600 dark:text-indigo-400 mb-2 shadow-inner">
+                                <Shield size={24} />
                             </div>
-                            <h3 className="text-2xl font-black text-primary tracking-tight">Términos del Servicio</h3>
-                            <p className="text-[10px] text-secondary font-black uppercase tracking-[0.2em] opacity-40">Seguridad y Privacidad Garantizada</p>
+                            <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">Términos del Servicio</h3>
+                            <p className="text-[9px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest">Seguridad y Privacidad</p>
                         </div>
 
-                        <div className="space-y-4">
-                            <div className="flex gap-5 p-5 rounded-[28px] bg-white border border-primary/5 shadow-[0_10px_30px_rgba(0,0,0,0.03)] hover:shadow-lg transition-all duration-500">
-                                <div className="w-10 h-10 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-500 shrink-0 shadow-inner">
-                                    <User size={20} />
+                        <div className="space-y-3">
+                            <div className="flex gap-4 p-4 rounded-[20px] bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50">
+                                <div className="w-8 h-8 rounded-xl bg-indigo-100 dark:bg-indigo-500/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+                                    <User size={16} />
                                 </div>
-                                <div className="space-y-1">
-                                    <p className="text-[13px] font-black text-primary leading-tight">Responsabilidad de Datos</p>
-                                    <p className="text-[11px] text-secondary leading-relaxed font-medium">Asumes la total exactitud de los datos. Errores de impresión por datos incorrectos serán costeados por el solicitante.</p>
+                                <div className="text-left">
+                                    <p className="text-[12px] font-black text-slate-900 dark:text-white leading-tight mb-0.5">Responsabilidad de Datos</p>
+                                    <p className="text-[10px] text-slate-600 dark:text-slate-400 leading-snug">Errores de impresión por datos incorrectos serán costeados por el solicitante.</p>
                                 </div>
                             </div>
 
-                            <div className="flex gap-5 p-5 rounded-[28px] bg-white border border-primary/5 shadow-[0_10px_30px_rgba(0,0,0,0.03)] hover:shadow-lg transition-all duration-500">
-                                <div className="w-10 h-10 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-500 shrink-0 shadow-inner">
-                                    <Shield size={20} />
+                            <div className="flex gap-4 p-4 rounded-[20px] bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50">
+                                <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+                                    <Shield size={16} />
                                 </div>
-                                <div className="space-y-1">
-                                    <p className="text-[13px] font-black text-primary leading-tight">Protección de Privacidad</p>
-                                    <p className="text-[11px] text-secondary leading-relaxed font-medium">Tus datos se tratarán exclusivamente para la gestión de este pedido por Pujalte Creative Studio.</p>
+                                <div className="text-left">
+                                    <p className="text-[12px] font-black text-slate-900 dark:text-white leading-tight mb-0.5">Protección de Privacidad</p>
+                                    <p className="text-[10px] text-slate-600 dark:text-slate-400 leading-snug">Datos tratados exclusivamente para tu orla escolar.</p>
                                 </div>
                             </div>
 
                             <div
                                 onClick={() => setFormData(prev => ({ ...prev, photoConsent: !prev.photoConsent }))}
-                                className={`flex gap-5 p-6 rounded-[32px] border-2 transition-all duration-500 cursor-pointer group active:scale-[0.97] 
+                                className={`flex flex-col items-center justify-center p-6 rounded-[24px] border-2 transition-all duration-300 cursor-pointer text-center relative overflow-hidden group
                                     ${formData.photoConsent
-                                        ? 'bg-indigo-600 border-indigo-500 shadow-2xl shadow-indigo-600/30'
-                                        : 'bg-white border-amber-500/20 animate-soft-pulse hover:border-amber-400 shadow-lg shadow-amber-500/5'}`}
+                                        ? 'bg-indigo-600 border-indigo-500 shadow-lg shadow-indigo-600/30'
+                                        : 'bg-slate-50 dark:bg-slate-800/80 border-amber-400 shadow-lg shadow-amber-500/20 animate-pulse'}`}
                             >
-                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border transition-all duration-500 shadow-md ${formData.photoConsent ? 'bg-white text-indigo-600 border-white' : 'bg-amber-50/20 text-amber-500 border-amber-100 group-hover:scale-110'}`}>
-                                    {formData.photoConsent ? <Check size={22} strokeWidth={3} /> : <Camera size={20} />}
+                                {formData.photoConsent && (
+                                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-20 mix-blend-overlay pointer-events-none animate-slide-up" />
+                                )}
+                                
+                                <div className={`relative z-10 w-14 h-14 rounded-full flex items-center justify-center mb-3 transition-transform duration-500 ${formData.photoConsent ? 'bg-white text-indigo-600 scale-110 shadow-xl' : 'bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400'}`}>
+                                    {formData.photoConsent ? <Check size={28} strokeWidth={3} className="animate-scale-in" /> : <Camera size={24} className="animate-bounce" />}
                                 </div>
-                                <div className="space-y-1">
-                                    <div className="flex items-center gap-2">
-                                        <p className={`text-sm font-black transition-colors ${formData.photoConsent ? 'text-white' : 'text-primary'}`}>Autorización de Fotografía</p>
-                                        {!formData.photoConsent && <span className="flex h-2.5 w-2.5 rounded-full bg-amber-500 animate-ping"></span>}
-                                    </div>
-                                    <p className={`text-[11px] leading-relaxed transition-colors ${formData.photoConsent ? 'text-white/80' : 'text-secondary font-bold'}`}>Autorizo la toma y procesamiento de fotos de mi hijo/a menor para la orla escolar.</p>
+                                
+                                <div className="relative z-10 space-y-1.5">
+                                    <h4 className={`text-sm font-black uppercase tracking-wider ${formData.photoConsent ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
+                                        {formData.photoConsent ? 'Autorización Firmada' : 'Firma de Autorización'}
+                                    </h4>
+                                    <p className={`text-[10px] max-w-[220px] mx-auto leading-relaxed ${formData.photoConsent ? 'text-white/90 font-medium' : 'text-slate-500 dark:text-slate-400'}`}>
+                                        Autorizo la toma y uso de imágenes de mi hijo/a para la orla escolar.
+                                    </p>
                                 </div>
+                                
+                                {!formData.photoConsent && (
+                                    <div className="absolute -bottom-4 -right-4 w-20 h-20 bg-amber-400/20 rounded-full blur-xl animate-pulse" />
+                                )}
                             </div>
                         </div>
 
-                        <div className="flex flex-col gap-4 pt-4">
+                        <div className="flex flex-col gap-3 pt-2">
                             <button
                                 disabled={!formData.photoConsent}
                                 onClick={() => { setShowLegalModal(false); setStep(2); }}
-                                className={`w-full py-6 text-base font-black rounded-3xl transition-all duration-500 shadow-2xl active:scale-95 flex items-center justify-center gap-3 ${formData.photoConsent ? 'bg-emerald-600 text-white shadow-emerald-500/40 hover:-translate-y-1 hover:bg-emerald-500' : 'bg-primary/5 text-primary/20 cursor-not-allowed'}`}
+                                className={`relative w-full py-4 text-sm font-black rounded-2xl transition-all duration-500 overflow-hidden group
+                                    ${formData.photoConsent 
+                                        ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-xl hover:scale-[1.02]' 
+                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'}`}
                             >
-                                {formData.photoConsent ? 'ACEPTAR Y CONTINUAR' : 'FIRMA PARA CONTINUAR'}
-                                <ChevronRight size={20} />
+                                {formData.photoConsent && (
+                                    <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 dark:via-black/10 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
+                                )}
+                                <span className="relative z-10 flex items-center justify-center gap-2">
+                                    {formData.photoConsent ? 'ACEPTAR Y CONTINUAR' : 'REQUIERE FIRMA PARA CONTINUAR'}
+                                    {formData.photoConsent && <ChevronRight size={18} />}
+                                </span>
                             </button>
-                            <button onClick={() => setShowLegalModal(false)} className="text-[10px] font-black text-secondary/30 hover:text-primary transition-all py-2 uppercase tracking-[0.25em]">Cerrar y volver</button>
+                            <button onClick={() => setShowLegalModal(false)} className="text-[10px] font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors uppercase tracking-widest text-center py-2">
+                                Cerrar y volver
+                            </button>
                         </div>
                     </div>
                 </div>
