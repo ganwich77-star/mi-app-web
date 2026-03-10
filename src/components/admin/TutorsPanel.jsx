@@ -484,6 +484,12 @@ const TutorsPanel = ({
                             >
                                 <Plus size={14} /> Añadir Plantilla
                             </button>
+                            <button
+                                onClick={() => setIsTemplatesOpen(false)}
+                                className="px-6 py-3 bg-orange-600 hover:bg-orange-500 text-white font-black text-[11px] uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 shadow-lg shadow-orange-900/20"
+                            >
+                                <Save size={14} /> Guardar y Cerrar
+                            </button>
                         </div>
                     </div>
                 </div>
