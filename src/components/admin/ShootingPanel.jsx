@@ -296,9 +296,9 @@ const ShootingPanel = ({
 
                                 {/* CABECERA DE SESIÓN */}
                                 <div className="text-center space-y-6 w-full">
-                                    <div className="inline-flex items-center gap-3 bg-[#1ec08d]/10 px-8 py-3 rounded-full border border-[#1ec08d]/20 mb-4">
-                                        <div className="w-2.5 h-2.5 rounded-full bg-[#1ec08d] animate-pulse"></div>
-                                        <span className="text-[11px] font-black text-[#1ec08d] tracking-[0.4em] uppercase italic">Sesión Activa</span>
+                                    <div className="shoot-badge-active mb-4">
+                                        <div className="shoot-badge-dot"></div>
+                                        <span className="text-[11px] font-black tracking-[0.4em] uppercase italic" style={{ color: 'var(--accent-gold)' }}>Sesión Activa</span>
                                     </div>
 
                                     <div className="space-y-0 leading-none">
@@ -321,10 +321,11 @@ const ShootingPanel = ({
 
                                     {/* ISLA DE BÚSQUEDA CON AUTOCOMPLETADO */}
                                     <div className="w-full max-w-md mx-auto group">
-                                        <div className="relative flex items-center bg-white/5 border border-white/10 hover:border-white/20 focus-within:border-indigo-500/50 rounded-2xl pl-14 pr-6 shadow-xl backdrop-blur-md transition-all">
+                                        <div className="relative flex items-center bg-white/5 border border-[rgba(255,193,7,0.15)] hover:border-[rgba(255,193,7,0.3)] focus-within:border-[var(--accent-gold)] rounded-2xl pl-14 pr-6 shadow-xl backdrop-blur-md transition-all" style={{ boxShadow: 'none' }}>
                                             <Search
                                                 size={18}
-                                                className="absolute left-5 text-indigo-400 opacity-50 group-focus-within:opacity-100 group-focus-within:scale-110 transition-all"
+                                                className="absolute left-5 opacity-40 group-focus-within:opacity-100 transition-all"
+                                                style={{ color: 'var(--accent-gold)' }}
                                             />
 
                                             <div className="relative flex-1 flex items-center overflow-hidden">
@@ -399,12 +400,12 @@ const ShootingPanel = ({
                                     </div>
                                 </div>
 
-                                {/* ISLA DE ENTRADA (ESTILO NEÓN / CAPTURA) */}
-                                <div className="w-full max-w-2xl bg-[#11141a]/80 backdrop-blur-xl border-2 border-primary/5 p-1 px-1 rounded-[56px] shadow-[0_40px_100px_rgba(0,0,0,0.5)] relative">
-                                    <div className="p-10 md:p-14 space-y-10 border-[3px] border-emerald-500/10 rounded-[54px]">
+                                {/* ISLA DE ENTRADA — NÚMERO DE FOTO */}
+                                <div className="w-full max-w-2xl shoot-card p-1 px-1 shadow-[0_40px_100px_rgba(0,0,0,0.7)] relative">
+                                    <div className="p-10 md:p-14 space-y-10 border-[2px] border-[rgba(255,193,7,0.08)] rounded-[54px]">
 
                                         <div className="space-y-2">
-                                            <p className="text-center text-[10px] font-black text-secondary/40 tracking-[0.4em] uppercase italic">Introduce nº de foto (cámara)</p>
+                                            <p className="text-center text-[10px] font-black tracking-[0.4em] uppercase italic" style={{ color: 'var(--accent-gold)', opacity: 0.6 }}>Introduce nº de foto (cámara)</p>
                                             <form onSubmit={validateAndNext} className="relative group">
                                                 <input
                                                     ref={inputRef}
@@ -413,7 +414,7 @@ const ShootingPanel = ({
                                                     onChange={(e) => setPhotoNumber(e.target.value)}
                                                     placeholder="000"
                                                     autoFocus
-                                                    className="w-full bg-[#0a0c10]/50 border-2 border-indigo-500/20 rounded-[32px] py-10 text-7xl md:text-9xl font-black text-center text-[#d1d5db] outline-none tracking-tighter focus:border-indigo-500/50 focus:shadow-[0_0_50px_rgba(99,102,241,0.15)] transition-all placeholder:text-primary/5"
+                                                    className="shoot-input w-full py-10 text-7xl md:text-9xl font-black text-center text-[#d1d5db] tracking-tighter placeholder:opacity-[0.05]"
                                                     required
                                                 />
                                             </form>
@@ -422,9 +423,9 @@ const ShootingPanel = ({
                                         <button
                                             onClick={validateAndNext}
                                             disabled={!photoNumber}
-                                            className="group w-full bg-[#11141a] hover:bg-[#1a1f26] border-2 border-primary/10 hover:border-emerald-500/30 text-secondary hover:text-emerald-400 py-8 rounded-[36px] font-black text-xl tracking-[0.3em] flex items-center justify-center gap-4 transition-all active:scale-[0.98] disabled:opacity-10 shadow-xl"
+                                            className="btn-shoot-cta"
                                         >
-                                            <CheckCircle2 size={32} className="group-hover:scale-110 transition-transform" />
+                                            <CheckCircle2 size={28} />
                                             VALIDAR Y SIGUIENTE
                                         </button>
                                     </div>
@@ -432,8 +433,8 @@ const ShootingPanel = ({
 
                                 {/* INFO DEL CONTEXTO (CENTRO/CURSO/GRUPO) EN LUGAR DE CANCELAR */}
                                 <div className="flex flex-col items-center gap-1 opacity-40 animate-fade-in py-4">
-                                    <div className="px-4 py-1.5 bg-white/5 rounded-full border border-white/10 shadow-sm">
-                                        <span className="text-[10px] font-black text-indigo-400 tracking-[0.2em] uppercase italic">
+                                    <div className="px-4 py-1.5 rounded-full border shadow-sm" style={{ background: 'rgba(255,193,7,0.08)', borderColor: 'rgba(255,193,7,0.2)' }}>
+                                        <span className="text-[10px] font-black tracking-[0.2em] uppercase italic" style={{ color: 'var(--accent-gold)' }}>
                                             {getSchoolName(adminSchool) || 'Sin Centro'}
                                         </span>
                                     </div>

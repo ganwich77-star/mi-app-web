@@ -19,6 +19,12 @@
     --shadow-card: 0 10px 30px -5px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.5);
     --glass-blur: blur(24px);
     --glass-border: rgba(255, 255, 255, 0.7);
+    /* === SHOOTING PANEL DESIGN TOKENS === */
+    --bg-deep: #0f0f1b;
+    --shoot-card-bg: rgba(17, 20, 26, 0.85);
+    --accent-gold: #ffc107;
+    --accent-gold-hover: #ff9800;
+    --accent-gold-glow: rgba(255, 193, 7, 0.3);
   }
 
   [data-theme='dark'] {
@@ -415,4 +421,106 @@ input[type="date"].full-clickable-date::-webkit-calendar-picker-indicator {
   height: 100%;
   opacity: 0;
   cursor: pointer;
+}
+
+/* ══════════════════════════════════════════
+   SHOOTING PANEL — Design System
+   Glassmorphism oscuro + acentos dorados
+══════════════════════════════════════════ */
+
+/* Contenedor principal modo sesión */
+.shoot-card {
+  background: var(--shoot-card-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 32px;
+  box-shadow: 0 24px 64px 0 rgba(0, 0, 0, 0.7),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Input dorado — número de foto y búsqueda */
+.shoot-input {
+  background: rgba(255, 255, 255, 0.03);
+  border: 2px solid rgba(255, 193, 7, 0.15);
+  border-radius: 24px;
+  color: #e0e0e0;
+  transition: all 0.3s ease;
+}
+
+.shoot-input:focus {
+  border-color: var(--accent-gold);
+  box-shadow: 0 0 0 4px var(--accent-gold-glow),
+    0 0 30px rgba(255, 193, 7, 0.15);
+  outline: none;
+}
+
+.shoot-input::placeholder {
+  color: rgba(255, 255, 255, 0.1);
+}
+
+/* Botón CTA dorado — Validar y Siguiente */
+.btn-shoot-cta {
+  background: linear-gradient(135deg, var(--accent-gold) 0%, var(--accent-gold-hover) 100%);
+  color: #000;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  border: none;
+  cursor: pointer;
+  border-radius: 28px;
+  filter: drop-shadow(0 0 12px var(--accent-gold-glow));
+  transition: transform 0.2s ease, filter 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 1.5rem 2rem;
+  width: 100%;
+  font-size: 1rem;
+}
+
+.btn-shoot-cta:hover {
+  transform: scale(1.02);
+  filter: drop-shadow(0 0 24px rgba(255, 193, 7, 0.5));
+}
+
+.btn-shoot-cta:active {
+  transform: scale(0.98);
+}
+
+.btn-shoot-cta:disabled {
+  opacity: 0.15;
+  pointer-events: none;
+}
+
+/* Badge sesión activa dorado */
+.shoot-badge-active {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: 100px;
+  padding: 4px 14px;
+}
+
+.shoot-badge-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-gold);
+  animation: glow-pulse-gold 2s ease-in-out infinite;
+}
+
+@keyframes glow-pulse-gold {
+
+  0%,
+  100% {
+    box-shadow: 0 0 4px var(--accent-gold);
+  }
+
+  50% {
+    box-shadow: 0 0 12px var(--accent-gold);
+  }
 }
