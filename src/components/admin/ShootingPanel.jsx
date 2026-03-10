@@ -240,7 +240,7 @@ const ShootingPanel = ({
                 <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-4 flex-1 text-primary">
                         <div className="flex bg-primary/5 p-1 rounded-[22px] w-full max-w-md border border-primary/5 shadow-inner">
-                            <button onClick={() => { setShootMode('students'); setShootSearch(''); }} className={`flex-1 lg:px-6 py-3 rounded-[18px] text-[10px] md:text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${shootMode === 'students' ? 'bg-card text-primary shadow-sm border border-primary/5' : 'text-secondary hover:text-primary opacity-60'} min-h-[44px]`}>
+                            <button onClick={() => { setShootMode('students'); setShootSearch(''); }} className={`flex-1 lg:px-6 py-3 rounded-[18px] text-[10px] md:text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${shootMode === 'students' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'text-secondary hover:text-primary opacity-60'} min-h-[44px]`}>
                                 <Users size={16} /> Alumnos
                             </button>
                             <button onClick={() => { setShootMode('staff'); setShootSearch(''); }} className={`px-6 py-2.5 rounded-[20px] text-[10px] md:text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${shootMode === 'staff' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'text-secondary hover:text-primary opacity-60'}`}>

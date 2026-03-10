@@ -4,6 +4,23 @@ import {
 } from 'lucide-react';
 import { COURSE_GROUPS } from '../../constants.js';
 
+const LOPD_TEXT = "AVISO LEGAL: Este mensaje y sus archivos adjuntos van dirigidos exclusivamente a su destinatario, pudiendo contener información confidencial sometida a secreto profesional. No está permitida su comunicación, reproducción o distribución sin la autorización expresa de Pujalte Fotografía. Si usted no es el destinatario final, por favor elimínelo e infórmenos por esta vía. De acuerdo con la LOPD y el RGPD, le informamos que sus datos están incorporados a nuestros ficheros para mantener el contacto comercial, pudiendo ejercer sus derechos de acceso, rectificación, cancelación y oposición dirigiéndose a nuestro correo electrónico.";
+
+const DEFAULT_TEMPLATES = [
+    {
+        id: 'tpl-1',
+        name: 'Revisión de Diseño (Previo Orla)',
+        subject: 'REVISIÓN: Borrador de Orla disponible - [Nombre del Centro/Curso]',
+        body: 'Estimados,\n\nNos complace informarles que el previo de la orla para el grupo [Nombre del Curso/Grado] ya se encuentra finalizado.\n\nAdjuntamos el archivo (o enlace) para su revisión. Les rogamos que verifiquen los siguientes puntos:\n\n- Ortografía de nombres y apellidos de alumnos y profesores.\n- Correcta asignación de fotografías.\n- Diseño general y logotipos del centro.\n\nPor favor, confírmennos si todo es correcto o si necesitan realizar algún ajuste antes de proceder con la impresión final.\n\nSaludos cordiales,\nEl equipo de Gestión de Orlas.'
+    },
+    {
+        id: 'tpl-2',
+        name: 'Listado de Inscritos y Faltantes',
+        subject: 'URGENTE: Listado de alumnos inscritos para la sesión de fotos - [Nombre del Centro]',
+        body: 'Hola,\n\nCon el fin de organizar la próxima sesión de fotos (shooting) programada para el día [Fecha], les adjuntamos el listado actualizado de los alumnos que ya se han inscrito correctamente a través de nuestra App.\n\nAcción requerida:\nPor favor, contrasten este listado con su base de datos para identificar a los alumnos que aún faltan por inscribirse. Es fundamental que todos estén registrados antes del día de la sesión para evitar retrasos y asegurar que nadie se quede fuera de la orla.\n\nQuedamos a la espera de sus noticias para coordinar cualquier inscripción de último minuto.\n\nAtentamente,\nEl equipo de Gestión de Centros.'
+    }
+];
+
 const TutorsPanel = ({
     settings,
     updateSettings,
@@ -18,7 +35,7 @@ const TutorsPanel = ({
     const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
     const [emailDropdownOpen, setEmailDropdownOpen] = useState(null); // ID del tutor
 
-    const templates = settings.emailTemplates || [];
+    const templates = settings.emailTemplates?.length > 0 ? settings.emailTemplates : DEFAULT_TEMPLATES;
 
     const isDark = theme === 'dark';
 
@@ -83,7 +100,8 @@ const TutorsPanel = ({
     const handleEmailClick = (e, t) => {
         e.stopPropagation();
         if (templates.length === 0) {
-            window.location.href = `mailto:${t.email}`;
+            const body = encodeURIComponent('\n\n' + LOPD_TEXT);
+            window.location.href = `mailto:${t.email}?body=${body}`;
             return;
         }
         setEmailDropdownOpen(emailDropdownOpen === t.id ? null : t.id);
@@ -91,8 +109,10 @@ const TutorsPanel = ({
 
     const sendEmail = (e, tutorEmail, template) => {
         e.stopPropagation();
+        const baseBody = template ? template.body : '';
+        const bodyWithLopd = baseBody ? `${baseBody}\n\n${LOPD_TEXT}` : `\n\n${LOPD_TEXT}`;
         const subject = encodeURIComponent(template ? template.subject : '');
-        const body = encodeURIComponent(template ? template.body : '');
+        const body = encodeURIComponent(bodyWithLopd);
         window.location.href = `mailto:${tutorEmail}?subject=${subject}&body=${body}`;
         setEmailDropdownOpen(null);
     };
