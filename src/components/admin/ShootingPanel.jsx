@@ -181,239 +181,158 @@ const ShootingPanel = ({
             {shootMode === 'students' && (
                 <div className="flex flex-col gap-3 h-[calc(100vh-280px)] overflow-hidden animate-fade-in">
 
-                    {!activeStudent && (
-                        <>
-                            {/* BARRA FILTROS FULL-WIDTH */}
-                            <div className="card p-4 flex items-center gap-3 shrink-0">
-                                <select value={shootFilters.course} onChange={e => setShootFilters(p => ({ ...p, course: e.target.value, group: '' }))} className="bg-primary/5 border border-primary/10 text-[10px] font-black rounded-xl px-3 py-2.5 outline-none appearance-none cursor-pointer">
-                                    <option value="">CURSO</option>
-                                    {activeCourses.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                    {/* BARRA FILTROS FULL-WIDTH */}
+                    <div className="card p-4 flex items-center gap-3 shrink-0">
+                        <select value={shootFilters.course} onChange={e => setShootFilters(p => ({ ...p, course: e.target.value, group: '' }))} className="bg-primary/5 border border-primary/10 text-[10px] font-black rounded-xl px-3 py-2.5 outline-none appearance-none cursor-pointer">
+                            <option value="">CURSO</option>
+                            {activeCourses.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                        </select>
+                        <select value={shootFilters.group} onChange={e => setShootFilters(p => ({ ...p, group: e.target.value }))} className="bg-primary/5 border border-primary/10 text-[10px] font-black rounded-xl px-3 py-2.5 outline-none appearance-none cursor-pointer">
+                            <option value="">GRUPO</option>
+                            {availGroups.map(g => <option key={g} value={g}>G. {g}</option>)}
+                        </select>
+                        <div className="relative flex-1">
+                            <Search size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-primary opacity-25" />
+                            <input type="text" value={shootSearch} onChange={e => setShootSearch(e.target.value)} placeholder="BUSCAR ALUMNO..." className="w-full bg-primary/5 border border-primary/10 rounded-xl pl-10 pr-4 py-2.5 text-[10px] font-black outline-none focus:border-emerald-400/50 transition-all" />
+                        </div>
+                        <span className="text-[10px] font-black text-primary/20 uppercase italic whitespace-nowrap shrink-0">{visibleOrders.length} alumnos</span>
+                    </div>
+
+
+                    {/* ── ISLA ALTA RÁPIDA HORIZONTAL ── */}
+                    <div className="card bg-card/60 backdrop-blur-xl border-primary/5 px-6 py-5 flex-shrink-0">
+                        {/* Cabecera */}
+                        <div className="flex items-center gap-3 mb-5">
+                            <div className="p-2 bg-amber-500/10 rounded-xl">
+                                <Zap size={16} className="text-amber-400 animate-pulse" strokeWidth={3} />
+                            </div>
+                            <div>
+                                <p className="text-[9px] font-black text-amber-400/60 tracking-[0.3em] uppercase">Inscripción</p>
+                                <h4 className="text-sm font-black text-primary uppercase tracking-tight">Alta Rápida</h4>
+                            </div>
+                            <div className="ml-auto text-[9px] font-black text-primary/30 uppercase italic">
+                                {shootFilters.course && <span className="bg-primary/5 px-3 py-1 rounded-full border border-primary/10">{shootFilters.course}{shootFilters.group ? ` · ${shootFilters.group}` : ''}</span>}
+                            </div>
+                        </div>
+
+                        {/* Fila de campos */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-start">
+
+                            {/* Nombre completo */}
+                            <div className="space-y-1.5 relative">
+                                <label className="text-[8px] font-black uppercase text-secondary/40 tracking-widest ml-1">Nombre del Alumno</label>
+                                <input
+                                    type="text"
+                                    value={newStudentForm.name}
+                                    onChange={e => setNewStudentForm(p => ({ ...p, name: e.target.value }))}
+                                    placeholder="NOMBRE COMPLETO"
+                                    className="w-full bg-primary/5 border border-primary/10 rounded-2xl px-4 py-3 text-[10px] font-black text-primary outline-none focus:border-amber-500/50 transition-all uppercase placeholder:opacity-30"
+                                />
+                            </div>
+
+                            {/* Teléfono + WhatsApp */}
+                            <div className="space-y-1.5">
+                                <label className="text-[8px] font-black uppercase text-secondary/40 tracking-widest ml-1">Teléfono (madre/padre)</label>
+                                <div className="relative">
+                                    <Phone size={12} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-primary opacity-20" />
+                                    <input
+                                        type="tel"
+                                        value={newStudentForm.phone}
+                                        onChange={e => setNewStudentForm(p => ({ ...p, phone: e.target.value }))}
+                                        placeholder="600 000 000"
+                                        className="w-full bg-primary/5 border border-primary/10 rounded-2xl pl-9 pr-4 py-3 text-[10px] font-black text-primary outline-none focus:border-sky-500/50 transition-all placeholder:opacity-20"
+                                    />
+                                </div>
+                                {newStudentForm.phone.replace(/\s/g, '').length >= 9 && (
+                                    <a
+                                        href={`https://wa.me/34${newStudentForm.phone.replace(/\s/g, '')}?text=${encodeURIComponent('Hola, le escribimos del colegio. Su hijo/a ' + (newStudentForm.name || '') + ' ya está registrado/a para las fotos del orla. ¡Gracias!')}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#25D366]/10 border border-[#25D366]/20 rounded-xl text-[9px] font-black text-[#25D366] hover:bg-[#25D366]/20 transition-all"
+                                    >
+                                        <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
+                                        Enviar WhatsApp
+                                    </a>
+                                )}
+                            </div>
+
+                            {/* Pack + Método de pago */}
+                            <div className="space-y-2">
+                                <label className="text-[8px] font-black uppercase text-secondary/40 tracking-widest ml-1">Pack</label>
+                                <select
+                                    value={newStudentForm.packId}
+                                    onChange={e => setNewStudentForm(p => ({ ...p, packId: e.target.value }))}
+                                    className="w-full bg-primary/5 border border-primary/10 rounded-2xl px-4 py-3 text-[10px] font-black text-primary outline-none appearance-none cursor-pointer"
+                                >
+                                    <option value="">SIN PACK</option>
+                                    {PACKS.map(p => <option key={p.id} value={p.id} className="text-black">{(p.label || p.id || '').split('(')[0]}</option>)}
+                                    <option value="manual" className="text-black">PENDIENTE</option>
                                 </select>
-                                <select value={shootFilters.group} onChange={e => setShootFilters(p => ({ ...p, group: e.target.value }))} className="bg-primary/5 border border-primary/10 text-[10px] font-black rounded-xl px-3 py-2.5 outline-none appearance-none cursor-pointer">
-                                    <option value="">GRUPO</option>
-                                    {availGroups.map(g => <option key={g} value={g}>G. {g}</option>)}
+                                <select
+                                    value={newStudentForm.paymentMethod}
+                                    onChange={e => setNewStudentForm(p => ({ ...p, paymentMethod: e.target.value }))}
+                                    className="w-full bg-primary/5 border border-primary/10 rounded-2xl px-4 py-3 text-[10px] font-black text-primary outline-none appearance-none cursor-pointer"
+                                >
+                                    <option value="">MÉTODO PAGO</option>
+                                    <option value="Efectivo" className="text-black">EFECTIVO</option>
+                                    <option value="Bizum" className="text-black">BIZUM</option>
+                                    <option value="Tarjeta" className="text-black">TARJETA</option>
+                                    <option value="Pendiente" className="text-black">PENDIENTE</option>
                                 </select>
-                                <div className="relative flex-1">
-                                    <Search size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-primary opacity-25" />
-                                    <input type="text" value={shootSearch} onChange={e => setShootSearch(e.target.value)} placeholder="BUSCAR ALUMNO..." className="w-full bg-primary/5 border border-primary/10 rounded-xl pl-10 pr-4 py-2.5 text-[10px] font-black outline-none focus:border-emerald-400/50 transition-all" />
-                                </div>
-                                <span className="text-[10px] font-black text-primary/20 uppercase italic whitespace-nowrap shrink-0">{visibleOrders.length} alumnos</span>
                             </div>
 
-
-                            {/* ── ISLA ALTA RÁPIDA HORIZONTAL ── */}
-                            <div className="card bg-card/60 backdrop-blur-xl border-primary/5 px-6 py-5 flex-shrink-0">
-                                {/* Cabecera */}
-                                <div className="flex items-center gap-3 mb-5">
-                                    <div className="p-2 bg-amber-500/10 rounded-xl">
-                                        <Zap size={16} className="text-amber-400 animate-pulse" strokeWidth={3} />
-                                    </div>
-                                    <div>
-                                        <p className="text-[9px] font-black text-amber-400/60 tracking-[0.3em] uppercase">Inscripción</p>
-                                        <h4 className="text-sm font-black text-primary uppercase tracking-tight">Alta Rápida</h4>
-                                    </div>
-                                    <div className="ml-auto text-[9px] font-black text-primary/30 uppercase italic">
-                                        {shootFilters.course && <span className="bg-primary/5 px-3 py-1 rounded-full border border-primary/10">{shootFilters.course}{shootFilters.group ? ` · ${shootFilters.group}` : ''}</span>}
-                                    </div>
-                                </div>
-
-                                {/* Fila de campos */}
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-start">
-
-                                    {/* Nombre completo */}
-                                    <div className="space-y-1.5 relative">
-                                        <label className="text-[8px] font-black uppercase text-secondary/40 tracking-widest ml-1">Nombre del Alumno</label>
-                                        <input
-                                            type="text"
-                                            value={newStudentForm.name}
-                                            onChange={e => setNewStudentForm(p => ({ ...p, name: e.target.value }))}
-                                            placeholder="NOMBRE COMPLETO"
-                                            className="w-full bg-primary/5 border border-primary/10 rounded-2xl px-4 py-3 text-[10px] font-black text-primary outline-none focus:border-amber-500/50 transition-all uppercase placeholder:opacity-30"
-                                        />
-                                    </div>
-
-                                    {/* Teléfono + WhatsApp */}
-                                    <div className="space-y-1.5">
-                                        <label className="text-[8px] font-black uppercase text-secondary/40 tracking-widest ml-1">Teléfono (madre/padre)</label>
-                                        <div className="relative">
-                                            <Phone size={12} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-primary opacity-20" />
-                                            <input
-                                                type="tel"
-                                                value={newStudentForm.phone}
-                                                onChange={e => setNewStudentForm(p => ({ ...p, phone: e.target.value }))}
-                                                placeholder="600 000 000"
-                                                className="w-full bg-primary/5 border border-primary/10 rounded-2xl pl-9 pr-4 py-3 text-[10px] font-black text-primary outline-none focus:border-sky-500/50 transition-all placeholder:opacity-20"
-                                            />
-                                        </div>
-                                        {newStudentForm.phone.replace(/\s/g, '').length >= 9 && (
-                                            <a
-                                                href={`https://wa.me/34${newStudentForm.phone.replace(/\s/g, '')}?text=${encodeURIComponent('Hola, le escribimos del colegio. Su hijo/a ' + (newStudentForm.name || '') + ' ya está registrado/a para las fotos del orla. ¡Gracias!')}`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#25D366]/10 border border-[#25D366]/20 rounded-xl text-[9px] font-black text-[#25D366] hover:bg-[#25D366]/20 transition-all"
-                                            >
-                                                <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
-                                                Enviar WhatsApp
-                                            </a>
-                                        )}
-                                    </div>
-
-                                    {/* Pack + Método de pago */}
-                                    <div className="space-y-2">
-                                        <label className="text-[8px] font-black uppercase text-secondary/40 tracking-widest ml-1">Pack</label>
-                                        <select
-                                            value={newStudentForm.packId}
-                                            onChange={e => setNewStudentForm(p => ({ ...p, packId: e.target.value }))}
-                                            className="w-full bg-primary/5 border border-primary/10 rounded-2xl px-4 py-3 text-[10px] font-black text-primary outline-none appearance-none cursor-pointer"
-                                        >
-                                            <option value="">SIN PACK</option>
-                                            {PACKS.map(p => <option key={p.id} value={p.id} className="text-black">{(p.label || p.id || '').split('(')[0]}</option>)}
-                                            <option value="manual" className="text-black">PENDIENTE</option>
-                                        </select>
-                                        <select
-                                            value={newStudentForm.paymentMethod}
-                                            onChange={e => setNewStudentForm(p => ({ ...p, paymentMethod: e.target.value }))}
-                                            className="w-full bg-primary/5 border border-primary/10 rounded-2xl px-4 py-3 text-[10px] font-black text-primary outline-none appearance-none cursor-pointer"
-                                        >
-                                            <option value="">MÉTODO PAGO</option>
-                                            <option value="Efectivo" className="text-black">EFECTIVO</option>
-                                            <option value="Bizum" className="text-black">BIZUM</option>
-                                            <option value="Tarjeta" className="text-black">TARJETA</option>
-                                            <option value="Pendiente" className="text-black">PENDIENTE</option>
-                                        </select>
-                                    </div>
-
-                                    {/* Notas + Botón Alta */}
-                                    <div className="space-y-2 flex flex-col">
-                                        <label className="text-[8px] font-black uppercase text-secondary/40 tracking-widest ml-1">Notas</label>
-                                        <textarea
-                                            value={newStudentForm.notes || ''}
-                                            onChange={e => setNewStudentForm(p => ({ ...p, notes: e.target.value }))}
-                                            placeholder="Indicaciones..."
-                                            rows={2}
-                                            className="w-full bg-primary/5 border border-primary/10 rounded-2xl px-4 py-3 text-[10px] font-black text-primary outline-none focus:border-violet-500/50 transition-all resize-none placeholder:opacity-20"
-                                        />
-                                        <button
-                                            disabled={!newStudentForm.name.trim() || !shootFilters.course}
-                                            onClick={() => {
-                                                const sid = adminSchool;
-                                                const pack = PACKS.find(p => p.id === newStudentForm.packId) || { id: 'manual', label: 'PENDIENTE' };
-                                                const newOrder = {
-                                                    studentName: toTitleCase(newStudentForm.name),
-                                                    schoolId: sid,
-                                                    schoolName: schools.find(s => s.id === sid)?.name || '',
-                                                    course: shootFilters.course + (shootFilters.group ? ` ${shootFilters.group}` : ''),
-                                                    phone: newStudentForm.phone,
-                                                    email: newStudentForm.email,
-                                                    notes: newStudentForm.notes,
-                                                    pack: pack,
-                                                    packQuantity: 1,
-                                                    extras: [],
-                                                    paymentMethod: newStudentForm.paymentMethod || 'Efectivo',
-                                                    status: newStudentForm.paymentMethod && newStudentForm.paymentMethod !== 'Pendiente' ? 'Pagado' : 'Pendiente',
-                                                    total: 0,
-                                                    cost: 0,
-                                                    id: `MANUAL_${Date.now()}`,
-                                                    timestamp: Date.now()
-                                                };
-                                                addOrder(newOrder);
-                                                setNewStudentForm({ schoolId: '', name: '', course: '', group: '', phone: '', email: '', packId: '', photoFile: '', status: 'Pendiente', paymentMethod: '', notes: '' });
-                                                selectStudent(newOrder);
-                                            }}
-                                            className="w-full py-3 bg-[#1ec08d] text-white font-black text-[11px] tracking-[0.25em] rounded-2xl shadow-lg hover:bg-[#19a87d] disabled:opacity-20 transition-all active:scale-95 flex items-center justify-center gap-2"
-                                        >
-                                            <Zap size={14} />
-                                            ALTA Y EMPEZAR
-                                        </button>
-                                        {!shootFilters.course && (
-                                            <p className="text-[8px] font-black text-amber-500/60 uppercase italic text-center flex items-center justify-center gap-1">
-                                                <AlertCircle size={10} /> Selecciona un curso arriba
-                                            </p>
-                                        )}
-                                    </div>
-                                </div>
+                            {/* Notas + Botón Alta */}
+                            <div className="space-y-2 flex flex-col">
+                                <label className="text-[8px] font-black uppercase text-secondary/40 tracking-widest ml-1">Notas</label>
+                                <textarea
+                                    value={newStudentForm.notes || ''}
+                                    onChange={e => setNewStudentForm(p => ({ ...p, notes: e.target.value }))}
+                                    placeholder="Indicaciones..."
+                                    rows={2}
+                                    className="w-full bg-primary/5 border border-primary/10 rounded-2xl px-4 py-3 text-[10px] font-black text-primary outline-none focus:border-violet-500/50 transition-all resize-none placeholder:opacity-20"
+                                />
+                                <button
+                                    disabled={!newStudentForm.name.trim() || !shootFilters.course}
+                                    onClick={() => {
+                                        const sid = adminSchool;
+                                        const pack = PACKS.find(p => p.id === newStudentForm.packId) || { id: 'manual', label: 'PENDIENTE' };
+                                        const newOrder = {
+                                            studentName: toTitleCase(newStudentForm.name),
+                                            schoolId: sid,
+                                            schoolName: schools.find(s => s.id === sid)?.name || '',
+                                            course: shootFilters.course + (shootFilters.group ? ` ${shootFilters.group}` : ''),
+                                            phone: newStudentForm.phone,
+                                            email: newStudentForm.email,
+                                            notes: newStudentForm.notes,
+                                            pack: pack,
+                                            packQuantity: 1,
+                                            extras: [],
+                                            paymentMethod: newStudentForm.paymentMethod || 'Efectivo',
+                                            status: newStudentForm.paymentMethod && newStudentForm.paymentMethod !== 'Pendiente' ? 'Pagado' : 'Pendiente',
+                                            total: 0,
+                                            cost: 0,
+                                            id: `MANUAL_${Date.now()}`,
+                                            timestamp: Date.now()
+                                        };
+                                        addOrder(newOrder);
+                                        setNewStudentForm({ schoolId: '', name: '', course: '', group: '', phone: '', email: '', packId: '', photoFile: '', status: 'Pendiente', paymentMethod: '', notes: '' });
+                                        selectStudent(newOrder);
+                                    }}
+                                    className="w-full py-3 bg-[#1ec08d] text-white font-black text-[11px] tracking-[0.25em] rounded-2xl shadow-lg hover:bg-[#19a87d] disabled:opacity-20 transition-all active:scale-95 flex items-center justify-center gap-2"
+                                >
+                                    <Zap size={14} />
+                                    ALTA Y EMPEZAR
+                                </button>
+                                {!shootFilters.course && (
+                                    <p className="text-[8px] font-black text-amber-500/60 uppercase italic text-center flex items-center justify-center gap-1">
+                                        <AlertCircle size={10} /> Selecciona un curso arriba
+                                    </p>
+                                )}
                             </div>
-                        </>
-                    )}
-
-                    {/* ROW: SIDEBAR + MAIN */}
-                    <div className={`flex flex-col lg:flex-row gap-0 flex-1 overflow-hidden ${isFocused ? 'lg:gap-0' : 'lg:gap-4'}`}>
-                        {/* COLUMNA IZQUIERDA: LISTADO (Ocultable en foco) */}
-                        <aside className={`w-full lg:w-[380px] flex flex-col gap-4 overflow-hidden transition-all duration-500 ${isFocused ? 'lg:-ml-[400px] opacity-0 pointer-events-none' : 'ml-0 opacity-100'}`}>
-
-
-                            <div className="flex-1 overflow-y-auto space-y-2 pr-4 pb-12 custom-scrollbar touch-pan-y">
-                                {visibleOrders.map((order) => {
-                                    const isActive = activeStudent?.id === order.id;
-
-                                    return (
-                                        <div key={order.id} className={`rounded-[24px] border transition-all overflow-hidden ${isActive ? 'bg-card border-amber-500 shadow-xl ring-2 ring-amber-500/20' : 'bg-card border-primary/5 opacity-70 hover:opacity-100'} relative`}>
-                                            <button
-                                                onClick={() => selectStudent(order)}
-                                                className={`w-full p-4 flex flex-col items-center gap-1 text-center transition-all ${isActive ? 'py-6' : 'py-4'}`}
-                                            >
-                                                <p className={`text-sm font-black tracking-tight leading-tight text-primary uppercase italic`}>
-                                                    {order.studentName}
-                                                </p>
-                                                <p className="text-[9px] font-bold text-secondary opacity-40 uppercase tracking-widest">{order.course}</p>
-
-                                                {/* Acordeón de edición directa cuando está activo */}
-                                                {isActive && (
-                                                    <div className="w-full mt-4 pt-4 border-t border-primary/10 space-y-3 animate-in fade-in slide-in-from-top-2 duration-300" onClick={e => e.stopPropagation()}>
-                                                        <div className="grid grid-cols-2 gap-2 text-left">
-                                                            <div className="space-y-1">
-                                                                <label className="text-[8px] font-black uppercase tracking-widest text-secondary opacity-60 ml-1">Pack Seleccionado</label>
-                                                                <select
-                                                                    value={typeof order.pack === 'object' ? order.pack.id : order.pack}
-                                                                    onChange={(e) => {
-                                                                        const pack = PACKS.find(p => p.id === e.target.value) || { id: 'manual', label: e.target.value };
-                                                                        updateStatus(order.id, order.status, order.photoFile, pack);
-                                                                    }}
-                                                                    className="w-full bg-primary/5 border border-primary/10 rounded-lg px-2 py-1.5 text-[10px] font-bold outline-none text-primary appearance-none cursor-pointer"
-                                                                >
-                                                                    {PACKS.map(p => <option key={p.id} value={p.id} className="text-black">{p.label}</option>)}
-                                                                    <option value="manual" className="text-black">PENDIENTE</option>
-                                                                </select>
-                                                            </div>
-                                                            <div className="space-y-1">
-                                                                <label className="text-[8px] font-black uppercase tracking-widest text-secondary opacity-60 ml-1">Estado de Pago</label>
-                                                                <select
-                                                                    value={order.status}
-                                                                    onChange={(e) => updateStatus(order.id, e.target.value, order.photoFile)}
-                                                                    className="w-full bg-primary/5 border border-primary/10 rounded-lg px-2 py-1.5 text-[10px] font-bold outline-none text-primary appearance-none cursor-pointer"
-                                                                >
-                                                                    <option value="Pagado" className="text-black">PAGADO</option>
-                                                                    <option value="Pendiente" className="text-black">PENDIENTE</option>
-                                                                    <option value="Impagado" className="text-black">IMPAGADO</option>
-                                                                </select>
-                                                            </div>
-                                                        </div>
-
-                                                        <div className="pt-2">
-                                                            <div className="bg-primary/5 rounded-xl p-2 flex items-center justify-between">
-                                                                <div className="flex flex-col text-left">
-                                                                    <span className="text-[8px] font-black uppercase text-secondary opacity-40 tracking-widest">Curso y Grupo</span>
-                                                                    <span className="text-[9px] font-black uppercase text-primary">{order.course}</span>
-                                                                </div>
-                                                                <div className="flex flex-col text-right">
-                                                                    <span className="text-[8px] font-black uppercase text-secondary opacity-40 tracking-widest">Foto Grabada</span>
-                                                                    <span className={`text-[11px] font-mono font-black italic ${order.photoFile ? 'text-emerald-400' : 'text-secondary/30'}`}>
-                                                                        {order.photoFile ? `#${order.photoFile}` : '—'}
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </button>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </aside>
-
+                        </div>
+                    </div>
                         {/* COLUMNA CENTRAL: ESTACIÓN DE DISPARO (Isla de Sesión) */}
-                        <main className={`flex-1 flex flex-col items-center justify-start relative overflow-hidden transition-all duration-500 ${isFocused ? 'p-4 md:pt-2 md:px-12 md:pb-12 bg-[#0a0c10]' : 'card p-8 pt-1'}`}>
+                        <main className="flex-1 flex flex-col overflow-hidden relative">
 
                             {/* Botón de volver en la esquina superior derecha */}
                             {isFocused && (
@@ -578,6 +497,40 @@ const ShootingPanel = ({
                                     </div>
                                 </div>
                             ) : (
+                                <div className="flex-1 overflow-y-auto custom-scrollbar">
+                                    {visibleOrders.length === 0 ? (
+                                        <div className="flex flex-col items-center justify-center h-64 text-primary/20">
+                                            <p className="text-[11px] font-black uppercase italic tracking-widest">Sin alumnos que mostrar</p>
+                                            <p className="text-[9px] font-black uppercase italic tracking-widest mt-1 opacity-60">Ajusta los filtros de arriba</p>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-1">
+                                            {visibleOrders.map((order) => (
+                                                <button
+                                                    key={order.id}
+                                                    onClick={() => selectStudent(order)}
+                                                    className="card p-4 flex flex-col gap-2 text-left hover:border-amber-500/40 hover:shadow-lg transition-all active:scale-95 group"
+                                                >
+                                                    <div className="flex items-center justify-between">
+                                                        <p className="text-sm font-black text-primary uppercase italic leading-tight tracking-tight">{order.studentName}</p>
+                                                        {order.photoFile
+                                                            ? <CheckCircle2 size={16} className="text-emerald-400 flex-shrink-0" />
+                                                            : <div className="w-2.5 h-2.5 rounded-full bg-amber-500/30 flex-shrink-0" />
+                                                        }
+                                                    </div>
+                                                    <p className="text-[9px] font-bold text-secondary opacity-40 uppercase tracking-widest">{order.course}</p>
+                                                    {order.pack && (
+                                                        <span className="text-[8px] font-black uppercase tracking-wider px-2 py-0.5 bg-primary/5 border border-primary/10 rounded-full text-primary/40">
+                                                            {typeof order.pack === "object" ? order.pack.label : order.pack}
+                                                        </span>
+                                                    )}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            ) : (
                                 <div className="w-full h-full flex flex-col gap-5 animate-in fade-in duration-500 overflow-y-auto no-scrollbar pb-6">
 
                                     {/* ── ISLA BUSCADOR ── */}
@@ -704,7 +657,6 @@ const ShootingPanel = ({
                                 </div>
                             </div>
                         )}
-                    </div>
                 </div>
             )}
 
