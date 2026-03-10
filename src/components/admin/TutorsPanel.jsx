@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-    UserCircle, Plus, Trash2, Mail, Phone, ChevronDown, Search, MessageCircle, LayoutGrid, List
+    UserCircle, Plus, Trash2, Mail, Phone, ChevronDown, Search, MessageCircle, LayoutGrid, List, Settings, X, Save
 } from 'lucide-react';
 import { COURSE_GROUPS } from '../../constants.js';
 
@@ -15,6 +15,10 @@ const TutorsPanel = ({
     const [viewMode, setViewMode] = useState('grid');
     const [selectedIds, setSelectedIds] = useState([]);
     const [expandedId, setExpandedId] = useState(null);
+    const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
+    const [emailDropdownOpen, setEmailDropdownOpen] = useState(null); // ID del tutor
+
+    const templates = settings.emailTemplates || [];
 
     const isDark = theme === 'dark';
 
@@ -62,6 +66,37 @@ const TutorsPanel = ({
         return match.includes(searchTerm.toLowerCase());
     });
 
+    const addTemplate = () => {
+        const newTemplate = { id: Date.now(), name: 'Nueva Plantilla', subject: 'Asunto...', body: 'Cuerpo del mensaje...' };
+        updateSettings({ emailTemplates: [...templates, newTemplate] });
+    };
+
+    const updateTemplate = (id, updates) => {
+        const updated = templates.map(t => t.id === id ? { ...t, ...updates } : t);
+        updateSettings({ emailTemplates: updated });
+    };
+
+    const removeTemplate = (id) => {
+        updateSettings({ emailTemplates: templates.filter(t => t.id !== id) });
+    };
+
+    const handleEmailClick = (e, t) => {
+        e.stopPropagation();
+        if (templates.length === 0) {
+            window.location.href = `mailto:${t.email}`;
+            return;
+        }
+        setEmailDropdownOpen(emailDropdownOpen === t.id ? null : t.id);
+    };
+
+    const sendEmail = (e, tutorEmail, template) => {
+        e.stopPropagation();
+        const subject = encodeURIComponent(template ? template.subject : '');
+        const body = encodeURIComponent(template ? template.body : '');
+        window.location.href = `mailto:${tutorEmail}?subject=${subject}&body=${body}`;
+        setEmailDropdownOpen(null);
+    };
+
     return (
         <div className={`card overflow-hidden transition-all duration-500 ${isOpen ? 'ring-2 ring-orange-500/20 shadow-2xl shadow-orange-500/10' : 'hover:ring-1 hover:ring-orange-500/10 shadow-lg'}`}>
             {/* Header / Trigger */}
@@ -80,7 +115,14 @@ const TutorsPanel = ({
                 </div>
                 <div className="flex items-center gap-4">
                     {/* Botón condicional: solo aparece si está abierto */}
-                    <div className={`transition-all duration-500 ${isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none translate-x-4'}`}>
+                    <div className={`flex items-center gap-2 transition-all duration-500 ${isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none translate-x-4'}`}>
+                        <button
+                            onClick={(e) => { e.stopPropagation(); setIsTemplatesOpen(true); }}
+                            className="bg-primary/5 hover:bg-orange-500/10 text-secondary hover:text-orange-500 w-10 h-10 rounded-xl flex items-center justify-center transition-all border border-primary/5"
+                            title="Plantillas de Correo"
+                        >
+                            <Settings size={18} />
+                        </button>
                         <button
                             onClick={addTutor}
                             className="bg-orange-600 hover:bg-orange-500 text-white px-5 py-2.5 rounded-xl font-black flex items-center gap-2 transition-all shadow-lg shadow-orange-900/20 uppercase text-[10px] active:scale-95 shrink-0"
@@ -198,14 +240,39 @@ const TutorsPanel = ({
                                             </a>
                                         )}
                                         {t.email && (
-                                            <a
-                                                href={`mailto:${t.email}`}
-                                                onClick={(e) => e.stopPropagation()}
-                                                className="w-9 h-9 flex items-center justify-center text-indigo-400 hover:bg-indigo-500/20 rounded-lg transition-all"
-                                                title="Email"
-                                            >
-                                                <Mail size={16} />
-                                            </a>
+                                            <div className="relative">
+                                                <button
+                                                    onClick={(e) => handleEmailClick(e, t)}
+                                                    className="w-9 h-9 flex items-center justify-center text-indigo-400 hover:bg-indigo-500/20 rounded-lg transition-all"
+                                                    title="Email"
+                                                >
+                                                    <Mail size={16} />
+                                                </button>
+                                                {emailDropdownOpen === t.id && (
+                                                    <div className="absolute top-10 right-0 w-64 bg-slate-900 border border-primary/20 rounded-xl shadow-2xl z-50 overflow-hidden flex flex-col">
+                                                        <div className="p-3 border-b border-primary/10 bg-primary/2">
+                                                            <span className="text-[10px] font-black uppercase text-secondary/60 tracking-widest block mb-1">Elegir Plantilla</span>
+                                                            <button
+                                                                onClick={(e) => sendEmail(e, t.email, null)}
+                                                                className="w-full text-left px-3 py-2 text-[11px] font-bold text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-colors"
+                                                            >
+                                                                Correo Libre...
+                                                            </button>
+                                                        </div>
+                                                        <div className="p-1 max-h-48 overflow-y-auto hidden-scrollbar">
+                                                            {templates.map(tpl => (
+                                                                <button
+                                                                    key={tpl.id}
+                                                                    onClick={(e) => sendEmail(e, t.email, tpl)}
+                                                                    className="w-full text-left px-4 py-2.5 text-[11px] font-bold text-primary hover:bg-primary/10 rounded-lg transition-colors truncate"
+                                                                >
+                                                                    {tpl.name}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
                                         )}
                                     </div>
                                 </div>
@@ -338,6 +405,89 @@ const TutorsPanel = ({
                     </div>
                 )}
             </div>
+
+            {/* Modal de Plantillas de Email */}
+            {isTemplatesOpen && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-slate-900 border border-primary/10 rounded-[2rem] w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl relative">
+                        <div className="p-6 border-b border-primary/10 flex items-center justify-between bg-primary/2 shrink-0 rounded-t-[2rem]">
+                            <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-xl bg-orange-500/10 text-orange-500 flex items-center justify-center">
+                                    <Mail size={20} />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-black text-primary uppercase tracking-widest">Plantillas de Correo</h3>
+                                    <p className="text-[10px] text-secondary/60 font-bold uppercase tracking-widest mt-0.5">Configura los mensajes para tutores</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setIsTemplatesOpen(false)}
+                                className="w-10 h-10 flex items-center justify-center bg-primary/5 hover:bg-primary/10 text-secondary rounded-xl transition-all"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="p-6 overflow-y-auto hidden-scrollbar flex-1 space-y-4">
+                            {templates.map(tpl => (
+                                <div key={tpl.id} className="bg-primary/2 border border-primary/5 rounded-2xl p-5 flex flex-col gap-4 relative group">
+                                    <button
+                                        onClick={() => removeTemplate(tpl.id)}
+                                        className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                        title="Eliminar Plantilla"
+                                    >
+                                        <Trash2 size={14} />
+                                    </button>
+
+                                    <div className="pr-10">
+                                        <label className="text-[9px] font-black text-secondary/60 uppercase tracking-widest block mb-1">Nombre de la Plantilla</label>
+                                        <input
+                                            type="text"
+                                            value={tpl.name}
+                                            onChange={(e) => updateTemplate(tpl.id, { name: e.target.value })}
+                                            className="input-dark w-full py-2.5 px-4 text-[11px] font-black rounded-xl"
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="md:col-span-2">
+                                            <label className="text-[9px] font-black text-secondary/60 uppercase tracking-widest block mb-1">Asunto</label>
+                                            <input
+                                                type="text"
+                                                value={tpl.subject}
+                                                onChange={(e) => updateTemplate(tpl.id, { subject: e.target.value })}
+                                                className="input-dark w-full py-2.5 px-4 text-[11px] font-bold rounded-xl"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-[9px] font-black text-secondary/60 uppercase tracking-widest block mb-1">Cuerpo del Mensaje</label>
+                                        <textarea
+                                            value={tpl.body}
+                                            onChange={(e) => updateTemplate(tpl.id, { body: e.target.value })}
+                                            className="input-dark w-full py-3 px-4 text-[11px] font-medium rounded-xl h-32 resize-none"
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+
+                            {templates.length === 0 && (
+                                <div className="text-center py-12 text-secondary/40 font-bold uppercase tracking-widest text-[10px]">
+                                    Aún no hay plantillas creadas.
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="p-6 border-t border-primary/10 bg-primary/2 shrink-0 rounded-b-[2rem] flex justify-end gap-3">
+                            <button
+                                onClick={addTemplate}
+                                className="px-6 py-3 bg-primary/5 hover:bg-primary/10 text-primary font-black text-[11px] uppercase tracking-widest rounded-xl transition-all flex items-center gap-2"
+                            >
+                                <Plus size={14} /> Añadir Plantilla
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
