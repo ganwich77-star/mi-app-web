@@ -173,6 +173,7 @@ const DesignPanel = ({
             { icon: Maximize, label: 'ESCALA', key: 'aScale', min: 0.2, max: 4.0, step: 0.05, unit: 'x' },
             { icon: TypeIcon, label: 'TEXTO', key: 'fontSizeAlu', min: 4, max: 80, step: 0.5, unit: 'PT' },
             { icon: Baseline, label: 'SEP. TEXTO', key: 'aTextOffset', min: 0, max: 100, step: 1, unit: 'PT' },
+            { icon: Type, label: 'APELLIDOS', key: 'hideApellidosAlu', isToggle: true },
             { icon: MoveHorizontal, label: 'SEP. HORIZ', key: 'aGapX', min: safeMmToPx(0), max: safeMmToPx(300), unit: 'MM' },
             { icon: ArrowUpDown, label: 'SEP. VERT', key: 'aGapY', min: safeMmToPx(0), max: safeMmToPx(500), unit: 'MM' },
             { icon: MoveVertical, label: 'EJE Y', key: 'aStartY', min: safeMmToPx(0), max: safeMmToPx(350), unit: 'MM' },
@@ -182,6 +183,8 @@ const DesignPanel = ({
             { icon: UserSquare2, label: 'ESCALA', key: 'dScale', min: 0.2, max: 5.0, step: 0.05, unit: 'x' },
             { icon: TypeIcon, label: 'TEXTO', key: 'fontSizeDoc', min: 4, max: 80, step: 0.5, unit: 'PT' },
             { icon: Baseline, label: 'SEP. TEXTO', key: 'dTextOffset', min: 0, max: 100, step: 1, unit: 'PT' },
+            { icon: Type, label: 'APELLIDOS', key: 'hideApellidosDoc', isToggle: true },
+            { icon: UserCheck, label: 'CARGO', key: 'hideCargoDoc', isToggle: true },
             { icon: MoveHorizontal, label: 'SEPARACIÓN', key: 'dGapX', min: safeMmToPx(0), max: safeMmToPx(500), unit: 'MM' },
             { icon: MoveVertical, label: 'EJE Y', key: 'dY', min: safeMmToPx(0), max: safeMmToPx(350), unit: 'MM' },
             { icon: AlignCenterHorizontal, label: 'EJE X', key: 'dOffsetX', isImmediate: true },
@@ -437,9 +440,9 @@ const DesignPanel = ({
                                                             <div className="flex flex-col items-center px-1" style={{ marginTop: (configOrla.dTextOffset || 0) / 10 + 'px' }}>
                                                                 <div className="font-normal uppercase text-slate-900 leading-tight" style={{ fontSize: (baseSize * 0.55) + 'px' }}>
                                                                     <div className="whitespace-nowrap">{nombre}</div>
-                                                                    <div className="whitespace-nowrap">{apellidos}</div>
+                                                                    {!configOrla.hideApellidosDoc && <div className="whitespace-nowrap">{apellidos}</div>}
                                                                 </div>
-                                                                <p className="font-normal uppercase text-slate-500 leading-tight mt-0.5" style={{ fontSize: (baseSize * 0.45) + 'px' }}>{member.role || 'DOCENTE'}</p>
+                                                                {!configOrla.hideCargoDoc && <p className="font-normal uppercase text-slate-500 leading-tight mt-0.5" style={{ fontSize: (baseSize * 0.45) + 'px' }}>{member.role || 'DOCENTE'}</p>}
                                                             </div>
                                                         </div>
                                                     </div>
@@ -475,7 +478,7 @@ const DesignPanel = ({
                                                             <div className="flex flex-col items-center px-1" style={{ marginTop: (configOrla.aTextOffset || 0) / 10 + 'px' }}>
                                                                 <div className="font-normal uppercase text-slate-900 leading-tight" style={{ fontSize: (baseSize * 0.45) + 'px' }}>
                                                                     <div className="whitespace-nowrap">{nombre}</div>
-                                                                    <div className="whitespace-nowrap">{apellidos}</div>
+                                                                    {!configOrla.hideApellidosAlu && <div className="whitespace-nowrap">{apellidos}</div>}
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -786,7 +789,11 @@ const DesignPanel = ({
                                                 updateConfig(tool.key, 0);
                                                 setActiveDesignParam(null);
                                             } else if (tool.isToggle) {
-                                                setShowGuides(v => !v);
+                                                if (tool.key === 'showGuides') {
+                                                    setShowGuides(v => !v);
+                                                } else {
+                                                    updateConfig(tool.key, !configOrla[tool.key]);
+                                                }
                                                 setShowShapeSelector(false);
                                                 setActiveDesignParam(null);
                                             } else {
@@ -795,7 +802,7 @@ const DesignPanel = ({
                                             }
                                         }}
                                         className={`flex flex-col items-center justify-center gap-1.5 p-3 min-w-[85px] rounded-2xl transition-all active:scale-95 border ${
-                                            (tool.isToggle && showGuides)
+                                            ((tool.isToggle && tool.key === 'showGuides' && showGuides) || (tool.isToggle && tool.key !== 'showGuides' && configOrla[tool.key]))
                                                 ? 'bg-red-500 text-white shadow-[0_10px_30px_rgba(239,68,68,0.3)] border-red-400'
                                                 : activeDesignParam?.key === tool.key
                                                     ? 'bg-accent text-white shadow-glow-indigo border-white/20'
