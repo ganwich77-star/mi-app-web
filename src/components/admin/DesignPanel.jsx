@@ -172,6 +172,7 @@ const DesignPanel = ({
             { icon: LayoutGrid, label: 'ALUMNOS POR FILA', key: 'aCols', min: 1, max: 20, step: 1, unit: 'ALUMNOS' },
             { icon: Maximize, label: 'ESCALA', key: 'aScale', min: 0.2, max: 4.0, step: 0.05, unit: 'x' },
             { icon: TypeIcon, label: 'TEXTO', key: 'fontSizeAlu', min: 4, max: 80, step: 0.5, unit: 'PT' },
+            { icon: Baseline, label: 'SEP. TEXTO', key: 'aTextOffset', min: 0, max: 100, step: 1, unit: 'PT' },
             { icon: MoveHorizontal, label: 'SEP. HORIZ', key: 'aGapX', min: safeMmToPx(0), max: safeMmToPx(300), unit: 'MM' },
             { icon: ArrowUpDown, label: 'SEP. VERT', key: 'aGapY', min: safeMmToPx(0), max: safeMmToPx(500), unit: 'MM' },
             { icon: MoveVertical, label: 'EJE Y', key: 'aStartY', min: safeMmToPx(0), max: safeMmToPx(350), unit: 'MM' },
@@ -180,6 +181,7 @@ const DesignPanel = ({
         'DOCENTES': [
             { icon: UserSquare2, label: 'ESCALA', key: 'dScale', min: 0.2, max: 5.0, step: 0.05, unit: 'x' },
             { icon: TypeIcon, label: 'TEXTO', key: 'fontSizeDoc', min: 4, max: 80, step: 0.5, unit: 'PT' },
+            { icon: Baseline, label: 'SEP. TEXTO', key: 'dTextOffset', min: 0, max: 100, step: 1, unit: 'PT' },
             { icon: MoveHorizontal, label: 'SEPARACIÓN', key: 'dGapX', min: safeMmToPx(0), max: safeMmToPx(500), unit: 'MM' },
             { icon: MoveVertical, label: 'EJE Y', key: 'dY', min: safeMmToPx(0), max: safeMmToPx(350), unit: 'MM' },
             { icon: AlignCenterHorizontal, label: 'EJE X', key: 'dOffsetX', isImmediate: true },
@@ -431,8 +433,8 @@ const DesignPanel = ({
                                                         style={{ width: (w * baseScale) + 'px' }}
                                                     >
                                                         <div style={{ transform: `scale(${baseScale})`, transformOrigin: 'top center' }}>
-                                                            <div className="bg-slate-200 mb-1" style={{ width: w + 'px', height: h + 'px', ...getShapeStyle(currentShape, w, h) }} />
-                                                            <div className="flex flex-col items-center px-1">
+                                                            <div className="bg-slate-200" style={{ width: w + 'px', height: h + 'px', ...getShapeStyle(currentShape, w, h) }} />
+                                                            <div className="flex flex-col items-center px-1" style={{ marginTop: (configOrla.dTextOffset || 0) / 10 + 'px' }}>
                                                                 <div className="font-normal uppercase text-slate-900 leading-tight" style={{ fontSize: (baseSize * 0.55) + 'px' }}>
                                                                     <div className="whitespace-nowrap">{nombre}</div>
                                                                     <div className="whitespace-nowrap">{apellidos}</div>
@@ -469,8 +471,8 @@ const DesignPanel = ({
                                                         style={{ width: (w * baseScale) + 'px' }}
                                                     >
                                                         <div style={{ transform: `scale(${baseScale})`, transformOrigin: 'top center' }}>
-                                                            <div className="bg-slate-100 mb-1" style={{ width: w + 'px', height: h + 'px', ...getShapeStyle(currentShape, w, h) }} />
-                                                            <div className="flex flex-col items-center px-1">
+                                                            <div className="bg-slate-100" style={{ width: w + 'px', height: h + 'px', ...getShapeStyle(currentShape, w, h) }} />
+                                                            <div className="flex flex-col items-center px-1" style={{ marginTop: (configOrla.aTextOffset || 0) / 10 + 'px' }}>
                                                                 <div className="font-normal uppercase text-slate-900 leading-tight" style={{ fontSize: (baseSize * 0.45) + 'px' }}>
                                                                     <div className="whitespace-nowrap">{nombre}</div>
                                                                     <div className="whitespace-nowrap">{apellidos}</div>
