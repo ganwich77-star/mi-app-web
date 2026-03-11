@@ -4,7 +4,7 @@ import {
     MessageSquare, Database, UserCheck, Users, Hash, ArrowRight, ArrowLeft,
     Sparkles, XCircle, RotateCcw, Tv, Camera, CheckCircle2, Zap,
     ChevronRight, AlertCircle, CreditCard, ChevronDown, ChevronUp, Mail, FileText,
-    Package, Plus
+    Package, Plus, LayoutGrid, List
 } from 'lucide-react';
 import { COURSE_GROUPS, PACKS, EXTRAS } from '../../constants.js';
 import { toTitleCase, getCourseBase, getGroup } from '../../utils/formatters.js';
@@ -51,7 +51,9 @@ const ShootingPanel = ({
     const [isFocused, setIsFocused] = useState(false);
     const [isQuickAddExpanded, setIsQuickAddExpanded] = useState(false);
     const [isFiltersExpanded, setIsFiltersExpanded] = useState(false);
+    const [isStudentListExpanded, setIsStudentListExpanded] = useState(true);
     const [showQuickExtras, setShowQuickExtras] = useState(false);
+    const [viewStyle, setViewStyle] = useState('grid');
     const inputRef = useRef(null);
 
     // Funciones locales para Alta Rápida
@@ -236,29 +238,35 @@ const ShootingPanel = ({
     return (
         <div className="flex flex-col h-full bg-main overflow-hidden transition-colors duration-500">
             {/* TOOLBAR SUPERIOR */}
-            <div className="bg-card border-b border-primary/5 p-4 flex flex-col gap-4 shrink-0 transition-colors text-primary">
-                <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-4 flex-1 text-primary">
-                        <div className="flex bg-primary/5 p-1 rounded-[22px] w-full max-w-md border border-primary/5 shadow-inner">
-                            <button onClick={() => { setShootMode('students'); setShootSearch(''); }} className={`flex-1 lg:px-6 py-3 rounded-[18px] text-[10px] md:text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${shootMode === 'students' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'text-secondary hover:text-primary opacity-60'} min-h-[44px]`}>
-                                <Users size={16} /> Alumnos
+            <div className="bg-card border-b border-primary/5 p-3 md:p-4 flex flex-col gap-3 md:gap-4 shrink-0 transition-colors text-primary relative z-50">
+                <div className="flex items-center justify-between gap-3 md:gap-4">
+                    <div className="flex items-center gap-3 md:gap-4 flex-1 text-primary">
+                        {/* Selector Alumnos / Docentes */}
+                        <div className="flex p-1 rounded-[12px] bg-primary/[0.03] border border-primary/10 shrink-0 w-full max-w-[200px] md:max-w-[240px]">
+                            <button onClick={() => { setShootMode('students'); setShootSearch(''); }} className={`flex-1 px-2 py-2 rounded-[8px] text-[10px] md:text-[11px] font-bold tracking-wide transition-all flex items-center justify-center gap-1.5 ${shootMode === 'students' ? 'bg-white text-primary shadow-sm' : 'text-primary/50 hover:text-primary hover:bg-white/50'}`}>
+                                <Users size={14} /> Alumnos
                             </button>
-                            <button onClick={() => { setShootMode('staff'); setShootSearch(''); }} className={`px-6 py-2.5 rounded-[20px] text-[10px] md:text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${shootMode === 'staff' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'text-secondary hover:text-primary opacity-60'}`}>
-                                <UserCheck size={16} /> Profesores
+                            <button onClick={() => { setShootMode('staff'); setShootSearch(''); }} className={`flex-1 px-2 py-2 rounded-[8px] text-[10px] md:text-[11px] font-bold tracking-wide transition-all flex items-center justify-center gap-1.5 ${shootMode === 'staff' ? 'bg-white text-primary shadow-sm' : 'text-primary/50 hover:text-primary hover:bg-white/50'}`}>
+                                <UserCheck size={14} /> Docentes
                             </button>
                         </div>
 
-                        <select value={adminSchool} onChange={e => { setAdminSchool(e.target.value); setShootFilters({ course: '', group: '' }); }} className="hidden md:block bg-primary/5 text-primary text-xs font-black uppercase tracking-wider rounded-[20px] px-6 py-3 outline-none appearance-none cursor-pointer hover:bg-primary/10 transition-colors border border-primary/10 flex-1 min-w-[300px] xl:max-w-[700px] truncate">
-                            <option value="">TODOS LOS CENTROS</option>
-                            {sortedSchools.map(s => (
-                                <option key={s.id} value={s.id}>{s.name.toUpperCase()}</option>
-                            ))}
-                        </select>
+                        {/* Selector Centro */}
+                        <div className="flex-1 hidden md:block relative max-w-2xl mx-auto">
+                            <select value={adminSchool} onChange={e => { setAdminSchool(e.target.value); setShootFilters({ course: '', group: '' }); }} className="w-full bg-primary/[0.02] border border-primary/10 text-primary text-[11px] font-bold uppercase tracking-wide rounded-[12px] px-6 py-3 h-[42px] outline-none appearance-none cursor-pointer hover:bg-primary/[0.04] transition-colors shadow-sm text-center truncate pr-10">
+                                <option value="">TODOS LOS CENTROS</option>
+                                {sortedSchools.map(s => (
+                                    <option key={s.id} value={s.id}>{s.name.toUpperCase()}</option>
+                                ))}
+                            </select>
+                            <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-primary/40 pointer-events-none" />
+                        </div>
                     </div>
 
-                    <div className="flex items-center gap-3 shrink-0">
-                        <button onClick={downloadMasterBackup} className="px-6 py-3 bg-card border border-primary/10 text-amber-500 hover:text-amber-400 hover:bg-amber-500/10 text-[10px] md:text-xs font-black uppercase tracking-widest rounded-[20px] transition-all active:scale-95 shadow-sm flex items-center justify-center gap-2 shrink-0">
-                            <Database size={16} /> Backup SOS
+                    {/* Acciones Derecha */}
+                    <div className="flex items-center gap-2 md:gap-3 shrink-0">
+                        <button onClick={downloadMasterBackup} className="px-4 py-2 h-[38px] md:h-[42px] bg-amber-500/10 border border-amber-500/20 text-amber-600 hover:bg-amber-500/20 text-[10px] md:text-[11px] font-bold uppercase tracking-wide rounded-[10px] transition-all flex items-center justify-center gap-2 shrink-0 shadow-sm">
+                            <Database size={14} /> <span className="hidden sm:inline">Backup SOS</span>
                         </button>
                     </div>
                 </div>
@@ -269,8 +277,8 @@ const ShootingPanel = ({
                 {shootMode === 'students' && (
                     <div className="flex flex-col h-full overflow-hidden">
                         <div className="px-4 pt-4 shrink-0">
-                            <div className="bg-card border-4 border-blue-500 rounded-3xl shadow-sm overflow-hidden">
-                                <button onClick={() => setIsFiltersExpanded(!isFiltersExpanded)} className="w-full px-5 py-4 flex items-center justify-between hover:bg-primary/[0.02] transition-colors text-primary">
+                            <div className="bg-card border border-primary/10 border-l-4 border-l-blue-500 rounded-[16px] shadow-sm overflow-hidden">
+                                <button onClick={() => setIsFiltersExpanded(!isFiltersExpanded)} className="w-full px-5 py-4 flex items-center justify-between hover:bg-primary/[0.02] transition-colors text-primary border-b border-primary/5">
                                     <div className="flex items-center gap-4">
                                         <div className="w-10 h-10 bg-blue-500/10 rounded-xl flex items-center justify-center text-blue-500">
                                             <Search size={20} />
@@ -288,38 +296,44 @@ const ShootingPanel = ({
                                 {isFiltersExpanded && (
                                     <div className="px-5 pb-5 border-t border-primary/5 animate-in slide-in-from-top-2 duration-300">
                                         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-end pt-5">
-                                            <div className="md:col-span-5 space-y-3">
-                                                <p className="text-[10px] font-black uppercase tracking-widest text-primary/30 pl-1">Buscador</p>
-                                                <div className="flex items-center gap-3 bg-primary/[0.07] rounded-2xl px-4 py-4 focus-within:bg-primary/10 transition-all group/search">
-                                                    <Search size={16} className="text-primary/30 group-focus-within/search:text-blue-500 transition-colors" />
-                                                    <input type="text" lang="es" value={shootSearch} onChange={e => setShootSearch(e.target.value)} placeholder="Nombre, padre o teléfono..." className="flex-1 bg-transparent text-sm font-bold text-primary placeholder:text-primary/20 outline-none" />
+                                            <div className="md:col-span-5 space-y-2">
+                                                <p className="text-[10px] font-bold uppercase tracking-widest text-primary/40 pl-1">Buscador</p>
+                                                <div className="flex items-center bg-transparent border border-primary/10 rounded-xl overflow-hidden focus-within:border-blue-500/50 focus-within:ring-1 focus-within:ring-blue-500/50 transition-all group/field">
+                                                    <div className="px-4 py-3 border-r border-primary/10 text-primary/30 group-focus-within/field:text-blue-500 transition-colors">
+                                                        <Search size={18} />
+                                                    </div>
+                                                    <input type="text" lang="es" value={shootSearch} onChange={e => setShootSearch(e.target.value)} placeholder="Nombre, padre o teléfono..." className="flex-1 bg-transparent px-4 py-3 text-[13px] text-primary placeholder:text-primary/20 outline-none" />
                                                 </div>
                                             </div>
 
-                                            <div className="md:col-span-5 space-y-3">
-                                                <p className="text-[10px] font-black uppercase tracking-widest text-primary/30 pl-1">Curso</p>
-                                                <div className="flex items-center gap-3 bg-primary/[0.07] rounded-2xl px-4 py-4 focus-within:bg-primary/10 transition-all group/select relative">
-                                                    <Users size={16} className="text-primary/30 group-focus-within/select:text-blue-500 transition-colors" />
-                                                    <select value={shootFilters.course} onChange={e => setShootFilters(p => ({ ...p, course: e.target.value, group: '' }))} className="flex-1 bg-transparent text-sm font-bold uppercase outline-none appearance-none cursor-pointer text-primary pr-8 min-w-[80px]">
+                                            <div className="md:col-span-5 space-y-2">
+                                                <p className="text-[10px] font-bold uppercase tracking-widest text-primary/40 pl-1">Curso</p>
+                                                <div className="flex items-center bg-transparent border border-primary/10 rounded-xl overflow-hidden focus-within:border-blue-500/50 focus-within:ring-1 focus-within:ring-blue-500/50 transition-all group/field relative">
+                                                    <div className="px-4 py-3 border-r border-primary/10 text-primary/30 group-focus-within/field:text-blue-500 transition-colors">
+                                                        <Users size={18} />
+                                                    </div>
+                                                    <select value={shootFilters.course} onChange={e => setShootFilters(p => ({ ...p, course: e.target.value, group: '' }))} className="flex-1 bg-transparent px-4 py-3 text-[13px] uppercase outline-none appearance-none cursor-pointer text-primary pr-10 min-w-[80px]">
                                                         <option value=""></option>
                                                         {activeCourses.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
                                                     </select>
-                                                    <div className="absolute right-4 pointer-events-none text-primary/20">
-                                                        <ChevronDown size={14} />
+                                                    <div className="absolute right-4 pointer-events-none text-primary/30 group-focus-within/field:text-blue-500 transition-colors">
+                                                        <ChevronDown size={16} />
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            <div className="md:col-span-2 space-y-3">
-                                                <p className="text-[10px] font-black uppercase tracking-widest text-primary/30 pl-1">Grupo</p>
-                                                <div className="flex items-center gap-2 bg-primary/[0.07] rounded-2xl px-3 py-4 focus-within:bg-primary/10 transition-all group/select relative">
-                                                    <Hash size={16} className="text-primary/30 group-focus-within/select:text-blue-500 transition-colors" />
-                                                    <select value={shootFilters.group} onChange={e => setShootFilters(p => ({ ...p, group: e.target.value }))} className="flex-1 bg-transparent text-sm font-bold uppercase outline-none appearance-none cursor-pointer text-primary pr-5 min-w-0 text-center">
+                                            <div className="md:col-span-2 space-y-2">
+                                                <p className="text-[10px] font-bold uppercase tracking-widest text-primary/40 pl-1">Grupo</p>
+                                                <div className="flex items-center bg-transparent border border-primary/10 rounded-xl overflow-hidden focus-within:border-blue-500/50 focus-within:ring-1 focus-within:ring-blue-500/50 transition-all group/field relative">
+                                                    <div className="px-3 py-3 border-r border-primary/10 text-primary/30 group-focus-within/field:text-blue-500 transition-colors">
+                                                        <Hash size={18} />
+                                                    </div>
+                                                    <select value={shootFilters.group} onChange={e => setShootFilters(p => ({ ...p, group: e.target.value }))} className="flex-1 bg-transparent px-3 py-3 text-[13px] uppercase outline-none appearance-none cursor-pointer text-primary pr-8 min-w-0 text-center">
                                                         <option value=""></option>
                                                         {availableGroups.map(g => <option key={g} value={g}>{g}</option>)}
                                                     </select>
-                                                    <div className="absolute right-2 pointer-events-none text-primary/20">
-                                                        <ChevronDown size={14} />
+                                                    <div className="absolute right-3 pointer-events-none text-primary/30 group-focus-within/field:text-blue-500 transition-colors">
+                                                        <ChevronDown size={16} />
                                                     </div>
                                                 </div>
                                             </div>
@@ -331,8 +345,8 @@ const ShootingPanel = ({
 
                         {adminSchool && (
                             <div className="px-4 pt-4 shrink-0 focus-within:z-50">
-                                <div className="bg-card border-4 border-emerald-500 rounded-3xl overflow-hidden text-primary">
-                                    <button onClick={() => setIsQuickAddExpanded(!isQuickAddExpanded)} className="w-full px-5 py-4 flex items-center justify-between hover:bg-primary/[0.02] transition-colors text-primary">
+                                <div className="bg-card border border-primary/10 border-l-4 border-l-emerald-500 rounded-[16px] overflow-hidden text-primary">
+                                    <button onClick={() => setIsQuickAddExpanded(!isQuickAddExpanded)} className="w-full px-5 py-4 flex items-center justify-between hover:bg-primary/[0.02] transition-colors text-primary border-b border-primary/5">
                                         <div className="flex items-center gap-3">
                                             <div className="p-2 bg-emerald-400/10 rounded-xl text-emerald-500"><Zap size={18} /></div>
                                             <div className="text-left">
@@ -356,10 +370,10 @@ const ShootingPanel = ({
                                     {isQuickAddExpanded && (
                                         <div className="px-5 pb-5 border-t border-primary/5 animate-in slide-in-from-top-2 duration-300">
                                             {/* FILA 1: PADRE Y WHATSAPP */}
-                                            <div className="grid grid-cols-1 md:grid-cols-12 gap-5 pt-5 pb-4 border-b border-dashed border-primary/5">
+                                            <div className="grid grid-cols-1 md:grid-cols-12 gap-5 pt-5 pb-5 border-b border-dashed border-primary/20">
                                                 <div className="md:col-span-4 space-y-2">
                                                     <div className="flex items-center justify-between pl-1">
-                                                        <p className="text-[10px] font-black uppercase tracking-widest text-primary/30">Padre / Madre</p>
+                                                        <p className="text-[10px] font-bold uppercase tracking-widest text-primary/40">Padre / Madre</p>
                                                         {(newStudentForm.parentName || newStudentForm.phone) && (
                                                             <button
                                                                 onClick={() => setNewStudentForm(p => ({ ...p, parentName: '', phone: '' }))}
@@ -369,93 +383,109 @@ const ShootingPanel = ({
                                                             </button>
                                                         )}
                                                     </div>
-                                                    <div className="flex items-center gap-3 bg-primary/[0.07] rounded-2xl px-4 h-[54px] focus-within:bg-primary/10 transition-all group/field">
-                                                        <UserCheck size={16} className="text-primary/30 group-focus-within/field:text-emerald-500 transition-colors" />
-                                                        <input type="text" lang="es" value={newStudentForm.parentName} onChange={e => setNewStudentForm(p => ({ ...p, parentName: e.target.value }))} placeholder="Nombre tutor..." className="flex-1 bg-transparent text-sm font-bold text-primary placeholder:text-primary/20 outline-none" />
+                                                    <div className="flex items-center bg-transparent border border-primary/10 rounded-xl overflow-hidden focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/50 transition-all group/field">
+                                                        <div className="px-4 py-3 border-r border-primary/10 text-primary/30 group-focus-within/field:text-emerald-500 transition-colors">
+                                                            <UserCheck size={18} />
+                                                        </div>
+                                                        <input type="text" lang="es" value={newStudentForm.parentName} onChange={e => setNewStudentForm(p => ({ ...p, parentName: e.target.value }))} placeholder="Nombre tutor..." className="flex-1 bg-transparent px-4 py-3 text-[13px] text-primary placeholder:text-primary/20 outline-none" />
                                                     </div>
                                                 </div>
 
                                                 <div className="md:col-span-4 space-y-2">
-                                                    <p className="text-[10px] font-black uppercase tracking-widest text-primary/30 pl-1">Teléfono Móvil</p>
-                                                    <div className="flex items-center gap-3 bg-primary/[0.07] rounded-2xl px-4 h-[54px] focus-within:bg-primary/10 transition-all group/field">
-                                                        <Phone size={16} className="text-primary/30 group-focus-within/field:text-emerald-500 transition-colors" />
-                                                        <input type="tel" value={newStudentForm.phone} onChange={e => setNewStudentForm(p => ({ ...p, phone: e.target.value }))} placeholder="9 dígitos..." className="flex-1 bg-transparent text-sm font-bold text-primary placeholder:text-primary/20 outline-none" />
+                                                    <p className="text-[10px] font-bold uppercase tracking-widest text-primary/40 pl-1">Teléfono Móvil</p>
+                                                    <div className="flex items-center bg-transparent border border-primary/10 rounded-xl overflow-hidden focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/50 transition-all group/field">
+                                                        <div className="px-4 py-3 border-r border-primary/10 text-primary/30 group-focus-within/field:text-emerald-500 transition-colors">
+                                                            <Phone size={18} />
+                                                        </div>
+                                                        <input type="tel" value={newStudentForm.phone} onChange={e => setNewStudentForm(p => ({ ...p, phone: e.target.value }))} placeholder="9 dígitos..." className="flex-1 bg-transparent px-4 py-3 text-[13px] text-primary placeholder:text-primary/20 outline-none" />
                                                     </div>
                                                 </div>
 
                                                 <div className="md:col-span-4 space-y-2 flex flex-col justify-end">
                                                     <p className="text-[10px] font-black uppercase tracking-widest text-transparent pointer-events-none select-none pl-1 opacity-0">Acción</p>
-                                                    <button onClick={handleWhatsAppQuickAdd} disabled={!newStudentForm.phone || (!newStudentForm.studentName && !newStudentForm.name)} className="w-full h-[54px] bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 text-emerald-600 rounded-2xl flex items-center justify-center gap-3 hover:from-emerald-500 hover:to-teal-500 hover:text-white transition-all active:scale-95 disabled:opacity-20 shadow-sm font-black uppercase tracking-widest italic group">
-                                                        <MessageSquare size={18} className="group-hover:animate-bounce" />
-                                                        <span className="text-xs">RECIBO</span>
+                                                    <button onClick={handleWhatsAppQuickAdd} disabled={!newStudentForm.phone || (!newStudentForm.studentName && !newStudentForm.name)} className="w-full h-[46px] bg-transparent border border-primary/10 text-primary/50 hover:bg-primary/[0.02] hover:text-primary hover:border-primary/20 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-20 shadow-sm font-bold text-[13px] tracking-wide group">
+                                                        <MessageSquare size={16} className="group-hover:animate-bounce" />
+                                                        <span>RECIBO</span>
                                                     </button>
                                                 </div>
                                             </div>
 
                                             {/* FILA 2: ALUMNO, CURSO, GRUPO */}
-                                            <div className="grid grid-cols-1 md:grid-cols-12 gap-5 pt-5 pb-4 border-b border-dashed border-primary/5 items-end">
+                                            <div className="grid grid-cols-1 md:grid-cols-12 gap-5 pt-5 pb-5 border-b border-dashed border-primary/20 items-end">
                                                 <div className="md:col-span-5 space-y-2">
-                                                    <p className="text-[10px] font-black uppercase tracking-widest text-primary/30 pl-1">Nombre Alumno/a</p>
-                                                    <div className="flex items-center gap-3 bg-primary/[0.07] rounded-2xl px-4 py-3.5 focus-within:bg-primary/10 transition-all group/field">
-                                                        <Users size={16} className="text-primary/30 group-focus-within/field:text-emerald-500 transition-colors" />
-                                                        <input type="text" lang="es" value={newStudentForm.studentName || newStudentForm.name} onChange={e => setNewStudentForm(p => ({ ...p, studentName: e.target.value, name: e.target.value }))} placeholder="Nombre completo..." className="flex-1 bg-transparent text-sm font-bold text-primary placeholder:text-primary/20 outline-none" />
+                                                    <p className="text-[10px] font-bold uppercase tracking-widest text-primary/40 pl-1">Nombre Alumno/a</p>
+                                                    <div className="flex items-center bg-transparent border border-primary/20 rounded-[14px] overflow-hidden focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/50 transition-all group/field">
+                                                        <div className="px-4 py-3.5 border-r border-primary/20 text-primary/30 group-focus-within/field:text-emerald-500 transition-colors">
+                                                            <Users size={18} />
+                                                        </div>
+                                                        <input type="text" lang="es" value={newStudentForm.studentName || newStudentForm.name} onChange={e => setNewStudentForm(p => ({ ...p, studentName: e.target.value, name: e.target.value }))} placeholder="Nombre completo..." className="flex-1 bg-transparent px-4 py-3.5 text-sm font-bold text-primary placeholder:text-primary/20 outline-none" />
                                                     </div>
                                                 </div>
 
                                                 <div className="md:col-span-4 space-y-2">
-                                                    <p className="text-[10px] font-black uppercase tracking-widest text-primary/30 pl-1">Curso</p>
-                                                    <div className="flex items-center gap-3 bg-primary/[0.07] rounded-2xl px-4 py-3.5 focus-within:bg-primary/10 transition-all group/select relative">
-                                                        <Users size={16} className="text-primary/30 group-focus-within/select:text-emerald-500 transition-colors" />
-                                                        <select value={newStudentForm.course} onChange={e => setNewStudentForm(p => ({ ...p, course: e.target.value, group: '' }))} className="flex-1 bg-transparent text-sm font-bold uppercase outline-none appearance-none cursor-pointer text-primary pr-8 min-w-[80px]">
+                                                    <p className="text-[10px] font-bold uppercase tracking-widest text-primary/40 pl-1">Curso</p>
+                                                    <div className="flex items-center bg-transparent border border-primary/20 rounded-[14px] overflow-hidden focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/50 transition-all group/select relative">
+                                                        <div className="px-4 py-3.5 border-r border-primary/20 text-primary/30 group-focus-within/select:text-emerald-500 transition-colors">
+                                                            <Users size={18} />
+                                                        </div>
+                                                        <select value={newStudentForm.course} onChange={e => setNewStudentForm(p => ({ ...p, course: e.target.value, group: '' }))} className="flex-1 bg-transparent px-4 py-3.5 text-sm font-bold uppercase outline-none appearance-none cursor-pointer text-primary pr-10 min-w-[80px]">
                                                             <option value="">Elegir Curso</option>
-                                                            {activeCourses.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                                                            {COURSE_GROUPS.flatMap(g => g.courses).map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
                                                         </select>
-                                                        <div className="absolute right-4 pointer-events-none text-primary/20">
-                                                            <ChevronDown size={14} />
+                                                        <div className="absolute right-4 pointer-events-none text-primary/30 group-focus-within/select:text-emerald-500 transition-colors">
+                                                            <ChevronDown size={16} />
                                                         </div>
                                                     </div>
                                                 </div>
 
                                                 <div className="md:col-span-3 space-y-2">
-                                                    <p className="text-[10px] font-black uppercase tracking-widest text-primary/30 pl-1">Grupo</p>
-                                                    <div className="flex items-center gap-2 bg-primary/[0.07] rounded-2xl px-4 py-3.5 focus-within:bg-primary/10 transition-all group/select relative">
-                                                        <Hash size={16} className="text-primary/30 group-focus-within/select:text-emerald-500 transition-colors" />
-                                                        <select value={newStudentForm.group} onChange={e => setNewStudentForm(p => ({ ...p, group: e.target.value }))} className="flex-1 bg-transparent text-sm font-bold uppercase outline-none appearance-none cursor-pointer text-primary pr-5 min-w-0 text-center">
+                                                    <p className="text-[10px] font-bold uppercase tracking-widest text-primary/40 pl-1">Grupo</p>
+                                                    <div className="flex items-center bg-transparent border border-primary/20 rounded-[14px] overflow-hidden focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/50 transition-all group/select relative">
+                                                        <div className="px-3 py-3.5 border-r border-primary/20 text-primary/30 group-focus-within/select:text-emerald-500 transition-colors">
+                                                            <Hash size={18} />
+                                                        </div>
+                                                        <select value={newStudentForm.group} onChange={e => setNewStudentForm(p => ({ ...p, group: e.target.value }))} className="flex-1 bg-transparent px-3 py-3.5 text-sm font-bold uppercase outline-none appearance-none cursor-pointer text-primary pr-8 min-w-0 text-center">
                                                             <option value="">-</option>
                                                             {formAvailableGroups.map(g => <option key={g} value={g}>{g}</option>)}
                                                         </select>
-                                                        <div className="absolute right-2 pointer-events-none text-primary/20">
-                                                            <ChevronDown size={14} />
+                                                        <div className="absolute right-3 pointer-events-none text-primary/30 group-focus-within/select:text-emerald-500 transition-colors">
+                                                            <ChevronDown size={16} />
                                                         </div>
                                                     </div>
                                                 </div>
                                             </div>
 
                                             {/* FILA 3: PACK Y OBSERVACIONES */}
-                                            <div className="grid grid-cols-1 md:grid-cols-12 gap-5 pt-5 pb-5 items-end">
+                                            <div className="grid grid-cols-1 md:grid-cols-12 gap-5 pt-5 pb-5 items-end border-b border-dashed border-primary/20">
                                                 <div className="md:col-span-4 space-y-2">
-                                                    <p className="text-[10px] font-black uppercase tracking-widest text-primary/30 pl-1">Pack Selección</p>
-                                                    <div className="flex items-center gap-3 bg-primary/[0.07] rounded-2xl px-4 py-3.5 focus-within:bg-primary/10 transition-all group/select relative">
-                                                        <Package size={16} className="text-primary/30 group-focus-within/select:text-emerald-500 transition-colors" />
-                                                        <select value={newStudentForm.packId || newStudentForm.pack} onChange={e => setNewStudentForm(p => ({ ...p, packId: e.target.value, pack: e.target.value }))} className="flex-1 bg-transparent text-sm font-bold uppercase outline-none appearance-none cursor-pointer text-primary pr-5 min-w-0">
+                                                    <p className="text-[10px] font-bold uppercase tracking-widest text-primary/40 pl-1">Pack Selección</p>
+                                                    <div className="flex items-center bg-transparent border border-primary/10 rounded-xl overflow-hidden focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/50 transition-all group/select relative">
+                                                        <div className="px-4 py-3 border-r border-primary/10 text-primary/30 group-focus-within/select:text-emerald-500 transition-colors">
+                                                            <Package size={18} />
+                                                        </div>
+                                                        <select value={newStudentForm.packId || newStudentForm.pack} onChange={e => setNewStudentForm(p => ({ ...p, packId: e.target.value, pack: e.target.value }))} className="flex-1 bg-transparent px-4 py-3 text-[13px] uppercase outline-none appearance-none cursor-pointer text-primary pr-10 min-w-0">
                                                             <option value="">Elegir Pack</option>
                                                             {PACKS.map(p => <option key={p.id} value={p.id}>{p.id.toUpperCase()}</option>)}
                                                         </select>
-                                                        <ChevronDown size={14} className="absolute right-4 pointer-events-none text-primary/20" />
+                                                        <div className="absolute right-4 pointer-events-none text-primary/30 group-focus-within/select:text-emerald-500 transition-colors">
+                                                            <ChevronDown size={16} />
+                                                        </div>
                                                     </div>
                                                 </div>
 
                                                 <div className="md:col-span-5 space-y-2">
-                                                    <p className="text-[10px] font-black uppercase tracking-widest text-primary/30 pl-1">Observaciones / Notas del pedido</p>
-                                                    <div className="flex items-start gap-3 bg-primary/[0.07] rounded-2xl px-4 py-3.5 focus-within:bg-primary/10 transition-all group/field">
-                                                        <FileText size={16} className="text-primary/30 group-focus-within/field:text-emerald-500 transition-colors mt-[2px]" />
-                                                        <textarea value={newStudentForm.notes} onChange={e => setNewStudentForm(p => ({ ...p, notes: e.target.value }))} placeholder="Detalles o suplementos..." rows={1} className="flex-1 bg-transparent text-sm font-bold text-primary placeholder:text-primary/20 outline-none resize-none custom-scrollbar py-0.5" />
+                                                    <p className="text-[10px] font-bold uppercase tracking-widest text-primary/40 pl-1">Observaciones / Notas del pedido</p>
+                                                    <div className="flex items-start bg-transparent border border-primary/10 rounded-xl overflow-hidden focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/50 transition-all group/field">
+                                                        <div className="px-4 py-3 border-r border-primary/10 text-primary/30 group-focus-within/field:text-emerald-500 transition-colors self-stretch flex items-center">
+                                                            <FileText size={18} />
+                                                        </div>
+                                                        <textarea value={newStudentForm.notes} onChange={e => setNewStudentForm(p => ({ ...p, notes: e.target.value }))} placeholder="Detalles o suplementos..." rows={1} className="flex-1 bg-transparent px-4 py-3 text-[13px] text-primary placeholder:text-primary/20 outline-none resize-none custom-scrollbar" />
                                                     </div>
                                                 </div>
 
                                                 <div className="md:col-span-3 flex items-end">
-                                                    <button onClick={handleSaveQuickAdd} disabled={(!newStudentForm.studentName && !newStudentForm.name) || (!newStudentForm.packId && !newStudentForm.pack) || !newStudentForm.course} className="w-full py-[15px] bg-emerald-500 hover:bg-emerald-600 disabled:bg-primary/10 text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-3 h-[52px]">
-                                                        <CheckCircle size={18} /> GUARDAR
+                                                    <button onClick={handleSaveQuickAdd} disabled={(!newStudentForm.studentName && !newStudentForm.name) || (!newStudentForm.packId && !newStudentForm.pack) || !newStudentForm.course} className="w-full h-[46px] bg-[#52b788] hover:bg-[#40a075] disabled:bg-primary/5 disabled:border disabled:border-primary/10 disabled:text-primary/20 text-white text-[14px] font-bold rounded-xl shadow-md shadow-emerald-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                                                        <CheckCircle size={18} /> Guardar Alumno
                                                     </button>
                                                 </div>
                                             </div>
@@ -465,21 +495,159 @@ const ShootingPanel = ({
                             </div>
                         )}
 
-                        <div className="flex-1 overflow-y-auto px-4 py-4 custom-scrollbar text-primary">
-                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3 content-start">
-                                {filteredOrders.map((order) => {
-                                    const isSelected = activeStudent?.id === order.id;
-                                    const hasPhoto = order.status === 'production' || order.photoFile;
-                                    return (
-                                        <button key={order.id} onClick={() => selectStudent(order)} className={`relative flex flex-col items-center bg-card p-3 rounded-2xl border-4 transition-all duration-300 active:scale-90 ${isSelected ? 'border-orange-500 shadow-xl shadow-orange-500/20 translate-y-[-4px]' : 'border-orange-600/40 hover:border-orange-600 shadow-sm'}`}>
-                                            <div className="w-14 h-14 rounded-full bg-primary/5 flex items-center justify-center mb-2 overflow-hidden ring-4 ring-blue-600 transition-all">
-                                                {hasPhoto ? <Camera size={24} className="text-emerald-400" /> : <Users size={24} className="text-secondary opacity-60" />}
+                        {/* Isla Contenedora de Alumnos */}
+                        <div className="flex-1 px-4 py-4 text-primary flex flex-col items-center overflow-hidden">
+                            <div className="w-full max-w-[1700px] bg-card rounded-[16px] border border-primary/10 border-l-4 border-l-orange-500 shadow-xl overflow-hidden flex flex-col h-full">
+                                <button onClick={() => setIsStudentListExpanded(!isStudentListExpanded)} className="w-full p-4 md:p-5 border-b border-primary/5 flex justify-between items-center shrink-0 hover:bg-primary/[0.02] transition-colors cursor-pointer text-left">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-orange-500/10 rounded-xl flex items-center justify-center text-orange-500 shrink-0">
+                                            <Users size={20} />
+                                        </div>
+                                        <div className="text-left">
+                                            <h2 className="text-sm font-black uppercase tracking-widest text-primary">Listado de Alumnos</h2>
+                                            <p className="text-[10px] text-primary/40 font-bold uppercase tracking-wider">{filteredOrders?.length || 0} alumnos encontrados</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        {isStudentListExpanded && filteredOrders.length > 0 && (
+                                            <div className="hidden md:flex items-center gap-2 mr-2" onClick={e => e.stopPropagation()}>
+                                                <button onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (selectedOrderIds.length === filteredOrders.length) setSelectedOrderIds([]);
+                                                    else setSelectedOrderIds(filteredOrders.map(o => o.id));
+                                                }} className="px-3 py-1.5 bg-primary/[0.03] border border-primary/10 rounded-[8px] text-[10px] font-bold tracking-wide flex items-center gap-2 hover:bg-primary/[0.06] transition-colors text-primary shadow-sm">
+                                                    <CheckSquare size={14} /> {selectedOrderIds.length > 0 && selectedOrderIds.length === filteredOrders.length ? 'Desmarcar Todos' : 'Seleccionar Todos'}
+                                                </button>
+                                                {selectedOrderIds.length > 0 && (
+                                                    <button onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        deleteOrder(selectedOrderIds);
+                                                        setSelectedOrderIds([]);
+                                                    }} className="px-3 py-1.5 bg-red-500/10 border border-red-500/20 rounded-[8px] text-[10px] font-bold text-red-500 tracking-wide flex items-center gap-2 hover:bg-red-500/20 transition-colors shadow-sm">
+                                                        <Trash2 size={14} /> Eliminar ({selectedOrderIds.length})
+                                                    </button>
+                                                )}
                                             </div>
-                                            <p className="text-[10px] font-black text-center text-primary leading-tight line-clamp-2 w-full uppercase">{order.studentName}</p>
-                                            <span className="text-[8px] font-bold text-secondary opacity-40 uppercase tracking-widest mt-1">{order.course}</span>
-                                        </button>
-                                    );
-                                })}
+                                        )}
+                                        <div className="hidden md:flex items-center gap-1 p-1 rounded-[10px] bg-primary/[0.02] border border-primary/10 shadow-sm" onClick={e => e.stopPropagation()}>
+                                            <button onClick={() => setViewStyle('grid')} className={`w-8 h-8 rounded-[6px] transition-all flex items-center justify-center ${viewStyle === 'grid' ? 'bg-white shadow-sm text-primary' : 'text-primary/40 hover:text-primary hover:bg-primary/5'}`} title="Cuadrícula">
+                                                <LayoutGrid size={16} />
+                                            </button>
+                                            <button onClick={() => setViewStyle('list')} className={`w-8 h-8 rounded-[6px] transition-all flex items-center justify-center ${viewStyle === 'list' ? 'bg-white shadow-sm text-primary' : 'text-primary/40 hover:text-primary hover:bg-primary/5'}`} title="Lista / Edición">
+                                                <List size={18} />
+                                            </button>
+                                        </div>
+                                        {isStudentListExpanded ? <ChevronUp size={20} className="text-primary/20" /> : <ChevronDown size={20} className="text-primary/20" />}
+                                    </div>
+                                </button>
+                                {isStudentListExpanded && (
+                                    <div className="flex flex-col flex-1 overflow-hidden animate-in slide-in-from-top-2 duration-300">
+                                        {viewStyle === 'grid' ? (
+                                    <div className="p-4 md:p-5 overflow-y-auto custom-scrollbar w-full" style={{ maxHeight: 'calc(4 * 148px)' }}>
+                                        {/* Grid forzado a 8 columnas */}
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-3 md:gap-4 content-start">
+                                            {filteredOrders.map((order) => {
+                                                const isSelected = activeStudent?.id === order.id;
+                                                const hasPhoto = order.status === 'production' || order.photoFile;
+                                                return (
+                                                    <button key={order.id} onClick={() => selectStudent(order)} className={`relative flex flex-col items-center p-4 rounded-[16px] border transition-all duration-300 active:scale-95 ${isSelected ? 'border-orange-500 bg-orange-50/50 shadow-md shadow-orange-500/10' : 'border-primary/10 bg-card hover:border-primary/30 hover:shadow-md'}`}>
+                                                        <div className={`w-12 h-12 rounded-full flex flex-col items-center justify-center mb-3 overflow-hidden transition-all ${isSelected ? 'bg-orange-100 text-orange-500' : 'bg-primary/5 text-primary/40'}`}>
+                                                            {hasPhoto ? <Camera size={20} className="text-emerald-500" /> : <Users size={20} className={isSelected ? 'text-orange-500' : 'text-primary/40'} />}
+                                                        </div>
+                                                        <p className="text-[11px] font-bold text-center text-primary leading-tight line-clamp-2 w-full">{order.studentName}</p>
+                                                        <span className="text-[9px] font-medium text-primary/50 mt-1">{order.course}</span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="p-0 overflow-y-auto custom-scrollbar w-full flex-1">
+                                        <table className="w-full text-left border-collapse">
+                                            <thead className="bg-primary/5 sticky top-0 z-10 backdrop-blur-md">
+                                                <tr>
+                                                    <th className="py-3 px-5 text-[10px] font-black uppercase tracking-widest text-primary/40 w-12 text-center">
+                                                        <button onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            if (selectedOrderIds.length === filteredOrders.length) setSelectedOrderIds([]);
+                                                            else setSelectedOrderIds(filteredOrders.map(o => o.id));
+                                                        }} className="text-primary/40 hover:text-orange-500 transition-colors">
+                                                            {selectedOrderIds.length > 0 && selectedOrderIds.length === filteredOrders.length ? <CheckSquare size={16} className="text-orange-500" /> : <Square size={16} />}
+                                                        </button>
+                                                    </th>
+                                                    <th className="py-3 px-5 text-[10px] font-black uppercase tracking-widest text-primary/40">Alumno</th>
+                                                    <th className="py-3 px-5 text-[10px] font-black uppercase tracking-widest text-primary/40">Curso / Grupo</th>
+                                                    <th className="py-3 px-5 text-[10px] font-black uppercase tracking-widest text-primary/40">Pack Seleccionado</th>
+                                                    <th className="py-3 px-5 text-[10px] font-black uppercase tracking-widest text-primary/40 text-center">Estado</th>
+                                                    <th className="py-3 px-5 text-[10px] font-black uppercase tracking-widest text-primary/40 text-right">Acciones</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {filteredOrders.map(order => (
+                                                    <tr key={order.id} className={`border-b border-primary/5 hover:bg-primary/[0.02] transition-colors group ${selectedOrderIds.includes(order.id) ? 'bg-orange-50/50' : ''}`}>
+                                                        <td className="py-4 px-5 text-center align-middle">
+                                                            <button onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setSelectedOrderIds(prev => prev.includes(order.id) ? prev.filter(id => id !== order.id) : [...prev, order.id]);
+                                                            }} className="text-primary/20 hover:text-orange-500 transition-colors">
+                                                                {selectedOrderIds.includes(order.id) ? <CheckSquare size={16} className="text-orange-500" /> : <Square size={16} />}
+                                                            </button>
+                                                        </td>
+                                                        <td className="py-4 px-5">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${order.status === 'production' || order.photoFile ? 'bg-emerald-50 text-emerald-500' : 'bg-primary/5 text-primary/30'}`}>
+                                                                    {order.status === 'production' || order.photoFile ? <Camera size={16} /> : <Users size={16} />}
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-xs font-black text-primary uppercase leading-tight">{order.studentName}</p>
+                                                                    <p className="text-[9px] font-bold text-primary/40 uppercase mt-1">{order.parentName || 'Sin tutor reg.'} {order.phone && `· ${order.phone}`}</p>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-4 px-5 align-middle">
+                                                            <span className="text-[10px] font-bold text-secondary uppercase bg-primary/5 px-2.5 py-1.5 rounded-lg border border-primary/5 inline-flex items-center">
+                                                                {order.course} {order.group && <span className="ml-1 text-primary/40 block"> | {order.group}</span>}
+                                                            </span>
+                                                        </td>
+                                                        <td className="py-4 px-5 align-middle">
+                                                            <span className="text-[11px] font-black text-emerald-600 uppercase italic">{getPackName(order.pack)}</span>
+                                                        </td>
+                                                        <td className="py-4 px-5 text-center align-middle">
+                                                            <div className="flex items-center justify-center gap-2">
+                                                                {order.paymentMethod ? (
+                                                                    <div className="w-7 h-7 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center border border-emerald-500/20" title={`Pagado: ${order.paymentMethod}`}>
+                                                                        <CheckCircle2 size={14} />
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="w-7 h-7 rounded-full bg-rose-500/10 text-rose-500 flex items-center justify-center border border-rose-500/20" title="Pendiente de pago">
+                                                                        <AlertCircle size={14} />
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-4 px-5 text-right align-middle">
+                                                            <div className="flex items-center justify-end gap-2">
+                                                                <button onClick={() => selectStudent(order)} className="p-2.5 bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white rounded-xl transition-colors border border-blue-100 tooltip-trigger shadow-sm" title="Modo Disparo">
+                                                                    <Camera size={16} />
+                                                                </button>
+                                                                <button onClick={(e) => { e.stopPropagation(); setOrderToEdit(order); }} className="px-5 py-2.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-500 hover:text-white border border-indigo-100 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-2 shadow-sm">
+                                                                    Editar Ficha
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                        {filteredOrders.length === 0 && (
+                                            <div className="p-8 text-center text-primary/40">
+                                                <p className="text-xs font-black uppercase tracking-widest">No hay alumnos para mostrar</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -601,6 +769,47 @@ const ShootingPanel = ({
                                         <div className="p-6 bg-white/10 rounded-3xl backdrop-blur-md border border-white/10 text-white">
                                             <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-1 opacity-60">Pack Seleccionado</p>
                                             <p className="text-xl font-black italic text-emerald-100 mb-0">{getPackName(activeStudent.pack)}</p>
+                                        </div>
+
+                                        <div className="p-5 bg-white/5 rounded-3xl backdrop-blur-md border border-white/10 text-white mt-4">
+                                            <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-3 opacity-60">Estado Actual</p>
+                                            <div className="flex flex-col gap-3">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${activeStudent.paymentMethod ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`}>
+                                                        {activeStudent.paymentMethod ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[11px] font-black uppercase tracking-wider leading-none">
+                                                            {activeStudent.paymentMethod ? 'Pagado' : 'Pendiente de Pago'}
+                                                        </p>
+                                                        {activeStudent.paymentMethod && (
+                                                            <p className="text-[9px] font-bold text-emerald-200/60 uppercase mt-0.5 tracking-widest">{activeStudent.paymentMethod}</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${activeStudent.status === 'production' || activeStudent.photoFile ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}`}>
+                                                        <Camera size={16} />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[11px] font-black uppercase tracking-wider leading-none">
+                                                            {activeStudent.status === 'production' || activeStudent.photoFile ? 'Foto Realizada' : 'Foto Pendiente'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                {(activeStudent.complements?.length > 0 || activeStudent.extras?.length > 0) && (
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded-full bg-blue-500/20 text-blue-300 flex items-center justify-center shrink-0">
+                                                            <Sparkles size={16} />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[11px] font-black uppercase tracking-wider leading-none text-blue-200">Adicionales</p>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

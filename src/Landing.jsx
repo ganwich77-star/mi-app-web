@@ -216,7 +216,7 @@ const Landing = ({ onAdminAccess, onOpenAvisoLegal, onOpenPrivacidad, onOpenCond
 
                 <div className="flex items-center">
                     <img
-                        src={`${import.meta.env.BASE_URL || '/'}logo.png`}
+                        src={`${import.meta.env.BASE_URL || '/'}logo_white.png`}
                         alt="Pujalte Studio"
                         className="h-12 md:h-16 w-auto cursor-pointer active:scale-95 transition-transform"
                         onClick={onAdminAccess}

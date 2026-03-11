@@ -14,13 +14,20 @@ const OptimizedImage = ({
     loading = "lazy",
     objectFit = "cover"
 }) => {
-    // Si la imagen ya es webp, simplemente la mostramos
-    const isWebP = src.toLowerCase().endsWith('.webp');
-    const webpSrc = isWebP ? src : src.replace(/\.(jpg|jpeg|png)$/i, '.webp');
+    // Si la imagen es externa (contiene http) o ya es webp, no intentamos forzar webp local
+    // También evitamos URLs con parámetros de consulta (?q=...) que rompen la sustitución simple
+    const isExternal = src.startsWith('http');
+    const isWebP = src.toLowerCase().includes('.webp');
+    const hasSearchParams = src.includes('?');
+    
+    // Solo intentamos generar ruta webp si es local y no tiene parámetros especiales
+    const webpSrc = (!isExternal && !isWebP && !hasSearchParams) 
+        ? src.replace(/\.(jpg|jpeg|png)$/i, '.webp')
+        : src;
 
     return (
         <picture className={className}>
-            {!isWebP && <source srcSet={webpSrc} type="image/webp" />}
+            {(!isExternal && !isWebP && !hasSearchParams) && <source srcSet={webpSrc} type="image/webp" />}
             <img
                 src={src}
                 alt={alt}

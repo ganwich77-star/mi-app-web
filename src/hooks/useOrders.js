@@ -88,8 +88,9 @@ export function useOrders(photographerId, schoolId) {
         saveToFirebase(updated);
     };
 
-    const deleteOrder = (id) => {
-        const updated = orders.filter(o => o.id !== id);
+    const deleteOrder = (ids) => {
+        const idsToDelete = Array.isArray(ids) ? ids : [ids];
+        const updated = orders.filter(o => !idsToDelete.includes(o.id));
         setOrders(updated);
         saveToFirebase(updated);
     };

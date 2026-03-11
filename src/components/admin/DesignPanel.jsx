@@ -5,8 +5,102 @@ import {
     Box, Download, History, Search, Check, X, Maximize2, Minimize2,
     ChevronLeft, ChevronRight, Layers, Type, Trash2, Edit, ZoomIn, ZoomOut, Eye, Settings2, UserCheck,
     Type as TypeIcon, Ruler, Users, Grid, Square, List, AlignCenterVertical, MousePointer2,
-    MoreVertical, Save, Trash, Minus, Plus
+    MoreVertical, Save, Trash, Minus, Plus, Shapes
 } from 'lucide-react';
+
+// ─── FORMAS DE PLACEHOLDER ─────────────────────────────────────────────────
+const PHOTO_SHAPES = [
+    {
+        id: 'oval',
+        label: 'Óvalo Clásico',
+        preview: (w, h) => `<ellipse cx="${w/2}" cy="${h/2}" rx="${w*0.46}" ry="${h*0.48}" />`,
+        getStyle: () => ({ borderRadius: '50%' }),
+    },
+    {
+        id: 'circle',
+        label: 'Círculo',
+        preview: (w, h) => `<ellipse cx="${w/2}" cy="${h/2}" rx="${Math.min(w,h)*0.46}" ry="${Math.min(w,h)*0.46}" />`,
+        getStyle: (w, h) => {
+            const size = Math.min(w, h);
+            return { borderRadius: '50%', width: size + 'px', height: size + 'px', aspectRatio: '1/1', objectFit: 'cover' };
+        },
+    },
+    {
+        id: 'rect34',
+        label: '3:4 Recto',
+        preview: (w, h) => `<rect x="${w*0.08}" y="${h*0.04}" width="${w*0.84}" height="${h*0.92}" rx="2" />`,
+        getStyle: () => ({ borderRadius: '2px' }),
+    },
+    {
+        id: 'rect34r',
+        label: '3:4 Redondeado',
+        preview: (w, h) => `<rect x="${w*0.08}" y="${h*0.04}" width="${w*0.84}" height="${h*0.92}" rx="${w*0.12}" />`,
+        getStyle: (w, h) => ({ borderRadius: `${w * 0.12}px` }),
+    },
+    {
+        id: 'polaroid',
+        label: 'Polaroid',
+        preview: (w, h) => `<rect x="${w*0.06}" y="${h*0.04}" width="${w*0.88}" height="${h*0.72}" rx="3" /><rect x="${w*0.06}" y="${h*0.79}" width="${w*0.88}" height="${h*0.17}" rx="3" fill="#e2e8f0" />`,
+        getStyle: () => ({ borderRadius: '4px' }),
+        extraStyle: (w, h) => ({
+            boxShadow: `0 0 0 ${Math.round(h*0.08)}px #fff, 0 0 0 ${Math.round(h*0.085)}px #e2e8f0`,
+            paddingBottom: `${Math.round(h * 0.18)}px`,
+            backgroundColor: '#fff',
+        }),
+    },
+    {
+        id: 'shield',
+        label: 'Escudo Heráldico',
+        preview: (w, h) => `<path d="M${w*0.1},${h*0.04} L${w*0.9},${h*0.04} L${w*0.9},${h*0.65} Q${w*0.9},${h*0.85} ${w*0.5},${h*0.96} Q${w*0.1},${h*0.85} ${w*0.1},${h*0.65} Z" />`,
+        getStyle: (w, h) => ({
+            clipPath: `path('M${w*0.1},${h*0.04} L${w*0.9},${h*0.04} L${w*0.9},${h*0.65} Q${w*0.9},${h*0.85} ${w*0.5},${h*0.96} Q${w*0.1},${h*0.85} ${w*0.1},${h*0.65} Z')`,
+        }),
+    },
+    {
+        id: 'arch',
+        label: 'Arco Medio Punto',
+        preview: (w, h) => `<path d="M${w*0.1},${h*0.96} L${w*0.1},${h*0.48} A${w*0.4},${h*0.48} 0 0,1 ${w*0.9},${h*0.48} L${w*0.9},${h*0.96} Z" />`,
+        getStyle: (w, h) => ({
+            clipPath: `path('M${w*0.1},${h*0.96} L${w*0.1},${h*0.48} A${w*0.4},${h*0.48} 0 0,1 ${w*0.9},${h*0.48} L${w*0.9},${h*0.96} Z')`,
+        }),
+    },
+];
+
+// Devuelve el style a aplicar al div placeholder según la forma
+const getShapeStyle = (shapeId, w, h) => {
+    const s = PHOTO_SHAPES.find(x => x.id === shapeId) || PHOTO_SHAPES[2]; // default rect34
+    const base = s.getStyle(w, h);
+    const extra = s.extraStyle ? s.extraStyle(w, h) : {};
+    return { ...base, ...extra };
+};
+
+// Icono SVG miniatura para cada forma
+const ShapePill = ({ shape, active, onClick, isDark }) => {
+    const w = 48, h = 64; // Proporción base 3:4 para la miniatura
+    return (
+        <button
+            onClick={onClick}
+            title={shape.label}
+            className={`flex flex-col items-center gap-2 p-2.5 rounded-2xl transition-all active:scale-95 border ${
+                active
+                    ? 'bg-accent text-white border-white/30 shadow-glow-indigo'
+                    : isDark
+                        ? 'bg-white/5 border-transparent text-white/50 hover:text-white hover:bg-white/10'
+                        : 'bg-slate-100 border-transparent text-slate-500 hover:bg-slate-200'
+            }`}
+        >
+            <div className="w-12 h-16 flex items-center justify-center">
+                <svg width="100%" height="100%" viewBox={`0 0 ${w} ${h}`}
+                    className={`transition-colors drop-shadow-sm ${ active ? 'fill-white/80 stroke-white' : isDark ? 'fill-white/10 stroke-white/50' : 'fill-slate-300 stroke-slate-500' }`}
+                    strokeWidth="1.5" fill="none" preserveAspectRatio="xMidYMid meet"
+                >
+                    <g dangerouslySetInnerHTML={{ __html: shape.preview(w, h) }} />
+                </svg>
+            </div>
+            <span className="text-[7.5px] font-black uppercase tracking-tight text-center leading-none max-w-[56px] opacity-80">{shape.label}</span>
+        </button>
+    );
+};
 import { getCourseBase, getGroup } from '../../utils/formatters.js';
 
 const DesignPanel = ({
@@ -67,6 +161,7 @@ const DesignPanel = ({
             { icon: Layers, label: 'ANCHO', key: 'canvasW', min: 2000, max: 10000, unit: 'PX' },
             { icon: Layers, label: 'ALTO', key: 'canvasH', min: 2000, max: 10000, unit: 'PX' },
             { icon: Grid, label: 'GUIAS', key: 'showGuides', isToggle: true },
+            { icon: Shapes, label: 'FORMA', key: 'photoShape', isShapeSelector: true },
         ]
     };
 
@@ -75,6 +170,8 @@ const DesignPanel = ({
     const [isDragging, setIsDragging] = useState(false);
     const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
     const [showGuides, setShowGuides] = useState(false);
+    const [showShapeSelector, setShowShapeSelector] = useState(false);
+    const currentShape = configOrla.photoShape || 'rect34';
 
     const handleWheel = (e) => {
         if (!isFullScreenDesign) return;
@@ -252,18 +349,18 @@ const DesignPanel = ({
                                 ref={canvasContainerRef}
                                 className="w-full h-full flex items-center justify-center overflow-hidden"
                             >
-                                <div className="relative bg-white shadow-[0_40px_100px_rgba(0,0,0,0.3)] rounded-sm overflow-hidden flex-shrink-0 transition-transform duration-300"
-                                    style={{
-                                        width: (configOrla.canvasW || 4961) / 10 + 'px',
-                                        height: (configOrla.canvasH || 3508) / 10 + 'px',
-                                        backgroundImage: `
-                                            linear-gradient(to right, rgba(0,0,0,0.05) 1px, transparent 1px),
-                                            linear-gradient(to bottom, rgba(0,0,0,0.05) 1px, transparent 1px)
-                                        `,
-                                        backgroundSize: '20px 20px',
-                                        transform: `scale(1.35)`, // Tamaño maximizado fijo para la previsualización
-                                        transformOrigin: 'center center',
-                                    }}>
+                                        <div className="relative bg-white shadow-[0_40px_100px_rgba(0,0,0,0.3)] rounded-sm overflow-hidden flex-shrink-0"
+                                            style={{
+                                                width: (configOrla.canvasW || 4961) / 10 + 'px',
+                                                height: (configOrla.canvasH || 3508) / 10 + 'px',
+                                                backgroundImage: `
+                                                    linear-gradient(to right, rgba(0,0,0,0.05) 1px, transparent 1px),
+                                                    linear-gradient(to bottom, rgba(0,0,0,0.05) 1px, transparent 1px)
+                                                `,
+                                                backgroundSize: '20px 20px',
+                                                transform: `scale(1.0)`, // Eliminamos el escalado arbitrario de 1.35
+                                                transformOrigin: 'center center',
+                                            }}>
 
                                     {/* Márgenes */}
                                     <div className="absolute border border-red-500/40 border-dashed pointer-events-none z-50"
@@ -291,14 +388,14 @@ const DesignPanel = ({
                                                         className="relative flex flex-col items-center text-center transition-transform"
                                                         style={{ transform: `scale(${baseScale})`, transformOrigin: 'top center' }}
                                                     >
-                                                        <div className="bg-slate-200 rounded-sm mb-1" style={{ width: (configOrla.aW || 350) / 10 + 'px', height: (configOrla.aH || 450) / 10 + 'px' }} />
+                                                        <div className="bg-slate-200 mb-1" style={{ width: (configOrla.aW || 350) / 10 + 'px', height: (configOrla.aH || 450) / 10 + 'px', ...getShapeStyle(currentShape, (configOrla.aW || 350) / 10, (configOrla.aH || 450) / 10) }} />
                                                         <div className="flex flex-col items-center">
-                                                            <div className="font-normal uppercase text-slate-900 leading-tight" style={{ fontSize: (baseSize * 0.55) + 'px' }}>
+                                                                 <div className="font-normal uppercase text-slate-900 leading-tight" style={{ fontSize: (baseSize * 0.55) + 'px' }}>
                                                                 <div className="whitespace-nowrap">{nombre}</div>
                                                                 <div className="whitespace-nowrap">{apellidos}</div>
                                                             </div>
                                                         </div>
-                                                        <p className="font-normal uppercase text-slate-500 leading-tight mt-0.5" style={{ fontSize: (baseSize * 0.4) + 'px' }}>{member.role || 'DOCENTE'}</p>
+                                                        <p className="font-normal uppercase text-slate-500 leading-tight mt-0.5" style={{ fontSize: (baseSize * 0.45) + 'px' }}>{member.role || 'DOCENTE'}</p>
                                                     </div>
                                                 );
                                             })
@@ -314,7 +411,7 @@ const DesignPanel = ({
                                             style={{
                                                 gridTemplateColumns: `repeat(${configOrla.aCols || 8}, auto)`,
                                                 columnGap: (configOrla.aGapX ?? 0) / 10 + 'px',
-                                                rowGap: (configOrla.aGapY || 650) / 10 + 'px'
+                                                rowGap: (configOrla.aGapY ?? 650) / 10 + 'px'
                                             }}>
                                             {filteredOrders.map((o) => {
                                                 const { nombre, apellidos } = splitName(o.studentName);
@@ -325,7 +422,7 @@ const DesignPanel = ({
                                                         className="flex flex-col items-center text-center transition-transform"
                                                         style={{ transform: `scale(${baseScale})`, transformOrigin: 'top center' }}
                                                     >
-                                                        <div className="bg-slate-100 rounded-sm mb-1" style={{ width: (configOrla.aW || 350) / 10 + 'px', height: (configOrla.aH || 450) / 10 + 'px' }} />
+                                                        <div className="bg-slate-100 mb-1" style={{ width: (configOrla.aW || 350) / 10 + 'px', height: (configOrla.aH || 450) / 10 + 'px', ...getShapeStyle(currentShape, (configOrla.aW || 350) / 10, (configOrla.aH || 450) / 10) }} />
                                                         <div className="flex flex-col items-center">
                                                             <div className="font-normal uppercase text-slate-900 leading-tight" style={{ fontSize: (baseSize * 0.45) + 'px' }}>
                                                                 <div className="whitespace-nowrap">{nombre}</div>
@@ -458,7 +555,7 @@ const DesignPanel = ({
                                             className="relative flex flex-col items-center text-center transition-transform group/member"
                                             style={{ transform: `scale(${baseScale})`, transformOrigin: 'top center' }}
                                         >
-                                            <div className="bg-slate-100 rounded-sm mb-1" style={{ width: (configOrla.aW || 350) / 10 + 'px', height: (configOrla.aH || 450) / 10 + 'px' }} />
+                                            <div className="bg-slate-100 mb-1" style={{ width: (configOrla.aW || 350) / 10 + 'px', height: (configOrla.aH || 450) / 10 + 'px', ...getShapeStyle(currentShape, (configOrla.aW || 350) / 10, (configOrla.aH || 450) / 10) }} />
                                             <div className="flex flex-col items-center">
                                                 <div
                                                     contentEditable={true}
@@ -508,7 +605,7 @@ const DesignPanel = ({
                                                 className="flex flex-col items-center text-center transition-transform group/alu"
                                                 style={{ transform: `scale(${baseScale})`, transformOrigin: 'top center' }}
                                             >
-                                                <div className="bg-slate-100 rounded-sm mb-1" style={{ width: (configOrla.aW || 350) / 10 + 'px', height: (configOrla.aH || 450) / 10 + 'px' }} />
+                                                <div className="bg-slate-100 mb-1" style={{ width: (configOrla.aW || 350) / 10 + 'px', height: (configOrla.aH || 450) / 10 + 'px', ...getShapeStyle(currentShape, (configOrla.aW || 350) / 10, (configOrla.aH || 450) / 10) }} />
                                                 <div className="flex flex-col items-center">
                                                     <div
                                                         contentEditable={true}
@@ -607,27 +704,55 @@ const DesignPanel = ({
                         {/* 2. Dock de Herramientas Principal */}
                         <div className="p-4 flex items-center justify-between gap-3">
                             <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide flex-1 py-1">
-                                {TOOLBAR_CONFIG[activeTab].map(tool => (
+                                {TOOLBAR_CONFIG[activeTab].map(tool =>
+                                    tool.isShapeSelector ? (
+                                        <button
+                                            key={tool.label}
+                                            onClick={() => { setShowShapeSelector(v => !v); setActiveDesignParam(null); }}
+                                            className={`flex flex-col items-center justify-center gap-1.5 p-3 min-w-[85px] rounded-2xl transition-all active:scale-95 border ${
+                                                showShapeSelector
+                                                    ? 'bg-accent text-white shadow-glow-indigo border-white/20'
+                                                    : isDark
+                                                        ? 'bg-white/5 border-transparent text-white/40 hover:text-white hover:bg-white/10'
+                                                        : 'bg-slate-100 border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-200'
+                                            }`}
+                                        >
+                                            <Shapes size={18} />
+                                            <span className="text-[9px] font-black uppercase tracking-tighter text-center leading-none">FORMA</span>
+                                        </button>
+                                    ) : (
                                     <button
                                         key={tool.label}
                                         onClick={() => {
                                             if (tool.isImmediate) {
                                                 updateConfig(tool.key, 0);
                                                 setActiveDesignParam(null);
+                                            } else if (tool.isToggle) {
+                                                setShowGuides(v => !v);
+                                                setShowShapeSelector(false);
+                                                setActiveDesignParam(null);
                                             } else {
+                                                setShowShapeSelector(false);
                                                 setActiveDesignParam(tool);
                                             }
                                         }}
-                                        className={`flex flex-col items-center justify-center gap-1.5 p-3 min-w-[85px] rounded-2xl transition-all active:scale-95 border ${activeDesignParam?.key === tool.key
-                                            ? 'bg-accent text-white shadow-glow-indigo border-white/20'
-                                            : `${isDark ? 'bg-white/5 border-transparent text-white/40 hover:text-white hover:bg-white/10' : 'bg-slate-100 border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-200'}`}`}
+                                        className={`flex flex-col items-center justify-center gap-1.5 p-3 min-w-[85px] rounded-2xl transition-all active:scale-95 border ${
+                                            (tool.isToggle && showGuides)
+                                                ? 'bg-red-500 text-white shadow-[0_10px_30px_rgba(239,68,68,0.3)] border-red-400'
+                                                : activeDesignParam?.key === tool.key
+                                                    ? 'bg-accent text-white shadow-glow-indigo border-white/20'
+                                                    : isDark
+                                                        ? 'bg-white/5 border-transparent text-white/40 hover:text-white hover:bg-white/10'
+                                                        : 'bg-slate-100 border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-200'
+                                        }`}
                                     >
                                         <tool.icon size={18} />
                                         <span className="text-[9px] font-black uppercase tracking-tighter text-center leading-none">
                                             {tool.label}
                                         </span>
                                     </button>
-                                ))}
+                                    )
+                                )}
                             </div>
 
                             <div className={`w-px h-10 mx-2 shrink-0 ${isDark ? 'bg-white/10' : 'bg-black/5'}`} />
@@ -649,6 +774,46 @@ const DesignPanel = ({
                                 </button>
                             </div>
                         </div>
+
+                        {showShapeSelector && (
+                            <div className={`px-6 py-4 border-t animate-slide-up relative ${
+                                isDark ? 'bg-slate-900/60 border-white/10' : 'bg-slate-50 border-black/5'
+                            }`}>
+                                <div className="flex items-end justify-between gap-6">
+                                    <div className="flex-1 overflow-hidden">
+                                        <div className={`mb-2.5 text-[9px] font-black uppercase tracking-[0.25em] ${
+                                            isDark ? 'text-white/40' : 'text-slate-400'
+                                        }`}>
+                                            Forma del Placeholder
+                                        </div>
+                                        <div className="flex gap-2 overflow-x-auto scrollbar-hide py-1">
+                                            {PHOTO_SHAPES.map(shape => (
+                                                <ShapePill
+                                                    key={shape.id}
+                                                    shape={shape}
+                                                    active={currentShape === shape.id}
+                                                    isDark={isDark}
+                                                    onClick={() => updateConfig('photoShape', shape.id)}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex-shrink-0 pb-1">
+                                        <button
+                                            onClick={() => setShowShapeSelector(false)}
+                                            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 shadow-sm hover:scale-[1.02] active:shadow-inner ${
+                                                isDark
+                                                    ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500 hover:text-white border border-emerald-500/30'
+                                                    : 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-emerald-500/20 shadow-lg'
+                                            }`}
+                                        >
+                                            <Check size={14} strokeWidth={3} /> Validar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {/* 3. Slider de Ajuste Adaptive */}
                         {activeDesignParam && (

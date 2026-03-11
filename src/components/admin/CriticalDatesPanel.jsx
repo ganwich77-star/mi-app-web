@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import {
-    Calendar, Plus, Trash2, Camera, CreditCard, GraduationCap, ChevronDown, Search, ChevronRight
+    Calendar, Plus, Trash2, Camera, CreditCard, GraduationCap, ChevronDown, Search, ChevronRight, LayoutGrid, List
 } from 'lucide-react';
 import { COURSE_GROUPS } from '../../constants.js';
 
@@ -12,6 +12,7 @@ const CriticalDatesPanel = ({
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [viewMode, setViewMode] = useState('grid');
     const [selectedIds, setSelectedIds] = useState([]);
     const [editingExceptionId, setEditingExceptionId] = useState(null);
 
@@ -127,6 +128,23 @@ const CriticalDatesPanel = ({
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="input-dark w-full pl-14 py-4.5 text-[11px] font-black tracking-widest uppercase rounded-2xl"
                             />
+                        </div>
+                        {/* Toggle de vistas */}
+                        <div className="flex bg-primary/5 rounded-xl p-1 gap-1 h-[52px]">
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setViewMode('grid'); }}
+                                className={`w-12 flex items-center justify-center rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white shadow-xl text-orange-600' : 'text-secondary/40 hover:text-orange-500'}`}
+                                title="Vista Cuadrícula"
+                            >
+                                <LayoutGrid size={18} />
+                            </button>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setViewMode('list'); }}
+                                className={`w-12 flex items-center justify-center rounded-lg transition-all ${viewMode === 'list' ? 'bg-white shadow-xl text-orange-600' : 'text-secondary/40 hover:text-orange-500'}`}
+                                title="Vista Lista"
+                            >
+                                <List size={18} />
+                            </button>
                         </div>
                     </div>
                     {selectedIds.length > 0 && (
@@ -286,22 +304,23 @@ const CriticalDatesPanel = ({
                         })()}
                     </div>
                 ) : (
-                    /* VISTA CUADRÍCULA DE EXCEPCIONES */
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-fade-in">
+                    /* VISTA CUADRÍCULA / LISTA DE EXCEPCIONES */
+                    <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-fade-in" : "flex flex-col gap-4 animate-fade-in"}>
                         {filtered.map((ex) => (
                             <div
                                 key={ex.id}
                                 onClick={() => setEditingExceptionId(ex.id)}
-                                className="group relative flex flex-col p-5 rounded-[2rem] border bg-primary/2 border-primary/5 hover:border-orange-500/40 hover:bg-orange-500/5 hover:-translate-y-1 transition-all duration-500 cursor-pointer shadow-lg hover:shadow-orange-500/5 overflow-hidden"
+                                className={`group relative flex transition-all duration-500 cursor-pointer shadow-lg hover:shadow-orange-500/5 overflow-hidden border bg-primary/2 border-primary/5 hover:border-orange-500/40 hover:bg-orange-500/5
+                                    ${viewMode === 'grid' ? 'flex-col p-5 rounded-[2rem] hover:-translate-y-1' : 'flex-row items-center p-3 px-6 rounded-2xl'}`}
                             >
-                                <div className="flex-1 min-w-0">
-                                    {/* Cabecera de la Tarjeta */}
-                                    <div className="flex gap-3 mb-5 items-center">
+                                <div className={`flex-1 min-w-0 flex ${viewMode === 'grid' ? 'flex-col' : 'flex-row items-center gap-6'}`}>
+                                    {/* Cabecera de la Tarjeta / Info Principal */}
+                                    <div className={`flex items-center ${viewMode === 'grid' ? 'gap-3 mb-5' : 'gap-4 min-w-[250px]'}`}>
                                         {/* Selector de Check */}
                                         <div
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                toggleSelect(ex.id);
+                                                toggleSelect(ex.id, e);
                                             }}
                                             className={`w-5 h-5 rounded-full border-2 shrink-0 cursor-pointer transition-all flex items-center justify-center ${selectedIds.includes(ex.id) ? 'bg-indigo-600 border-indigo-600' : 'border-primary/20 hover:border-indigo-500'}`}
                                         >
@@ -309,55 +328,55 @@ const CriticalDatesPanel = ({
                                         </div>
 
                                         <div className="min-w-0">
-                                            <h5 className="text-[11px] font-black text-primary uppercase tracking-wider truncate mb-0.5">
+                                            <h5 className={`font-black text-primary uppercase tracking-wider truncate mb-0.5 ${viewMode === 'grid' ? 'text-[11px]' : 'text-[12px]'}`}>
                                                 {schools.find(s => s.id === (ex.schoolId || ''))?.name || 'Todos los centros'}
                                             </h5>
-                                            <p className="text-[9px] font-bold text-secondary uppercase tracking-widest opacity-60 truncate">
+                                            <p className={`font-bold text-secondary uppercase tracking-widest opacity-60 truncate ${viewMode === 'grid' ? 'text-[9px]' : 'text-[10px]'}`}>
                                                 {ex.courseName || 'Todos los cursos'}{ex.groupName ? ` • ${ex.groupName}` : ''}
                                             </p>
                                         </div>
                                     </div>
 
-                                    {/* Fechas Resumidas: Compactas y Centradas */}
-                                    <div className="flex flex-col gap-2 items-center w-full max-w-[160px] mx-auto">
-                                        <div className="w-full flex items-center justify-center gap-3 px-4 py-2 bg-indigo-500/10 rounded-xl border border-indigo-500/20 group-hover:border-indigo-500/40 transition-colors">
-                                            <Camera size={14} className="text-indigo-400" />
-                                            <span className="text-[11px] font-black text-indigo-300 tracking-[0.1em] uppercase">
+                                    {/* Fechas Resumidas */}
+                                    <div className={`flex gap-2 items-center ${viewMode === 'grid' ? 'flex-col w-full max-w-[160px] mx-auto' : 'flex-row flex-1'}`}>
+                                        <div className={`flex items-center justify-center gap-2 px-3 py-1.5 bg-indigo-500/10 rounded-xl border border-indigo-500/20 group-hover:border-indigo-500/40 transition-colors ${viewMode === 'grid' ? 'w-full' : 'min-w-[80px]'}`}>
+                                            <Camera size={12} className="text-indigo-400" />
+                                            <span className="text-[10px] font-black text-indigo-300 tracking-[0.1em] uppercase">
                                                 {ex.shootingDate ? new Date(ex.shootingDate).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }) : '--/--'}
                                             </span>
                                         </div>
-                                        <div className="w-full flex items-center justify-center gap-3 px-4 py-2 bg-orange-500/10 rounded-xl border border-orange-500/20 group-hover:border-orange-500/40 transition-colors">
-                                            <CreditCard size={14} className="text-orange-400" />
-                                            <span className="text-[11px] font-black text-orange-300 tracking-[0.1em] uppercase">
+                                        <div className={`flex items-center justify-center gap-2 px-3 py-1.5 bg-orange-500/10 rounded-xl border border-orange-500/20 group-hover:border-orange-500/40 transition-colors ${viewMode === 'grid' ? 'w-full' : 'min-w-[80px]'}`}>
+                                            <CreditCard size={12} className="text-orange-400" />
+                                            <span className="text-[10px] font-black text-orange-300 tracking-[0.1em] uppercase">
                                                 {ex.appDeadline ? new Date(ex.appDeadline).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }) : '--/--'}
                                             </span>
                                         </div>
-                                        <div className="w-full flex items-center justify-center gap-3 px-4 py-2 bg-emerald-500/10 rounded-xl border border-emerald-500/20 group-hover:border-emerald-500/40 transition-colors">
-                                            <GraduationCap size={14} className="text-emerald-400" />
-                                            <span className="text-[11px] font-black text-emerald-300 tracking-[0.1em] uppercase">
+                                        <div className={`flex items-center justify-center gap-2 px-3 py-1.5 bg-emerald-500/10 rounded-xl border border-emerald-500/20 group-hover:border-emerald-500/40 transition-colors ${viewMode === 'grid' ? 'w-full' : 'min-w-[80px]'}`}>
+                                            <GraduationCap size={12} className="text-emerald-400" />
+                                            <span className="text-[10px] font-black text-emerald-300 tracking-[0.1em] uppercase">
                                                 {ex.graduationDate ? new Date(ex.graduationDate).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }) : '--/--'}
                                             </span>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Botón EDITAR compacto */}
-                                <div className="mt-4 flex items-center justify-between pt-3 border-t border-primary/5 relative z-10">
-                                    <div className="opacity-0 group-hover:opacity-100 transition-all translate-x-1 group-hover:translate-x-0">
+                                {/* Botón EDITAR compacto / Acciones */}
+                                <div className={`${viewMode === 'grid' ? 'mt-4 pt-3 border-t border-primary/5' : 'ml-4'} flex items-center justify-between relative z-10 shrink-0`}>
+                                    <div className={`transition-all ${viewMode === 'grid' ? 'opacity-0 group-hover:opacity-100 translate-x-1 group-hover:translate-x-0' : 'mr-4'}`}>
                                         <span className="text-[8px] font-black text-orange-500 uppercase tracking-widest bg-orange-500/10 px-3 py-1.5 rounded-full border border-orange-500/20">
                                             EDITAR
                                         </span>
                                     </div>
                                     <button
                                         onClick={(e) => { e.stopPropagation(); removeDateExceptions([ex.id]); }}
-                                        className="w-8 h-8 flex items-center justify-center text-secondary/30 hover:text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+                                        className={`flex items-center justify-center text-secondary/30 hover:text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all ${viewMode === 'grid' ? 'w-8 h-8 opacity-0 group-hover:opacity-100' : 'w-10 h-10'}`}
                                     >
-                                        <Trash2 size={14} />
+                                        <Trash2 size={16} />
                                     </button>
                                 </div>
 
-                                {/* Decoración - Un solo círculo a la izquierda */}
-                                <div className="absolute -top-10 -left-10 w-32 h-32 bg-indigo-500/5 blur-3xl rounded-full" />
+                                {/* Decoración */}
+                                <div className="absolute -top-10 -left-10 w-32 h-32 bg-indigo-500/5 blur-3xl rounded-full pointer-events-none" />
                             </div>
                         ))}
 

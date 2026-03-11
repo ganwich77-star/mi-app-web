@@ -131,6 +131,34 @@ export default function App() {
         return params.get('f') || defaultId;
     });
 
+    // Interceptar retorno de pasarela Paycomet
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const paymentStatus = params.get('payment');
+        if (paymentStatus) {
+            import('sweetalert2').then(({ default: Swal }) => {
+                if (paymentStatus === 'success') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Pago completado!',
+                        text: 'Tu pedido ha sido pagado y confirmado correctamente.',
+                        confirmButtonColor: '#10b981'
+                    });
+                } else if (paymentStatus === 'error') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error en el pago',
+                        text: 'No se pudo completar el pago. Por favor, intenta de nuevo.',
+                        confirmButtonColor: '#ef4444'
+                    });
+                }
+                // Limpiar la URL param sin recargar la página
+                const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + (params.get('f') ? '?f=' + params.get('f') : '');
+                window.history.replaceState({path:newUrl}, '', newUrl);
+            });
+        }
+    }, [photographerId]);
+
     const { settings, setSettings, paymentMethods, enabledPaymentMethods, schools, packs: allPacks, extras: allExtras, adminPin, togglePaymentMethod, addPaymentMethod, updateAdminPin, addSchool, updateSchool, deleteSchool, updateSettings } = useSettings(photographerId, isDemo);
 
     const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
@@ -165,7 +193,7 @@ export default function App() {
 
     const [adminTab, setAdminTab] = useState(() => {
         const params = new URLSearchParams(window.location.search);
-        return params.get('tab') || 'shooting';
+        return params.get('tab') || 'schools';
     });
     const [mobileAdminMenuOpen, setMobileAdminMenuOpen] = useState(false);
     const [mobileOrdersFiltersOpen, setMobileOrdersFiltersOpen] = useState(false);
@@ -682,7 +710,7 @@ export default function App() {
 
     const getSchoolName = (schoolId) => schools.find(s => s.id === schoolId)?.name || '';
 
-    const handleFinalize = () => {
+    const handleFinalize = async () => {
         const extrasDesc = getExtrasDesc();
         const packsDesc = getPacksDesc();
         const mainPackId = Object.keys(selectedPacks)[0];
@@ -720,17 +748,61 @@ export default function App() {
             cost: orderTotals.cost,
             profit: orderTotals.profit,
         };
-        addOrder(newOrder);
-        setOrderCompleted(true);
 
-        sendAdminNotification('PEDIDO', {
-            studentName: formData.studentName,
-            schoolName: getSchoolName(formData.schoolId),
-            course: formData.course,
-            packName: `${packsDesc}${supplementsDesc ? ` (+${supplementsDesc})` : ''}`,
-            total: orderTotals.price,
-            paymentMethod: formData.paymentMethod
-        });
+        if (formData.paymentMethod === 'card') {
+            try {
+                // Registrar pedido como pendiente
+                newOrder.status = 'Pendiente (Pago en proceso)';
+                const createdOrder = await addOrder(newOrder);
+
+                const Swal = (await import('sweetalert2')).default;
+                Swal.fire({
+                    title: 'Conectando con pasarela segura...',
+                    text: 'Redirigiendo a Sabadell Paycomet. Por favor, no cierres esta ventana.',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                const { httpsCallable } = await import('firebase/functions');
+                const { functions } = await import('./firebase.js');
+                const createPaycometIntent = httpsCallable(functions, 'createPaycometIntent');
+
+                const response = await createPaycometIntent({
+                    studentId: createdOrder.id,
+                    amount: orderTotals.price,
+                    photographerId: photographerId,
+                    payMethod: 'card'
+                });
+
+                const { success, paycometUrl } = response.data;
+
+                if (success && paycometUrl) {
+                    // Redirección directa a la pasarela segura
+                    window.location.href = paycometUrl;
+                } else {
+                    throw new Error("No se recibió una URL de pago válida.");
+                }
+
+            } catch (error) {
+                console.error("Error al iniciar pago con tarjeta:", error);
+                const Swal = (await import('sweetalert2')).default;
+                Swal.fire('Error', 'No se pudo conectar con la pasarela de pago. Inténtalo de nuevo o selecciona otro método.', 'error');
+            }
+        } else {
+            await addOrder(newOrder);
+            setOrderCompleted(true);
+
+            sendAdminNotification('PEDIDO', {
+                studentName: formData.studentName,
+                schoolName: getSchoolName(formData.schoolId),
+                course: formData.course,
+                packName: `${packsDesc}${supplementsDesc ? ` (+${supplementsDesc})` : ''}`,
+                total: orderTotals.price,
+                paymentMethod: formData.paymentMethod
+            });
+        }
     };
 
     // Mensaje WhatsApp diferenciado por método de pago
