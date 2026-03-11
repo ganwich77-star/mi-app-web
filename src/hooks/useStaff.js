@@ -61,13 +61,13 @@ export function useStaff(photographerId, schoolId) {
         }
     };
 
-    const addStaff = ({ name, role, course = '', group = '', assignments = [], photoFile = '', schoolId: mSchoolId }) => {
+    const addStaff = ({ firstName = '', lastName = '', role = '', assignments = [], photoFile = '', schoolId: mSchoolId }) => {
         const newMember = {
             id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            name,
+            firstName,
+            lastName,
+            name: `${firstName} ${lastName}`.trim(), // Para compatibilidad
             role,
-            course,
-            group,
             assignments,
             photoFile,
             schoolId: mSchoolId || schoolId
@@ -90,8 +90,9 @@ export function useStaff(photographerId, schoolId) {
         saveToFirebase(updated);
     };
 
-    const deleteStaff = (id) => {
-        const updated = staff.filter(m => m.id !== id);
+    const deleteStaff = (ids) => {
+        const idArray = Array.isArray(ids) ? ids : [ids];
+        const updated = staff.filter(m => !idArray.includes(m.id));
         setStaff(updated);
         saveToFirebase(updated);
     };

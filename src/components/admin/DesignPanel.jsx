@@ -11,19 +11,34 @@ import {
 // ─── FORMAS DE PLACEHOLDER ─────────────────────────────────────────────────
 const PHOTO_SHAPES = [
     {
-        id: 'oval',
-        label: 'Óvalo Clásico',
-        preview: (w, h) => `<ellipse cx="${w/2}" cy="${h/2}" rx="${w*0.46}" ry="${h*0.48}" />`,
-        getStyle: () => ({ borderRadius: '50%' }),
-    },
-    {
         id: 'circle',
-        label: 'Círculo',
-        preview: (w, h) => `<ellipse cx="${w/2}" cy="${h/2}" rx="${Math.min(w,h)*0.46}" ry="${Math.min(w,h)*0.46}" />`,
+        label: 'Círculo Perfecto',
+        preview: (w, h) => {
+            const r = Math.min(w, h) * 0.46;
+            return `<circle cx="${w/2}" cy="${h/2}" r="${r}" />`;
+        },
         getStyle: (w, h) => {
             const size = Math.min(w, h);
-            return { borderRadius: '50%', width: size + 'px', height: size + 'px', aspectRatio: '1/1', objectFit: 'cover' };
+            return {
+                borderRadius: '50%',
+                width: size + 'px',
+                height: size + 'px',
+                aspectRatio: '1/1',
+                objectFit: 'cover',
+                margin: '0 auto'
+            };
         },
+    },
+    {
+        id: 'oval',
+        label: 'Óvalo Clásico',
+        preview: (w, h) => `<ellipse cx="${w/2}" cy="${h/2}" rx="${w*0.42}" ry="${h*0.46}" />`,
+        getStyle: (w, h) => ({ 
+            borderRadius: '50%',
+            width: w + 'px',
+            height: h + 'px',
+            objectFit: 'cover'
+        }),
     },
     {
         id: 'rect34',
@@ -38,31 +53,44 @@ const PHOTO_SHAPES = [
         getStyle: (w, h) => ({ borderRadius: `${w * 0.12}px` }),
     },
     {
-        id: 'polaroid',
-        label: 'Polaroid',
-        preview: (w, h) => `<rect x="${w*0.06}" y="${h*0.04}" width="${w*0.88}" height="${h*0.72}" rx="3" /><rect x="${w*0.06}" y="${h*0.79}" width="${w*0.88}" height="${h*0.17}" rx="3" fill="#e2e8f0" />`,
-        getStyle: () => ({ borderRadius: '4px' }),
-        extraStyle: (w, h) => ({
-            boxShadow: `0 0 0 ${Math.round(h*0.08)}px #fff, 0 0 0 ${Math.round(h*0.085)}px #e2e8f0`,
-            paddingBottom: `${Math.round(h * 0.18)}px`,
-            backgroundColor: '#fff',
-        }),
-    },
-    {
         id: 'shield',
         label: 'Escudo Heráldico',
-        preview: (w, h) => `<path d="M${w*0.1},${h*0.04} L${w*0.9},${h*0.04} L${w*0.9},${h*0.65} Q${w*0.9},${h*0.85} ${w*0.5},${h*0.96} Q${w*0.1},${h*0.85} ${w*0.1},${h*0.65} Z" />`,
-        getStyle: (w, h) => ({
-            clipPath: `path('M${w*0.1},${h*0.04} L${w*0.9},${h*0.04} L${w*0.9},${h*0.65} Q${w*0.9},${h*0.85} ${w*0.5},${h*0.96} Q${w*0.1},${h*0.85} ${w*0.1},${h*0.65} Z')`,
-        }),
+        preview: (w, h) => {
+            const s = Math.min(w, h);
+            const ox = (w - s) / 2;
+            const oy = (h - s) / 2;
+            return `<path d="M${ox + s*0.1},${oy + s*0.04} L${ox + s*0.9},${oy + s*0.04} L${ox + s*0.9},${oy + s*0.65} Q${ox + s*0.9},${oy + s*0.85} ${ox + s*0.5},${oy + s*0.96} Q${ox + s*0.1},${oy + s*0.85} ${ox + s*0.1},${oy + s*0.65} Z" />`;
+        },
+        getStyle: (w, h) => {
+            const size = Math.min(w, h);
+            const ox = (w - size) / 2;
+            const oy = (h - size) / 2;
+            return {
+                width: size + 'px',
+                height: size + 'px',
+                margin: '0 auto',
+                clipPath: `path('M${size*0.1},${size*0.04} L${size*0.9},${size*0.04} L${size*0.9},${size*0.65} Q${size*0.9},${size*0.85} ${size*0.5},${size*0.96} Q${size*0.1},${size*0.85} ${size*0.1},${size*0.65} Z')`,
+            };
+        },
     },
     {
         id: 'arch',
         label: 'Arco Medio Punto',
-        preview: (w, h) => `<path d="M${w*0.1},${h*0.96} L${w*0.1},${h*0.48} A${w*0.4},${h*0.48} 0 0,1 ${w*0.9},${h*0.48} L${w*0.9},${h*0.96} Z" />`,
-        getStyle: (w, h) => ({
-            clipPath: `path('M${w*0.1},${h*0.96} L${w*0.1},${h*0.48} A${w*0.4},${h*0.48} 0 0,1 ${w*0.9},${h*0.48} L${w*0.9},${h*0.96} Z')`,
-        }),
+        preview: (w, h) => {
+            const s = Math.min(w, h);
+            const ox = (w - s) / 2;
+            const oy = (h - s) / 2;
+            return `<path d="M${ox + s*0.1},${oy + s*0.96} L${ox + s*0.1},${oy + s*0.48} A${s*0.4},${s*0.48} 0 0,1 ${ox + s*0.9},${oy + s*0.48} L${ox + s*0.9},${oy + s*0.96} Z" />`;
+        },
+        getStyle: (w, h) => {
+            const size = Math.min(w, h);
+            return {
+                width: size + 'px',
+                height: size + 'px',
+                margin: '0 auto',
+                clipPath: `path('M${size*0.1},${size*0.96} L${size*0.1},${size*0.48} A${size*0.4},${size*0.48} 0 0,1 ${size*0.9},${size*0.48} L${size*0.9},${size*0.96} Z')`,
+            };
+        },
     },
 ];
 
@@ -165,20 +193,32 @@ const DesignPanel = ({
         ]
     };
 
+    // Efecto para sincronizar el parámetro activo al cambiar de pestaña
+    useEffect(() => {
+        if (isFullScreenDesign) {
+            const firstTool = TOOLBAR_CONFIG[activeTab][0];
+            if (firstTool && !firstTool.isImmediate && !firstTool.isToggle && !firstTool.isShapeSelector) {
+                setActiveDesignParam(firstTool);
+            } else {
+                setActiveDesignParam(null);
+            }
+        }
+    }, [activeTab, isFullScreenDesign]);
+
     const [zoom, setZoom] = useState(1);
     const [offset, setOffset] = useState({ x: 0, y: 0 });
     const [isDragging, setIsDragging] = useState(false);
     const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
     const [showGuides, setShowGuides] = useState(false);
     const [showShapeSelector, setShowShapeSelector] = useState(false);
-    const currentShape = configOrla.photoShape || 'rect34';
+    const currentShape = configOrla.photoShape || 'circle';
 
     const handleWheel = (e) => {
         if (!isFullScreenDesign) return;
         e.preventDefault();
         const zoomSpeed = 0.001;
         const delta = -e.deltaY;
-        const newZoom = Math.min(Math.max(zoom + delta * zoomSpeed, 0.5), 3);
+        const newZoom = Math.min(Math.max(zoom + delta * zoomSpeed, 0.1), 5);
         setZoom(newZoom);
     };
 
@@ -210,7 +250,7 @@ const DesignPanel = ({
             );
             if (lastTouchDistance.current !== null) {
                 const delta = dist - lastTouchDistance.current;
-                setZoom(prev => Math.min(Math.max(prev + delta * 0.01, 0.5), 3));
+                setZoom(prev => Math.min(Math.max(prev + delta * 0.01, 0.1), 5));
             }
             lastTouchDistance.current = dist;
         } else if (e.touches.length === 1 && isDragging) {
@@ -383,19 +423,23 @@ const DesignPanel = ({
                                                 const { nombre, apellidos } = splitName(member.name);
                                                 const baseSize = configOrla.fontSizeDoc || 10;
                                                 const baseScale = configOrla.dScale || 1.2;
+                                                const w = (configOrla.aW || 350) / 10;
+                                                const h = (configOrla.aH || 450) / 10;
                                                 return (
                                                     <div key={member.id}
-                                                        className="relative flex flex-col items-center text-center transition-transform"
-                                                        style={{ transform: `scale(${baseScale})`, transformOrigin: 'top center' }}
+                                                        className="relative flex flex-col items-center text-center"
+                                                        style={{ width: (w * baseScale) + 'px' }}
                                                     >
-                                                        <div className="bg-slate-200 mb-1" style={{ width: (configOrla.aW || 350) / 10 + 'px', height: (configOrla.aH || 450) / 10 + 'px', ...getShapeStyle(currentShape, (configOrla.aW || 350) / 10, (configOrla.aH || 450) / 10) }} />
-                                                        <div className="flex flex-col items-center">
-                                                                 <div className="font-normal uppercase text-slate-900 leading-tight" style={{ fontSize: (baseSize * 0.55) + 'px' }}>
-                                                                <div className="whitespace-nowrap">{nombre}</div>
-                                                                <div className="whitespace-nowrap">{apellidos}</div>
+                                                        <div style={{ transform: `scale(${baseScale})`, transformOrigin: 'top center' }}>
+                                                            <div className="bg-slate-200 mb-1" style={{ width: w + 'px', height: h + 'px', ...getShapeStyle(currentShape, w, h) }} />
+                                                            <div className="flex flex-col items-center px-1">
+                                                                <div className="font-normal uppercase text-slate-900 leading-tight" style={{ fontSize: (baseSize * 0.55) + 'px' }}>
+                                                                    <div className="whitespace-nowrap">{nombre}</div>
+                                                                    <div className="whitespace-nowrap">{apellidos}</div>
+                                                                </div>
+                                                                <p className="font-normal uppercase text-slate-500 leading-tight mt-0.5" style={{ fontSize: (baseSize * 0.45) + 'px' }}>{member.role || 'DOCENTE'}</p>
                                                             </div>
                                                         </div>
-                                                        <p className="font-normal uppercase text-slate-500 leading-tight mt-0.5" style={{ fontSize: (baseSize * 0.45) + 'px' }}>{member.role || 'DOCENTE'}</p>
                                                     </div>
                                                 );
                                             })
@@ -417,16 +461,20 @@ const DesignPanel = ({
                                                 const { nombre, apellidos } = splitName(o.studentName);
                                                 const baseSize = configOrla.fontSizeAlu || 10;
                                                 const baseScale = configOrla.aScale || 1;
+                                                const w = (configOrla.aW || 350) / 10;
+                                                const h = (configOrla.aH || 450) / 10;
                                                 return (
                                                     <div key={o.id}
-                                                        className="flex flex-col items-center text-center transition-transform"
-                                                        style={{ transform: `scale(${baseScale})`, transformOrigin: 'top center' }}
+                                                        className="flex flex-col items-center text-center"
+                                                        style={{ width: (w * baseScale) + 'px' }}
                                                     >
-                                                        <div className="bg-slate-100 mb-1" style={{ width: (configOrla.aW || 350) / 10 + 'px', height: (configOrla.aH || 450) / 10 + 'px', ...getShapeStyle(currentShape, (configOrla.aW || 350) / 10, (configOrla.aH || 450) / 10) }} />
-                                                        <div className="flex flex-col items-center">
-                                                            <div className="font-normal uppercase text-slate-900 leading-tight" style={{ fontSize: (baseSize * 0.45) + 'px' }}>
-                                                                <div className="whitespace-nowrap">{nombre}</div>
-                                                                <div className="whitespace-nowrap">{apellidos}</div>
+                                                        <div style={{ transform: `scale(${baseScale})`, transformOrigin: 'top center' }}>
+                                                            <div className="bg-slate-100 mb-1" style={{ width: w + 'px', height: h + 'px', ...getShapeStyle(currentShape, w, h) }} />
+                                                            <div className="flex flex-col items-center px-1">
+                                                                <div className="font-normal uppercase text-slate-900 leading-tight" style={{ fontSize: (baseSize * 0.45) + 'px' }}>
+                                                                    <div className="whitespace-nowrap">{nombre}</div>
+                                                                    <div className="whitespace-nowrap">{apellidos}</div>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -550,36 +598,40 @@ const DesignPanel = ({
                                     const { nombre, apellidos } = splitName(member.name);
                                     const baseSize = configOrla.fontSizeDoc || 10;
                                     const baseScale = configOrla.dScale || 1.2;
+                                    const w = (configOrla.aW || 350) / 10;
+                                    const h = (configOrla.aH || 450) / 10;
                                     return (
                                         <div key={member.id}
-                                            className="relative flex flex-col items-center text-center transition-transform group/member"
-                                            style={{ transform: `scale(${baseScale})`, transformOrigin: 'top center' }}
+                                            className="relative flex flex-col items-center text-center group/member overflow-visible"
+                                            style={{ width: (w * baseScale) + 'px' }}
                                         >
-                                            <div className="bg-slate-100 mb-1" style={{ width: (configOrla.aW || 350) / 10 + 'px', height: (configOrla.aH || 450) / 10 + 'px', ...getShapeStyle(currentShape, (configOrla.aW || 350) / 10, (configOrla.aH || 450) / 10) }} />
-                                            <div className="flex flex-col items-center">
-                                                <div
-                                                    contentEditable={true}
-                                                    suppressContentEditableWarning={true}
-                                                    className="font-normal uppercase text-slate-900 leading-tight outline-none cursor-text hover:bg-black/5 rounded px-1 transition-colors group-hover/member:text-accent focus:bg-white focus:shadow-sm"
-                                                    style={{ fontSize: (baseSize * 0.55) + 'px', minWidth: '40px' }}
-                                                    onBlur={(e) => {
-                                                        const newName = e.target.innerText.trim();
-                                                        if (newName && newName !== member.name) {
-                                                            updateStaffMember(member.id, { name: newName });
-                                                        }
-                                                    }}
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === 'Enter') {
-                                                            e.preventDefault();
-                                                            e.target.blur();
-                                                        }
-                                                    }}
-                                                >
-                                                    <div className="whitespace-nowrap">{nombre}</div>
-                                                    <div className="whitespace-nowrap">{apellidos}</div>
+                                            <div style={{ transform: `scale(${baseScale})`, transformOrigin: 'top center' }}>
+                                                <div className="bg-slate-100 mb-1" style={{ width: w + 'px', height: h + 'px', ...getShapeStyle(currentShape, w, h) }} />
+                                                <div className="flex flex-col items-center px-1">
+                                                    <div
+                                                        contentEditable={true}
+                                                        suppressContentEditableWarning={true}
+                                                        className="font-normal uppercase text-slate-900 leading-tight outline-none cursor-text hover:bg-black/5 rounded px-1 transition-colors group-hover/member:text-accent focus:bg-white focus:shadow-sm"
+                                                        style={{ fontSize: (baseSize * 0.55) + 'px', minWidth: '40px', width: 'max-content' }}
+                                                        onBlur={(e) => {
+                                                            const newName = e.target.innerText.trim();
+                                                            if (newName && newName !== member.name) {
+                                                                updateStaffMember(member.id, { name: newName });
+                                                            }
+                                                        }}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') {
+                                                                e.preventDefault();
+                                                                e.target.blur();
+                                                            }
+                                                        }}
+                                                    >
+                                                        <div className="whitespace-nowrap">{nombre}</div>
+                                                        <div className="whitespace-nowrap">{apellidos}</div>
+                                                    </div>
+                                                    <p className="font-normal uppercase text-slate-500 leading-tight mt-0.5 pointer-events-none" style={{ fontSize: (baseSize * 0.4) + 'px' }}>{member.role || 'DOCENTE'}</p>
                                                 </div>
                                             </div>
-                                            <p className="font-normal uppercase text-slate-500 leading-tight mt-0.5 pointer-events-none" style={{ fontSize: (baseSize * 0.4) + 'px' }}>{member.role || 'DOCENTE'}</p>
                                         </div>
                                     );
                                 })}
@@ -592,7 +644,7 @@ const DesignPanel = ({
                                 }}>
                                 <div className="grid justify-center"
                                     style={{
-                                        gridTemplateColumns: `repeat(${configOrla.aCols || 8}, auto)`,
+                                        gridTemplateColumns: `repeat(${configOrla.aCols || 8}, ${( (configOrla.aW || 350) / 10 ) * (configOrla.aScale || 1)}px)`,
                                         columnGap: (configOrla.aGapX ?? 0) / 10 + 'px',
                                         rowGap: (configOrla.aGapY ?? 650) / 10 + 'px'
                                     }}>
@@ -600,33 +652,37 @@ const DesignPanel = ({
                                         const { nombre, apellidos } = splitName(o.studentName);
                                         const baseSize = configOrla.fontSizeAlu || 10;
                                         const baseScale = configOrla.aScale || 1;
+                                        const w = (configOrla.aW || 350) / 10;
+                                        const h = (configOrla.aH || 450) / 10;
                                         return (
                                             <div key={o.id}
-                                                className="flex flex-col items-center text-center transition-transform group/alu"
-                                                style={{ transform: `scale(${baseScale})`, transformOrigin: 'top center' }}
+                                                className="flex flex-col items-center text-center group/alu overflow-visible"
+                                                style={{ width: (w * baseScale) + 'px' }}
                                             >
-                                                <div className="bg-slate-100 mb-1" style={{ width: (configOrla.aW || 350) / 10 + 'px', height: (configOrla.aH || 450) / 10 + 'px', ...getShapeStyle(currentShape, (configOrla.aW || 350) / 10, (configOrla.aH || 450) / 10) }} />
-                                                <div className="flex flex-col items-center">
-                                                    <div
-                                                        contentEditable={true}
-                                                        suppressContentEditableWarning={true}
-                                                        className="font-normal uppercase text-slate-900 leading-tight outline-none cursor-text hover:bg-black/5 rounded px-1 transition-colors group-hover/alu:text-accent focus:bg-white focus:shadow-sm"
-                                                        style={{ fontSize: (baseSize * 0.45) + 'px', minWidth: '30px' }}
-                                                        onBlur={(e) => {
-                                                            const newName = e.target.innerText.trim();
-                                                            if (newName && newName !== o.studentName) {
-                                                                updateOrder(o.id, { studentName: newName });
-                                                            }
-                                                        }}
-                                                        onKeyDown={(e) => {
-                                                            if (e.key === 'Enter') {
-                                                                e.preventDefault();
-                                                                e.target.blur();
-                                                            }
-                                                        }}
-                                                    >
-                                                        <div className="whitespace-nowrap">{nombre}</div>
-                                                        <div className="whitespace-nowrap">{apellidos}</div>
+                                                <div style={{ transform: `scale(${baseScale})`, transformOrigin: 'top center' }}>
+                                                    <div className="bg-slate-100 mb-1" style={{ width: w + 'px', height: h + 'px', ...getShapeStyle(currentShape, w, h) }} />
+                                                    <div className="flex flex-col items-center px-1">
+                                                        <div
+                                                            contentEditable={true}
+                                                            suppressContentEditableWarning={true}
+                                                            className="font-normal uppercase text-slate-900 leading-tight outline-none cursor-text hover:bg-black/5 rounded px-1 transition-colors group-hover/alu:text-accent focus:bg-white focus:shadow-sm"
+                                                            style={{ fontSize: (baseSize * 0.45) + 'px', minWidth: '30px', width: 'max-content' }}
+                                                            onBlur={(e) => {
+                                                                const newName = e.target.innerText.trim();
+                                                                if (newName && newName !== o.studentName) {
+                                                                    updateOrder(o.id, { studentName: newName });
+                                                                }
+                                                            }}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter') {
+                                                                    e.preventDefault();
+                                                                    e.target.blur();
+                                                                }
+                                                            }}
+                                                        >
+                                                            <div className="whitespace-nowrap">{nombre}</div>
+                                                            <div className="whitespace-nowrap">{apellidos}</div>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -836,11 +892,14 @@ const DesignPanel = ({
                                         )}
                                     </div>
                                     <div className={`text-3xl font-black tabular-nums leading-none flex items-baseline ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                                        {activeDesignParam.key.includes('Scale')
-                                            ? (configOrla[activeDesignParam.key] || 1).toFixed(2)
-                                            : activeDesignParam.key === 'aCols'
-                                                ? (configOrla[activeDesignParam.key] || 8)
-                                                : Math.round(activeDesignParam.unit === 'PX' ? configOrla[activeDesignParam.key] : safePxToMm(configOrla[activeDesignParam.key] || 0))}
+                                        {(() => {
+                                            const val = configOrla[activeDesignParam.key];
+                                            if (activeDesignParam.key.includes('Scale')) return (val || (activeDesignParam.key === 'dScale' ? 1.2 : 1)).toFixed(2);
+                                            if (activeDesignParam.key === 'aCols') return (val || 8);
+                                            if (activeDesignParam.unit === 'PT') return (val || 10);
+                                            if (activeDesignParam.unit === 'PX') return Math.round(val || 0);
+                                            return Math.round(safePxToMm(val || 0));
+                                        })()}
                                         <span className={`text-xs ml-1.5 font-black ${isDark ? 'text-white/60' : 'text-slate-400'}`}>
                                             {activeDesignParam.key === 'aCols' ? 'ALUMNOS' : (activeDesignParam.unit || 'MM')}
                                         </span>
@@ -861,7 +920,10 @@ const DesignPanel = ({
                                     ) : (
                                         <>
                                             <button
-                                                onClick={() => updateConfig(activeDesignParam.key, Math.max(activeDesignParam.min, (configOrla[activeDesignParam.key] || (activeDesignParam.key === 'aCols' ? 8 : 0)) - (activeDesignParam.step || 1)))}
+                                                onClick={() => {
+                                                    const currentVal = configOrla[activeDesignParam.key] !== undefined ? configOrla[activeDesignParam.key] : (activeDesignParam.key === 'aCols' ? 8 : activeDesignParam.key === 'fontSizeAlu' || activeDesignParam.key === 'fontSizeDoc' ? 10 : activeDesignParam.key === 'dScale' ? 1.2 : activeDesignParam.key === 'aScale' ? 1 : 0);
+                                                    updateConfig(activeDesignParam.key, Math.max(activeDesignParam.min, currentVal - (activeDesignParam.step || 1)));
+                                                }}
                                                 className={`w-10 h-10 rounded-full border flex items-center justify-center transition-colors ${isDark ? 'bg-black/40 hover:bg-black/60 border-white/10 text-white' : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-600 shadow-sm'}`}
                                             >
                                                 <Minus size={20} strokeWidth={3} />
@@ -873,13 +935,16 @@ const DesignPanel = ({
                                                     min={activeDesignParam.min}
                                                     max={activeDesignParam.max}
                                                     step={activeDesignParam.step || 1}
-                                                    value={configOrla[activeDesignParam.key] || (activeDesignParam.key === 'aCols' ? 8 : activeDesignParam.min)}
+                                                    value={configOrla[activeDesignParam.key] !== undefined ? configOrla[activeDesignParam.key] : (activeDesignParam.key === 'aCols' ? 8 : activeDesignParam.key === 'fontSizeAlu' || activeDesignParam.key === 'fontSizeDoc' ? 10 : activeDesignParam.key === 'dScale' ? 1.2 : activeDesignParam.key === 'aScale' ? 1 : 0)}
                                                     onChange={(e) => updateConfig(activeDesignParam.key, parseFloat(e.target.value))}
                                                     className={`relative z-10 w-full bg-transparent appearance-none cursor-pointer ${isDark ? 'accent-white' : 'accent-accent'}`}
                                                 />
                                             </div>
                                             <button
-                                                onClick={() => updateConfig(activeDesignParam.key, Math.min(activeDesignParam.max, configOrla[activeDesignParam.key] + (activeDesignParam.step || 1)))}
+                                                onClick={() => {
+                                                    const currentVal = configOrla[activeDesignParam.key] !== undefined ? configOrla[activeDesignParam.key] : (activeDesignParam.key === 'aCols' ? 8 : activeDesignParam.key === 'fontSizeAlu' || activeDesignParam.key === 'fontSizeDoc' ? 10 : activeDesignParam.key === 'dScale' ? 1.2 : activeDesignParam.key === 'aScale' ? 1 : 0);
+                                                    updateConfig(activeDesignParam.key, Math.min(activeDesignParam.max, currentVal + (activeDesignParam.step || 1)));
+                                                }}
                                                 className={`w-10 h-10 rounded-full border flex items-center justify-center transition-colors ${isDark ? 'bg-black/40 hover:bg-black/60 border-white/10 text-white' : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-600 shadow-sm'}`}
                                             >
                                                 <Plus size={20} strokeWidth={3} />

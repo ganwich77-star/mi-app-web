@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { COURSE_GROUPS } from '../../constants.js';
 
-import CriticalDatesPanel from './CriticalDatesPanel.jsx';
+
 
 const SettingsPanel = ({
     settings,
@@ -84,15 +84,7 @@ const SettingsPanel = ({
 
     return (
         <div className="space-y-6 pb-20">
-            {/* Fechas Importantes */}
-            <div className="w-full">
-                <CriticalDatesPanel
-                    settings={settings}
-                    updateSettings={updateSettings}
-                    schools={schools}
-                    theme={theme}
-                />
-            </div>
+
 
             {/* 1. CONFIGURACIÓN GENERAL */}
             <div className={`card overflow-hidden transition-all duration-500 ${openSections.general ? 'ring-2 ring-indigo-500/20 shadow-2xl' : 'hover:ring-1 hover:ring-indigo-500/10 shadow-lg'}`}>

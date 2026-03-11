@@ -23,12 +23,21 @@ const StaffEditModal = ({
                 </div>
 
                 <div className="space-y-3">
-                    <div>
-                        <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1.5 block">Nombre Completo</label>
-                        <input type="text" value={staffAssigning.name}
-                            onChange={e => setStaffAssigning(p => ({ ...p, name: e.target.value }))}
-                            onBlur={e => setStaffAssigning(p => ({ ...p, name: toTitleCase(e.target.value) }))}
-                            className="w-full bg-primary/5 border border-primary/10 text-primary text-sm rounded-xl px-4 py-3 outline-none focus:border-indigo-400/50" />
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1.5 block">Nombre</label>
+                            <input type="text" value={staffAssigning.firstName}
+                                onChange={e => setStaffAssigning(p => ({ ...p, firstName: e.target.value }))}
+                                onBlur={e => setStaffAssigning(p => ({ ...p, firstName: toTitleCase(e.target.value) }))}
+                                className="w-full bg-primary/5 border border-primary/10 text-primary text-sm rounded-xl px-4 py-3 outline-none focus:border-indigo-400/50" />
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1.5 block">Apellidos</label>
+                            <input type="text" value={staffAssigning.lastName}
+                                onChange={e => setStaffAssigning(p => ({ ...p, lastName: e.target.value }))}
+                                onBlur={e => setStaffAssigning(p => ({ ...p, lastName: toTitleCase(e.target.value) }))}
+                                className="w-full bg-primary/5 border border-primary/10 text-primary text-sm rounded-xl px-4 py-3 outline-none focus:border-indigo-400/50" />
+                        </div>
                     </div>
 
                     <div>
@@ -126,10 +135,12 @@ const StaffEditModal = ({
                 <div className="flex gap-3 pt-4">
                     <button onClick={() => setStaffAssigning(null)} className="flex-1 py-3 text-xs font-bold text-secondary border border-primary/10 rounded-2xl hover:bg-primary/5 transition-all">Cancelar</button>
                     <button
-                        disabled={!staffAssigning.name.trim() || staffAssigning.roles.length === 0 || staffAssigning.assignments.length === 0}
+                        disabled={!staffAssigning.firstName.trim() || !staffAssigning.lastName.trim() || staffAssigning.roles.length === 0 || staffAssigning.assignments.length === 0}
                         onClick={() => {
                             updateStaffMember(staffAssigning.member.id, {
-                                name: staffAssigning.name,
+                                firstName: staffAssigning.firstName,
+                                lastName: staffAssigning.lastName,
+                                name: `${staffAssigning.firstName} ${staffAssigning.lastName}`.trim(),
                                 role: staffAssigning.roles.join(' • '),
                                 roles: staffAssigning.roles,
                                 assignments: staffAssigning.assignments,

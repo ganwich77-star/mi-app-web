@@ -9,7 +9,7 @@ import {
     MessageSquare, ChevronRight, Lock, Shield, Package, Sparkles, Gift, Mail, Phone,
     TrendingUp, Users, Trash2, Edit, Sun, Moon, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, Database, Upload, AlertTriangle, Share,
     Square, CheckSquare, X, Camera, Check, Tag, FileText, Crown, ArrowRight,
-    Settings2, Maximize2, Maximize, ZoomIn, ZoomOut, Move, Layout, Bold, Italic, UserCheck, Eye, Palette, History,
+    Settings2, Maximize2, Maximize, ZoomIn, ZoomOut, Move, Layout, Bold, Italic, UserCheck, Eye, EyeOff, Palette, History,
     LayoutGrid, UserSquare2, Layers, MoveVertical, MoveHorizontal, GripVertical, Move as MoveIcon, ArrowUpDown, Grid, Box, ChevronsUpDown, Baseline, AlignCenterVertical, AlignCenterHorizontal
 } from 'lucide-react';
 
@@ -38,9 +38,12 @@ import ShootingPanel from './components/admin/ShootingPanel.jsx';
 import SettingsPanel from './components/admin/SettingsPanel.jsx';
 import PricingPanel from './components/admin/PricingPanel.jsx';
 import DesignPanel from './components/admin/DesignPanel.jsx';
+import BillingPanel from './components/admin/BillingPanel.jsx';
 import StaffEditModal from './components/admin/StaffEditModal.jsx';
 import CriticalDatesPanel from './components/admin/CriticalDatesPanel.jsx';
 import TutorsPanel from './components/admin/TutorsPanel.jsx';
+import LabelGenerator from './components/admin/LabelGenerator.jsx';
+
 
 
 import { toTitleCase, firstSurname, getCourseBase, getGroup } from './utils/formatters.js';
@@ -157,6 +160,14 @@ export default function App() {
                 window.history.replaceState({path:newUrl}, '', newUrl);
             });
         }
+
+        // Acceso directo al Centro de Control vía URL (?mode=master)
+        if (params.get('mode') === 'master') {
+            setShowPinModal(true);
+            // Limpiar el parámetro para evitar re-aperturas molestas
+            const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + (params.get('f') ? '?f=' + params.get('f') : '');
+            window.history.replaceState({path:newUrl}, '', newUrl);
+        }
     }, [photographerId]);
 
     const { settings, setSettings, paymentMethods, enabledPaymentMethods, schools, packs: allPacks, extras: allExtras, adminPin, togglePaymentMethod, addPaymentMethod, updateAdminPin, addSchool, updateSchool, deleteSchool, updateSettings } = useSettings(photographerId, isDemo);
@@ -207,6 +218,7 @@ export default function App() {
     const [searchTerm, setSearchTerm] = useState('');
     const [showPinModal, setShowPinModal] = useState(false);
     const [pinInput, setPinInput] = useState('');
+    const [showPin, setShowPin] = useState(false);
     const [showLegalModal, setShowLegalModal] = useState(false);
     const [showPrivacyModal, setShowPrivacyModal] = useState(false);
     const [showLandingAviso, setShowLandingAviso] = useState(false);
@@ -235,7 +247,7 @@ export default function App() {
         return params.get('shoot_mode') || 'students';
     }); // 'students' | 'staff'
     const [orderToEdit, setOrderToEdit] = useState(null); // { order, studentName, packId, packQuantity, photoFile, status, paymentMethod, tempCourse, tempGroup }
-    const [newStaffForm, setNewStaffForm] = useState({ schoolId: '', name: '', role: '', roles: [], tempRole: '', photoFile: '', tempCourse: '', tempGroup: '', assignments: [] });
+    const [newStaffForm, setNewStaffForm] = useState({ schoolId: '', firstName: '', lastName: '', role: '', photoFile: '', tempCourse: '', tempGroup: '', assignments: [] });
 
     const [staffAssigning, setStaffAssigning] = useState(null); // { member, tempFile }
     const [selectedOrderIds, setSelectedOrderIds] = useState([]);
@@ -1492,7 +1504,7 @@ export default function App() {
                                             />
                                         ) : (
                                             <img
-                                                src={`${import.meta.env.BASE_URL}logo.png`}
+                                                src={`${import.meta.env.BASE_URL}logo_white.png`}
                                                 alt="Logo"
                                                 className="h-8 md:h-14 w-auto transition-all duration-500"
                                                 style={{ filter: theme === 'light' ? 'brightness(0)' : 'none' }}
@@ -1513,16 +1525,19 @@ export default function App() {
                                 </div>
 
                                 {/* Tabs de Navegación */}
-                                <div className="sticky top-16 md:top-24 z-50 py-2 md:py-4 bg-background/80 dark:bg-black/80 backdrop-blur-2xl -mx-4 px-4 mb-4 border-b border-primary/10 transition-colors">
+                                <div className="sticky top-16 md:top-24 z-50 py-2 md:py-4 bg-background/80 dark:bg-black/80 backdrop-blur-2xl mb-4 border-b border-primary/10 transition-colors">
                                     <div className="max-w-5xl mx-auto">
                                         {/* Escritorio */}
-                                        <div className="hidden md:flex flex-wrap items-center justify-center gap-1.5 bg-card/60 dark:bg-white/5 p-1.5 rounded-[2rem] border border-primary/10 dark:border-white/10 backdrop-blur-md w-full shadow-2xl shadow-black/20">
-                                            <button onClick={() => setAdminTab('schools')} className={`px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${adminTab === 'schools' ? 'bg-orange-500 text-white shadow-lg' : 'text-secondary hover:text-primary hover:bg-primary/5'}`}><GraduationCap size={14} /> Centros</button>
-                                            <button onClick={() => setAdminTab('shooting')} className={`px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${adminTab === 'shooting' ? 'bg-red-700 text-white shadow-xl shadow-red-700/30' : 'text-secondary hover:text-primary hover:bg-primary/10'}`}>📸 Shooting</button>
-                                            <button onClick={() => setAdminTab('design')} className={`px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${adminTab === 'design' ? 'bg-violet-600 text-white shadow-lg' : 'text-secondary hover:text-primary hover:bg-primary/5'}`}><Palette size={14} /> Diseño Orla</button>
-                                            <button onClick={() => setAdminTab('orders')} className={`px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${adminTab === 'orders' ? 'bg-emerald-500 text-white shadow-lg' : 'text-secondary hover:text-primary hover:bg-primary/5'}`}><Users size={14} /> Gestión Pedid.</button>
-                                            <button onClick={() => setAdminTab('precios')} className={`px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${adminTab === 'precios' ? 'bg-amber-500 text-white shadow-lg' : 'text-secondary hover:text-primary hover:bg-primary/5'}`}><Euro size={14} /> Precios</button>
-                                            <button onClick={() => setAdminTab('settings')} className={`px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${adminTab === 'settings' ? 'bg-indigo-500 text-white shadow-lg' : 'text-secondary hover:text-primary hover:bg-primary/5'}`}><Settings size={14} /> Ajustes App</button>
+                                        <div className="hidden md:flex flex-nowrap items-center justify-center gap-1 bg-card/60 dark:bg-white/5 p-1 rounded-[2rem] border border-primary/10 dark:border-white/10 backdrop-blur-md shadow-2xl shadow-black/20 overflow-x-auto no-scrollbar w-full">
+                                            <button onClick={() => setAdminTab('schools')} className={`px-3 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 whitespace-nowrap ${adminTab === 'schools' ? 'bg-orange-500 text-white shadow-lg' : 'text-secondary hover:text-primary hover:bg-primary/5'}`}><GraduationCap size={14} /> Centros</button>
+                                            <button onClick={() => setAdminTab('shooting')} className={`px-3 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 whitespace-nowrap ${adminTab === 'shooting' ? 'bg-red-700 text-white shadow-xl shadow-red-700/30' : 'text-secondary hover:text-primary hover:bg-primary/10'}`}>📸 Shooting</button>
+                                            <button onClick={() => setAdminTab('design')} className={`px-3 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 whitespace-nowrap ${adminTab === 'design' ? 'bg-violet-600 text-white shadow-lg' : 'text-secondary hover:text-primary hover:bg-primary/5'}`}><Palette size={14} /> Diseño</button>
+                                            <button onClick={() => setAdminTab('orders')} className={`px-3 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 whitespace-nowrap ${adminTab === 'orders' ? 'bg-emerald-500 text-white shadow-lg' : 'text-secondary hover:text-primary hover:bg-primary/5'}`}><Users size={14} /> Pedidos</button>
+                                            <button onClick={() => setAdminTab('precios')} className={`px-3 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 whitespace-nowrap ${adminTab === 'precios' ? 'bg-orange-500 text-white shadow-lg' : 'text-secondary hover:text-primary hover:bg-primary/5'}`}><Euro size={14} /> Precios</button>
+                                            <button onClick={() => setAdminTab('billing')} className={`px-3 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 whitespace-nowrap ${adminTab === 'billing' ? 'bg-slate-700 text-white shadow-lg' : 'text-secondary hover:text-primary hover:bg-primary/5'}`}><FileText size={14} /> Facturación</button>
+                                            <button onClick={() => setAdminTab('settings')} className={`px-3 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 whitespace-nowrap ${adminTab === 'settings' ? 'bg-indigo-500 text-white shadow-lg' : 'text-secondary hover:text-primary hover:bg-primary/5'}`}><Settings size={14} /> Ajustes</button>
+                                            <button onClick={() => setAdminTab('etiquetas')} className={`px-3 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 whitespace-nowrap ${adminTab === 'etiquetas' ? 'bg-indigo-600 text-white shadow-lg' : 'text-secondary hover:text-primary hover:bg-primary/5'}`}><Tag size={14} /> Etiquetas</button>
+
                                         </div>
 
                                         {/* Móvil */}
@@ -1536,13 +1551,19 @@ export default function App() {
                                                         adminTab === 'shooting' ? 'bg-red-700' :
                                                             adminTab === 'design' ? 'bg-violet-600' :
                                                                 adminTab === 'orders' ? 'bg-emerald-500' :
-                                                                    adminTab === 'precios' ? 'bg-amber-500' : 'bg-indigo-500'
+                                                                    adminTab === 'precios' ? 'bg-amber-500' :
+                                                        adminTab === 'billing' ? 'bg-slate-700' : 
+                                                            adminTab === 'etiquetas' ? 'bg-indigo-600' : 'bg-indigo-500'
+
                                                         }`}>
                                                         {adminTab === 'schools' ? <GraduationCap size={18} /> :
                                                             adminTab === 'shooting' ? '📸' :
                                                                 adminTab === 'design' ? <Palette size={18} /> :
                                                                     adminTab === 'orders' ? <Users size={18} /> :
-                                                                        adminTab === 'precios' ? <Euro size={18} /> : <Settings size={18} />}
+                                                                        adminTab === 'precios' ? <Euro size={18} /> :
+                                                                adminTab === 'billing' ? <FileText size={18} /> : 
+                                                                    adminTab === 'etiquetas' ? <Tag size={18} /> : <Settings size={18} />}
+
                                                     </div>
                                                     <span className="text-sm font-black uppercase tracking-wider text-primary">{adminTab}</span>
                                                 </div>
@@ -1555,7 +1576,10 @@ export default function App() {
                                                     <button onClick={() => { setAdminTab('design'); setMobileAdminMenuOpen(false); }} className="p-4 rounded-2xl text-[10px] font-black uppercase flex flex-col items-center gap-2"><Palette size={20} /> Diseño</button>
                                                     <button onClick={() => { setAdminTab('orders'); setMobileAdminMenuOpen(false); }} className="p-4 rounded-2xl text-[10px] font-black uppercase flex flex-col items-center gap-2"><Users size={20} /> Pedidos</button>
                                                     <button onClick={() => { setAdminTab('precios'); setMobileAdminMenuOpen(false); }} className="p-4 rounded-2xl text-[10px] font-black uppercase flex flex-col items-center gap-2"><Euro size={20} /> Precios</button>
+                                                    <button onClick={() => { setAdminTab('billing'); setMobileAdminMenuOpen(false); }} className="p-4 rounded-2xl text-[10px] font-black uppercase flex flex-col items-center gap-2"><FileText size={20} /> Facturas</button>
                                                     <button onClick={() => { setAdminTab('settings'); setMobileAdminMenuOpen(false); }} className="p-4 rounded-2xl text-[10px] font-black uppercase flex flex-col items-center gap-2"><Settings size={20} /> Ajustes</button>
+                                                    <button onClick={() => { setAdminTab('etiquetas'); setMobileAdminMenuOpen(false); }} className="p-4 rounded-2xl text-[10px] font-black uppercase flex flex-col items-center gap-2"><Tag size={20} /> Etiquetas</button>
+
                                                 </div>
                                             )}
                                         </div>
@@ -1573,9 +1597,14 @@ export default function App() {
                                                 <h3 className="text-sm md:text-xl font-black text-primary uppercase leading-none">Plan: <span className="text-indigo-500">{settings.plan?.toUpperCase() || 'STARTER'}</span></h3>
                                             </div>
                                         </div>
-                                        <button onClick={() => setShowPlanSelector(true)} className="w-full md:w-auto px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-[9px] md:text-[10px] uppercase rounded-xl transition-all flex items-center justify-center gap-3 shadow-xl shadow-indigo-600/20">
-                                            Cambiar Plan <ArrowRight size={14} />
-                                        </button>
+                                        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                                            <button onClick={() => setShowPlanSelector(true)} className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-[9px] md:text-[10px] uppercase rounded-xl transition-all flex items-center justify-center gap-3 shadow-xl shadow-indigo-600/20">
+                                                Cambiar Plan <ArrowRight size={14} />
+                                            </button>
+                                            <button onClick={() => setAdminTab('billing')} className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white font-black text-[9px] md:text-[10px] uppercase rounded-xl transition-all flex items-center justify-center gap-3 shadow-xl shadow-slate-700/20">
+                                                <FileText size={14} /> Mis Facturas
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -1615,6 +1644,11 @@ export default function App() {
                                         resetOrders={resetOrders}
                                     />
                                 )}
+
+                                {adminTab === 'etiquetas' && (
+                                    <LabelGenerator />
+                                )}
+
 
                                 {/* MODAL ASIGNAR FICHERO — PERSONAL */}
                                 <StaffEditModal
@@ -1679,6 +1713,13 @@ export default function App() {
                                             theme={theme}
                                         />
                                     </div>
+                                )}
+
+                                {adminTab === 'billing' && (
+                                    <BillingPanel 
+                                        settings={settings}
+                                        photographerId={photographerId}
+                                    />
                                 )}
 
                                 {/* ── AJUSTES DE LA APP ────────────────────────────────── */}
@@ -2154,38 +2195,47 @@ export default function App() {
                                             <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest opacity-60">Introduce tu PIN de acceso</p>
                                         </div>
                                         <div className="relative space-y-4">
-                                            <input
-                                                type="password"
-                                                placeholder="••••••••"
-                                                value={pinInput}
-                                                onChange={(e) => {
-                                                    setPinInput(e.target.value);
-                                                    setPinError(false);
-                                                }}
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter') {
-                                                        const masterPass = 'JPM17PASS71-';
-                                                        if (pinInput === adminPin || pinInput === masterPass) {
-                                                            setIsAdminUnlocked(true);
-                                                            if (photographerId === 'pujaltecreativestudio' || pinInput === masterPass) {
-                                                                setIsCreator(true);
-                                                                setView('master');
+                                            <div className="relative">
+                                                <input
+                                                    type={showPin ? "text" : "password"}
+                                                    placeholder="••••••••"
+                                                    value={pinInput}
+                                                    onChange={(e) => {
+                                                        setPinInput(e.target.value);
+                                                        setPinError(false);
+                                                    }}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') {
+                                                            const masterPass = 'JPM17PASS71-';
+                                                            if (pinInput === adminPin || pinInput === masterPass) {
+                                                                setIsAdminUnlocked(true);
+                                                                if (photographerId === 'pujaltecreativestudio' || pinInput === masterPass) {
+                                                                    setIsCreator(true);
+                                                                    setView('master');
+                                                                } else {
+                                                                    setView('admin');
+                                                                }
+                                                                setShowPinModal(false);
                                                             } else {
-                                                                setView('admin');
+                                                                setPinError(true);
+                                                                setTimeout(() => {
+                                                                    setPinError(false);
+                                                                    setPinInput('');
+                                                                }, 1000);
                                                             }
-                                                            setShowPinModal(false);
-                                                        } else {
-                                                            setPinError(true);
-                                                            setTimeout(() => {
-                                                                setPinError(false);
-                                                                setPinInput('');
-                                                            }, 1000);
                                                         }
-                                                    }
-                                                }}
-                                                autoFocus
-                                                className={`w-full bg-slate-50 border ${pinError ? 'border-red-500 animate-shake' : 'border-slate-200'} rounded-2xl py-5 text-center text-2xl font-black text-slate-800 tracking-[0.2em] outline-none focus:border-accent focus:bg-white transition-all placeholder:tracking-normal placeholder:opacity-20`}
-                                            />
+                                                    }}
+                                                    autoFocus
+                                                    className={`w-full bg-slate-50 border ${pinError ? 'border-red-500 animate-shake' : 'border-slate-200'} rounded-2xl py-5 text-center text-2xl font-black text-slate-950 tracking-[0.2em] outline-none focus:border-accent focus:bg-white transition-all placeholder:tracking-normal placeholder:text-slate-400 pr-14`}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowPin(prev => !prev)}
+                                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-accent transition-colors p-2"
+                                                >
+                                                    {showPin ? <EyeOff size={20} /> : <Eye size={20} />}
+                                                </button>
+                                            </div>
                                             {pinError && <p className="absolute -bottom-6 left-0 right-0 text-[10px] text-red-500 font-bold uppercase tracking-widest text-center">Contraseña Incorrecta</p>}
 
                                             <button

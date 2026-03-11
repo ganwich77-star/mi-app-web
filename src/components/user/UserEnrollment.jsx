@@ -62,14 +62,19 @@ const UserEnrollment = ({
                     className={`flex items-center justify-center mx-auto active:scale-95 transition-all duration-500 relative z-[750] pointer-events-auto ${(step === 0 || step === 1) ? 'w-36 mb-6' : 'w-20 mb-2'}`}
                 >
                     {settings.logoUrl || settings.logoUrlDark ? (
-                        <OptimizedImage
+                        <img
                             src={theme === 'dark' ? (settings.logoUrlDark || settings.logoUrl) : (settings.logoUrl || settings.logoUrlDark)}
                             alt="Logo"
                             className="w-full h-auto object-contain transition-all duration-500"
                             style={{ filter: (isDemo && theme === 'light') ? 'brightness(0)' : 'none' }}
                         />
                     ) : (
-                        <OptimizedImage src={`${import.meta.env.BASE_URL}logo.png`} alt="Logo" className="w-full h-auto object-contain transition-all duration-500" style={{ filter: theme === 'light' ? 'brightness(0)' : 'none' }} />
+                        <img 
+                            src={`${import.meta.env.BASE_URL}logo_white.png`} 
+                            alt="Logo" 
+                            className="w-full h-auto object-contain transition-all duration-500" 
+                            style={{ filter: theme === 'light' ? 'brightness(0)' : 'none' }} 
+                        />
                     )}
                 </button>
                 <h1 className={`font-black text-primary tracking-tight leading-none transition-all duration-500 ${(step === 0 || step === 1) ? 'text-4xl' : 'text-xl'}`}>

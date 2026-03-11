@@ -4,7 +4,7 @@ import { collection, onSnapshot, doc, updateDoc, setDoc, getDocs } from 'firebas
 import {
     Users, Shield, AlertTriangle, CheckCircle, Globe,
     Settings, Search, ArrowLeft, ExternalLink, Activity, Edit, X, Save,
-    MessageSquare, Copy, Sparkles, Trash2, QrCode, Download, Mail
+    MessageSquare, Copy, Sparkles, Trash2, QrCode, Download, Mail, FileText
 } from 'lucide-react';
 import { deleteDoc } from 'firebase/firestore';
 
@@ -16,7 +16,8 @@ export default function MasterPanel({ onBack }) {
     const [editData, setEditData] = useState({});
     const [qrPhotographer, setQrPhotographer] = useState(null);
     const [mailModal, setMailModal] = useState(null);
-    const [deleteConfirm, setDeleteConfirm] = useState(null); // Nuevo estado para el modal de borrado
+    const [deleteConfirm, setDeleteConfirm] = useState(null);
+    const [activeTab, setActiveTab] = useState('clients'); // 'clients' o 'billing'
 
     const emailTemplates = [
         {
@@ -203,6 +204,82 @@ export default function MasterPanel({ onBack }) {
             </div>
         );
     };
+    const handleDownloadInvoice = (p) => {
+        const printWindow = window.open('', '_blank');
+        const amount = p.plan === 'pro' ? 449 : p.plan === 'flex' ? 249 : 149;
+        const iva = (amount * 0.21).toFixed(2);
+        const base = amount.toFixed(2);
+        const total = (parseFloat(base) + parseFloat(iva)).toFixed(2);
+
+        printWindow.document.write(`
+            <html>
+                <head>
+                    <title>Factura ${p.id.toUpperCase()}</title>
+                    <style>
+                        body { font-family: 'Inter', sans-serif; padding: 40px; color: #1e293b; }
+                        .header { display: flex; justify-content: space-between; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 40px; }
+                        .logo { font-size: 24px; font-weight: 900; text-transform: uppercase; color: #4f46e5; }
+                        .info { display: grid; grid-template-cols: 1fr 1fr; gap: 40px; margin-bottom: 40px; }
+                        .info h4 { margin-bottom: 10px; text-transform: uppercase; font-size: 12px; color: #64748b; }
+                        .table { width: 100%; border-collapse: collapse; margin-bottom: 40px; }
+                        .table th { text-align: left; padding: 12px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-size: 12px; text-transform: uppercase; }
+                        .table td { padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+                        .totals { margin-left: auto; width: 250px; }
+                        .total-row { display: flex; justify-content: space-between; padding: 8px 0; }
+                        .total-row.grand { border-top: 2px solid #e2e8f0; margin-top: 10px; font-weight: 900; font-size: 18px; color: #4f46e5; }
+                        @media print { .no-print { display: none; } }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <div class="logo">PUJALTE CREATIVE STUDIO</div>
+                        <div style="text-align: right">
+                            <h2 style="margin: 0">FACTURA ADM.</h2>
+                            <p style="color: #64748b; margin: 5px 0">REF-${new Date().getFullYear()}-${p.id.toUpperCase()}</p>
+                        </div>
+                    </div>
+                    <div class="info">
+                        <div>
+                            <h4>EMISOR</h4>
+                            <p><strong>Pujalte Fotografía</strong><br/>CIF: B12345678<br/>Calle Mayor 1, 30001 Murcia<br/>España</p>
+                        </div>
+                        <div>
+                            <h4>RECEPTOR</h4>
+                            <p><strong>${p.fiscalName || p.brandName || p.id}</strong><br/>CIF: ${p.cif || '-'}<br/>${p.address || '-'}<br/>${p.postalCode || ''} ${p.city || ''}</p>
+                        </div>
+                    </div>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Descripción</th>
+                                <th>Cantidad</th>
+                                <th>Precio</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Licencia App Orlas 2026 - Plan ${p.plan?.toUpperCase()}</td>
+                                <td>1</td>
+                                <td>${base}€</td>
+                                <td>${base}€</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="totals">
+                        <div class="total-row"><span>Base Imponible:</span> <span>${base}€</span></div>
+                        <div class="total-row"><span>IVA (21%):</span> <span>${iva}€</span></div>
+                        <div class="total-row grand"><span>TOTAL:</span> <span>${total}€</span></div>
+                    </div>
+                    <div style="margin-top: 80px; font-size: 10px; color: #94a3b8; text-align: center;">
+                        Esta es una factura emitida por servicios de plataforma digital.
+                    </div>
+                    <button onclick="window.print()" class="no-print" style="margin-top: 20px; padding: 10px 20px; background: #4f46e5; color: white; border: none; border-radius: 8px; cursor: pointer;">Imprimir o Guardar PDF</button>
+                </body>
+            </html>
+        `);
+        printWindow.document.close();
+    };
 
     return (
         <div className="min-h-screen bg-[#020617] text-white p-6 font-sans relative">
@@ -220,6 +297,21 @@ export default function MasterPanel({ onBack }) {
                             </div>
                             <p className="text-slate-500 text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] md:tracking-[0.3em] mt-1 md:mt-2 truncate">Gestión Global de Fotógrafos</p>
                         </div>
+                    </div>
+
+                    <div className="flex bg-slate-900/50 p-1.5 rounded-2xl border border-white/5 gap-2 shrink-0">
+                        <button 
+                            onClick={() => setActiveTab('clients')}
+                            className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'clients' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
+                        >
+                            <Users size={14} /> Clientes
+                        </button>
+                        <button 
+                            onClick={() => setActiveTab('billing')}
+                            className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'billing' ? 'bg-violet-600 text-white shadow-lg' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
+                        >
+                            <FileText size={14} /> Facturación
+                        </button>
                     </div>
 
                     <div className="relative w-full md:min-w-[320px]">
@@ -315,129 +407,176 @@ export default function MasterPanel({ onBack }) {
                     </div>
                 </div>
 
-                {/* Table */}
-                < div className="bg-white/5 border border-white/10 rounded-[35px] overflow-hidden backdrop-blur-xl" >
+                {/* Table View */}
+                <div className="bg-white/5 border border-white/10 rounded-[35px] overflow-hidden backdrop-blur-xl">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
                             <thead className="bg-white/5">
                                 <tr>
-                                    <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest opacity-40">Fotógrafo / Plan</th>
-                                    <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest opacity-40">Registros</th>
-                                    <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest opacity-40">Acceso / Estado</th>
-                                    <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest opacity-40">Pago Suscrip.</th>
-                                    <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest opacity-40 text-right">Acciones</th>
+                                    {activeTab === 'clients' ? (
+                                        <>
+                                            <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest opacity-40">Fotógrafo / Plan</th>
+                                            <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest opacity-40">Registros</th>
+                                            <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest opacity-40">Acceso / Estado</th>
+                                            <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest opacity-40">Pago Suscrip.</th>
+                                            <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest opacity-40 text-right">Acciones</th>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest opacity-40">Cliente</th>
+                                            <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest opacity-40">Plan Contratado</th>
+                                            <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest opacity-40">Estado de Pago</th>
+                                            <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest opacity-40 text-right">Documentación</th>
+                                        </>
+                                    )}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5">
                                 {loading ? (
-                                    <tr><td colSpan="4" className="px-6 py-12 text-center text-white/20 font-bold">Cargando datos...</td></tr>
+                                    <tr><td colSpan="5" className="px-6 py-12 text-center text-white/20 font-bold">Cargando datos...</td></tr>
                                 ) : filtered.length === 0 ? (
-                                    <tr><td colSpan="4" className="px-6 py-12 text-center text-white/20 font-bold">No se han encontrado resultados</td></tr>
+                                    <tr><td colSpan="5" className="px-6 py-12 text-center text-white/20 font-bold">No se han encontrado resultados</td></tr>
                                 ) : filtered.map(p => (
                                     <tr key={p.id} className="hover:bg-white/[0.02] transition-colors">
-                                        <td className="px-6 py-6">
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-12 h-12 bg-gradient-to-br from-white/10 to-white/5 rounded-2xl flex items-center justify-center border border-white/10 overflow-hidden">
-                                                    {p.logoUrl ? (
-                                                        <img src={p.logoUrl} className="w-full h-full object-contain p-2" alt="Logo" />
-                                                    ) : (
-                                                        <Globe size={20} className="text-white/20" />
-                                                    )}
-                                                </div>
-                                                <div className="flex flex-col">
-                                                    <p className="font-black text-lg tracking-tight leading-none uppercase">{p.id}</p>
-                                                    <div className="flex items-center gap-2 mt-2">
-                                                        <span className={`text-[8px] font-black px-2 py-0.5 rounded-md uppercase tracking-widest ${p.plan === 'starter' ? 'bg-slate-500 text-white' :
-                                                            p.plan === 'flex' ? 'bg-indigo-500 text-white' :
-                                                                p.plan === 'pro' ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'
-                                                            }`}>Plan {p.plan || 'starter'}</span>
+                                        {activeTab === 'clients' ? (
+                                            <>
+                                                <td className="px-6 py-6">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="w-12 h-12 bg-gradient-to-br from-white/10 to-white/5 rounded-2xl flex items-center justify-center border border-white/10 overflow-hidden">
+                                                            {p.logoUrl ? (
+                                                                <img src={p.logoUrl} className="w-full h-full object-contain p-2" alt="Logo" />
+                                                            ) : (
+                                                                <Globe size={20} className="text-white/20" />
+                                                            )}
+                                                        </div>
+                                                        <div className="flex flex-col">
+                                                            <p className="font-black text-lg tracking-tight leading-none uppercase">{p.id}</p>
+                                                            <div className="flex items-center gap-2 mt-2">
+                                                                <span className={`text-[8px] font-black px-2 py-0.5 rounded-md uppercase tracking-widest ${p.plan === 'starter' ? 'bg-slate-500 text-white' :
+                                                                    p.plan === 'flex' ? 'bg-indigo-500 text-white' :
+                                                                        p.plan === 'pro' ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'
+                                                                    }`}>Plan {p.plan || 'starter'}</span>
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-6">
-                                            <PhotographerStats id={p.id} />
-                                        </td>
-                                        <td className="px-6 py-6">
-                                            {p.isSuspended ? (
-                                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-500/10 text-red-500 text-[10px] font-black uppercase tracking-wider border border-red-500/20">
-                                                    <AlertTriangle size={12} /> ACCESO CERRADO
-                                                </span>
-                                            ) : (
-                                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-black uppercase tracking-wider border border-emerald-500/20">
-                                                    <CheckCircle size={12} /> ACCESO ACTIVO
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-6">
-                                            <button
-                                                onClick={() => togglePaidStatus(p.id, p.isPaid)}
-                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all ${p.isPaid
-                                                    ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20'
-                                                    : 'bg-amber-500/10 text-amber-500 border-amber-500/20 hover:bg-amber-500/20'
-                                                    }`}
-                                            >
-                                                {p.isPaid ? 'CONFIRMADO' : 'PENDIENTE'}
-                                            </button>
-                                        </td>
-                                        <td className="px-6 py-6 text-right">
-                                            <div className="flex items-center justify-end gap-2">
-                                                <button
-                                                    onClick={() => setMailModal(p)}
-                                                    className="flex items-center gap-2 px-3 py-2 bg-white/5 rounded-xl hover:bg-white/10 text-white/60 hover:text-blue-400 transition-all border border-white/5"
-                                                    title="Enviar Email (Plantillas)"
-                                                >
-                                                    <Mail size={14} />
-                                                </button>
+                                                </td>
+                                                <td className="px-6 py-6">
+                                                    <PhotographerStats id={p.id} />
+                                                </td>
+                                                <td className="px-6 py-6">
+                                                    {p.isSuspended ? (
+                                                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-500/10 text-red-500 text-[10px] font-black uppercase tracking-wider border border-red-500/20">
+                                                            <AlertTriangle size={12} /> ACCESO CERRADO
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-black uppercase tracking-wider border border-emerald-500/20">
+                                                            <CheckCircle size={12} /> ACCESO ACTIVO
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-6">
+                                                    <button
+                                                        onClick={() => togglePaidStatus(p.id, p.isPaid)}
+                                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all ${p.isPaid
+                                                            ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20'
+                                                            : 'bg-amber-500/10 text-amber-500 border-amber-500/20 hover:bg-amber-500/20'
+                                                            }`}
+                                                    >
+                                                        {p.isPaid ? 'CONFIRMADO' : 'PENDIENTE'}
+                                                    </button>
+                                                </td>
+                                                <td className="px-6 py-6 text-right">
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <button
+                                                            onClick={() => setMailModal(p)}
+                                                            className="flex items-center gap-2 px-3 py-2 bg-white/5 rounded-xl hover:bg-white/10 text-white/60 hover:text-blue-400 transition-all border border-white/5"
+                                                            title="Enviar Email (Plantillas)"
+                                                        >
+                                                            <Mail size={14} />
+                                                        </button>
 
-                                                <button
-                                                    onClick={() => handleEdit(p)}
-                                                    className="flex items-center gap-2 px-3 py-2 bg-white/5 rounded-xl hover:bg-white/10 text-white/60 hover:text-indigo-400 transition-all border border-white/5"
-                                                    title="Editar Datos"
-                                                >
-                                                    <Edit size={14} />
-                                                </button>
+                                                        <button
+                                                            onClick={() => handleEdit(p)}
+                                                            className="flex items-center gap-2 px-3 py-2 bg-white/5 rounded-xl hover:bg-white/10 text-white/60 hover:text-indigo-400 transition-all border border-white/5"
+                                                            title="Editar Datos"
+                                                        >
+                                                            <Edit size={14} />
+                                                        </button>
 
-                                                <button
-                                                    onClick={() => setQrPhotographer(p)}
-                                                    className="flex items-center gap-2 px-3 py-2 bg-white/5 rounded-xl hover:bg-white/10 text-white/60 hover:text-amber-400 transition-all border border-white/5"
-                                                    title="Descargar QR"
-                                                >
-                                                    <QrCode size={14} />
-                                                </button>
+                                                        <button
+                                                            onClick={() => setQrPhotographer(p)}
+                                                            className="flex items-center gap-2 px-3 py-2 bg-white/5 rounded-xl hover:bg-white/10 text-white/60 hover:text-amber-400 transition-all border border-white/5"
+                                                            title="Descargar QR"
+                                                        >
+                                                            <QrCode size={14} />
+                                                        </button>
 
-                                                <a
-                                                    href={`${window.location.pathname}?f=${p.id}&view=user`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="flex items-center gap-2 px-3 py-2 bg-white/5 rounded-xl hover:bg-white/10 text-white/60 hover:text-emerald-400 transition-all border border-white/5"
-                                                    title="Ver App"
-                                                >
-                                                    <ExternalLink size={14} />
-                                                </a>
+                                                        <a
+                                                            href={`${window.location.pathname}?f=${p.id}&view=user`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="flex items-center gap-2 px-3 py-2 bg-white/5 rounded-xl hover:bg-white/10 text-white/60 hover:text-emerald-400 transition-all border border-white/5"
+                                                            title="Ver App"
+                                                        >
+                                                            <ExternalLink size={14} />
+                                                        </a>
 
-                                                <button
-                                                    onClick={() => toggleStatus(p.id, p.isSuspended)}
-                                                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg ${p.isSuspended ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'}`}
-                                                >
-                                                    {p.isSuspended ? 'Abrir' : 'Cerrar'}
-                                                </button>
+                                                        <button
+                                                            onClick={() => toggleStatus(p.id, p.isSuspended)}
+                                                            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg ${p.isSuspended ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'}`}
+                                                        >
+                                                            {p.isSuspended ? 'Abrir' : 'Cerrar'}
+                                                        </button>
 
-                                                <button
-                                                    onClick={() => handleDelete(p.id)}
-                                                    className="p-2 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all border border-red-500/20"
-                                                    title="Eliminar Registro"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
-                                            </div>
-                                        </td>
+                                                        <button
+                                                            onClick={() => handleDelete(p.id)}
+                                                            className="p-2 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all border border-red-500/20"
+                                                            title="Eliminar Registro"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <td className="px-6 py-6">
+                                                    <div className="flex flex-col">
+                                                        <span className="font-black text-sm uppercase text-white tracking-tight">{p.brandName || p.id}</span>
+                                                        <span className="text-[10px] text-slate-500 font-bold">{p.email || p.id + '@basecode.es'}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-6">
+                                                    <span className={`text-[9px] font-black px-3 py-1 rounded-lg uppercase tracking-widest ${
+                                                        p.plan === 'pro' ? 'bg-violet-500/20 text-violet-400' :
+                                                        p.plan === 'flex' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-500/20 text-slate-400'
+                                                    }`}>
+                                                        {p.plan?.toUpperCase() || 'STARTER'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-6 font-mono text-[10px] font-bold">
+                                                    {p.isPaid ? (
+                                                        <span className="text-emerald-500">PAGADO</span>
+                                                    ) : (
+                                                        <span className="text-amber-500">PENDIENTE</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-6 text-right">
+                                                    <button 
+                                                        onClick={() => handleDownloadInvoice(p)}
+                                                        className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 text-white/70 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-white/5 active:scale-95"
+                                                    >
+                                                        <Download size={14} /> Factura PDF
+                                                    </button>
+                                                </td>
+                                            </>
+                                        )}
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
                     </div>
-                </div >
+                </div>
             </div >
 
             {/* Modal de Edición */}

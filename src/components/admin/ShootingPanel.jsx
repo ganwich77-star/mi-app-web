@@ -6,7 +6,7 @@ import {
     ChevronRight, AlertCircle, CreditCard, ChevronDown, ChevronUp, Mail, FileText,
     Package, Plus, LayoutGrid, List
 } from 'lucide-react';
-import { COURSE_GROUPS, PACKS, EXTRAS } from '../../constants.js';
+import { COURSE_GROUPS, PACKS, EXTRAS, STAFF_ROLES } from '../../constants.js';
 import { toTitleCase, getCourseBase, getGroup } from '../../utils/formatters.js';
 
 const ShootingPanel = ({
@@ -50,11 +50,15 @@ const ShootingPanel = ({
     const [showDetails, setShowDetails] = useState(null);
     const [modalSearch, setModalSearch] = useState("");
     const [isFocused, setIsFocused] = useState(false);
-    const [isQuickAddExpanded, setIsQuickAddExpanded] = useState(false);
+    const [isStaffQuickAddExpanded, setIsStaffQuickAddExpanded] = useState(false);
     const [isFiltersExpanded, setIsFiltersExpanded] = useState(false);
-    const [isStudentListExpanded, setIsStudentListExpanded] = useState(true);
+    const [isQuickAddExpanded, setIsQuickAddExpanded] = useState(false);
+    const [isStudentListExpanded, setIsStudentListExpanded] = useState(false);
+    const [isStaffListExpanded, setIsStaffListExpanded] = useState(false); // Faltaba esta declaración
+    const [viewStyle, setViewStyle] = useState('list');
     const [showQuickExtras, setShowQuickExtras] = useState(false);
-    const [viewStyle, setViewStyle] = useState('grid');
+    const [showPaymentSelector, setShowPaymentSelector] = useState(false);
+    const [showStatusSelector, setShowStatusSelector] = useState(false);
     const inputRef = useRef(null);
 
     // Funciones locales para Alta Rápida
@@ -145,54 +149,45 @@ const ShootingPanel = ({
         setShowQuickExtras(false);
     };
 
-    const handlePaymentChange = async (student) => {
-        const Swal = (await import('sweetalert2')).default;
-        const { value: method } = await Swal.fire({
-            title: 'Estado de Pago',
-            input: 'select',
-            inputOptions: {
-                '': 'Pendiente',
-                'EFECTIVO': 'Efectivo',
-                'TARJETA': 'Tarjeta',
-                'TRANSFERENCIA': 'Transferencia'
-            },
-            inputValue: student.paymentMethod || '',
-            showCancelButton: true,
-            confirmButtonText: 'Actualizar',
-            cancelButtonText: 'Cerrar',
-            background: '#ffffff',
-            color: '#000000',
-            confirmButtonColor: '#10b981',
-        });
+    const handleSaveStaffQuickAdd = () => {
+        if (!newStaffForm.firstName || !newStaffForm.lastName || !newStaffForm.role) return;
 
-        if (method !== undefined) {
-            updateOrder(student.id, { paymentMethod: method });
-            setActiveStudent(prev => prev?.id === student.id ? { ...prev, paymentMethod: method } : prev);
-        }
+        // Limpiamos campos temporales antes de guardar
+        const { tempCourse, tempGroup, ...staffData } = newStaffForm;
+        
+        const finalStaffData = {
+            ...staffData,
+            schoolId: adminSchool || staffData.schoolId
+        };
+
+        addStaff(finalStaffData);
+
+        // Reset form
+        setNewStaffForm({
+            schoolId: '',
+            firstName: '',
+            lastName: '',
+            role: '',
+            photoFile: '',
+            tempCourse: '',
+            tempGroup: '',
+            assignments: []
+        });
+        setIsStaffQuickAddExpanded(false); // Cerramos tras guardar para feedback visual
     };
 
-    const handleStatusChange = async (student) => {
-        const Swal = (await import('sweetalert2')).default;
-        const { value: status } = await Swal.fire({
-            title: 'Estado de Foto',
-            input: 'select',
-            inputOptions: {
-                'Pendiente': 'Pendiente',
-                'production': 'Realizada'
-            },
-            inputValue: (student.status === 'production' || student.photoFile) ? 'production' : 'Pendiente',
-            showCancelButton: true,
-            confirmButtonText: 'Actualizar',
-            cancelButtonText: 'Cerrar',
-            background: '#ffffff',
-            color: '#000000',
-            confirmButtonColor: '#10b981',
-        });
+    const handlePaymentChange = (method) => {
+        if (!activeStudent) return;
+        updateOrder(activeStudent.id, { paymentMethod: method });
+        setActiveStudent(prev => prev?.id === activeStudent.id ? { ...prev, paymentMethod: method } : prev);
+        setShowPaymentSelector(false);
+    };
 
-        if (status !== undefined) {
-            updateOrder(student.id, { status: status });
-            setActiveStudent(prev => prev?.id === student.id ? { ...prev, status: status } : prev);
-        }
+    const handleStatusChange = (status) => {
+        if (!activeStudent) return;
+        updateOrder(activeStudent.id, { status: status });
+        setActiveStudent(prev => prev?.id === activeStudent.id ? { ...prev, status: status } : prev);
+        setShowStatusSelector(false);
     };
 
     // Función para calcular el tamaño inteligente del texto
@@ -253,10 +248,16 @@ const ShootingPanel = ({
             ?.courses.find(c => c.name === shootFilters.course)?.lines || [])
         : [];
 
-    // Grupos únicos para el curso del formulario de alta rápida
+    // Grupos únicos para el curso del formulario de alta rápida de alumnos
     const formAvailableGroups = newStudentForm.course
         ? (COURSE_GROUPS.find(g => g.courses.some(c => c.name === newStudentForm.course))
             ?.courses.find(c => c.name === newStudentForm.course)?.lines || [])
+        : [];
+
+    // Grupos únicos para el curso del formulario de alta rápida de docentes
+    const staffFormAvailableGroups = newStaffForm.tempCourse
+        ? (COURSE_GROUPS.find(g => g.courses.some(c => c.name === newStaffForm.tempCourse))
+            ?.courses.find(c => c.name === newStaffForm.tempCourse)?.lines || [])
         : [];
 
     // Cursos únicos de la escuela
@@ -293,11 +294,11 @@ const ShootingPanel = ({
                 <div className="flex items-center justify-between gap-3 md:gap-4">
                     <div className="flex items-center gap-3 md:gap-4 flex-1 text-primary">
                         {/* Selector Alumnos / Docentes */}
-                        <div className="flex p-1 rounded-[12px] bg-primary/[0.03] border border-primary/10 shrink-0 w-full max-w-[200px] md:max-w-[240px]">
-                            <button onClick={() => { setShootMode('students'); setShootSearch(''); }} className={`flex-1 px-2 py-2 rounded-[8px] text-[10px] md:text-[11px] font-bold tracking-wide transition-all flex items-center justify-center gap-1.5 ${shootMode === 'students' ? 'bg-white text-primary shadow-sm' : 'text-primary/50 hover:text-primary hover:bg-white/50'}`}>
+                        <div className="flex p-1.5 rounded-[14px] bg-primary/[0.03] border border-primary/10 shrink-0 w-full max-w-[220px] md:max-w-[260px] gap-1">
+                            <button onClick={() => { setShootMode('students'); setShootSearch(''); }} className={`flex-1 px-3 py-2 rounded-[10px] text-[10px] md:text-[11px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${shootMode === 'students' ? 'bg-white text-indigo-600 shadow-md ring-2 ring-indigo-500/20' : 'text-primary/40 hover:text-primary hover:bg-white/50'}`}>
                                 <Users size={14} /> Alumnos
                             </button>
-                            <button onClick={() => { setShootMode('staff'); setShootSearch(''); }} className={`flex-1 px-2 py-2 rounded-[8px] text-[10px] md:text-[11px] font-bold tracking-wide transition-all flex items-center justify-center gap-1.5 ${shootMode === 'staff' ? 'bg-white text-primary shadow-sm' : 'text-primary/50 hover:text-primary hover:bg-white/50'}`}>
+                            <button onClick={() => { setShootMode('staff'); setShootSearch(''); }} className={`flex-1 px-3 py-2 rounded-[10px] text-[10px] md:text-[11px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${shootMode === 'staff' ? 'bg-white text-indigo-600 shadow-md ring-2 ring-indigo-500/20' : 'text-primary/40 hover:text-primary hover:bg-white/50'}`}>
                                 <UserCheck size={14} /> Docentes
                             </button>
                         </div>
@@ -580,14 +581,16 @@ const ShootingPanel = ({
                                                 )}
                                             </div>
                                         )}
-                                        <div className="hidden md:flex items-center gap-1 p-1 rounded-[10px] bg-primary/[0.02] border border-primary/10 shadow-sm" onClick={e => e.stopPropagation()}>
-                                            <button onClick={() => setViewStyle('grid')} className={`w-8 h-8 rounded-[6px] transition-all flex items-center justify-center ${viewStyle === 'grid' ? 'bg-white shadow-sm text-primary' : 'text-primary/40 hover:text-primary hover:bg-primary/5'}`} title="Cuadrícula">
-                                                <LayoutGrid size={16} />
-                                            </button>
-                                            <button onClick={() => setViewStyle('list')} className={`w-8 h-8 rounded-[6px] transition-all flex items-center justify-center ${viewStyle === 'list' ? 'bg-white shadow-sm text-primary' : 'text-primary/40 hover:text-primary hover:bg-primary/5'}`} title="Lista / Edición">
-                                                <List size={18} />
-                                            </button>
-                                        </div>
+                                        {isStudentListExpanded && (
+                                            <div className="hidden md:flex items-center gap-1 p-1 rounded-[10px] bg-primary/[0.02] border border-primary/10 shadow-sm" onClick={e => e.stopPropagation()}>
+                                                <button onClick={() => setViewStyle('grid')} className={`w-8 h-8 rounded-[6px] transition-all flex items-center justify-center ${viewStyle === 'grid' ? 'bg-white shadow-sm text-primary' : 'text-primary/40 hover:text-primary hover:bg-primary/5'}`} title="Cuadrícula">
+                                                    <LayoutGrid size={16} />
+                                                </button>
+                                                <button onClick={() => setViewStyle('list')} className={`w-8 h-8 rounded-[6px] transition-all flex items-center justify-center ${viewStyle === 'list' ? 'bg-white shadow-sm text-primary' : 'text-primary/40 hover:text-primary hover:bg-primary/5'}`} title="Lista / Edición">
+                                                    <List size={18} />
+                                                </button>
+                                            </div>
+                                        )}
                                         {isStudentListExpanded ? <ChevronUp size={20} className="text-primary/20" /> : <ChevronDown size={20} className="text-primary/20" />}
                                     </div>
                                 </button>
@@ -706,84 +709,275 @@ const ShootingPanel = ({
 
                 {shootMode === 'staff' && (
                     <div className="flex flex-col h-full overflow-hidden animate-fade-in p-4 text-primary">
-                        <div className="card p-4 flex items-center gap-3 flex-wrap shrink-0">
-                            <div className="relative flex-1">
-                                <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-indigo-400" />
-                                <input type="text" lang="es" value={shootSearch} onChange={e => { setShootSearch(e.target.value); setSelectedStaffIds([]); }}
-                                    placeholder="Buscar por nombre..."
-                                    className="w-full bg-primary/5 border border-indigo-400/20 focus:border-indigo-400 rounded-xl pl-10 pr-4 py-2.5 text-sm text-primary placeholder-primary/30 outline-none transition-colors" />
-                            </div>
-                            <button onClick={() => {
-                                const sq = (shootSearch || '').trim().toLowerCase();
-                                const filtered = sq ? staff.filter(m => m.name.toLowerCase().includes(sq)) : staff;
-                                if (selectedStaffIds.length === filtered.length) setSelectedStaffIds([]);
-                                else setSelectedStaffIds(filtered.map(m => m.id));
-                            }} className="px-4 py-2.5 bg-primary/5 border border-primary/10 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-primary/10 transition-colors text-primary">
-                                <CheckSquare size={14} /> {selectedStaffIds.length === staff.length ? 'Desmarcar' : 'Marcar Todos'}
-                            </button>
-                            <button onClick={() => deleteStaff(selectedStaffIds)} disabled={selectedStaffIds.length === 0} className="px-4 py-2.5 bg-rose-50 border border-rose-100 rounded-xl text-[10px] font-black text-rose-500 uppercase tracking-widest flex items-center gap-2 hover:bg-rose-100 transition-colors disabled:opacity-30">
-                                <Trash2 size={14} /> Eliminar ({selectedStaffIds.length})
-                            </button>
-                        </div>
-                        <div className="flex-1 overflow-y-auto mt-4 custom-scrollbar">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-20">
-                                {staff.filter(m => !shootSearch || m.name.toLowerCase().includes(shootSearch.toLowerCase())).map(member => {
-                                    const isExpanded = expandedId === member.id;
-                                    const isSelected = selectedStaffIds.includes(member.id);
-                                    return (
-                                        <div key={member.id} className={`group bg-card rounded-3xl border border-primary/5 transition-all duration-300 hover:shadow-xl hover:shadow-primary/5 overflow-hidden ${isSelected ? 'ring-2 ring-indigo-500 border-transparent' : ''}`}>
-                                            <div className="p-4 flex items-center justify-between gap-4">
-                                                <button onClick={() => setSelectedStaffIds(prev => prev.includes(member.id) ? prev.filter(id => id !== member.id) : [...prev, member.id])} className={`w-8 h-8 rounded-xl border-2 transition-all flex items-center justify-center ${isSelected ? 'bg-indigo-500 border-indigo-500 text-white' : 'border-primary/10 text-transparent hover:border-indigo-500'}`}>
-                                                    <CheckCircle size={14} />
-                                                </button>
-                                                <button onClick={() => setExpandedId(isExpanded ? null : member.id)} className="flex-1 flex items-center justify-between text-left">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center group-hover:scale-110 transition-transform shadow-inner">
-                                                            {member.photoFile ? <CheckCircle2 size={24} className="text-indigo-500" /> : <Users size={24} className="text-secondary/20" />}
+                        {adminSchool && (
+                            <div className="mb-4 shrink-0 focus-within:z-50">
+                                <div className="bg-card border border-primary/10 border-l-4 border-l-emerald-500 rounded-[16px] overflow-hidden text-primary shadow-sm">
+                                    <button onClick={() => setIsStaffQuickAddExpanded(!isStaffQuickAddExpanded)} className="w-full px-5 py-4 flex items-center justify-between hover:bg-primary/[0.02] transition-colors text-primary border-b border-primary/5">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 bg-emerald-400/10 rounded-xl text-emerald-500"><Zap size={18} /></div>
+                                            <div className="text-left">
+                                                <h3 className="text-xs font-black text-primary uppercase tracking-wider">Alta Rápida Docente</h3>
+                                                <p className="text-[10px] text-secondary font-bold opacity-60 uppercase">Nombre, apellidos y cargo instantáneo</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-4 mr-4">
+                                                {newStaffForm.firstName && (
+                                                    <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 rounded-full border border-emerald-500/20">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                        <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">En curso</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            {isStaffQuickAddExpanded ? <ChevronUp size={20} className="text-primary/20" /> : <ChevronDown size={20} className="text-primary/20" />}
+                                        </div>
+                                    </button>
+
+                                    {isStaffQuickAddExpanded && (
+                                        <div className="px-5 pb-5 border-t border-primary/5 animate-in slide-in-from-top-2 duration-300">
+                                            {/* FILA 1: NOMBRE, APELLIDOS Y CARGO */}
+                                            <div className="grid grid-cols-1 md:grid-cols-12 gap-5 pt-5 pb-5 border-b border-dashed border-primary/20 align-end">
+                                                <div className="md:col-span-3 space-y-2">
+                                                    <p className="text-[10px] font-bold uppercase tracking-widest text-primary/40 pl-1">Nombre</p>
+                                                    <div className="flex items-center bg-transparent border border-primary/10 rounded-xl overflow-hidden focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/50 transition-all group/field">
+                                                        <div className="px-4 py-3 border-r border-primary/10 text-primary/30 group-focus-within/field:text-emerald-500 transition-colors">
+                                                            <Users size={18} />
                                                         </div>
-                                                        <div>
-                                                            <p className="text-sm font-black text-primary leading-tight">{member.name}</p>
-                                                            <p className="text-[10px] font-bold text-violet-500 uppercase tracking-widest">{member.role}</p>
+                                                        <input type="text" value={newStaffForm.firstName} onChange={e => setNewStaffForm(p => ({ ...p, firstName: e.target.value }))} placeholder="Nombre..." className="flex-1 bg-transparent px-4 py-3 text-[13px] text-primary placeholder:text-primary/20 outline-none" />
+                                                    </div>
+                                                </div>
+
+                                                <div className="md:col-span-5 space-y-2">
+                                                    <p className="text-[10px] font-bold uppercase tracking-widest text-primary/40 pl-1">Apellidos</p>
+                                                    <div className="flex items-center bg-transparent border border-primary/10 rounded-xl overflow-hidden focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/50 transition-all group/field">
+                                                        <div className="px-4 py-3 border-r border-primary/10 text-primary/30 group-focus-within/field:text-emerald-500 transition-colors">
+                                                            <Users size={18} />
+                                                        </div>
+                                                        <input type="text" value={newStaffForm.lastName} onChange={e => setNewStaffForm(p => ({ ...p, lastName: e.target.value }))} placeholder="Apellidos..." className="flex-1 bg-transparent px-4 py-3 text-[13px] text-primary placeholder:text-primary/20 outline-none" />
+                                                    </div>
+                                                </div>
+
+                                                <div className="md:col-span-4 space-y-2">
+                                                    <p className="text-[10px] font-bold uppercase tracking-widest text-primary/40 pl-1">Cargo / Función</p>
+                                                    <div className="flex items-center bg-transparent border border-primary/20 rounded-[14px] overflow-hidden focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/50 transition-all group/select relative">
+                                                        <div className="px-4 py-3 border-r border-primary/20 text-primary/30 group-focus-within/select:text-emerald-500 transition-colors">
+                                                            <UserCheck size={18} />
+                                                        </div>
+                                                        <select value={newStaffForm.role} onChange={e => setNewStaffForm(p => ({ ...p, role: e.target.value }))} className="flex-1 bg-transparent px-4 py-3 text-[13px] font-bold uppercase outline-none appearance-none cursor-pointer text-primary pr-10 min-w-0">
+                                                            <option value="">Seleccionar Cargo</option>
+                                                            {Object.entries(STAFF_ROLES).map(([key, value]) => (
+                                                                <option key={key} value={value}>{key}</option>
+                                                            ))}
+                                                        </select>
+                                                        <div className="absolute right-4 pointer-events-none text-primary/30 group-focus-within/select:text-emerald-500 transition-colors">
+                                                            <ChevronDown size={16} />
                                                         </div>
                                                     </div>
-                                                    {isExpanded ? <ChevronUp size={14} className="opacity-40" /> : <ChevronDown size={14} className="opacity-40" />}
+                                                </div>
+                                            </div>
+
+                                            {/* FILA 2: ASIGNACIÓN DE CLASES (DINÁMICA) */}
+                                            <div className="pt-5 border-b border-dashed border-primary/20 pb-5">
+                                                <p className="text-[10px] font-bold uppercase tracking-widest text-primary/40 pl-1 mb-3 flex items-center gap-2">
+                                                    <Users size={12} /> Asignación de Clases y Grupos
+                                                </p>
+                                                
+                                                <div className="flex flex-wrap gap-2 mb-4">
+                                                    {newStaffForm.assignments.map((asg, idx) => (
+                                                        <div key={idx} className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-xl group/asg">
+                                                            <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">
+                                                                {asg.course} {asg.group && `· ${asg.group}`}
+                                                            </span>
+                                                            <button 
+                                                                onClick={() => setNewStaffForm(p => ({ ...p, assignments: p.assignments.filter((_, i) => i !== idx) }))}
+                                                                className="text-indigo-400 hover:text-rose-500 transition-colors"
+                                                            >
+                                                                <XCircle size={14} />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                    {newStaffForm.assignments.length === 0 && (
+                                                        <p className="text-[10px] font-bold text-primary/20 uppercase tracking-wider italic py-1">Sin clases asignadas aún</p>
+                                                    )}
+                                                </div>
+
+                                                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end bg-primary/[0.02] p-4 rounded-2xl border border-primary/5">
+                                                    <div className="md:col-span-5 space-y-2">
+                                                        <p className="text-[9px] font-bold uppercase tracking-widest text-primary/40 pl-1">Elegir Curso</p>
+                                                        <div className="flex items-center bg-transparent border border-primary/10 rounded-xl overflow-hidden focus-within:border-emerald-500/50 transition-all group/sel relative">
+                                                            <div className="px-3 py-2 border-r border-primary/10 text-primary/30 group-focus-within/sel:text-emerald-500 transition-colors">
+                                                                <LayoutGrid size={16} />
+                                                            </div>
+                                                            <select value={newStaffForm.tempCourse} onChange={e => setNewStaffForm(p => ({ ...p, tempCourse: e.target.value, tempGroup: '' }))} className="flex-1 bg-transparent px-3 py-2 text-[12px] font-bold uppercase outline-none appearance-none cursor-pointer text-primary pr-8 min-w-0">
+                                                                <option value="">Curso...</option>
+                                                                {COURSE_GROUPS.flatMap(g => g.courses).map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                                                            </select>
+                                                            <div className="absolute right-3 pointer-events-none text-primary/30"><ChevronDown size={14} /></div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="md:col-span-3 space-y-2">
+                                                        <p className="text-[9px] font-bold uppercase tracking-widest text-primary/40 pl-1">Grupo</p>
+                                                        <div className="flex items-center bg-transparent border border-primary/10 rounded-xl overflow-hidden focus-within:border-emerald-500/50 transition-all group/sel relative">
+                                                            <div className="px-3 py-2 border-r border-primary/10 text-primary/30 group-focus-within/sel:text-emerald-500 transition-colors">
+                                                                <Hash size={16} />
+                                                            </div>
+                                                            <select value={newStaffForm.tempGroup} onChange={e => setNewStaffForm(p => ({ ...p, tempGroup: e.target.value }))} className="flex-1 bg-transparent px-3 py-2 text-[12px] font-bold uppercase outline-none appearance-none cursor-pointer text-primary pr-8 min-w-0 text-center">
+                                                                <option value="">-</option>
+                                                                {staffFormAvailableGroups.map(g => <option key={g} value={g}>{g}</option>)}
+                                                            </select>
+                                                            <div className="absolute right-3 pointer-events-none text-primary/30"><ChevronDown size={14} /></div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="md:col-span-4">
+                                                        <button 
+                                                            onClick={() => {
+                                                                if (!newStaffForm.tempCourse) return;
+                                                                const newAsg = { schoolId: adminSchool, course: newStaffForm.tempCourse, group: newStaffForm.tempGroup };
+                                                                setNewStaffForm(p => ({
+                                                                    ...p,
+                                                                    assignments: [...p.assignments.filter(a => !(a.course === newAsg.course && a.group === newAsg.group)), newAsg],
+                                                                    tempCourse: '',
+                                                                    tempGroup: ''
+                                                                }));
+                                                            }}
+                                                            disabled={!newStaffForm.tempCourse}
+                                                            className="w-full h-[40px] bg-emerald-500/10 hover:bg-emerald-500 text-emerald-600 hover:text-white border border-emerald-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 disabled:opacity-30 shadow-sm"
+                                                        >
+                                                            <Plus size={14} /> Añadir Clase
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* FILA 3: GUARDAR */}
+                                            <div className="pt-5 flex justify-end">
+                                                <button onClick={handleSaveStaffQuickAdd} disabled={!newStaffForm.firstName || !newStaffForm.lastName || !newStaffForm.role} className="w-full md:w-auto px-10 h-[46px] bg-[#52b788] hover:bg-[#40a075] disabled:bg-primary/5 disabled:border disabled:border-primary/10 disabled:text-primary/20 text-white text-[14px] font-bold rounded-xl shadow-md shadow-emerald-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                                                    <CheckCircle size={18} /> Guardar Docente
                                                 </button>
                                             </div>
-                                            {isExpanded && (
-                                                <div className="px-4 pb-4 animate-in fade-in slide-in-from-top-1 duration-200">
-                                                    <div className="p-3 rounded-xl bg-primary/5 space-y-2 mb-3">
-                                                        <div className="flex justify-between items-center text-[9px]">
-                                                            <span className="font-black uppercase opacity-40">Clases</span>
-                                                            <span className="font-bold text-secondary">{getStaffAssignments(member).map(a => `${a.course}${a.group ? ' ' + a.group : ''}`).join(', ') || 'Sin clases'}</span>
-                                                        </div>
-                                                        {member.photoFile && (
-                                                            <div className="flex justify-between items-center text-[9px]">
-                                                                <span className="font-black uppercase opacity-40">Nº Foto</span>
-                                                                <span className="font-mono text-emerald-400">#{member.photoFile}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Isla Contenedora de Docentes */}
+                        <div className="flex-1 px-0 py-4 text-primary flex flex-col items-center overflow-hidden">
+                            <div className="w-full max-w-[1700px] bg-card rounded-[16px] border border-primary/10 border-l-4 border-l-indigo-500 shadow-xl overflow-hidden flex flex-col h-full">
+                                <button onClick={() => setIsStaffListExpanded(!isStaffListExpanded)} className="w-full p-4 md:p-5 border-b border-primary/5 flex justify-between items-center shrink-0 hover:bg-primary/[0.02] transition-colors cursor-pointer text-left">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-500 shrink-0">
+                                            <UserCheck size={20} />
+                                        </div>
+                                        <div className="text-left">
+                                            <h2 className="text-sm font-black uppercase tracking-widest text-primary">Listado de Docentes</h2>
+                                            <p className="text-[10px] text-primary/40 font-bold uppercase tracking-wider">
+                                                {staff.filter(m => {
+                                                    const sq = (shootSearch || '').trim().toLowerCase();
+                                                    const matchesSearch = !sq || (m.firstName + ' ' + m.lastName + ' ' + (m.name || '')).toLowerCase().includes(sq);
+                                                    const matchesCourse = !shootFilters.course || m.assignments?.some(a => getCourseBase(a.course) === shootFilters.course && (!shootFilters.group || getGroup(a.course) === shootFilters.group));
+                                                    return matchesSearch && matchesCourse;
+                                                }).length} docentes encontrados
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        {isStaffListExpanded && (
+                                            <div className="hidden md:flex items-center gap-2 mr-2" onClick={e => e.stopPropagation()}>
+                                                <button onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    const sq = (shootSearch || '').trim().toLowerCase();
+                                                    const filtered = staff.filter(m => {
+                                                        const matchesSearch = !sq || (m.firstName + ' ' + m.lastName + ' ' + (m.name || '')).toLowerCase().includes(sq);
+                                                        const matchesCourse = !shootFilters.course || m.assignments?.some(a => getCourseBase(a.course) === shootFilters.course && (!shootFilters.group || getGroup(a.course) === shootFilters.group));
+                                                        return matchesSearch && matchesCourse;
+                                                    });
+                                                    if (selectedStaffIds.length === filtered.length) setSelectedStaffIds([]);
+                                                    else setSelectedStaffIds(filtered.map(m => m.id));
+                                                }} className="px-3 py-1.5 bg-primary/[0.03] border border-primary/10 rounded-[8px] text-[10px] font-bold tracking-wide flex items-center gap-2 hover:bg-primary/[0.06] transition-colors text-primary shadow-sm">
+                                                    <CheckSquare size={14} /> {selectedStaffIds.length > 0 ? 'Desmarcar' : 'Marcar Todos'}
+                                                </button>
+                                                {selectedStaffIds.length > 0 && (
+                                                    <button onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        deleteStaff(selectedStaffIds);
+                                                        setSelectedStaffIds([]);
+                                                    }} className="px-3 py-1.5 bg-red-500/10 border border-red-500/20 rounded-[8px] text-[10px] font-bold text-red-500 tracking-wide flex items-center gap-2 hover:bg-red-500/20 transition-colors shadow-sm">
+                                                        <Trash2 size={14} /> Eliminar ({selectedStaffIds.length})
+                                                    </button>
+                                                )}
+                                            </div>
+                                        )}
+                                        {isStaffListExpanded ? <ChevronUp size={20} className="text-primary/20" /> : <ChevronDown size={20} className="text-primary/20" />}
+                                    </div>
+                                </button>
+                                
+                                {isStaffListExpanded && (
+                                    <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-5">
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-3 md:gap-4 content-start pb-20">
+                                            {staff.filter(m => {
+                                                const matchesSearch = !shootSearch || (m.firstName + ' ' + m.lastName + ' ' + (m.name || '')).toLowerCase().includes(shootSearch.toLowerCase());
+                                                const matchesCourse = !shootFilters.course || m.assignments?.some(a => getCourseBase(a.course) === shootFilters.course && (!shootFilters.group || getGroup(a.course) === shootFilters.group));
+                                                return matchesSearch && matchesCourse;
+                                            }).map(member => {
+                                                const isExpanded = expandedId === member.id;
+                                                const isSelected = activeStudent?.id === member.id;
+                                                const hasPhoto = !!member.photoFile;
+                                                return (
+                                                    <div key={member.id} className="relative">
+                                                        <button onClick={() => selectStudent({ ...member, isStaff: true, studentName: member.name || `${member.firstName} ${member.lastName}` })} className={`w-full relative flex flex-col items-center p-4 rounded-[16px] border transition-all duration-300 active:scale-95 ${isSelected ? 'border-indigo-500 bg-indigo-50/50 shadow-md shadow-indigo-500/10 scale-[1.02] z-10' : 'border-primary/10 bg-card hover:border-primary/30 hover:shadow-md'}`}>
+                                                            <div className={`w-12 h-12 rounded-full flex flex-col items-center justify-center mb-3 overflow-hidden transition-all ${isSelected ? (hasPhoto ? 'bg-emerald-100 text-emerald-600' : 'bg-indigo-100 text-indigo-500') : (hasPhoto ? 'bg-emerald-50 text-emerald-500' : 'bg-amber-50 text-amber-500')}`}>
+                                                                {hasPhoto ? <Camera size={20} /> : <Users size={20} />}
+                                                            </div>
+                                                            <p className="text-[11px] font-bold text-center text-primary leading-tight line-clamp-2 w-full uppercase">
+                                                                {member.firstName ? `${member.firstName} ${member.lastName}` : member.name}
+                                                            </p>
+                                                            <span className="text-[9px] font-black text-indigo-500/60 uppercase tracking-widest mt-1">{member.role}</span>
+                                                            
+                                                            <div onClick={(e) => { e.stopPropagation(); setExpandedId(isExpanded ? null : member.id); }} className="absolute bottom-2 right-2 p-1 text-primary/20 hover:text-indigo-500 transition-colors">
+                                                                {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                                                            </div>
+                                                        </button>
+
+                                                        {isExpanded && (
+                                                            <div className="absolute top-full left-0 right-0 z-50 mt-2 p-4 bg-card border border-primary/10 rounded-2xl shadow-xl animate-in fade-in slide-in-from-top-1 duration-200">
+                                                                <div className="p-3 rounded-xl bg-primary/5 space-y-2 mb-3">
+                                                                    <div className="flex justify-between items-center text-[9px]">
+                                                                        <span className="font-black uppercase opacity-40">Clases</span>
+                                                                        <span className="font-bold text-secondary text-right">{getStaffAssignments(member).map(a => `${a.course}${a.group ? ' ' + a.group : ''}`).join(', ') || 'Sin clases'}</span>
+                                                                    </div>
+                                                                    {member.photoFile && (
+                                                                        <div className="flex justify-between items-center text-[9px]">
+                                                                             <span className="font-black uppercase opacity-40">Nº Foto</span>
+                                                                             <span className="font-mono text-emerald-400">#{member.photoFile}</span>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                                <button onClick={() => {
+                                                                    const initialRoles = member.roles || (member.role ? member.role.split(' • ') : []);
+                                                                    setStaffAssigning({
+                                                                        member,
+                                                                        firstName: member.firstName || member.name?.split(' ')[0] || '',
+                                                                        lastName: member.lastName || member.name?.split(' ').slice(1).join(' ') || '',
+                                                                        roles: initialRoles,
+                                                                        tempRole: '',
+                                                                        assignments: getStaffAssignments(member),
+                                                                        tempCourse: '',
+                                                                        tempGroup: '',
+                                                                        tempFile: member.photoFile || '',
+                                                                        schoolId: member.schoolId || adminSchool || ''
+                                                                    });
+                                                                }} className="w-full py-2.5 bg-indigo-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-sm hover:bg-indigo-600 transition-all flex items-center justify-center gap-2">
+                                                                    <Users size={14} /> Editar Ficha Docente
+                                                                </button>
                                                             </div>
                                                         )}
                                                     </div>
-                                                    <button onClick={() => {
-                                                        const initialRoles = member.roles || (member.role ? member.role.split(' • ') : []);
-                                                        setStaffAssigning({
-                                                            member,
-                                                            name: member.name,
-                                                            roles: initialRoles,
-                                                            tempRole: '',
-                                                            assignments: getStaffAssignments(member),
-                                                            tempCourse: '',
-                                                            tempGroup: '',
-                                                            tempFile: member.photoFile || '',
-                                                            schoolId: member.schoolId || adminSchool || ''
-                                                        });
-                                                    }} className="w-full py-2.5 bg-indigo-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-sm hover:bg-indigo-600 transition-all flex items-center justify-center gap-2">
-                                                        <Users size={14} /> Editar Ficha Docente
-                                                    </button>
-                                                </div>
-                                            )}
+                                                );
+                                            })}
                                         </div>
-                                    );
-                                })}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -823,39 +1017,102 @@ const ShootingPanel = ({
                                         </div>
 
                                         <div className="p-5 bg-white/5 rounded-3xl backdrop-blur-md border border-white/10 text-white mt-4">
-                                            <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-3 opacity-60">Estado Actual</p>
-                                            <div className="flex flex-col gap-3">
-                                                <div 
-                                                    className="flex items-center gap-3 cursor-pointer hover:bg-white/5 p-2 -m-2 rounded-xl transition-colors group/state"
-                                                    onClick={() => handlePaymentChange(activeStudent)}
-                                                >
-                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${activeStudent.paymentMethod ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'} group-hover/state:scale-110 transition-transform`}>
-                                                        {activeStudent.paymentMethod ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                                            <div className="flex flex-col gap-2">
+                                                {/* SELECTOR DE PAGO */}
+                                                <div className="relative">
+                                                    <div 
+                                                        className={`flex items-center gap-3 cursor-pointer p-3 rounded-2xl transition-all group/state ${showPaymentSelector ? 'bg-white/10 ring-1 ring-white/20' : 'bg-white/5 hover:bg-white/10'}`}
+                                                        onClick={() => {
+                                                            setShowPaymentSelector(!showPaymentSelector);
+                                                            setShowStatusSelector(false);
+                                                        }}
+                                                    >
+                                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${activeStudent.paymentMethod ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`}>
+                                                            {activeStudent.paymentMethod ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <p className="text-[10px] font-black uppercase tracking-wider leading-none">
+                                                                {activeStudent.paymentMethod ? 'Pagado' : 'Pendiente Pago'}
+                                                            </p>
+                                                            {activeStudent.paymentMethod && (
+                                                                <p className="text-[9px] font-bold text-emerald-200/60 uppercase mt-1 tracking-widest">{activeStudent.paymentMethod}</p>
+                                                            )}
+                                                        </div>
+                                                        <ChevronDown size={14} className={`transition-transform duration-300 ${showPaymentSelector ? 'rotate-180 text-emerald-400' : 'opacity-40'}`} />
                                                     </div>
-                                                    <div className="flex-1">
-                                                        <p className="text-[11px] font-black uppercase tracking-wider leading-none">
-                                                            {activeStudent.paymentMethod ? 'Pagado' : 'Pendiente de Pago'}
-                                                        </p>
-                                                        {activeStudent.paymentMethod && (
-                                                            <p className="text-[9px] font-bold text-emerald-200/60 uppercase mt-0.5 tracking-widest">{activeStudent.paymentMethod}</p>
-                                                        )}
-                                                    </div>
-                                                    <ChevronRight size={14} className="opacity-0 group-hover/state:opacity-40 transition-opacity" />
+
+                                                    {showPaymentSelector && (
+                                                        <div className="mt-2 p-1.5 bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-50">
+                                                            {[
+                                                                { id: '', label: 'Pendiente', color: 'text-rose-300', icon: AlertCircle },
+                                                                { id: 'EFECTIVO', label: 'Efectivo', color: 'text-emerald-300', icon: CreditCard },
+                                                                { id: 'TARJETA', label: 'Tarjeta', color: 'text-blue-300', icon: CreditCard },
+                                                                { id: 'TRANSFERENCIA', label: 'Transferencia', color: 'text-indigo-300', icon: Database }
+                                                            ].map((opt) => (
+                                                                <button
+                                                                    key={opt.id}
+                                                                    onClick={() => handlePaymentChange(opt.id)}
+                                                                    className="w-full flex items-center gap-3 p-2.5 hover:bg-white/10 rounded-xl transition-all text-left group"
+                                                                >
+                                                                    <div className={`w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center ${opt.color}`}>
+                                                                        <opt.icon size={12} />
+                                                                    </div>
+                                                                    <span className={`text-[10px] font-black uppercase tracking-widest ${opt.id === (activeStudent.paymentMethod || '') ? 'text-white' : 'text-white/40 group-hover:text-white'}`}>
+                                                                        {opt.label}
+                                                                    </span>
+                                                                    {opt.id === (activeStudent.paymentMethod || '') && (
+                                                                        <div className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.5)]" />
+                                                                    )}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
 
-                                                <div 
-                                                    className="flex items-center gap-3 cursor-pointer hover:bg-white/5 p-2 -m-2 rounded-xl transition-colors group/state"
-                                                    onClick={() => handleStatusChange(activeStudent)}
-                                                >
-                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${activeStudent.status === 'production' || activeStudent.photoFile ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'} group-hover/state:scale-110 transition-transform`}>
-                                                        <Camera size={16} />
+                                                {/* SELECTOR DE ESTADO FOTO */}
+                                                <div className="relative">
+                                                    <div 
+                                                        className={`flex items-center gap-3 cursor-pointer p-3 rounded-2xl transition-all group/state ${showStatusSelector ? 'bg-white/10 ring-1 ring-white/20' : 'bg-white/5 hover:bg-white/10'}`}
+                                                        onClick={() => {
+                                                            setShowStatusSelector(!showStatusSelector);
+                                                            setShowPaymentSelector(false);
+                                                        }}
+                                                    >
+                                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${activeStudent.status === 'production' || activeStudent.photoFile ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}`}>
+                                                            <Camera size={16} />
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <p className="text-[10px] font-black uppercase tracking-wider leading-none">
+                                                                {activeStudent.status === 'production' || activeStudent.photoFile ? 'Foto Realizada' : 'Foto Pendiente'}
+                                                            </p>
+                                                        </div>
+                                                        <ChevronDown size={14} className={`transition-transform duration-300 ${showStatusSelector ? 'rotate-180 text-emerald-400' : 'opacity-40'}`} />
                                                     </div>
-                                                    <div className="flex-1">
-                                                        <p className="text-[11px] font-black uppercase tracking-wider leading-none">
-                                                            {activeStudent.status === 'production' || activeStudent.photoFile ? 'Foto Realizada' : 'Foto Pendiente'}
-                                                        </p>
-                                                    </div>
-                                                    <ChevronRight size={14} className="opacity-0 group-hover/state:opacity-40 transition-opacity" />
+
+                                                    {showStatusSelector && (
+                                                        <div className="mt-2 p-1.5 bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-50">
+                                                            {[
+                                                                { id: 'Pendiente', label: 'Pendiente', color: 'text-amber-300', icon: Camera },
+                                                                { id: 'production', label: 'Realizada', color: 'text-emerald-300', icon: CheckCircle2 }
+                                                            ].map((opt) => (
+                                                                <button
+                                                                    key={opt.id}
+                                                                    onClick={() => handleStatusChange(opt.id)}
+                                                                    className="w-full flex items-center gap-3 p-2.5 hover:bg-white/10 rounded-xl transition-all text-left group"
+                                                                >
+                                                                    <div className={`w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center ${opt.color}`}>
+                                                                        <opt.icon size={12} />
+                                                                    </div>
+                                                                    <span className={`text-[10px] font-black uppercase tracking-widest ${opt.id === (activeStudent.status === 'production' || activeStudent.photoFile ? 'production' : 'Pendiente') ? 'text-white' : 'text-white/40 group-hover:text-white'}`}>
+                                                                        {opt.label}
+                                                                    </span>
+                                                                    {opt.id === (activeStudent.status === 'production' || activeStudent.photoFile ? 'production' : 'Pendiente') && (
+                                                                        <div className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.5)]" />
+                                                                    )}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
 
                                                 {(activeStudent.complements?.length > 0 || activeStudent.extras?.length > 0) && (

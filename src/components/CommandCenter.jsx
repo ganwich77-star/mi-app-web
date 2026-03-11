@@ -46,6 +46,17 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
         setTimeout(() => setCopiedStep1(false), 2000);
     };
 
+    // Lógica para separar nombre y apellidos (réplica de DesignPanel)
+    const splitName = (fullName) => {
+        if (!fullName) return { nombre: '', apellidos: '' };
+        const parts = fullName.trim().split(' ');
+        if (parts.length === 1) return { nombre: parts[0], apellidos: '' };
+        return { 
+            nombre: parts[0], 
+            apellidos: parts.slice(1).join(' ') 
+        };
+    };
+
     const downloadScript = (type) => {
         const cleanCenter = groupName.replace(/ORLA/gi, '').trim();
         const folderName = `ORLA ${cleanCenter} ${course} ${group}`.trim().toUpperCase();
@@ -54,41 +65,53 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
         let content = '';
 
         if (type === 'CONSTRUCTOR') {
-            const staffLines = Array.isArray(staff) && staff.length > 0 ? (() => {
-                const aW = design.aW || 350;
-                const aH = design.aH || 450;
+            const staffLines = (() => {
+                const isStaff = true;
+                const totalDocentes = filteredStaff.length;
+                if (totalDocentes === 0) return '';
+                
+                const aW = design.aW || 350; // Base width for calculations
+                const aH = design.aH || 450; // Base height for calculations
+
                 const dScale = design.dScale || 1.2;
-                const docW = (aW * dScale);
-                const docH = (aH * dScale);
-                const dGap = design.dGapX ?? 150;
+                const dynamicW = aW * dScale;
+                const dynamicH = aH * dScale;
+                const dGapX = design.dGapX ?? 0;
                 const canvasW = design.canvasW || 4961;
+                const dY = design.dY || 0;
+                const dOffsetX = design.dOffsetX || 0;
+                const fontSizePx = (design.fontSizeDoc || 10) * 0.55 * dScale;
+                const roleFontSizePx = (design.fontSizeDoc || 10) * 0.4 * dScale;
 
-                // Centrado horizontal de la fila de docentes
-                const totalStaffWidth = (staff.length * docW) + ((staff.length - 1) * dGap);
-                const startX = (canvasW / 2) - (totalStaffWidth / 2);
+                // Ancho total del flow unscaled
+                const maxStaffUnscaled = (totalDocentes * aW) + ((totalDocentes - 1) * dGapX);
+                const startX_unscaled = (canvasW / 2) - (maxStaffUnscaled / 2) + dOffsetX;
 
-                // dY fallback 0 como en DesignPanel (línea 405)
-                const startY = design.dY || 0;
+                return filteredStaff.map((member, i) => {
+                    const uncX = startX_unscaled + (i * (aW + dGapX));
+                    const centerX = uncX + aW / 2;
+                    const phX = centerX - (dynamicW / 2);
+                    const phY = dY;
+                    
+                    // Texto centrado en centerX
+                    // Y del texto (baseline) = top_container + aH*scale + mb-1(40px)*scale + font_size*scale
+                    const nameY = dY + (aH + 40) * dScale + fontSizePx;
+                    // Suponiendo 2 lineas de nombre (1.25 lineheight = 2.5 * fontSizePx total alto de la caja de nombre aprox)
+                    const roleY = nameY + (fontSizePx * 1.25) + (20 * dScale) + roleFontSizePx; 
 
-                return staff.map((s, i) => {
-                    const x = startX + i * (docW + dGap);
-                    const nameParts = (s.name || s.studentName || 'DOCENTE').trim().split(/\s+/);
-                    const firstName = nameParts[0] || '';
-                    const surnames = nameParts.slice(1).join(' ');
-                    const role = s.role || '';
-                    let psText = firstName;
-                    if (surnames) psText += "\\r" + surnames;
-                    if (role) psText += "\\r" + role;
-                    const containerId = s.photoFile || s.id;
-                    return `createItem(docentesGroup, "${psText}", "${containerId}", ${x}, ${startY}, ${docW}, ${docH}, ${design.fontSizeDoc || 10}, true, ${dGap});`;
+                    const nameParts = splitName(member.name || member.studentName || 'DOCENTE');
+                    return `createItem(docentesGroup, "${nameParts.nombre}", "${nameParts.apellidos}", "${member.role || 'DOCENTE'}", "${member.id}", ${phX}, ${phY}, ${dynamicW}, ${dynamicH}, ${centerX}, ${nameY}, ${fontSizePx}, ${roleY}, ${roleFontSizePx}, true);`;
                 }).join('\n');
-            })() : '// Sin docentes';
+            })();
 
-
-            const aluLines = Array.isArray(graduates) ? (() => {
+            const aluLines = (() => {
+                const isStaff = false;
                 const totalAlus = graduates.length;
-                const aW = design.aW || 350;
-                const aH = design.aH || 450;
+                if (totalAlus === 0) return '';
+
+                const aW = design.aW || 350; // Base width for calculations
+                const aH = design.aH || 450; // Base height for calculations
+
                 const aScale = design.aScale || 1.0;
                 const dynamicW = aW * aScale;
                 const dynamicH = aH * aScale;
@@ -96,55 +119,163 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                 const aGapX = design.aGapX ?? 0;
                 const aGapY = design.aGapY ?? 650;
                 const canvasW = design.canvasW || 4961;
-                const aStartY = design.aStartY || 1350; // Fallback crítico
+                const aStartY = design.aStartY || 1350;
+                const aOffsetX = design.aOffsetX || 0;
+                const fontSizePx = (design.fontSizeAlu || 10) * 0.55 * aScale;
 
-                return graduates
-                    .filter(o => o.schoolId === graduates[0]?.schoolId)
-                    .sort((a, b) => {
-                        const partsA = a.studentName.trim().split(/\s+/);
-                        const partsB = b.studentName.trim().split(/\s+/);
-                        const surA = partsA[1] || partsA[0] || '';
-                        const surB = partsB[1] || partsB[0] || '';
-                        return surA.localeCompare(surB, 'es', { sensitivity: 'base' });
-                    })
-                    .map((g, i) => {
-                        const row = Math.floor(i / aCols);
-                        const totalRows = Math.ceil(totalAlus / aCols);
-                        const isLastRow = row === totalRows - 1;
-                        const itemsInThisRow = isLastRow ? (totalAlus % aCols || aCols) : aCols;
+                // Ordenación por apellidos (misma lógica que DesignPanel)
+                const sortedAlus = [...graduates].sort((a, b) => {
+                    const nameA = a.studentName || '';
+                    const nameB = b.studentName || '';
+                    return nameA.localeCompare(nameB, 'es', { sensitivity: 'base' });
+                });
 
-                        // Centrado horizontal dinámico por fila
-                        const rowWidth = (itemsInThisRow * dynamicW) + ((itemsInThisRow - 1) * aGapX);
-                        const rowStartX = (canvasW / 2) - (rowWidth / 2);
+                return sortedAlus.map((g, i) => {
+                    const row = Math.floor(i / aCols);
+                    const totalRows = Math.ceil(totalAlus / aCols);
+                    const isLastRow = row === totalRows - 1;
+                    const itemsInThisRow = isLastRow ? (totalAlus % aCols || aCols) : aCols;
 
-                        const colInRow = i % aCols;
-                        const x = rowStartX + (colInRow * (dynamicW + aGapX));
-                        const y = aStartY + (row * (dynamicH + aGapY));
+                    // Centrado de BLOQUE (como el grid de CSS)
+                    const maxGridUnscaled = (aCols * aW) + ((aCols - 1) * aGapX);
+                    const gridStartX = (canvasW / 2) - (maxGridUnscaled / 2) + aOffsetX;
 
-                        const nameParts = g.studentName.trim().split(/\s+/);
-                        const firstName = nameParts[0] || '';
-                        const surnames = nameParts.slice(1).join(' ');
-                        let psText = firstName;
-                        if (surnames) psText += "\\r" + surnames;
-                        const containerId = g.photoFile || g.id;
+                    const colInRow = i % aCols;
+                    const uncX = gridStartX + colInRow * (aW + aGapX);
+                    const centerX = uncX + aW / 2;
+                    
+                    // Altura total del flow del elemento alumno unscaled
+                    const itemHeightUnscaled = aH + 40 + ((design.fontSizeAlu || 10) * 0.55 * 2.5);
+                    const uncY = aStartY + row * (itemHeightUnscaled + aGapY);
+                    
+                    const phX = centerX - (dynamicW / 2);
+                    const phY = uncY;
+                    const nameY = uncY + (aH + 40) * aScale + fontSizePx;
 
-                        return `createItem(alumnosGroup, "${psText}", "${containerId}", ${x}, ${y}, ${dynamicW}, ${dynamicH}, ${design.fontSizeAlu || 10}, false);`;
-                    }).join('\n');
-            })() : '';
+                    const nameParts = splitName(g.studentName || 'ALUMNO');
+                    const containerId = g.photoFile || g.id;
+
+                    return `createItem(alumnosGroup, "${nameParts.nombre}", "${nameParts.apellidos}", "", "${containerId}", ${phX}, ${phY}, ${dynamicW}, ${dynamicH}, ${centerX}, ${nameY}, ${fontSizePx}, 0, 0, false);`;
+                }).join('\n');
+            })();
 
             content = [
                 '/* FINALIZAR ORLA V3.3 - CONSTRUCTOR PSD */',
                 'app.preferences.rulerUnits = Units.PIXELS;',
-                'app.preferences.typeUnits = TypeUnits.POINTS;',
+                'app.preferences.typeUnits = TypeUnits.PIXELS;',
                 `var doc = app.documents.add(${design.canvasW}, ${design.canvasH}, 300, "${groupName}", NewDocumentMode.RGB);`,
                 '',
+                '// Helper para mascaras circulares en ExtendScript',
+                'function selectEllipse(top, left, bottom, right) {',
+                '    var idsetd = charIDToTypeID( "setd" );',
+                '    var desc1 = new ActionDescriptor();',
+                '    var idnull = charIDToTypeID( "null" );',
+                '    var ref1 = new ActionReference();',
+                '    var idChnl = charIDToTypeID( "Chnl" );',
+                '    var idfsel = charIDToTypeID( "fsel" );',
+                '    ref1.putProperty( idChnl, idfsel );',
+                '    desc1.putReference( idnull, ref1 );',
+                '    var idT = charIDToTypeID( "T   " );',
+                '    var desc2 = new ActionDescriptor();',
+                '    var idTop = charIDToTypeID( "Top " );',
+                '    var idPxl = charIDToTypeID( "#Pxl" );',
+                '    desc2.putUnitDouble( idTop, idPxl, top );',
+                '    var idLeft = charIDToTypeID( "Left" );',
+                '    var idBtom = charIDToTypeID( "Btom" );',
+                '    var idRght = charIDToTypeID( "Rght" );',
+                '    desc2.putUnitDouble( idLeft, idPxl, left );',
+                '    desc2.putUnitDouble( idBtom, idPxl, bottom );',
+                '    desc2.putUnitDouble( idRght, idPxl, right );',
+                '    var idElps = charIDToTypeID( "Elps" );',
+                '    desc1.putObject( idT, idElps, desc2 );',
+                '    var idAntA = charIDToTypeID( "AntA" );',
+                '    desc1.putBoolean( idAntA, true );',
+                '    executeAction( idsetd, desc1, DialogModes.NO );',
+                '}',
+                '',
                 '// Función: crea item dentro del grupo padre dado',
-                'function createItem(parentGroup, name, id, x, y, w, h, fontSize, isStaff) {',
+                `var currentShape = "${design.photoShape || 'circle'}";`,
+                'function createItem(parentGroup, nombre, apellidos, cargo, id, phX, phY, phW, phH, nameX, nameY, nameSizePx, roleY, roleSizePx, isStaff) {',
                 '    var group = parentGroup.layerSets.add();',
                 '    group.name = id;',
                 '',
-                '    // 1. Crear el placeholder primero para que quede debajo',
-                '    doc.selection.select([[x, y], [x + w, y], [x + w, y + h], [x, y + h]]);',
+                '    // 1. Crear el placeholder (con soporte de forma proporcional 1:1)',
+                '    var sW = Math.min(phW, phH);',
+                '    var sH = sW;',
+                '    var sX = phX + (phW - sW) / 2;',
+                '    var sY = phY + (phH - sH) / 2;',
+                '',
+                '    if (currentShape === "circle") {',
+                '        selectEllipse(sY, sX, sY + sH, sX + sW);',
+                '    } else if (currentShape === "oval") {',
+                '        selectEllipse(phY, phX, phY + phH, phX + phW);',
+                '    } else if (currentShape === "shield") {',
+                '        var p = [];',
+                '        // Top line',
+                '        p.push([sX + sW * 0.1, sY + sH * 0.04]);',
+                '        p.push([sX + sW * 0.9, sY + sH * 0.04]);',
+                '        // Right side',
+                '        p.push([sX + sW * 0.9, sY + sH * 0.65]);',
+                '        // Bottom curve right (bezier approximation)',
+                '        for (var t = 0.1; t <= 1; t += 0.1) {',
+                '            var mt = 1 - t;',
+                '            var bx = mt*mt * (sX + sW * 0.9) + 2*mt*t * (sX + sW * 0.9) + t*t * (sX + sW * 0.5);',
+                '            var by = mt*mt * (sY + sH * 0.65) + 2*mt*t * (sY + sH * 0.85) + t*t * (sY + sH * 0.96);',
+                '            p.push([bx, by]);',
+                '        }',
+                '        // Bottom curve left (bezier approximation)',
+                '        for (var t = 0.1; t <= 1; t += 0.1) {',
+                '            var mt = 1 - t;',
+                '            var bx = mt*mt * (sX + sW * 0.5) + 2*mt*t * (sX + sW * 0.1) + t*t * (sX + sW * 0.1);',
+                '            var by = mt*mt * (sY + sH * 0.96) + 2*mt*t * (sY + sH * 0.85) + t*t * (sY + sH * 0.65);',
+                '            p.push([bx, by]);',
+                '        }',
+                '        // Left side up',
+                '        p.push([sX + sW * 0.1, sY + sH * 0.04]);',
+                '        doc.selection.select(p);',
+                '    } else if (currentShape === "arch") {',
+                '        var p = [];',
+                '        // Bottom line',
+                '        p.push([sX + sW * 0.1, sY + sH * 0.96]);',
+                '        p.push([sX + sW * 0.9, sY + sH * 0.96]);',
+                '        // Right side up',
+                '        p.push([sX + sW * 0.9, sY + sH * 0.48]);',
+                '        // Top arc (semicircle approximation)',
+                '        for (var a = 0; a <= Math.PI; a += Math.PI/12) {',
+                '            var ax = (sX + sW * 0.5) + Math.cos(-a) * (sW * 0.4);',
+                '            var ay = (sY + sH * 0.48) + Math.sin(-a) * (sH * 0.48 * (0.4/0.4)); // Mantener proporción según el radio',
+                '            // Nota: En la web es A 0.4 0.48, así que escalamos ay',
+                '            var ayScale = (sY + sH * 0.48) - Math.sin(a) * (sH * 0.48);',
+                '            var axScale = (sX + sW * 0.5) + Math.cos(a) * (sW * 0.4);',
+                '            p.push([axScale, ayScale]);',
+                '        }',
+                '        // Left side down',
+                '        p.push([sX + sW * 0.1, sY + sH * 0.96]);',
+                '        doc.selection.select(p);',
+                '    } else if (currentShape === "rect34r") {',
+                '        var r = phW * 0.12;',
+                '        var p = [];',
+                '        // Top-Right corner',
+                '        for (var a=1.5*Math.PI; a<=2*Math.PI; a+=Math.PI/10) {',
+                '            p.push([phX + phW - r + Math.cos(a)*r, phY + r + Math.sin(a)*r]);',
+                '        }',
+                '        // Bottom-Right corner',
+                '        for (var a=0; a<=0.5*Math.PI; a+=Math.PI/10) {',
+                '            p.push([phX + phW - r + Math.cos(a)*r, phY + phH - r + Math.sin(a)*r]);',
+                '        }',
+                '        // Bottom-Left corner',
+                '        for (var a=0.5*Math.PI; a<=Math.PI; a+=Math.PI/10) {',
+                '            p.push([phX + r + Math.cos(a)*r, phY + phH - r + Math.sin(a)*r]);',
+                '        }',
+                '        // Top-Left corner',
+                '        for (var a=Math.PI; a<=1.5*Math.PI; a+=Math.PI/10) {',
+                '            p.push([phX + r + Math.cos(a)*r, phY + r + Math.sin(a)*r]);',
+                '        }',
+                '        doc.selection.select(p);',
+                '    } else {',
+                '        doc.selection.select([[phX, phY], [phX + phW, phY], [phX + phW, phY + phH], [phX, phY + phH]]);',
+                '    }',
+                '',
                 '    var fillLayer = group.artLayers.add();',
                 '    fillLayer.name = "PLACEHOLDER";',
                 '    var fillColor = new SolidColor();',
@@ -152,35 +283,29 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                 '    doc.selection.fill(fillColor);',
                 '    doc.selection.deselect();',
                 '',
-                '    // VOLVER A POINT TEXT PARA CENTRADO PERFECTO (V8)',
-                '    var textLayer = group.artLayers.add();',
-                '    textLayer.kind = LayerKind.TEXT;',
-                '    var textItem = textLayer.textItem;',
-                '    textItem.contents = name.toUpperCase();',
+                '    // 2. Texto de Nombre',
+                '    var nameLayer = group.artLayers.add();',
+                '    nameLayer.kind = LayerKind.TEXT;',
+                '    var nameItem = nameLayer.textItem;',
+                '    nameItem.contents = nombre.toUpperCase() + "\\r" + apellidos.toUpperCase();',
+                '    nameItem.size = new UnitValue(nameSizePx, "px");',
+                '    nameItem.leading = new UnitValue(nameSizePx * 1.25, "px");',
+                '    nameItem.justification = Justification.CENTER;',
+                '    nameItem.font = "MyriadPro-Regular";',
+                '    nameItem.position = [nameX, nameY];',
                 '',
-                '    // Escalado conservador para evitar solapamientos (V8)',
-                '    var fSize = (fontSize || 10) * 1.15; ',
-                '    textItem.size = new UnitValue(fSize, "pt");',
-                '    textItem.leading = new UnitValue(fSize * 1.1, "pt");',
-                '    textItem.tracking = 0;',
-                '    textItem.antiAliasMethod = AntiAlias.STRONG;',
-                '',
-                '    var psFont = "MyriadPro-Regular";',
-                `    var reactFont = "${design.fontFamily}";`,
-                '    try { textItem.font = psFont; } catch(e) {',
-                '        try { textItem.font = "Myriad Pro"; } catch(e2) { textItem.font = "ArialMT"; }',
+                '    // 3. Texto de Cargo (Solo Staff)',
+                '    if (isStaff && cargo) {',
+                '        var roleLayer = group.artLayers.add();',
+                '        roleLayer.kind = LayerKind.TEXT;',
+                '        var roleItem = roleLayer.textItem;',
+                '        roleItem.contents = cargo.toUpperCase();',
+                '        roleItem.size = new UnitValue(roleSizePx, "px");',
+                '        roleItem.color = (function(){ var c = new SolidColor(); c.rgb.hexValue = "666666"; return c; })();',
+                '        roleItem.justification = Justification.CENTER;',
+                '        roleItem.font = "MyriadPro-Regular";',
+                '        roleItem.position = [nameX, roleY];',
                 '    }',
-                '',
-                '    textItem.justification = Justification.CENTER;',
-                '',
-                '    var textColor = new SolidColor();',
-                '    textColor.rgb.hexValue = "000000";',
-                '    textItem.color = textColor;',
-                '',
-                '    // Posición técnica V13: Separación de exactamente 6mm (3mm + 3mm extra)',
-                '    var gap6mm = (6 * 300) / 25.4;',
-                '    var textY = y + h + gap6mm + (fSize * 0.8); ',
-                '    textItem.position = [x + w/2, textY];',
                 '}',
                 '',
                 '// CREAR GRUPOS PRINCIPALES',
@@ -308,59 +433,67 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ content, filename })
         })
-            .then(r => r.json())
+            .then(r => {
+                if (!r.ok) throw new Error('API save-as no disponible');
+                return r.json();
+            })
             .then(data => {
                 if (data.success) {
-                    // Si el servidor pudo abrir el diálogo y guardar, tenemos la ruta real completa
                     setScriptModal({ content, filename: data.filename, copied: false, saved: true, savedPath: data.path });
-                    // Apertura automática de la ventana de la carpeta (Reveal in Finder)
                     fetch('/graduaciones2026/api/reveal-file', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ path: data.path })
                     }).catch(() => { });
                 } else if (data.cancelled) {
-                    // El usuario canceló el diálogo, no hacemos nada
                     return;
                 } else {
-                    // Si falló el endpoint nativo (ej. en producción), ir al fallback tradicional del navegador
                     fallbackDownload(content, filename, folderName);
                 }
             })
             .catch(() => {
-                // Si el endpoint no existe o falla, ir al fallback tradicional
                 fallbackDownload(content, filename, folderName);
             });
     };
 
     const fallbackDownload = (content, filename, folderName) => {
-        // Opción 1: POST al endpoint Vite → escribe el .jsx directamente en ~/Downloads (si existe la API de backup)
         fetch('/graduaciones2026/api/download-script', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ content, filename, folderName })
         })
-            .then(r => r.json())
+            .then(r => {
+                if (!r.ok) throw new Error('API download-script no disponible');
+                return r.json();
+            })
             .then(data => {
                 if (data.success) {
                     setScriptModal({ content, filename, copied: false, saved: true, savedPath: data.path });
                 } else {
-                    // Opción 2: Fallback navegador estándar (descarga a carpeta Downloads por defecto de Chrome/Safari)
-                    const blob = new Blob([content], { type: 'text/javascript' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = filename;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                    setScriptModal({ content, filename, copied: false, saved: true, savedPath: 'Carpeta de Descargas' });
+                    triggerBrowserDownload(content, filename);
                 }
             })
             .catch(() => {
-                // Opción 3: Copia al portapapeles si todo lo anterior falla (entorno web puro sin APIs de servidor)
-                navigator.clipboard.writeText(content).catch(() => { });
-                setScriptModal({ content, filename, copied: true, saved: false });
+                triggerBrowserDownload(content, filename);
             });
+    };
+
+    const triggerBrowserDownload = (content, filename) => {
+        try {
+            const blob = new Blob([content], { type: 'text/javascript' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a); // Necesario en algunos navegadores
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            setScriptModal({ content, filename, copied: false, saved: true, savedPath: 'Carpeta de Descargas' });
+        } catch (error) {
+            navigator.clipboard.writeText(content).catch(() => { });
+            setScriptModal({ content, filename, copied: true, saved: false });
+        }
     };
 
     return (
@@ -486,8 +619,9 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                                 </div>
 
                                 {/* DERECHA: TABLA LISTADO */}
-                                <div className={`${theme === 'dark' ? 'bg-black/20 border-white/5' : 'bg-slate-100 border-slate-200'} rounded-[24px] border flex flex-col h-[350px] md:h-full min-h-[400px]`}>
-                                    <div className={`p-4 border-b ${theme === 'dark' ? 'border-white/5' : 'border-slate-200'} flex justify-between text-[8px] font-black uppercase ${theme === 'dark' ? 'text-white/20' : 'text-slate-400'} tracking-[0.3em] ${theme === 'dark' ? 'bg-white/[0.02]' : 'bg-slate-50'}`}>
+                                <div className="relative md:h-full min-h-[400px]">
+                                    <div className={`${theme === 'dark' ? 'bg-black/20 border-white/5' : 'bg-slate-100 border-slate-200'} rounded-[24px] border flex flex-col md:absolute md:top-0 md:left-0 md:right-0 md:bottom-0 h-full`}>
+                                        <div className={`p-4 border-b ${theme === 'dark' ? 'border-white/5' : 'border-slate-200'} flex justify-between text-[8px] font-black uppercase ${theme === 'dark' ? 'text-white/20' : 'text-slate-400'} tracking-[0.3em] ${theme === 'dark' ? 'bg-white/[0.02]' : 'bg-slate-50'} shrink-0`}>
                                         <span>Detalle del Protagonista</span>
                                         <span>Referencia Foto</span>
                                     </div>
@@ -530,6 +664,7 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                                             </div>
                                         )}
                                     </div>
+                                </div>
                                 </div>
                             </div>
                         </div>

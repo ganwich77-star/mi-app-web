@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Package, Plus, Trash2, Minus, Tag, FileText, ChevronDown, ChevronRight } from 'lucide-react';
+import { Package, Plus, Trash2, Minus, Tag, FileText, ChevronDown, ChevronRight, LayoutGrid, List } from 'lucide-react';
 import SupplementsPanel from './SupplementsPanel.jsx';
 
 const PricingPanel = ({
@@ -14,6 +14,12 @@ const PricingPanel = ({
         extras: false,
         supplements: false,
         provider: false
+    });
+
+    const [viewModes, setViewModes] = useState({
+        packs: 'grid',
+        extras: 'grid',
+        supplements: 'grid'
     });
 
     const [editingPackId, setEditingPackId] = useState(null);
@@ -42,6 +48,22 @@ const PricingPanel = ({
                         </h3>
                     </div>
                     <div className="flex items-center gap-6">
+                        {expandedSections.packs && (
+                            <div className="flex items-center bg-primary/5 rounded-xl p-1 border border-primary/10 mr-2">
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); setViewModes(prev => ({ ...prev, packs: 'grid' })); }}
+                                    className={`p-1.5 rounded-lg transition-all ${viewModes.packs === 'grid' ? 'bg-white shadow-sm text-amber-500' : 'text-secondary opacity-40 hover:opacity-100'}`}
+                                >
+                                    <LayoutGrid size={14} />
+                                </button>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); setViewModes(prev => ({ ...prev, packs: 'list' })); }}
+                                    className={`p-1.5 rounded-lg transition-all ${viewModes.packs === 'list' ? 'bg-white shadow-sm text-amber-500' : 'text-secondary opacity-40 hover:opacity-100'}`}
+                                >
+                                    <List size={14} />
+                                </button>
+                            </div>
+                        )}
                         {expandedSections.packs && (
                             <button
                                 onClick={(e) => {
@@ -242,49 +264,79 @@ const PricingPanel = ({
                             })}
                         </div>
                     ) : (
-                        /* VISTA CUADRÍCULA DE PACKS */
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {allPacks.map((pack) => (
-                                <div
-                                    key={pack.id}
-                                    onClick={() => setEditingPackId(pack.id)}
-                                    className={`relative group bg-primary/3 rounded-[32px] p-8 border hover:border-amber-500/50 transition-all cursor-pointer overflow-hidden ${pack.popular ? 'border-amber-500/30' : 'border-primary/10'}`}
-                                >
-                                    {pack.popular && (
-                                        <div className="absolute top-0 right-0 p-4">
-                                            <div className="bg-amber-500 text-white p-1.5 rounded-full shadow-lg">
-                                                <Package size={14} />
+                        /* VISTA CONDICIONAL DE PACKS */
+                        viewModes.packs === 'grid' ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {allPacks.map((pack) => (
+                                    <div
+                                        key={pack.id}
+                                        onClick={() => setEditingPackId(pack.id)}
+                                        className={`relative group bg-primary/3 rounded-[32px] p-8 border hover:border-amber-500/50 transition-all cursor-pointer overflow-hidden ${pack.popular ? 'border-amber-500/30' : 'border-primary/10'}`}
+                                    >
+                                        {pack.popular && (
+                                            <div className="absolute top-0 right-0 p-4">
+                                                <div className="bg-amber-500 text-white p-1.5 rounded-full shadow-lg">
+                                                    <Package size={14} />
+                                                </div>
                                             </div>
-                                        </div>
-                                    )}
+                                        )}
 
-                                    <div className="space-y-6">
-                                        <div>
-                                            <h4 className="text-xl font-black text-primary leading-tight">{pack.name}</h4>
-                                            <p className="text-xs font-bold text-secondary opacity-60 mt-1">{pack.subtitle}</p>
-                                        </div>
-
-                                        <div className="flex items-center justify-between pt-4 border-t border-primary/5">
+                                        <div className="space-y-6">
                                             <div>
-                                                <p className="text-[9px] font-black text-secondary uppercase tracking-widest mb-1 opacity-40">Precio</p>
-                                                <p className="text-4xl font-black text-primary tracking-tighter">{pack.price}€</p>
+                                                <h4 className="text-xl font-black text-primary leading-tight">{pack.name}</h4>
+                                                <p className="text-xs font-bold text-secondary opacity-60 mt-1">{pack.subtitle}</p>
                                             </div>
-                                            <div className="opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
-                                                <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest bg-amber-500/10 px-4 py-2 rounded-full border border-amber-500/20">
-                                                    EDITAR
-                                                </span>
+
+                                            <div className="flex items-center justify-between pt-4 border-t border-primary/5">
+                                                <div>
+                                                    <p className="text-[9px] font-black text-secondary uppercase tracking-widest mb-1 opacity-40">Precio</p>
+                                                    <p className="text-4xl font-black text-primary tracking-tighter">{pack.price}€</p>
+                                                </div>
+                                                <div className="opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
+                                                    <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest bg-amber-500/10 px-4 py-2 rounded-full border border-amber-500/20">
+                                                        EDITAR
+                                                    </span>
+                                                </div>
                                             </div>
                                         </div>
+
+                                        {/* Decoración popular */}
+                                        {pack.popular && (
+                                            <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-amber-500/5 blur-2xl rounded-full" />
+                                        )}
                                     </div>
-
-                                    {/* Decoración popular */}
-                                    {pack.popular && (
-                                        <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-amber-500/5 blur-2xl rounded-full" />
-                                    )}
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                <div className="grid grid-cols-12 px-6 py-3 text-[10px] font-black text-secondary uppercase tracking-widest opacity-40">
+                                    <div className="col-span-6">Producto</div>
+                                    <div className="col-span-2 text-center">P. Venta</div>
+                                    <div className="col-span-2 text-center">Coste</div>
+                                    <div className="col-span-2 text-right">Beneficio</div>
                                 </div>
-                            ))}
-
-                        </div>
+                                {allPacks.map((pack) => (
+                                    <div
+                                        key={pack.id}
+                                        onClick={() => setEditingPackId(pack.id)}
+                                        className="grid grid-cols-12 items-center bg-primary/3 hover:bg-primary/5 border border-primary/5 hover:border-amber-500/30 rounded-2xl p-4 cursor-pointer transition-all group"
+                                    >
+                                        <div className="col-span-6 flex items-center gap-4">
+                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${pack.popular ? 'bg-amber-500 text-white' : 'bg-primary/5 text-primary/40'}`}>
+                                                <Package size={16} />
+                                            </div>
+                                            <div>
+                                                <h4 className="text-sm font-black text-primary">{pack.name}</h4>
+                                                <p className="text-[10px] font-bold text-secondary opacity-60">{pack.subtitle}</p>
+                                            </div>
+                                        </div>
+                                        <div className="col-span-2 text-center text-sm font-black text-emerald-500">{pack.price}€</div>
+                                        <div className="col-span-2 text-center text-sm font-black text-red-500 opacity-60">{pack.cost}€</div>
+                                        <div className="col-span-2 text-right text-sm font-black text-emerald-600">{(pack.price - pack.cost).toFixed(2)}€</div>
+                                    </div>
+                                ))}
+                            </div>
+                        )
                     )}
                 </div>
             </div>
@@ -304,6 +356,22 @@ const PricingPanel = ({
                         </h3>
                     </div>
                     <div className="flex items-center gap-6">
+                        {expandedSections.extras && (
+                            <div className="flex items-center bg-primary/5 rounded-xl p-1 border border-primary/10 mr-2">
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); setViewModes(prev => ({ ...prev, extras: 'grid' })); }}
+                                    className={`p-1.5 rounded-lg transition-all ${viewModes.extras === 'grid' ? 'bg-white shadow-sm text-emerald-500' : 'text-secondary opacity-40 hover:opacity-100'}`}
+                                >
+                                    <LayoutGrid size={14} />
+                                </button>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); setViewModes(prev => ({ ...prev, extras: 'list' })); }}
+                                    className={`p-1.5 rounded-lg transition-all ${viewModes.extras === 'list' ? 'bg-white shadow-sm text-emerald-500' : 'text-secondary opacity-40 hover:opacity-100'}`}
+                                >
+                                    <List size={14} />
+                                </button>
+                            </div>
+                        )}
                         {expandedSections.extras && (
                             <button
                                 onClick={(e) => {
@@ -329,37 +397,88 @@ const PricingPanel = ({
                 </div>
 
                 <div className={`transition-all duration-500 ease-in-out ${expandedSections.extras ? 'max-h-[5000px] opacity-100 p-6 pt-2' : 'max-h-0 opacity-0 overflow-hidden'}`}>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                        {allExtras.map((extra, idx) => (
-                            <div key={extra.id} className="group bg-primary/3 rounded-2xl p-4 border border-primary/10 hover:border-emerald-500/30 transition-all relative">
-                                <button
-                                    onClick={() => {
-                                        if (confirm('¿Borrar este extra?')) {
-                                            updateSettings({ extras: allExtras.filter(e => e.id !== extra.id) });
-                                        }
-                                    }}
-                                    className="absolute top-3 right-3 p-1.5 text-secondary hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
-                                >
-                                    <Trash2 size={14} />
-                                </button>
-                                <div className="space-y-3">
-                                    {/* Nombre del Extra */}
-                                    <div>
+                    {viewModes.extras === 'grid' ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                            {allExtras.map((extra, idx) => (
+                                <div key={extra.id} className="group bg-primary/3 rounded-2xl p-4 border border-primary/10 hover:border-emerald-500/30 transition-all relative">
+                                    <button
+                                        onClick={() => {
+                                            if (confirm('¿Borrar este extra?')) {
+                                                updateSettings({ extras: allExtras.filter(e => e.id !== extra.id) });
+                                            }
+                                        }}
+                                        className="absolute top-3 right-3 p-1.5 text-secondary hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                                    >
+                                        <Trash2 size={14} />
+                                    </button>
+                                    <div className="space-y-3">
+                                        <div>
+                                            <input
+                                                type="text"
+                                                value={extra.name}
+                                                placeholder="Nombre del extra"
+                                                onChange={e => {
+                                                    const newExtras = [...allExtras];
+                                                    newExtras[idx].name = e.target.value;
+                                                    updateSettings({ extras: newExtras });
+                                                }}
+                                                className="w-full bg-white/5 border border-white/5 rounded-xl px-3 py-2 text-xs font-bold text-primary outline-none focus:border-indigo-500/40 transition-all"
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div className="relative">
+                                                <input
+                                                    type="number"
+                                                    value={extra.price}
+                                                    onChange={e => {
+                                                        const newExtras = [...allExtras];
+                                                        newExtras[idx].price = parseFloat(e.target.value) || 0;
+                                                        updateSettings({ extras: newExtras });
+                                                    }}
+                                                    className="w-full bg-white/5 border border-white/5 rounded-xl pl-3 pr-6 py-2 text-xs font-black text-emerald-500 outline-none"
+                                                />
+                                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-emerald-500 font-bold">€</span>
+                                            </div>
+                                            <div className="relative">
+                                                <input
+                                                    type="number"
+                                                    value={extra.cost}
+                                                    onChange={e => {
+                                                        const newExtras = [...allExtras];
+                                                        newExtras[idx].cost = parseFloat(e.target.value) || 0;
+                                                        updateSettings({ extras: newExtras });
+                                                    }}
+                                                    className="w-full bg-white/5 border border-white/5 rounded-xl pl-3 pr-6 py-2 text-xs font-black text-red-500 outline-none"
+                                                />
+                                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-red-500 font-bold">€</span>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center justify-between px-1 pt-1 opacity-60">
+                                            <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">Beneficio:</span>
+                                            <span className="text-[10px] font-black text-emerald-500">{(extra.price - extra.cost).toFixed(2)}€</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="space-y-2">
+                            {allExtras.map((extra, idx) => (
+                                <div key={extra.id} className="group flex items-center gap-4 bg-primary/3 hover:bg-primary/5 border border-primary/5 rounded-xl px-6 py-3 transition-all">
+                                    <div className="flex-1">
                                         <input
                                             type="text"
                                             value={extra.name}
-                                            placeholder="Nombre del extra"
                                             onChange={e => {
                                                 const newExtras = [...allExtras];
                                                 newExtras[idx].name = e.target.value;
                                                 updateSettings({ extras: newExtras });
                                             }}
-                                            className="w-full bg-white/5 border border-white/5 rounded-xl px-3 py-2 text-xs font-bold text-primary outline-none focus:border-indigo-500/40 transition-all"
+                                            className="w-full bg-transparent border-none text-xs font-black text-primary outline-none"
                                         />
                                     </div>
-                                    {/* Precios y Costes */}
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <div className="relative">
+                                    <div className="flex gap-4 items-center">
+                                        <div className="relative w-24">
                                             <input
                                                 type="number"
                                                 value={extra.price}
@@ -368,11 +487,11 @@ const PricingPanel = ({
                                                     newExtras[idx].price = parseFloat(e.target.value) || 0;
                                                     updateSettings({ extras: newExtras });
                                                 }}
-                                                className="w-full bg-white/5 border border-white/5 rounded-xl pl-3 pr-6 py-2 text-xs font-black text-emerald-500 outline-none"
+                                                className="w-full bg-white/10 border border-primary/10 rounded-lg pl-3 pr-6 py-1.5 text-xs font-black text-emerald-500 outline-none"
                                             />
-                                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-emerald-500 font-bold">€</span>
+                                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-emerald-500 font-bold font-black">€</span>
                                         </div>
-                                        <div className="relative">
+                                        <div className="relative w-24">
                                             <input
                                                 type="number"
                                                 value={extra.cost}
@@ -381,20 +500,28 @@ const PricingPanel = ({
                                                     newExtras[idx].cost = parseFloat(e.target.value) || 0;
                                                     updateSettings({ extras: newExtras });
                                                 }}
-                                                className="w-full bg-white/5 border border-white/5 rounded-xl pl-3 pr-6 py-2 text-xs font-black text-red-500 outline-none"
+                                                className="w-full bg-white/10 border border-primary/10 rounded-lg pl-3 pr-6 py-1.5 text-xs font-black text-red-500 outline-none"
                                             />
-                                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-red-500 font-bold">€</span>
+                                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-red-500 font-bold font-black">€</span>
                                         </div>
-                                    </div>
-                                    {/* Beneficio */}
-                                    <div className="flex items-center justify-between px-1 pt-1 opacity-60">
-                                        <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">Beneficio:</span>
-                                        <span className="text-[10px] font-black text-emerald-500">{(extra.price - extra.cost).toFixed(2)}€</span>
+                                        <div className="w-20 text-right">
+                                            <p className="text-[10px] font-black text-emerald-600">{(extra.price - extra.cost).toFixed(2)}€</p>
+                                        </div>
+                                        <button
+                                            onClick={() => {
+                                                if (confirm('¿Borrar este extra?')) {
+                                                    updateSettings({ extras: allExtras.filter(e => e.id !== extra.id) });
+                                                }
+                                            }}
+                                            className="p-2 text-secondary hover:text-red-500 transition-all"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
-                    </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -413,6 +540,22 @@ const PricingPanel = ({
                         </h3>
                     </div>
                     <div className="flex items-center gap-6">
+                        {expandedSections.supplements && (
+                            <div className="flex items-center bg-primary/5 rounded-xl p-1 border border-primary/10 mr-2">
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); setViewModes(prev => ({ ...prev, supplements: 'grid' })); }}
+                                    className={`p-1.5 rounded-lg transition-all ${viewModes.supplements === 'grid' ? 'bg-white shadow-sm text-indigo-500' : 'text-secondary opacity-40 hover:opacity-100'}`}
+                                >
+                                    <LayoutGrid size={14} />
+                                </button>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); setViewModes(prev => ({ ...prev, supplements: 'list' })); }}
+                                    className={`p-1.5 rounded-lg transition-all ${viewModes.supplements === 'list' ? 'bg-white shadow-sm text-indigo-500' : 'text-secondary opacity-40 hover:opacity-100'}`}
+                                >
+                                    <List size={14} />
+                                </button>
+                            </div>
+                        )}
                         {expandedSections.supplements && (
                             <button
                                 onClick={(e) => {
@@ -441,6 +584,7 @@ const PricingPanel = ({
                         settings={settings}
                         updateSettings={updateSettings}
                         theme={theme}
+                        viewMode={viewModes.supplements}
                     />
                 </div>
             </div>
