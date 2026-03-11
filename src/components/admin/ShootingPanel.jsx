@@ -33,6 +33,7 @@ const ShootingPanel = ({
     addOrder,
     deleteOrder,
     updateStatus,
+    updateOrder,
     addStaff,
     deleteStaff,
     downloadMasterBackup,
@@ -142,6 +143,56 @@ const ShootingPanel = ({
             paymentMethod: ''
         });
         setShowQuickExtras(false);
+    };
+
+    const handlePaymentChange = async (student) => {
+        const Swal = (await import('sweetalert2')).default;
+        const { value: method } = await Swal.fire({
+            title: 'Estado de Pago',
+            input: 'select',
+            inputOptions: {
+                '': 'Pendiente',
+                'EFECTIVO': 'Efectivo',
+                'TARJETA': 'Tarjeta',
+                'TRANSFERENCIA': 'Transferencia'
+            },
+            inputValue: student.paymentMethod || '',
+            showCancelButton: true,
+            confirmButtonText: 'Actualizar',
+            cancelButtonText: 'Cerrar',
+            background: '#ffffff',
+            color: '#000000',
+            confirmButtonColor: '#10b981',
+        });
+
+        if (method !== undefined) {
+            updateOrder(student.id, { paymentMethod: method });
+            setActiveStudent(prev => prev?.id === student.id ? { ...prev, paymentMethod: method } : prev);
+        }
+    };
+
+    const handleStatusChange = async (student) => {
+        const Swal = (await import('sweetalert2')).default;
+        const { value: status } = await Swal.fire({
+            title: 'Estado de Foto',
+            input: 'select',
+            inputOptions: {
+                'Pendiente': 'Pendiente',
+                'production': 'Realizada'
+            },
+            inputValue: (student.status === 'production' || student.photoFile) ? 'production' : 'Pendiente',
+            showCancelButton: true,
+            confirmButtonText: 'Actualizar',
+            cancelButtonText: 'Cerrar',
+            background: '#ffffff',
+            color: '#000000',
+            confirmButtonColor: '#10b981',
+        });
+
+        if (status !== undefined) {
+            updateOrder(student.id, { status: status });
+            setActiveStudent(prev => prev?.id === student.id ? { ...prev, status: status } : prev);
+        }
     };
 
     // Función para calcular el tamaño inteligente del texto
@@ -774,11 +825,14 @@ const ShootingPanel = ({
                                         <div className="p-5 bg-white/5 rounded-3xl backdrop-blur-md border border-white/10 text-white mt-4">
                                             <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-3 opacity-60">Estado Actual</p>
                                             <div className="flex flex-col gap-3">
-                                                <div className="flex items-center gap-3">
-                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${activeStudent.paymentMethod ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`}>
+                                                <div 
+                                                    className="flex items-center gap-3 cursor-pointer hover:bg-white/5 p-2 -m-2 rounded-xl transition-colors group/state"
+                                                    onClick={() => handlePaymentChange(activeStudent)}
+                                                >
+                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${activeStudent.paymentMethod ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'} group-hover/state:scale-110 transition-transform`}>
                                                         {activeStudent.paymentMethod ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
                                                     </div>
-                                                    <div>
+                                                    <div className="flex-1">
                                                         <p className="text-[11px] font-black uppercase tracking-wider leading-none">
                                                             {activeStudent.paymentMethod ? 'Pagado' : 'Pendiente de Pago'}
                                                         </p>
@@ -786,17 +840,22 @@ const ShootingPanel = ({
                                                             <p className="text-[9px] font-bold text-emerald-200/60 uppercase mt-0.5 tracking-widest">{activeStudent.paymentMethod}</p>
                                                         )}
                                                     </div>
+                                                    <ChevronRight size={14} className="opacity-0 group-hover/state:opacity-40 transition-opacity" />
                                                 </div>
 
-                                                <div className="flex items-center gap-3">
-                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${activeStudent.status === 'production' || activeStudent.photoFile ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}`}>
+                                                <div 
+                                                    className="flex items-center gap-3 cursor-pointer hover:bg-white/5 p-2 -m-2 rounded-xl transition-colors group/state"
+                                                    onClick={() => handleStatusChange(activeStudent)}
+                                                >
+                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${activeStudent.status === 'production' || activeStudent.photoFile ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'} group-hover/state:scale-110 transition-transform`}>
                                                         <Camera size={16} />
                                                     </div>
-                                                    <div>
+                                                    <div className="flex-1">
                                                         <p className="text-[11px] font-black uppercase tracking-wider leading-none">
                                                             {activeStudent.status === 'production' || activeStudent.photoFile ? 'Foto Realizada' : 'Foto Pendiente'}
                                                         </p>
                                                     </div>
+                                                    <ChevronRight size={14} className="opacity-0 group-hover/state:opacity-40 transition-opacity" />
                                                 </div>
 
                                                 {(activeStudent.complements?.length > 0 || activeStudent.extras?.length > 0) && (

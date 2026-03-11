@@ -1606,6 +1606,7 @@ export default function App() {
                                         addOrder={addOrder}
                                         deleteOrder={deleteOrder}
                                         updateStatus={updateStatus}
+                                        updateOrder={updateOrder}
                                         addStaff={addStaff}
                                         deleteStaff={deleteStaff}
                                         downloadMasterBackup={downloadMasterBackup}
@@ -2142,15 +2143,15 @@ export default function App() {
                     {/* MODAL PIN DE ACCESO (RESTAURADO) */}
                     {
                         showPinModal && (
-                            <div className="fixed inset-0 z-[800] flex items-center justify-center p-6 bg-black/90 backdrop-blur-2xl animate-fade-in">
-                                <div className="w-full max-w-sm bg-card border border-white/10 rounded-[40px] shadow-2xl overflow-hidden animate-scale-in">
+                            <div className="fixed inset-0 z-[800] flex items-center justify-center p-6 bg-slate-50/90 backdrop-blur-2xl animate-fade-in">
+                                <div className="w-full max-w-sm bg-white border border-black/5 rounded-[40px] shadow-2xl overflow-hidden animate-scale-in">
                                     <div className="p-8 text-center space-y-6">
                                         <div className="w-16 h-16 bg-accent/10 rounded-2xl flex items-center justify-center mx-auto border border-accent/20">
                                             <Shield size={28} className="text-accent" />
                                         </div>
                                         <div className="space-y-1">
-                                            <h3 className="text-xl font-black text-primary uppercase tracking-tighter">Área Protegida</h3>
-                                            <p className="text-[10px] text-secondary font-black uppercase tracking-widest opacity-60">Introduce tu PIN de acceso</p>
+                                            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Área Protegida</h3>
+                                            <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest opacity-60">Introduce tu PIN de acceso</p>
                                         </div>
                                         <div className="relative space-y-4">
                                             <input
@@ -2183,7 +2184,7 @@ export default function App() {
                                                     }
                                                 }}
                                                 autoFocus
-                                                className={`w-full bg-primary/5 border ${pinError ? 'border-red-500 animate-shake' : 'border-primary/10'} rounded-2xl py-5 text-center text-2xl font-black tracking-[0.2em] outline-none focus:border-accent transition-all placeholder:tracking-normal placeholder:opacity-20`}
+                                                className={`w-full bg-slate-50 border ${pinError ? 'border-red-500 animate-shake' : 'border-slate-200'} rounded-2xl py-5 text-center text-2xl font-black text-slate-800 tracking-[0.2em] outline-none focus:border-accent focus:bg-white transition-all placeholder:tracking-normal placeholder:opacity-20`}
                                             />
                                             {pinError && <p className="absolute -bottom-6 left-0 right-0 text-[10px] text-red-500 font-bold uppercase tracking-widest text-center">Contraseña Incorrecta</p>}
 
@@ -2207,12 +2208,12 @@ export default function App() {
                                                         }, 1000);
                                                     }
                                                 }}
-                                                className="w-full h-14 bg-accent text-card text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl shadow-lg shadow-accent/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                                                className="w-full h-14 bg-accent text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl shadow-lg shadow-accent/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
                                             >
                                                 Acceder al Sistema
                                             </button>
                                         </div>
-                                        <button onClick={() => setShowPinModal(false)} className="w-full py-2 text-[10px] font-black text-secondary/40 hover:text-primary uppercase tracking-widest transition-colors">Cancelar y Volver</button>
+                                        <button onClick={() => setShowPinModal(false)} className="w-full py-2 text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors">Cancelar y Volver</button>
                                     </div>
                                 </div>
                             </div>
