@@ -4,7 +4,7 @@ import { FileText, Download, TrendingUp, CreditCard, Clock, CheckCircle2, AlertC
 export default function BillingPanel({ settings, photographerId }) {
     const [invoices, setInvoices] = useState([
         {
-            id: 'INV-2026-001',
+            id: 'FAC-2026-001',
             date: new Date().toLocaleDateString(),
             plan: settings.plan?.toUpperCase() || 'STARTER',
             amount: settings.plan === 'pro' ? '449.00€' : '149.00€',
@@ -16,156 +16,249 @@ export default function BillingPanel({ settings, photographerId }) {
     const handleDownload = (invoice) => {
         const printWindow = window.open('', '_blank');
         const iva = (parseFloat(invoice.amount) * 0.21).toFixed(2);
-        const base = (parseFloat(invoice.amount)).toFixed(2);
-        const total = (parseFloat(base) + parseFloat(iva)).toFixed(2);
+        const subtotal = (parseFloat(invoice.amount)).toFixed(2);
+        const total = (parseFloat(subtotal) + parseFloat(iva)).toFixed(2);
         const currentYear = new Date().getFullYear();
-        const dateStr = new Intl.DateTimeFormat('es-ES', { 
+        const nextYear = currentYear + 1;
+        
+        const currentDateFormatted = new Intl.DateTimeFormat('es-ES', { 
             day: 'numeric', 
             month: 'long', 
             year: 'numeric' 
         }).format(new Date());
 
-        const logoUrl = `${window.location.origin}${import.meta.env.BASE_URL}logos/logo_azul.png`;
+        // Datos del emisor proporcionados por el usuario
+        const emisor = {
+            name: 'PUJALTE CREATIVE STUDIO',
+            legalName: 'PujalteFotografía',
+            cif: '48427310M',
+            address: 'C/ CHILE nº 21, 30565, Las Torres de Cotillas, Murcia',
+            email: 'hola@pujaltefotografia.es',
+            web: 'www.pujalte.studio'
+        };
+
+        const bank = {
+            titular: 'JOSE PUJALTE MOLINA',
+            iban: 'ES75 0081 1117 1100 0113 4919',
+            entidad: 'Banco Sabadell'
+        };
+
+        const color = '#4F46E5';
 
         printWindow.document.write(`
             <!DOCTYPE html>
-            <html>
+            <html lang="es">
                 <head>
-                    <title>Factura ${invoice.id}</title>
+                    <meta charset="UTF-8">
+                    <title>Factura PUJALTE STUDIO - ${invoice.id}</title>
+                    <script src="https://cdn.tailwindcss.com"></script>
+                    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&display=swap" rel="stylesheet">
                     <style>
-                        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+                        @page {
+                            size: A4 portrait;
+                            margin: 8mm;
+                        }
                         body { 
-                            font-family: 'Inter', -apple-system, sans-serif; 
-                            padding: 50px; 
-                            color: #0f172a; 
-                            line-height: 1.5;
-                            background: white;
+                            font-family: 'Outfit', sans-serif;
+                            -webkit-print-color-adjust: exact;
+                            print-color-adjust: exact;
+                            margin: 0;
+                            padding: 0;
                         }
-                        .invoice-container { max-width: 800px; margin: 0 auto; }
-                        .header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 60px; }
-                        .brand { text-align: left; }
-                        .brand-logo { 
-                            height: 120px; 
-                            margin-bottom: 12px;
-                        }
-                        .brand h1 { font-weight: 900; font-size: 24px; color: #4F46E5; margin: 0; letter-spacing: -0.02em; }
-                        .brand p { font-size: 10px; font-weight: 700; color: #64748b; margin: 4px 0 0 0; text-transform: uppercase; letter-spacing: 0.1em; }
-                        
-                        .invoice-title { text-align: right; }
-                        .invoice-title h2 { font-weight: 900; font-size: 32px; color: #020617; margin: 0; text-transform: uppercase; }
-                        .invoice-title p { font-size: 14px; font-weight: 700; color: #64748b; margin: 4px 0 0 0; }
-                        
-                        .details-grid { display: grid; grid-template-cols: 1fr 1fr; gap: 60px; margin-bottom: 60px; }
-                        .detail-box h3 { font-size: 10px; font-weight: 900; color: #6366f1; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
-                        .detail-box p { font-size: 12px; margin: 4px 0; color: #334155; }
-                        .detail-box strong { color: #0f172a; }
-                        
-                        .items-table { width: 100%; border-collapse: collapse; margin-bottom: 40px; }
-                        .items-table th { text-align: left; padding: 15px; background: #f8fafc; color: #64748b; font-size: 10px; font-weight: 900; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
-                        .items-table td { padding: 15px; border-bottom: 1px solid #f1f5f9; font-size: 13px; color: #0f172a; }
-                        .items-table td.amount { text-align: right; font-weight: 700; }
-                        
-                        .total-section { display: flex; justify-content: flex-end; }
-                        .total-box { width: 250px; }
-                        .total-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 13px; color: #475569; }
-                        .total-row.grand { border-top: 2px solid #4F46E5; margin-top: 15px; padding-top: 15px; color: #4F46E5; font-weight: 900; font-size: 20px; }
-                        
-                        .footer { margin-top: 100px; padding-top: 30px; border-top: 1px solid #e2e8f0; }
-                        .payment-info { background: #f8fafc; padding: 25px; border-radius: 20px; border: 1px solid #e2e8f0; margin-bottom: 30px; }
-                        .payment-info h4 { font-size: 11px; font-weight: 900; margin: 0 0 10px 0; color: #0f172a; text-transform: uppercase; }
-                        .payment-info p { font-size: 11px; color: #64748b; margin: 4px 0; }
-                        .payment-info strong { color: #0f172a; font-family: monospace; font-size: 13px; }
-                        
-                        .lopd { font-size: 9px; color: #94a3b8; text-align: justify; line-height: 1.4; }
-                        
                         @media print {
-                            .no-print { display: none; }
-                            body { padding: 0; }
-                            .invoice-container { max-width: 100%; }
+                            .no-print { display: none !important; }
+                            body { background-color: white !important; }
+                            .invoice-card { 
+                                box-shadow: none !important; 
+                                border: 1px solid #e5e7eb !important;
+                                margin: 0 !important;
+                                padding: 0 !important;
+                                max-height: 285mm;
+                            }
+                        }
+                        .premium-gradient {
+                            background: linear-gradient(135deg, ${color} 0%, #312E81 100%);
+                        }
+                        .gradient-text {
+                            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+                            -webkit-background-clip: text;
+                            -webkit-text-fill-color: transparent;
                         }
                     </style>
                 </head>
-                <body>
-                    <div class="invoice-container">
-                        <div class="header">
-                            <div class="brand">
-                                <img src="${logoUrl}" class="brand-logo" alt="Logo"/>
-                                <h1>PUJALTE CREATIVE STUDIO</h1>
-                                <p>La tecnología al servicio de los recuerdos</p>
-                            </div>
-                            <div class="invoice-title">
-                                <h2>FACTURA</h2>
-                                <p>Ref: ${invoice.id}</p>
-                            </div>
-                        </div>
+                <body class="bg-white">
+                    <div class="max-w-[210mm] mx-auto p-1 invoice-card">
+                        <div class="h-2 w-full premium-gradient"></div>
 
-
-                        <div class="details-grid">
-                            <div class="detail-box">
-                                <h3>EMISOR</h3>
-                                <p><strong>JOSE PUJALTE MOLINA</strong></p>
-                                <p>CIF: 48427310M</p>
-                                <p>C/ Chile nº 21, 30565</p>
-                                <p>Las Torres de Cotillas, Murcia</p>
-                                <p>hola@pujaltefotografia.es</p>
-                            </div>
-                            <div class="detail-box">
-                                <h3>RECEPTOR</h3>
-                                <p><strong>${settings.fiscalName || settings.studioName || 'Cliente Profesinal'}</strong></p>
-                                <p>CIF/NIF: ${settings.cif || '-'}</p>
-                                <p>${settings.address || '-'}</p>
-                                <p>${settings.postalCode || ''} ${settings.city || ''}</p>
-                                <p>Fecha: ${dateStr}</p>
-                            </div>
-                        </div>
-
-                        <table class="items-table">
-                            <thead>
-                                <tr>
-                                    <th>Descripción de los Servicios</th>
-                                    <th style="text-align: right">Base Imponible</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>
-                                        <strong>Licencia de Software Orlas 2026 - Plan ${invoice.plan}</strong><br/>
-                                        <span style="font-size: 11px; color: #64748b;">Automatización integral de orlas y gestión de capturas campaña ${currentYear}</span>
-                                    </td>
-                                    <td class="amount">${base}€</td>
-                                </tr>
-                            </tbody>
-                        </table>
-
-                        <div class="total-section">
-                            <div class="total-box">
-                                <div class="total-row">
-                                    <span>Base Imponible:</span>
-                                    <span>${base}€</span>
+                        <div class="p-4">
+                            <!-- Header Superior -->
+                            <div class="flex flex-col md:flex-row justify-between items-start mb-4">
+                                <div class="w-full md:max-w-xl text-left">
+                                    
+                                     <div class="space-y-0 text-slate-500 text-left">
+                                        <h1 class="text-lg font-black text-slate-900 uppercase tracking-tighter mb-1">
+                                            ${emisor.name}
+                                        </h1>
+                                        <div class="bg-slate-50 p-2 rounded-lg border border-slate-100 flex justify-between items-center gap-4">
+                                            <div class="space-y-0.5">
+                                                <p class="text-[8px] font-black text-indigo-500 uppercase tracking-[0.2em] mb-0.5">Datos Legales</p>
+                                                <p class="font-bold text-slate-800 text-xs">${emisor.legalName}</p>
+                                                <div class="flex items-center gap-2 text-xs font-medium">
+                                                    <span class="text-slate-400 font-bold">NIF/CIF:</span>
+                                                    <span class="text-slate-700 font-bold">${emisor.cif}</span>
+                                                </div>
+                                                <p class="text-xs text-slate-600 leading-tight max-w-xs">${emisor.address}</p>
+                                            </div>
+                                            <div class="flex-shrink-0">
+                                                <img src="/graduaciones2026/logos/logo_negro.png" alt="Logo" class="w-32 h-auto" />
+                                            </div>
+                                        </div>
+                                        <div class="pt-0.5 flex flex-col gap-0.5 text-[10px] font-bold text-indigo-600">
+                                                <p>${emisor.email}</p>
+                                                <p>${emisor.web}</p>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="total-row">
-                                    <span>IVA (21%):</span>
-                                    <span>${iva}€</span>
-                                </div>
-                                <div class="total-row grand">
-                                    <span>TOTAL:</span>
-                                    <span>${total}€</span>
-                                </div>
-                            </div>
-                        </div>
+                                
+                                <div class="mt-2 md:mt-0 text-right min-w-[200px] flex flex-col items-end">
+                                    <div class="mb-3">
+                                        <h2 class="text-4xl font-black text-slate-100 uppercase tracking-tighter leading-none select-none">FACTURA</h2>
+                                        <p class="text-indigo-600 font-black text-[9px] tracking-[0.4em] uppercase -mt-1 pr-1">Documento Oficial</p>
+                                    </div>
 
-                        <div class="footer">
-                            <div class="payment-info">
-                                <h4>Información de Pago</h4>
-                                <p>Entidad: <strong>BANCO SABADELL</strong></p>
-                                <p>IBAN: <strong>ES32 0081 0540 2100 0113 4567</strong></p>
-                                <p>Beneficiario: <strong>JOSE PUJALTE MOLINA</strong></p>
+                                    <div class="space-y-1.5">
+                                        <div class="border-r-4 border-indigo-600 pr-3 mr-1">
+                                            <p class="text-[7px] text-slate-400 uppercase tracking-[0.2em] font-black">Nº Identificador</p>
+                                            <p class="font-mono text-base font-black text-slate-900">${invoice.id}</p>
+                                        </div>
+                                        <div>
+                                            <p class="text-[7px] text-slate-400 uppercase tracking-[0.2em] font-black">Fecha Emisión</p>
+                                            <p class="font-bold text-slate-700 text-xs">${currentDateFormatted}</p>
+                                        </div>
+                                        <div class="bg-indigo-50 p-1.5 rounded-lg border border-indigo-100 inline-block w-full">
+                                            <p class="text-[7px] text-indigo-400 uppercase tracking-[0.2em] font-black">Campaña Activa</p>
+                                            <p class="font-black text-indigo-700 text-[9px]">Graduaciones ESCOLARES ${currentYear}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                             <!-- Cliente -->
+                            <div class="grid md:grid-cols-2 gap-3 mb-3">
+                                <div class="bg-slate-900 p-3 rounded-xl border border-white/5 relative overflow-hidden text-left">
+                                    <p class="text-[7px] uppercase tracking-[0.3em] font-black text-indigo-400 mb-1">Información del Cliente</p>
+                                    <h3 class="text-base font-black text-white mb-0.5 tracking-tighter capitalize">${settings.fiscalName || settings.studioName || 'Cliente No Identificado'}</h3>
+                                    <div class="text-[9px] text-slate-400 space-y-0 font-medium">
+                                        <p class="flex items-center gap-1.5"><span class="w-1 h-1 bg-indigo-500 rounded-full"></span> CIF/NIF: ${settings.cif || '---'}</p>
+                                        <p class="flex items-start gap-1.5 leading-tight"><span class="w-1 h-1 bg-indigo-500 rounded-full mt-1"></span> ${settings.address || 'Pendiente de dirección'}</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex flex-col justify-center items-end text-right pr-4 space-y-1">
+                                    <h4 class="text-base font-bold text-indigo-600 leading-tight">La tecnología al servicio de los recuerdos</h4>
+                                    <p class="text-[9px] text-slate-400 font-medium max-w-xs leading-tight italic">Gracias por elegir a Pujalte Creative Studio.</p>
+                                    <div class="pt-1 flex items-center gap-2">
+                                        <span class="w-1.5 h-1.5 bg-indigo-600 rounded-full animate-pulse"></span>
+                                        <span class="text-[8px] font-black uppercase tracking-widest text-indigo-600">Servicio 24/7 Operativo</span>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="lopd">
-                                <strong>Cláusula LOPD:</strong> De conformidad con el RGPD (UE) 2016/679, le informamos que sus datos forman parte de un fichero responsabilidad de JOSE PUJALTE MOLINA con la finalidad de gestionar la relación comercial y administrativa establecida. Puede ejercer sus derechos de acceso, rectificación, supresión y otros enviando un email a hola@pujaltefotografia.es. Esta factura tiene validez legal como justificante de compra del servicio digital.
+
+                            <!-- Tabla de Items -->
+                            <div class="mb-3 overflow-hidden rounded-lg border border-slate-100">
+                                <table class="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr class="bg-slate-50 border-b border-slate-200 text-[7px] uppercase tracking-[0.2em] text-slate-400 font-black">
+                                            <th class="py-1 px-2 text-left">Descripción del Servicio</th>
+                                            <th class="py-1 px-2 text-center w-16">Cant.</th>
+                                            <th class="py-1 px-2 text-right w-24">Precio</th>
+                                            <th class="py-1 px-2 text-right w-24">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr class="border-b border-slate-50">
+                                            <td class="py-1.5 px-2 text-left">
+                                                <p class="font-bold text-slate-700 text-[10px]">Licencia App Orlas 2026 - Plan ${invoice.plan}</p>
+                                            </td>
+                                            <td class="py-1.5 px-2 text-center font-bold text-slate-700 text-[10px]">1</td>
+                                            <td class="py-1.5 px-2 text-right font-mono text-slate-600 font-bold text-[10px]">
+                                                ${subtotal}€
+                                            </td>
+                                            <td class="py-1.5 px-2 text-right font-black font-mono text-slate-900 text-[11px]">
+                                                ${subtotal}€
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
-                            <div style="margin-top: 40px; text-align: center;" class="no-print">
-                                <button onclick="window.print()" style="background: #4F46E5; color: white; border: none; padding: 16px 32px; border-radius: 14px; font-weight: 900; font-size: 12px; cursor: pointer; text-transform: uppercase; letter-spacing: 0.1em; transition: transform 0.2s;">Imprimir o Guardar PDF</button>
+
+                            <!-- Resumen y Pago -->
+                            <div class="flex flex-col md:flex-row justify-between items-stretch gap-3 pt-1">
+                                <div class="flex-1 bg-slate-900 text-white p-2.5 rounded-lg border-l-4 text-left" style="border-color: ${color}">
+                                    <p class="text-[7px] uppercase tracking-[0.2em] font-black text-indigo-400 mb-1 flex items-center gap-2">
+                                        Información de Pago
+                                    </p>
+                                    <div class="grid grid-cols-2 gap-x-3 gap-y-1">
+                                        <div class="border-b border-slate-800 pb-0.5 col-span-2">
+                                            <p class="text-[6px] text-slate-500 uppercase tracking-wider font-bold">Titular</p>
+                                            <p class="text-[9px] font-bold text-white leading-none">${bank.titular}</p>
+                                        </div>
+                                        <div class="border-b border-slate-800 pb-0.5">
+                                            <p class="text-[6px] text-slate-500 uppercase tracking-wider font-bold">IBAN</p>
+                                            <p class="text-[9px] font-mono font-black text-white leading-none">${bank.iban}</p>
+                                        </div>
+                                        <div class="border-b border-slate-800 pb-0.5">
+                                            <p class="text-[6px] text-slate-500 uppercase tracking-wider font-bold">Entidad</p>
+                                            <p class="text-[9px] font-bold text-slate-300 leading-none">${bank.entidad}</p>
+                                        </div>
+                                    </div>
+                                    <p class="text-[6px] text-indigo-300/60 uppercase font-black tracking-widest mt-1.5 bg-indigo-500/10 p-1 rounded border border-indigo-500/20 inline-block">
+                                        ⚠️ Incluir nº factura en concepto
+                                    </p>
+                                </div>
+
+                                <div class="w-full md:w-48 space-y-0.5 px-2">
+                                    <div class="flex justify-between text-[8px] text-slate-500 font-bold uppercase tracking-widest text-right">
+                                        <span>Base Neto</span>
+                                        <span class="font-mono text-slate-900">${subtotal}€</span>
+                                    </div>
+                                    <div class="flex justify-between text-[8px] text-slate-500 font-bold uppercase tracking-widest text-right">
+                                        <span>IVA Incl.</span>
+                                        <span class="font-mono text-slate-900">${iva}€</span>
+                                    </div>
+                                    <div 
+                                        class="flex justify-between items-center pt-1 border-t-2 border-slate-900 mt-0.5 text-right"
+                                        style="color: ${color}"
+                                    >
+                                        <span class="text-sm font-black uppercase tracking-tighter">TOTAL</span>
+                                        <span class="text-xl font-black font-mono tracking-tighter">
+                                            ${total}€
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Footer LOPD -->
+                            <div class="mt-2 pt-2 border-t border-slate-100">
+                                <div class="flex flex-col md:flex-row gap-4 items-start">
+                                    <div class="flex-1 text-left">
+                                        <p class="text-[6px] font-black uppercase tracking-[0.2em] text-slate-400 mb-0.5">RGPD / LOPD</p>
+                                        <p class="text-[7px] text-slate-400 leading-tight">
+                                            PujalteFotografía tratará sus datos para gestión administrativa y fiscal. Derechos: hola@pujaltefotografia.es.
+                                        </p>
+                                    </div>
+                                    
+                                    <div class="text-right shrink-0">
+                                        <p class="text-[7px] font-black text-slate-800 uppercase tracking-widest">
+                                            © ${currentYear} ${emisor.name}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>                            </div>
+
+                            <div class="mt-8 text-center no-print">
+                                <button onclick="window.print()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-full font-black transition-all shadow-lg uppercase tracking-widest text-[10px]">
+                                    Imprimir o Guardar PDF
+                                </button>
                             </div>
                         </div>
                     </div>

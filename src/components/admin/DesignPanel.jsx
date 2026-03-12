@@ -435,14 +435,25 @@ const DesignPanel = ({
                                                         className="relative flex flex-col items-center text-center"
                                                         style={{ width: (w * baseScale) + 'px' }}
                                                     >
-                                                        <div style={{ transform: `scale(${baseScale})`, transformOrigin: 'top center' }}>
-                                                            <div className="bg-slate-200" style={{ width: w + 'px', height: h + 'px', ...getShapeStyle(currentShape, w, h) }} />
-                                                            <div className="flex flex-col items-center px-1" style={{ marginTop: (configOrla.dTextOffset || 0) / 10 + 'px' }}>
-                                                                <div className="font-normal uppercase text-slate-900 leading-tight" style={{ fontSize: (baseSize * 0.55) + 'px' }}>
+                                                        <div className="relative">
+                                                            <div className="bg-slate-200" style={{ 
+                                                                width: w + 'px', 
+                                                                height: h + 'px', 
+                                                                ...getShapeStyle(currentShape, w, h),
+                                                                transform: `scale(${baseScale})`,
+                                                                transformOrigin: 'top center'
+                                                            }} />
+                                                            <div className="flex flex-col items-center px-1" style={{ 
+                                                                marginTop: (h * (baseScale - 1)) + (configOrla.dTextOffset || 0) / 10 + 'px' 
+                                                            }}>
+                                                                <div className="font-normal uppercase text-black leading-tight" style={{ fontSize: (baseSize * 0.45) + 'px' }}>
                                                                     <div className="whitespace-nowrap">{nombre}</div>
-                                                                    {!configOrla.hideApellidosDoc && <div className="whitespace-nowrap">{apellidos}</div>}
+                                                                    <div className="whitespace-nowrap" style={{ display: configOrla.hideApellidosDoc ? 'none' : 'block' }}>{apellidos}</div>
                                                                 </div>
-                                                                {!configOrla.hideCargoDoc && <p className="font-normal uppercase text-slate-500 leading-tight mt-0.5" style={{ fontSize: (baseSize * 0.45) + 'px' }}>{member.role || 'DOCENTE'}</p>}
+                                                                <p className="font-normal uppercase text-black leading-tight mt-0.5" style={{ 
+                                                                    fontSize: (baseSize * 0.45) + 'px',
+                                                                    display: configOrla.hideCargoDoc ? 'none' : 'block'
+                                                                }}>{member.role || 'DOCENTE'}</p>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -473,12 +484,20 @@ const DesignPanel = ({
                                                         className="flex flex-col items-center text-center"
                                                         style={{ width: (w * baseScale) + 'px' }}
                                                     >
-                                                        <div style={{ transform: `scale(${baseScale})`, transformOrigin: 'top center' }}>
-                                                            <div className="bg-slate-100" style={{ width: w + 'px', height: h + 'px', ...getShapeStyle(currentShape, w, h) }} />
-                                                            <div className="flex flex-col items-center px-1" style={{ marginTop: (configOrla.aTextOffset || 0) / 10 + 'px' }}>
-                                                                <div className="font-normal uppercase text-slate-900 leading-tight" style={{ fontSize: (baseSize * 0.45) + 'px' }}>
+                                                        <div className="relative">
+                                                            <div className="bg-slate-100" style={{ 
+                                                                width: w + 'px', 
+                                                                height: h + 'px', 
+                                                                ...getShapeStyle(currentShape, w, h),
+                                                                transform: `scale(${baseScale})`,
+                                                                transformOrigin: 'top center'
+                                                            }} />
+                                                            <div className="flex flex-col items-center px-1" style={{ 
+                                                                marginTop: (h * (baseScale - 1)) + (configOrla.aTextOffset || 0) / 10 + 'px' 
+                                                            }}>
+                                                                <div className="font-normal uppercase text-black leading-tight" style={{ fontSize: (baseSize * 0.45) + 'px' }}>
                                                                     <div className="whitespace-nowrap">{nombre}</div>
-                                                                    {!configOrla.hideApellidosAlu && <div className="whitespace-nowrap">{apellidos}</div>}
+                                                                    <div className="whitespace-nowrap" style={{ display: configOrla.hideApellidosAlu ? 'none' : 'block' }}>{apellidos}</div>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -490,8 +509,8 @@ const DesignPanel = ({
 
                                     {/* Pie de Orla */}
                                     <div className="absolute bottom-[20px] w-full text-center" style={{ bottom: (configOrla.margin || 20) / 10 + 'px' }}>
-                                        <h2 className="text-[20px] font-normal text-slate-900 tracking-tighter uppercase">{currentSchool.name}</h2>
-                                        <p className="text-[8px] font-normal text-slate-900 tracking-[0.5em] mt-1 ml-[0.5em]">{configOrla.promoText || "PROMOCIÓN 2026"}</p>
+                                        <h2 className="text-[20px] font-normal text-black tracking-tighter uppercase">{currentSchool.name}</h2>
+                                        <p className="text-[8px] font-normal text-black tracking-[0.5em] mt-1 ml-[0.5em]">{configOrla.promoText || "PROMOCIÓN 2026"}</p>
                                     </div>
                                 </div>
                             </div>
@@ -610,14 +629,22 @@ const DesignPanel = ({
                                             className="relative flex flex-col items-center text-center group/member overflow-visible"
                                             style={{ width: (w * baseScale) + 'px' }}
                                         >
-                                            <div style={{ transform: `scale(${baseScale})`, transformOrigin: 'top center' }}>
-                                                <div className="bg-slate-100 mb-1" style={{ width: w + 'px', height: h + 'px', ...getShapeStyle(currentShape, w, h) }} />
-                                                <div className="flex flex-col items-center px-1">
+                                            <div className="relative">
+                                                <div className="bg-slate-100" style={{ 
+                                                    width: w + 'px', 
+                                                    height: h + 'px', 
+                                                    ...getShapeStyle(currentShape, w, h),
+                                                    transform: `scale(${baseScale})`,
+                                                    transformOrigin: 'top center'
+                                                }} />
+                                                <div className="flex flex-col items-center px-1" style={{ 
+                                                    marginTop: (h * (baseScale - 1)) + (configOrla.dTextOffset || 0) / 10 + 'px' 
+                                                }}>
                                                     <div
                                                         contentEditable={true}
                                                         suppressContentEditableWarning={true}
-                                                        className="font-normal uppercase text-slate-900 leading-tight outline-none cursor-text hover:bg-black/5 rounded px-1 transition-colors group-hover/member:text-accent focus:bg-white focus:shadow-sm"
-                                                        style={{ fontSize: (baseSize * 0.55) + 'px', minWidth: '40px', width: 'max-content' }}
+                                                        className="font-normal uppercase text-black leading-tight outline-none cursor-text hover:bg-black/5 rounded px-1 transition-colors group-hover/member:text-accent focus:bg-white focus:shadow-sm"
+                                                        style={{ fontSize: (baseSize * 0.45) + 'px', minWidth: '40px', width: 'max-content' }}
                                                         onBlur={(e) => {
                                                             const newName = e.target.innerText.trim();
                                                             if (newName && newName !== member.name) {
@@ -632,9 +659,12 @@ const DesignPanel = ({
                                                         }}
                                                     >
                                                         <div className="whitespace-nowrap">{nombre}</div>
-                                                        <div className="whitespace-nowrap">{apellidos}</div>
+                                                        <div className="whitespace-nowrap" style={{ display: configOrla.hideApellidosDoc ? 'none' : 'block' }}>{apellidos}</div>
                                                     </div>
-                                                    <p className="font-normal uppercase text-slate-500 leading-tight mt-0.5 pointer-events-none" style={{ fontSize: (baseSize * 0.4) + 'px' }}>{member.role || 'DOCENTE'}</p>
+                                                    <p className="font-normal uppercase text-black leading-tight mt-0.5 pointer-events-none" style={{ 
+                                                        fontSize: (baseSize * 0.45) + 'px',
+                                                        display: configOrla.hideCargoDoc ? 'none' : 'block'
+                                                    }}>{member.role || 'DOCENTE'}</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -664,20 +694,29 @@ const DesignPanel = ({
                                                 className="flex flex-col items-center text-center group/alu overflow-visible"
                                                 style={{ width: (w * baseScale) + 'px' }}
                                             >
-                                                <div style={{ transform: `scale(${baseScale})`, transformOrigin: 'top center' }}>
-                                                    <div className="bg-slate-100 mb-1" style={{ width: w + 'px', height: h + 'px', ...getShapeStyle(currentShape, w, h) }} />
-                                                    <div className="flex flex-col items-center px-1">
+                                                <div className="relative">
+                                                    <div className="bg-slate-100" style={{ 
+                                                        width: w + 'px', 
+                                                        height: h + 'px', 
+                                                        ...getShapeStyle(currentShape, w, h),
+                                                        transform: `scale(${baseScale})`,
+                                                        transformOrigin: 'top center'
+                                                    }} />
+                                                    <div className="flex flex-col items-center px-1" style={{ 
+                                                        marginTop: (h * (baseScale - 1)) + (configOrla.aTextOffset || 0) / 10 + 'px' 
+                                                    }}>
                                                         <div
                                                             contentEditable={true}
                                                             suppressContentEditableWarning={true}
-                                                            className="font-normal uppercase text-slate-900 leading-tight outline-none cursor-text hover:bg-black/5 rounded px-1 transition-colors group-hover/alu:text-accent focus:bg-white focus:shadow-sm"
+                                                            className="font-normal uppercase text-black leading-tight outline-none cursor-text hover:bg-black/5 rounded px-1 transition-colors group-hover/alu:text-accent focus:bg-white focus:shadow-sm"
                                                             style={{ fontSize: (baseSize * 0.45) + 'px', minWidth: '30px', width: 'max-content' }}
                                                             onBlur={(e) => {
                                                                 const newName = e.target.innerText.trim();
                                                                 if (newName && newName !== o.studentName) {
                                                                     updateOrder(o.id, { studentName: newName });
                                                                 }
-                                                            }}
+                                                            }
+                                                            }
                                                             onKeyDown={(e) => {
                                                                 if (e.key === 'Enter') {
                                                                     e.preventDefault();
@@ -686,7 +725,7 @@ const DesignPanel = ({
                                                             }}
                                                         >
                                                             <div className="whitespace-nowrap">{nombre}</div>
-                                                            <div className="whitespace-nowrap">{apellidos}</div>
+                                                            <div className="whitespace-nowrap" style={{ display: configOrla.hideApellidosAlu ? 'none' : 'block' }}>{apellidos}</div>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -700,7 +739,7 @@ const DesignPanel = ({
                                 <h2
                                     contentEditable={true}
                                     suppressContentEditableWarning={true}
-                                    className="text-[20px] font-normal text-slate-900 uppercase tracking-tighter outline-none cursor-text hover:text-accent transition-colors focus:bg-white focus:shadow-sm inline-block px-4 rounded"
+                                    className="text-[20px] font-normal text-black uppercase tracking-tighter outline-none cursor-text hover:text-accent transition-colors focus:bg-white focus:shadow-sm inline-block px-4 rounded"
                                     onBlur={(e) => {
                                         const newName = e.target.innerText.trim();
                                         if (newName && newName !== currentSchool.name) {
@@ -720,7 +759,7 @@ const DesignPanel = ({
                                 <p
                                     contentEditable={true}
                                     suppressContentEditableWarning={true}
-                                    className="text-[8px] font-normal text-slate-900 tracking-[0.5em] mt-1 outline-none cursor-text hover:text-accent transition-colors focus:bg-white focus:shadow-sm inline-block px-2 rounded ml-[0.5em]"
+                                    className="text-[8px] font-normal text-black tracking-[0.5em] mt-1 outline-none cursor-text hover:text-accent transition-colors focus:bg-white focus:shadow-sm inline-block px-2 rounded ml-[0.5em]"
                                     onBlur={(e) => {
                                         const newText = e.target.innerText.trim();
                                         if (newText && newText !== (configOrla.promoText || "PROMOCIÓN 2026")) {
@@ -745,7 +784,7 @@ const DesignPanel = ({
             {/* ═══ 3. DOCK DINÁMICO DEL EDITOR (ADAPTATIVO) ═══ */}
             {isFullScreenDesign && (
                 <div className="fixed bottom-0 left-0 right-0 z-[700] p-8 animate-slide-up pointer-events-none flex flex-col items-center gap-4">
-                    <div className={`w-full max-w-4xl overflow-hidden pointer-events-auto rounded-[32px] transition-all duration-500 shadow-2xl ${isDark ? 'bg-slate-900/40 backdrop-blur-3xl border border-white/20 shadow-black' : 'bg-white/80 backdrop-blur-3xl border border-black/5 shadow-slate-200'}`}>
+                    <div className={`w-full max-w-[calc(100%-4rem)] overflow-hidden pointer-events-auto rounded-[32px] transition-all duration-500 shadow-2xl ${isDark ? 'bg-slate-900/40 backdrop-blur-3xl border border-white/20 shadow-black' : 'bg-white/80 backdrop-blur-3xl border border-black/5 shadow-slate-200'}`}>
 
                         {/* 1. Navegación Minimalista */}
                         <div className={`flex backdrop-blur-md ${isDark ? 'bg-black/20' : 'bg-slate-100/50'}`}>
@@ -795,7 +834,7 @@ const DesignPanel = ({
                                                     updateConfig(tool.key, !configOrla[tool.key]);
                                                 }
                                                 setShowShapeSelector(false);
-                                                setActiveDesignParam(null);
+                                                // Mantenemos el activeDesignParam actual para evitar saltos en la interfaz
                                             } else {
                                                 setShowShapeSelector(false);
                                                 setActiveDesignParam(tool);
@@ -840,135 +879,148 @@ const DesignPanel = ({
                             </div>
                         </div>
 
-                        {showShapeSelector && (
-                            <div className={`px-6 py-4 border-t animate-slide-up relative ${
-                                isDark ? 'bg-slate-900/60 border-white/10' : 'bg-slate-50 border-black/5'
-                            }`}>
-                                <div className="flex items-end justify-between gap-6">
-                                    <div className="flex-1 overflow-hidden">
-                                        <div className={`mb-2.5 text-[9px] font-black uppercase tracking-[0.25em] ${
-                                            isDark ? 'text-white/40' : 'text-slate-400'
-                                        }`}>
-                                            Forma del Placeholder
-                                        </div>
-                                        <div className="flex gap-2 overflow-x-auto scrollbar-hide py-1">
-                                            {PHOTO_SHAPES.map(shape => (
-                                                <ShapePill
-                                                    key={shape.id}
-                                                    shape={shape}
-                                                    active={currentShape === shape.id}
-                                                    isDark={isDark}
-                                                    onClick={() => updateConfig('photoShape', shape.id)}
-                                                />
-                                            ))}
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="flex-shrink-0 pb-1">
-                                        <button
-                                            onClick={() => setShowShapeSelector(false)}
-                                            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 shadow-sm hover:scale-[1.02] active:shadow-inner ${
-                                                isDark
-                                                    ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500 hover:text-white border border-emerald-500/30'
-                                                    : 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-emerald-500/20 shadow-lg'
-                                            }`}
-                                        >
-                                            <Check size={14} strokeWidth={3} /> Validar
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
+                        {/* 3. Slider de Ajuste Adaptive y Mensajes de Visibilidad */}
+                        {(() => {
+                            const hasWarnings = (configOrla.hideApellidosAlu && activeTab === 'ALUMNOS') || 
+                                              ((configOrla.hideApellidosDoc || configOrla.hideCargoDoc) && activeTab === 'DOCENTES');
+                            const isEjeX = activeDesignParam?.key === 'aOffsetX' || activeDesignParam?.key === 'dOffsetX';
+                            
+                            if (!activeDesignParam && !hasWarnings) return null;
 
-                        {/* 3. Slider de Ajuste Adaptive */}
-                        {activeDesignParam && (
-                            <div className={`px-8 py-5 border-t animate-slide-up flex items-center gap-8 ${isDark ? 'bg-accent border-white/30 shadow-[0_-10px_40px_rgba(0,0,0,0.3)]' : 'bg-slate-50 border-black/5 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]'}`}>
-                                <div className="flex-shrink-0 min-w-[120px] relative">
-                                    <div className="flex items-center justify-between mb-1.5">
-                                        <span className={`text-[9px] font-black uppercase tracking-[0.2em] block leading-none ${isDark ? 'text-white/70' : 'text-slate-400'}`}>{activeDesignParam.label}</span>
-                                        {activeDesignParam.isToggle && (
-                                            <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full border ${showGuides ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-500' : 'bg-slate-500/20 border-slate-500/50 text-slate-500'}`}>
-                                                {showGuides ? 'ACTIVADAS' : 'DESACTIVADAS'}
-                                            </span>
-                                        )}
-                                        {(activeDesignParam.key === 'aOffsetX' || activeDesignParam.key === 'dOffsetX') && (
-                                            <button
-                                                onClick={() => updateConfig(activeDesignParam.key, 0)}
-                                                className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full border transition-all active:scale-90 ${isDark ? 'bg-white/10 border-white/20 text-white hover:bg-white/20' : 'bg-slate-200 border-black/5 text-slate-900 hover:bg-slate-300'}`}
-                                            >
-                                                CENTRAR
-                                            </button>
-                                        )}
-                                    </div>
-                                    <div className={`text-3xl font-black tabular-nums leading-none flex items-baseline ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                                        {(() => {
-                                            const val = configOrla[activeDesignParam.key];
-                                            if (activeDesignParam.key.includes('Scale')) return (val || (activeDesignParam.key === 'dScale' ? 1.2 : 1)).toFixed(2);
-                                            if (activeDesignParam.key === 'aCols') return (val || 8);
-                                            if (activeDesignParam.unit === 'PT') return (val || 10);
-                                            if (activeDesignParam.unit === 'PX') return Math.round(val || 0);
-                                            return Math.round(safePxToMm(val || 0));
-                                        })()}
-                                        <span className={`text-xs ml-1.5 font-black ${isDark ? 'text-white/60' : 'text-slate-400'}`}>
-                                            {activeDesignParam.key === 'aCols' ? 'ALUMNOS' : (activeDesignParam.unit || 'MM')}
-                                        </span>
-                                    </div>
-                                </div>
-                                <div className="flex-1 flex items-center gap-4">
-                                    {activeDesignParam.isToggle ? (
-                                        <button
-                                            onClick={() => setShowGuides(!showGuides)}
-                                            className={`flex-1 h-12 rounded-2xl border-2 font-black uppercase tracking-[0.2em] text-xs transition-all active:scale-95 flex items-center justify-center gap-3 ${showGuides
-                                                ? 'bg-emerald-500 border-emerald-500 text-white shadow-glow-emerald'
-                                                : 'bg-transparent border-slate-500/30 text-slate-500'
-                                                }`}
-                                        >
-                                            <Grid size={20} />
-                                            {showGuides ? 'Ocultar Guías de Diseño' : 'Mostrar Guías de Diseño'}
-                                        </button>
-                                    ) : (
-                                        <>
-                                            <button
-                                                onClick={() => {
-                                                    const currentVal = configOrla[activeDesignParam.key] !== undefined ? configOrla[activeDesignParam.key] : (activeDesignParam.key === 'aCols' ? 8 : activeDesignParam.key === 'fontSizeAlu' || activeDesignParam.key === 'fontSizeDoc' ? 10 : activeDesignParam.key === 'dScale' ? 1.2 : activeDesignParam.key === 'aScale' ? 1 : 0);
-                                                    updateConfig(activeDesignParam.key, Math.max(activeDesignParam.min, currentVal - (activeDesignParam.step || 1)));
-                                                }}
-                                                className={`w-10 h-10 rounded-full border flex items-center justify-center transition-colors ${isDark ? 'bg-black/40 hover:bg-black/60 border-white/10 text-white' : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-600 shadow-sm'}`}
-                                            >
-                                                <Minus size={20} strokeWidth={3} />
-                                            </button>
-                                            <div className="flex-1 relative flex items-center h-8">
-                                                <div className={`absolute inset-x-0 h-2 rounded-full border shadow-inner ${isDark ? 'bg-black/60 border-white/5' : 'bg-slate-200 border-black/5'}`} />
-                                                <input
-                                                    type="range"
-                                                    min={activeDesignParam.min}
-                                                    max={activeDesignParam.max}
-                                                    step={activeDesignParam.step || 1}
-                                                    value={configOrla[activeDesignParam.key] !== undefined ? configOrla[activeDesignParam.key] : (activeDesignParam.key === 'aCols' ? 8 : activeDesignParam.key === 'fontSizeAlu' || activeDesignParam.key === 'fontSizeDoc' ? 10 : activeDesignParam.key === 'dScale' ? 1.2 : activeDesignParam.key === 'aScale' ? 1 : 0)}
-                                                    onChange={(e) => updateConfig(activeDesignParam.key, parseFloat(e.target.value))}
-                                                    className={`relative z-10 w-full bg-transparent appearance-none cursor-pointer ${isDark ? 'accent-white' : 'accent-accent'}`}
-                                                />
+                            return (
+                                <div className={`px-8 py-5 border-t animate-slide-up min-h-[85px] flex items-center ${isDark ? 'bg-accent border-white/30 shadow-[0_-10px_40px_rgba(0,0,0,0.3)]' : 'bg-slate-50 border-black/5 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]'}`}>
+                                    
+
+
+                                    {activeDesignParam && (
+                                        <div className="flex items-center gap-8">
+                                            <div className="flex-shrink-0 min-w-[120px] relative">
+                                                <div className="flex items-center justify-between mb-1.5">
+                                                    <span className={`text-[9px] font-black uppercase tracking-[0.2em] block leading-none ${isDark ? 'text-white/70' : 'text-slate-400'}`}>{activeDesignParam.label}</span>
+                                                    {activeDesignParam.isToggle && (
+                                                        <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full border ${showGuides ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-500' : 'bg-slate-500/20 border-slate-500/50 text-slate-500'}`}>
+                                                            {showGuides ? 'ACTIVADAS' : 'DESACTIVADAS'}
+                                                        </span>
+                                                    )}
+                                                    {(activeDesignParam.key === 'aOffsetX' || activeDesignParam.key === 'dOffsetX') && (
+                                                        <button
+                                                            onClick={() => updateConfig(activeDesignParam.key, 0)}
+                                                            className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full border transition-all active:scale-90 ${isDark ? 'bg-white/10 border-white/20 text-white hover:bg-white/20' : 'bg-slate-200 border-black/5 text-slate-900 hover:bg-slate-300'}`}
+                                                        >
+                                                            CENTRAR
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <div className={`text-3xl font-black tabular-nums leading-none flex items-baseline ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                                                    {(() => {
+                                                        const val = configOrla[activeDesignParam.key];
+                                                        if (activeDesignParam.key.includes('Scale')) return (val || (activeDesignParam.key === 'dScale' ? 1.2 : 1)).toFixed(2);
+                                                        if (activeDesignParam.key === 'aCols') return (val || 8);
+                                                        if (activeDesignParam.unit === 'PT') return (val || 10);
+                                                        if (activeDesignParam.unit === 'PX') return Math.round(val || 0);
+                                                        return Math.round(safePxToMm(val || 0));
+                                                    })()}
+                                                    <span className={`text-xs ml-1.5 font-black ${isDark ? 'text-white/60' : 'text-slate-400'}`}>
+                                                        {activeDesignParam.key === 'aCols' ? 'ALUMNOS' : (activeDesignParam.unit || 'MM')}
+                                                    </span>
+                                                </div>
                                             </div>
+                                             <div className="flex-1 flex items-center gap-4">
+                                                {activeDesignParam.isToggle ? (
+                                                    <button
+                                                        onClick={() => setShowGuides(!showGuides)}
+                                                        className={`flex-1 h-12 rounded-2xl border-2 font-black uppercase tracking-[0.2em] text-xs transition-all active:scale-95 flex items-center justify-center gap-3 ${showGuides
+                                                            ? 'bg-emerald-500 border-emerald-500 text-white shadow-glow-emerald'
+                                                            : 'bg-transparent border-slate-500/30 text-slate-500'
+                                                            }`}
+                                                    >
+                                                        <Grid size={20} />
+                                                        {showGuides ? 'Ocultar Guías de Diseño' : 'Mostrar Guías de Diseño'}
+                                                    </button>
+                                                ) : isEjeX ? (
+                                                    <div className={`flex-1 h-12 rounded-2xl border-2 border-accent/20 bg-accent/5 flex items-center justify-center gap-3`}>
+                                                        <div className="w-2 h-2 rounded-full bg-accent animate-pulse" />
+                                                        <span className="text-sm font-black text-accent uppercase tracking-widest italic">
+                                                            Imágenes ajustadas al centro
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        <button
+                                                            onClick={() => {
+                                                                const currentVal = configOrla[activeDesignParam.key] !== undefined ? configOrla[activeDesignParam.key] : (activeDesignParam.key === 'aCols' ? 8 : activeDesignParam.key === 'fontSizeAlu' || activeDesignParam.key === 'fontSizeDoc' ? 10 : activeDesignParam.key === 'dScale' ? 1.2 : activeDesignParam.key === 'aScale' ? 1 : 0);
+                                                                updateConfig(activeDesignParam.key, Math.max(activeDesignParam.min, currentVal - (activeDesignParam.step || 1)));
+                                                            }}
+                                                            className={`w-10 h-10 rounded-full border flex items-center justify-center transition-colors ${isDark ? 'bg-black/40 hover:bg-black/60 border-white/10 text-white' : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-600 shadow-sm'}`}
+                                                        >
+                                                            <Minus size={20} strokeWidth={3} />
+                                                        </button>
+                                                        <div className="flex-1 relative flex items-center h-8">
+                                                            <div className={`absolute inset-x-0 h-2 rounded-full border shadow-inner ${isDark ? 'bg-black/60 border-white/5' : 'bg-slate-200 border-black/5'}`} />
+                                                            <input
+                                                                type="range"
+                                                                min={activeDesignParam.min}
+                                                                max={activeDesignParam.max}
+                                                                step={activeDesignParam.step || 1}
+                                                                value={configOrla[activeDesignParam.key] !== undefined ? configOrla[activeDesignParam.key] : (activeDesignParam.key === 'aCols' ? 8 : activeDesignParam.key === 'fontSizeAlu' || activeDesignParam.key === 'fontSizeDoc' ? 10 : activeDesignParam.key === 'dScale' ? 1.2 : activeDesignParam.key === 'aScale' ? 1 : 0)}
+                                                                onChange={(e) => updateConfig(activeDesignParam.key, parseFloat(e.target.value))}
+                                                                className={`relative z-10 w-full bg-transparent appearance-none cursor-pointer ${isDark ? 'accent-white' : 'accent-accent'}`}
+                                                            />
+                                                        </div>
+                                                        <button
+                                                            onClick={() => {
+                                                                const currentVal = configOrla[activeDesignParam.key] !== undefined ? configOrla[activeDesignParam.key] : (activeDesignParam.key === 'aCols' ? 8 : activeDesignParam.key === 'fontSizeAlu' || activeDesignParam.key === 'fontSizeDoc' ? 10 : activeDesignParam.key === 'dScale' ? 1.2 : activeDesignParam.key === 'aScale' ? 1 : 0);
+                                                                updateConfig(activeDesignParam.key, Math.min(activeDesignParam.max, currentVal + (activeDesignParam.step || 1)));
+                                                            }}
+                                                            className={`w-10 h-10 rounded-full border flex items-center justify-center transition-colors ${isDark ? 'bg-black/40 hover:bg-black/60 border-white/10 text-white' : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-600 shadow-sm'}`}
+                                                        >
+                                                            <Plus size={20} strokeWidth={3} />
+                                                        </button>
+                                                    </>
+                                                )}
+                                            </div>
+
+                                            {/* Mensajes de Visibilidad Integrados a la derecha */}
+                                            {hasWarnings && (
+                                                <div className="flex flex-col gap-1.5 pl-8 border-l border-black/10 dark:border-white/10 min-w-[200px]">
+                                                    {configOrla.hideApellidosAlu && activeTab === 'ALUMNOS' && (
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                                                            <span className="text-[10px] font-black text-red-500 uppercase tracking-wider italic leading-tight">
+                                                                Los apellidos ya no son visibles
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    {configOrla.hideApellidosDoc && activeTab === 'DOCENTES' && (
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                                                            <span className="text-[10px] font-black text-red-500 uppercase tracking-wider italic leading-tight">
+                                                                Los apellidos ya no son visibles
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    {configOrla.hideCargoDoc && activeTab === 'DOCENTES' && (
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                                                            <span className="text-[10px] font-black text-red-500 uppercase tracking-wider italic leading-tight">
+                                                                Los cargos ya no son visibles
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
                                             <button
-                                                onClick={() => {
-                                                    const currentVal = configOrla[activeDesignParam.key] !== undefined ? configOrla[activeDesignParam.key] : (activeDesignParam.key === 'aCols' ? 8 : activeDesignParam.key === 'fontSizeAlu' || activeDesignParam.key === 'fontSizeDoc' ? 10 : activeDesignParam.key === 'dScale' ? 1.2 : activeDesignParam.key === 'aScale' ? 1 : 0);
-                                                    updateConfig(activeDesignParam.key, Math.min(activeDesignParam.max, currentVal + (activeDesignParam.step || 1)));
-                                                }}
-                                                className={`w-10 h-10 rounded-full border flex items-center justify-center transition-colors ${isDark ? 'bg-black/40 hover:bg-black/60 border-white/10 text-white' : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-600 shadow-sm'}`}
+                                                onClick={() => setActiveDesignParam(null)}
+                                                className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-2xl active:scale-90 transition-all ${isDark ? 'bg-white text-accent' : 'bg-accent text-white'}`}
                                             >
-                                                <Plus size={20} strokeWidth={3} />
+                                                <Check size={28} className="stroke-[4]" />
                                             </button>
-                                        </>
+                                        </div>
                                     )}
                                 </div>
-                                <button
-                                    onClick={() => setActiveDesignParam(null)}
-                                    className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-2xl active:scale-90 transition-all ${isDark ? 'bg-white text-accent' : 'bg-accent text-white'}`}
-                                >
-                                    <Check size={28} className="stroke-[4]" />
-                                </button>
-                            </div>
-                        )}
+                            );
+                        })()}
                     </div>
                 </div>
             )}
