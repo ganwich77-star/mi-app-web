@@ -17,7 +17,8 @@ export default function MasterPanel({ onBack }) {
     const [qrPhotographer, setQrPhotographer] = useState(null);
     const [mailModal, setMailModal] = useState(null);
     const [deleteConfirm, setDeleteConfirm] = useState(null);
-    const [activeTab, setActiveTab] = useState('clients'); // 'clients' o 'billing'
+    const [isClientsOpen, setIsClientsOpen] = useState(false);
+    const [isBillingOpen, setIsBillingOpen] = useState(false);
 
     const emailTemplates = [
         {
@@ -463,18 +464,9 @@ export default function MasterPanel({ onBack }) {
                     </div>
 
                     <div className="flex bg-slate-900/50 p-1.5 rounded-2xl border border-white/5 gap-2 shrink-0">
-                        <button 
-                            onClick={() => setActiveTab('clients')}
-                            className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'clients' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
-                        >
-                            <Users size={14} /> Clientes
-                        </button>
-                        <button 
-                            onClick={() => setActiveTab('billing')}
-                            className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'billing' ? 'bg-violet-600 text-white shadow-lg' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
-                        >
-                            <FileText size={14} /> Facturación
-                        </button>
+                        <div className="px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-indigo-400 flex items-center gap-2">
+                             <Shield size={14} /> Vista Consolidada
+                        </div>
                     </div>
 
                     <div className="relative w-full md:min-w-[320px]">
@@ -570,39 +562,46 @@ export default function MasterPanel({ onBack }) {
                     </div>
                 </div>
 
-                {/* Table View */}
+                {/* Sección CLIENTES */}
                 <div className="bg-white/5 border border-white/10 rounded-[35px] overflow-hidden backdrop-blur-xl">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left">
-                            <thead className="bg-white/5">
-                                <tr>
-                                    {activeTab === 'clients' ? (
-                                        <>
+                    <button 
+                        onClick={() => setIsClientsOpen(!isClientsOpen)}
+                        className="w-full px-8 py-6 flex items-center justify-between hover:bg-white/5 transition-all text-left group"
+                    >
+                        <div className="flex items-center gap-4">
+                            <div className={`p-3 rounded-2xl transition-all ${isClientsOpen ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'bg-slate-800 text-slate-400'}`}>
+                                <Users size={22} />
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-black uppercase tracking-tighter">Gestión de Clientes</h2>
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">Fotógrafos registrados, estados y accesos</p>
+                            </div>
+                        </div>
+                        <div className={`transition-transform duration-500 ${isClientsOpen ? 'rotate-180' : ''}`}>
+                            <Users size={20} className="text-white/20" />
+                        </div>
+                    </button>
+                    
+                    <div className={`transition-all duration-500 ease-in-out overflow-hidden ${isClientsOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                        <div className="p-1 border-t border-white/5">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left">
+                                    <thead className="bg-white/5">
+                                        <tr>
                                             <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest opacity-40">Fotógrafo / Plan</th>
                                             <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest opacity-40">Registros</th>
                                             <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest opacity-40">Acceso / Estado</th>
                                             <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest opacity-40">Pago Suscrip.</th>
                                             <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest opacity-40 text-right">Acciones</th>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest opacity-40">Cliente</th>
-                                            <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest opacity-40">Plan Contratado</th>
-                                            <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest opacity-40">Estado de Pago</th>
-                                            <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest opacity-40 text-right">Documentación</th>
-                                        </>
-                                    )}
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-white/5">
-                                {loading ? (
-                                    <tr><td colSpan="5" className="px-6 py-12 text-center text-white/20 font-bold">Cargando datos...</td></tr>
-                                ) : filtered.length === 0 ? (
-                                    <tr><td colSpan="5" className="px-6 py-12 text-center text-white/20 font-bold">No se han encontrado resultados</td></tr>
-                                ) : filtered.map(p => (
-                                    <tr key={p.id} className="hover:bg-white/[0.02] transition-colors">
-                                        {activeTab === 'clients' ? (
-                                            <>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-white/5">
+                                        {loading ? (
+                                            <tr><td colSpan="5" className="px-6 py-12 text-center text-white/20 font-bold">Cargando datos...</td></tr>
+                                        ) : filtered.length === 0 ? (
+                                            <tr><td colSpan="5" className="px-6 py-12 text-center text-white/20 font-bold">No se han encontrado resultados</td></tr>
+                                        ) : filtered.map(p => (
+                                            <tr key={p.id} className="hover:bg-white/[0.02] transition-colors">
                                                 <td className="px-6 py-6">
                                                     <div className="flex items-center gap-4">
                                                         <div className="w-12 h-12 bg-gradient-to-br from-white/10 to-white/5 rounded-2xl flex items-center justify-center border border-white/10 overflow-hidden">
@@ -700,9 +699,54 @@ export default function MasterPanel({ onBack }) {
                                                         </button>
                                                     </div>
                                                 </td>
-                                            </>
-                                        ) : (
-                                            <>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Sección FACTURACIÓN */}
+                <div className="bg-white/5 border border-white/10 rounded-[35px] overflow-hidden backdrop-blur-xl">
+                    <button 
+                        onClick={() => setIsBillingOpen(!isBillingOpen)}
+                        className="w-full px-8 py-6 flex items-center justify-between hover:bg-white/5 transition-all text-left group"
+                    >
+                        <div className="flex items-center gap-4">
+                            <div className={`p-3 rounded-2xl transition-all ${isBillingOpen ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/20' : 'bg-slate-800 text-slate-400'}`}>
+                                <FileText size={22} />
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-black uppercase tracking-tighter">Facturación y Planes</h2>
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">Suscripciones, pagos y facturas PDF</p>
+                            </div>
+                        </div>
+                        <div className={`transition-transform duration-500 ${isBillingOpen ? 'rotate-180' : ''}`}>
+                            <FileText size={20} className="text-white/20" />
+                        </div>
+                    </button>
+
+                    <div className={`transition-all duration-500 ease-in-out overflow-hidden ${isBillingOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                        <div className="p-1 border-t border-white/5">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left">
+                                    <thead className="bg-white/5">
+                                        <tr>
+                                            <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest opacity-40">Cliente</th>
+                                            <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest opacity-40">Plan Contratado</th>
+                                            <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest opacity-40">Estado de Pago</th>
+                                            <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest opacity-40 text-right">Documentación</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-white/5">
+                                        {loading ? (
+                                            <tr><td colSpan="4" className="px-6 py-12 text-center text-white/20 font-bold">Cargando datos...</td></tr>
+                                        ) : filtered.length === 0 ? (
+                                            <tr><td colSpan="4" className="px-6 py-12 text-center text-white/20 font-bold">No se han encontrado resultados</td></tr>
+                                        ) : filtered.map(p => (
+                                            <tr key={p.id} className="hover:bg-white/[0.02] transition-colors">
                                                 <td className="px-6 py-6">
                                                     <div className="flex flex-col">
                                                         <span className="font-black text-sm uppercase text-white tracking-tight">{p.brandName || p.id}</span>
@@ -732,12 +776,12 @@ export default function MasterPanel({ onBack }) {
                                                         <Download size={14} /> Factura PDF
                                                     </button>
                                                 </td>
-                                            </>
-                                        )}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div >
