@@ -19,6 +19,9 @@ export default function MasterPanel({ onBack }) {
     const [deleteConfirm, setDeleteConfirm] = useState(null);
     const [isClientsOpen, setIsClientsOpen] = useState(false);
     const [isBillingOpen, setIsBillingOpen] = useState(false);
+    const [clientSearch, setClientSearch] = useState('');
+    const [billingSearch, setBillingSearch] = useState('');
+    const [invoicePreview, setInvoicePreview] = useState(null);
 
     const emailTemplates = [
         {
@@ -150,8 +153,14 @@ export default function MasterPanel({ onBack }) {
         }
     };
 
-    const filtered = photographers.filter(p =>
-        p.id.toLowerCase().includes(searchTerm.toLowerCase())
+    const filteredClients = photographers.filter(p =>
+        p.id.toLowerCase().includes(clientSearch.toLowerCase()) ||
+        (p.brandName && p.brandName.toLowerCase().includes(clientSearch.toLowerCase()))
+    );
+
+    const filteredBilling = photographers.filter(p =>
+        p.id.toLowerCase().includes(billingSearch.toLowerCase()) ||
+        (p.brandName && p.brandName.toLowerCase().includes(billingSearch.toLowerCase()))
     );
 
     // Sub-componente para calcular las estadísticas de cada fotógrafo de manera eficiente
@@ -205,14 +214,13 @@ export default function MasterPanel({ onBack }) {
             </div>
         );
     };
-    const handleDownloadInvoice = (p) => {
-        const printWindow = window.open('', '_blank');
+
+    const getInvoiceHTML = (p) => {
         const amount = p.plan === 'pro' ? 449 : p.plan === 'flex' ? 249 : 149;
         const iva = (amount * 0.21).toFixed(2);
         const base = amount.toFixed(2);
         const total = (parseFloat(base) + parseFloat(iva)).toFixed(2);
         const currentYear = new Date().getFullYear();
-        const nextYear = currentYear + 1;
         const currentDateFormatted = new Intl.DateTimeFormat('es-ES', { 
             day: 'numeric', 
             month: 'long', 
@@ -236,12 +244,12 @@ export default function MasterPanel({ onBack }) {
 
         const color = '#4F46E5';
 
-        printWindow.document.write(`
+        return `
             <!DOCTYPE html>
             <html lang="es">
                 <head>
                     <meta charset="UTF-8">
-                    <title>Factura_Orlas2026_${p.school?.replace(/\s+/g, '_') || 'Master'}</title>
+                    <title>FAC-ORLAS2026</title>
                     <script src="https://cdn.tailwindcss.com"></script>
                     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&display=swap" rel="stylesheet">
                     <style>
@@ -254,35 +262,34 @@ export default function MasterPanel({ onBack }) {
                             .no-print { display: none !important; }
                             .print-m-0 { margin: 0 !important; }
                             .print-shadow-none { box-shadow: none !important; }
-                            .invoice-card { max-height: 285mm; }
+                            .invoice-card { max-height: 285mm; width: 100% !important; border: none !important; }
                         }
                         body { 
                             font-family: 'Outfit', sans-serif;
                             -webkit-print-color-adjust: exact;
                             print-color-adjust: exact;
+                            background-color: #f8fafc;
                         }
                         .premium-gradient {
                             background: linear-gradient(135deg, ${color} 0%, #312E81 100%);
                         }
                     </style>
                 </head>
-                <body class="bg-white">
-                    <div class="max-w-[210mm] mx-auto bg-white shadow-none overflow-hidden print-shadow-none print-m-0 rounded-xl invoice-card border border-slate-100 p-0.5">
+                <body class="p-4 md:p-8">
+                    <div class="max-w-[210mm] mx-auto bg-white shadow-2xl overflow-hidden print-shadow-none print-m-0 rounded-xl invoice-card border border-slate-100 p-0.5">
                         <div class="h-1.5 w-full premium-gradient"></div>
 
-                        <div class="p-3">
+                        <div class="p-6">
                             <!-- Header Superior -->
-                            <div class="flex flex-col md:flex-row justify-between items-start mb-4">
+                            <div class="flex flex-col md:flex-row justify-between items-start mb-6">
                                 <div class="w-full md:max-w-xl text-left">
-                                    
-                                    
                                     <div class="space-y-0 text-slate-500 text-left">
-                                        <h1 class="text-lg font-black text-slate-900 uppercase tracking-tighter mb-1">
+                                        <h1 class="text-xl font-black text-slate-900 uppercase tracking-tighter mb-1">
                                             ${emisor.name}
                                         </h1>
-                                        <div class="bg-slate-50 p-2 rounded-lg border border-slate-100 flex justify-between items-center gap-4">
+                                        <div class="bg-slate-50 p-3 rounded-lg border border-slate-100 flex justify-between items-center gap-4">
                                             <div class="space-y-0.5">
-                                                <p class="text-[8px] font-black text-indigo-500 uppercase tracking-[0.2em] mb-0.5">Datos Legales</p>
+                                                <p class="text-[8px] font-black text-indigo-500 uppercase tracking-[0.2em] mb-1">Datos Legales</p>
                                                 <p class="font-bold text-slate-800 text-xs">${emisor.legalName}</p>
                                                 <div class="flex items-center gap-2 text-xs font-medium">
                                                     <span class="text-slate-400 font-bold">NIF/CIF:</span>
@@ -294,153 +301,157 @@ export default function MasterPanel({ onBack }) {
                                                 <img src="/graduaciones2026/logos/logo_negro.png" alt="Logo" class="w-32 h-auto" />
                                             </div>
                                         </div>
-                                        <div class="pt-1 flex flex-col gap-0.5 text-[10px] font-bold text-indigo-600">
+                                        <div class="pt-2 flex flex-col gap-0.5 text-[10px] font-bold text-indigo-600">
                                             <p>${emisor.email}</p>
                                             <p>${emisor.web}</p>
                                         </div>
                                     </div>
                                 </div>
                                 
-                                <div class="mt-2 md:mt-0 text-right min-w-[200px] flex flex-col items-end">
-                                    <div class="mb-4">
-                                        <h2 class="text-4xl font-black text-slate-100 uppercase tracking-tighter leading-none select-none">FACTURA</h2>
-                                        <p class="text-indigo-600 font-black text-[9px] tracking-[0.4em] uppercase -mt-1 pr-1">Centro de Control</p>
+                                <div class="mt-4 md:mt-0 text-right min-w-[200px] flex flex-col items-end">
+                                    <div class="mb-6">
+                                        <h2 class="text-5xl font-black text-slate-100 uppercase tracking-tighter leading-none select-none">FACTURA</h2>
+                                        <p class="text-indigo-600 font-black text-[10px] tracking-[0.4em] uppercase -mt-2 pr-1">Centro de Control</p>
                                     </div>
 
-                                    <div class="space-y-1.5">
-                                        <div class="border-r-4 border-indigo-600 pr-3 mr-1">
-                                            <p class="text-[7px] text-slate-400 uppercase tracking-[0.2em] font-black">Cód. Operación</p>
-                                            <p class="font-mono text-base font-black text-slate-900">FAC-${currentYear}-${p.id.toUpperCase()}</p>
+                                    <div class="space-y-2">
+                                        <div class="border-r-4 border-indigo-600 pr-4 mr-1">
+                                            <p class="text-[8px] text-slate-400 uppercase tracking-[0.2em] font-black">Cód. Operación</p>
+                                            <p class="font-mono text-lg font-black text-slate-900">FAC-ORLAS2026</p>
                                         </div>
                                         <div>
-                                            <p class="text-[7px] text-slate-400 uppercase tracking-[0.2em] font-black">Fecha de Registro</p>
-                                            <p class="font-bold text-slate-700 text-xs">${currentDateFormatted}</p>
+                                            <p class="text-[8px] text-slate-400 uppercase tracking-[0.2em] font-black">Fecha de Registro</p>
+                                            <p class="font-bold text-slate-700 text-sm">${currentDateFormatted}</p>
                                         </div>
-                                        <div class="bg-indigo-50 p-1.5 rounded-lg border border-indigo-100 inline-block w-full">
-                                            <p class="text-[7px] text-indigo-400 uppercase tracking-[0.2em] font-black">Campaña Activa</p>
-                                            <p class="font-black text-indigo-700 text-[9px]">Graduaciones ESCOLARES ${currentYear}</p>
+                                        <div class="bg-indigo-50 p-2 rounded-lg border border-indigo-100 inline-block w-full">
+                                            <p class="text-[8px] text-indigo-400 uppercase tracking-[0.2em] font-black">Campaña Activa</p>
+                                            <p class="font-black text-indigo-700 text-[10px]">Graduaciones ESCOLARES ${currentYear}</p>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
                              <!-- Cliente -->
-                            <div class="grid md:grid-cols-2 gap-3 mb-3">
-                                <div class="bg-slate-900 p-3 rounded-xl border border-white/5 relative overflow-hidden text-left">
-                                    <p class="text-[7px] uppercase tracking-[0.3em] font-black text-indigo-400 mb-1">Fotógrafo Registrado</p>
-                                    <h3 class="text-base font-black text-white mb-0.5 tracking-tighter capitalize">${p.fiscalName || p.brandName || p.id}</h3>
-                                    <div class="text-[9px] text-slate-400 space-y-0 font-medium">
-                                        <p class="flex items-center gap-1.5"><span class="w-1 h-1 bg-indigo-500 rounded-full"></span> CIF/NIF: ${p.cif || '---'}</p>
-                                        <p class="flex items-start gap-1.5 leading-tight"><span class="w-1 h-1 bg-indigo-500 rounded-full mt-1"></span> ${p.address || 'Pendiente de dirección'}</p>
-                                        <p class="flex items-center gap-1.5 leading-tight"><span class="w-1 h-1 bg-indigo-500 rounded-full"></span> ${p.postalCode || ''} ${p.city || ''}</p>
+                            <div class="grid md:grid-cols-2 gap-4 mb-6">
+                                <div class="bg-slate-900 p-4 rounded-xl border border-white/5 relative overflow-hidden text-left">
+                                    <p class="text-[8px] uppercase tracking-[0.3em] font-black text-indigo-400 mb-2">Fotógrafo Registrado</p>
+                                    <h3 class="text-lg font-black text-white mb-1 tracking-tighter capitalize">${p.fiscalName || p.brandName || p.id}</h3>
+                                    <div class="text-xs text-slate-400 space-y-1 font-medium">
+                                        <p class="flex items-center gap-2"><span class="w-1.5 h-1.5 bg-indigo-500 rounded-full"></span> CIF/NIF: ${p.cif || '---'}</p>
+                                        <p class="flex items-start gap-2 leading-tight"><span class="w-1.5 h-1.5 bg-indigo-500 rounded-full mt-1.5"></span> ${p.address || 'Pendiente de dirección'}</p>
+                                        <p class="flex items-center gap-2 leading-tight"><span class="w-1.5 h-1.5 bg-indigo-500 rounded-full"></span> ${p.postalCode || ''} ${p.city || ''}</p>
                                     </div>
                                 </div>
                                 
-                                <div class="flex flex-col justify-center items-end text-right pr-4 space-y-1">
-                                    <h4 class="text-base font-bold text-indigo-600 leading-tight">La tecnología al servicio de los recuerdos</h4>
-                                    <p class="text-[9px] text-slate-400 font-medium max-w-xs leading-tight italic">Este documento certifica la activación de licencia en la plataforma Orlas 2026.</p>
-                                    <div class="pt-1 flex items-center gap-2">
-                                        <span class="w-1.5 h-1.5 bg-indigo-600 rounded-full animate-pulse"></span>
-                                        <span class="text-[8px] font-black uppercase tracking-widest text-indigo-600">Licencia Verificada</span>
+                                <div class="flex flex-col justify-center items-end text-right pr-6 space-y-2">
+                                    <h4 class="text-lg font-bold text-indigo-600 leading-tight">La tecnología al servicio de los recuerdos</h4>
+                                    <p class="text-xs text-slate-400 font-medium max-w-xs leading-tight italic">Este documento certifica la activación de licencia en la plataforma Orlas 2026.</p>
+                                    <div class="pt-2 flex items-center gap-2">
+                                        <span class="w-2 h-2 bg-indigo-600 rounded-full animate-pulse"></span>
+                                        <span class="text-[10px] font-black uppercase tracking-widest text-indigo-600">Licencia Verificada</span>
                                     </div>
                                 </div>
                             </div>
-                              </div>
-                            </div>
 
                             <!-- Tabla de Items -->
-                            <div class="mb-4 overflow-hidden rounded-lg border border-slate-100 text-left">
+                            <div class="mb-8 overflow-hidden rounded-lg border border-slate-100 text-left">
                                 <table class="w-full text-left border-collapse">
                                     <thead>
-                                        <tr class="bg-slate-50 border-b-2 border-slate-200 text-[8px] uppercase tracking-[0.2em] text-slate-400 font-black">
-                                            <th class="py-1 px-2">Descripción del Servicio</th>
-                                            <th class="py-1 px-2 text-center w-20">Cant.</th>
-                                            <th class="py-1 px-2 text-right w-32">Precio</th>
-                                            <th class="py-1 px-2 text-right w-32">Total</th>
+                                        <tr class="bg-slate-50 border-b-2 border-slate-200 text-[10px] uppercase tracking-[0.2em] text-slate-400 font-black">
+                                            <th class="py-3 px-4">Descripción del Servicio</th>
+                                            <th class="py-3 px-4 text-center w-24">Cant.</th>
+                                            <th class="py-3 px-4 text-right w-40">Precio</th>
+                                            <th class="py-3 px-4 text-right w-40">Total</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         <tr class="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                                            <td class="py-1.5 px-2">
-                                                <p class="font-bold text-slate-700 text-[10px]">Licencia App Orlas 2026 - Plan ${p.plan?.toUpperCase() || 'STARTER'}</p>
+                                            <td class="py-4 px-4">
+                                                <p class="font-bold text-slate-700 text-sm">Licencia App Orlas 2026 - Plan ${p.plan?.toUpperCase() || 'STARTER'}</p>
                                             </td>
-                                            <td class="py-1.5 px-2 text-center font-bold text-slate-700 text-[10px]">1</td>
-                                            <td class="py-1.5 px-2 text-right font-mono text-slate-600 font-bold text-[10px]">${base}€</td>
-                                            <td class="py-1.5 px-2 text-right font-black font-mono text-slate-900 text-[11px]">${base}€</td>
+                                            <td class="py-4 px-4 text-center font-bold text-slate-700 text-sm">1</td>
+                                            <td class="py-4 px-4 text-right font-mono text-slate-600 font-bold text-sm">${base}€</td>
+                                            <td class="py-4 px-4 text-right font-black font-mono text-slate-900 text-base">${base}€</td>
                                         </tr>
                                     </tbody>
                                 </table>
                             </div>
 
                             <!-- Resumen y Pago -->
-                            <div class="flex flex-col md:flex-row justify-between items-stretch gap-3 pt-1">
-                                <div class="flex-1 bg-slate-900 text-white p-2.5 rounded-lg border-l-4 text-left" style="border-color: ${color}">
-                                    <p class="text-[7px] uppercase tracking-[0.2em] font-black text-indigo-400 mb-1 flex items-center gap-2">
+                            <div class="flex flex-col md:flex-row justify-between items-stretch gap-6 pt-2">
+                                <div class="flex-1 bg-slate-900 text-white p-4 rounded-lg border-l-4 text-left" style="border-color: ${color}">
+                                    <p class="text-[10px] uppercase tracking-[0.2em] font-black text-indigo-400 mb-3 flex items-center gap-2">
                                         Información de Pago
                                     </p>
-                                    <div class="grid grid-cols-2 gap-x-3 gap-y-1">
-                                        <div class="border-b border-slate-800 pb-0.5 col-span-2">
-                                            <p class="text-[6px] text-slate-500 uppercase tracking-wider font-bold">Titular</p>
-                                            <p class="text-[9px] font-bold text-white leading-none">${bank.titular}</p>
+                                    <div class="grid grid-cols-2 gap-x-6 gap-y-2">
+                                        <div class="border-b border-slate-800 pb-1.5 col-span-2">
+                                            <p class="text-[8px] text-slate-500 uppercase tracking-wider font-bold">Titular</p>
+                                            <p class="text-xs font-bold text-white leading-none">${bank.titular}</p>
                                         </div>
-                                        <div class="border-b border-slate-800 pb-0.5">
-                                            <p class="text-[6px] text-slate-500 uppercase tracking-wider font-bold">IBAN</p>
-                                            <p class="text-[9px] font-mono font-black text-white leading-none tracking-tight">${bank.iban}</p>
+                                        <div class="border-b border-slate-800 pb-1.5">
+                                            <p class="text-[8px] text-slate-500 uppercase tracking-wider font-bold">IBAN</p>
+                                            <p class="text-xs font-mono font-black text-white leading-none tracking-tight">${bank.iban}</p>
                                         </div>
-                                        <div class="border-b border-slate-800 pb-0.5">
-                                            <p class="text-[6px] text-slate-500 uppercase tracking-wider font-bold">Entidad</p>
-                                            <p class="text-[9px] font-bold text-slate-300 leading-none">${bank.entidad}</p>
+                                        <div class="border-b border-slate-800 pb-1.5">
+                                            <p class="text-[8px] text-slate-500 uppercase tracking-wider font-bold">Entidad</p>
+                                            <p class="text-xs font-bold text-slate-300 leading-none">${bank.entidad}</p>
                                         </div>
                                     </div>
-                                    <p class="text-[6px] text-indigo-300/60 uppercase font-black tracking-widest mt-1.5 bg-indigo-500/10 p-1 rounded border border-indigo-500/20 inline-block">
+                                    <p class="text-[8px] text-indigo-300/60 uppercase font-black tracking-widest mt-4 bg-indigo-500/10 p-2 rounded border border-indigo-500/20 inline-block leading-none">
                                         ⚠️ Incluir nº factura en concepto
                                     </p>
                                 </div>
 
-                                <div class="w-full md:w-52 space-y-0.5 px-2 text-right">
-                                    <div class="flex justify-between text-[8px] text-slate-500 font-bold uppercase tracking-widest">
+                                <div class="w-full md:w-64 space-y-1.5 px-4 text-right">
+                                    <div class="flex justify-between text-[10px] text-slate-500 font-bold uppercase tracking-widest">
                                         <span>Base Neto</span>
                                         <span class="font-mono text-slate-900">${base}€</span>
                                     </div>
-                                    <div class="flex justify-between text-[8px] text-slate-500 font-bold uppercase tracking-widest">
+                                    <div class="flex justify-between text-[10px] text-slate-500 font-bold uppercase tracking-widest">
                                         <span>IVA Incl.</span>
                                         <span class="font-mono text-slate-900">${iva}€</span>
                                     </div>
-                                    <div class="flex justify-between items-center pt-1 border-t-2 border-slate-900 mt-0.5" style="color: ${color}">
-                                        <span class="text-sm font-black uppercase tracking-tighter">TOTAL</span>
-                                        <span class="text-xl font-black font-mono tracking-tighter">${total}€</span>
+                                    <div class="flex justify-between items-center pt-3 border-t-2 border-slate-900 mt-2" style="color: ${color}">
+                                        <span class="text-lg font-black uppercase tracking-tighter">TOTAL</span>
+                                        <span class="text-3xl font-black font-mono tracking-tighter">${total}€</span>
                                     </div>
                                 </div>
                             </div>
 
                             <!-- Footer LOPD -->
-                            <div class="mt-2 pt-2 border-t border-slate-100">
-                                <div class="flex flex-col md:flex-row gap-4 items-start">
+                            <div class="mt-8 pt-4 border-t border-slate-100">
+                                <div class="flex flex-col md:flex-row gap-6 items-start">
                                     <div class="flex-1 text-left">
-                                        <p class="text-[6px] font-black uppercase tracking-[0.2em] text-slate-400 mb-0.5">RGPD / LOPD</p>
-                                        <p class="text-[7px] text-slate-400 leading-tight">
+                                        <p class="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">RGPD / LOPD</p>
+                                        <p class="text-[10px] text-slate-400 leading-tight">
                                             PujalteFotografía tratará sus datos para la gestión administrativa y fiscal. Derechos: hola@pujaltefotografia.es.
                                         </p>
                                     </div>
                                     
                                     <div class="text-right shrink-0">
-                                        <p class="text-[7px] font-black text-slate-800 uppercase tracking-widest">
+                                        <p class="text-[10px] font-black text-slate-800 uppercase tracking-widest">
                                             © ${currentYear} ${emisor.name}
                                         </p>
                                     </div>
                                 </div>
                             </div>
+                        </div>
 
-                            <div class="mt-8 text-center no-print">
-                                <button onclick="window.print()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-full font-black transition-all shadow-lg uppercase tracking-widest text-[10px]">
-                                    Imprimir o Guardar PDF
-                                </button>
-                            </div>
+                        <div class="mt-8 text-center no-print pb-8">
+                            <button onclick="window.print()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3.5 rounded-full font-black transition-all shadow-lg uppercase tracking-widest text-xs flex items-center gap-3 mx-auto">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                                Imprimir o Guardar PDF
+                            </button>
                         </div>
                     </div>
                 </body>
             </html>
-        `);
+        `;
+    };
+
+    const handleDownloadInvoice = (p) => {
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(getInvoiceHTML(p));
         printWindow.document.close();
     };
 
@@ -583,7 +594,27 @@ export default function MasterPanel({ onBack }) {
                     </button>
                     
                     <div className={`transition-all duration-500 ease-in-out overflow-hidden ${isClientsOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                        <div className="p-1 border-t border-white/5">
+                        <div className="p-4 border-t border-white/5 space-y-4">
+                            {/* Búsqueda Clientes */}
+                            <div className="relative w-full max-w-md mx-auto">
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+                                <input
+                                    type="text"
+                                    placeholder="Buscar cliente por nombre o ID..."
+                                    value={clientSearch}
+                                    onChange={(e) => setClientSearch(e.target.value)}
+                                    className="w-full bg-slate-900/50 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 outline-none focus:border-indigo-500/50 transition-all font-bold text-white placeholder:text-slate-600 text-sm"
+                                />
+                                {clientSearch && (
+                                    <button 
+                                        onClick={() => setClientSearch('')}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                )}
+                            </div>
+
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left">
                                     <thead className="bg-white/5">
@@ -598,9 +629,9 @@ export default function MasterPanel({ onBack }) {
                                     <tbody className="divide-y divide-white/5">
                                         {loading ? (
                                             <tr><td colSpan="5" className="px-6 py-12 text-center text-white/20 font-bold">Cargando datos...</td></tr>
-                                        ) : filtered.length === 0 ? (
+                                        ) : filteredClients.length === 0 ? (
                                             <tr><td colSpan="5" className="px-6 py-12 text-center text-white/20 font-bold">No se han encontrado resultados</td></tr>
-                                        ) : filtered.map(p => (
+                                        ) : filteredClients.map(p => (
                                             <tr key={p.id} className="hover:bg-white/[0.02] transition-colors">
                                                 <td className="px-6 py-6">
                                                     <div className="flex items-center gap-4">
@@ -729,7 +760,27 @@ export default function MasterPanel({ onBack }) {
                     </button>
 
                     <div className={`transition-all duration-500 ease-in-out overflow-hidden ${isBillingOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                        <div className="p-1 border-t border-white/5">
+                        <div className="p-4 border-t border-white/5 space-y-4">
+                            {/* Búsqueda Facturación */}
+                            <div className="relative w-full max-w-md mx-auto">
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+                                <input
+                                    type="text"
+                                    placeholder="Buscar facturación por cliente o ID..."
+                                    value={billingSearch}
+                                    onChange={(e) => setBillingSearch(e.target.value)}
+                                    className="w-full bg-slate-900/50 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 outline-none focus:border-violet-500/50 transition-all font-bold text-white placeholder:text-slate-600 text-sm"
+                                />
+                                {billingSearch && (
+                                    <button 
+                                        onClick={() => setBillingSearch('')}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                )}
+                            </div>
+
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left">
                                     <thead className="bg-white/5">
@@ -743,9 +794,9 @@ export default function MasterPanel({ onBack }) {
                                     <tbody className="divide-y divide-white/5">
                                         {loading ? (
                                             <tr><td colSpan="4" className="px-6 py-12 text-center text-white/20 font-bold">Cargando datos...</td></tr>
-                                        ) : filtered.length === 0 ? (
+                                        ) : filteredBilling.length === 0 ? (
                                             <tr><td colSpan="4" className="px-6 py-12 text-center text-white/20 font-bold">No se han encontrado resultados</td></tr>
-                                        ) : filtered.map(p => (
+                                        ) : filteredBilling.map(p => (
                                             <tr key={p.id} className="hover:bg-white/[0.02] transition-colors">
                                                 <td className="px-6 py-6">
                                                     <div className="flex flex-col">
@@ -769,12 +820,24 @@ export default function MasterPanel({ onBack }) {
                                                     )}
                                                 </td>
                                                 <td className="px-6 py-6 text-right">
-                                                    <button 
-                                                        onClick={() => handleDownloadInvoice(p)}
-                                                        className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 text-white/70 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-white/5 active:scale-95"
-                                                    >
-                                                        <Download size={14} /> Factura PDF
-                                                    </button>
+                                                    <div className="flex items-center gap-2 justify-end">
+                                                        <button
+                                                            onClick={() => setInvoicePreview(p)}
+                                                            className="p-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-lg transition-all border border-indigo-500/20 group flex items-center gap-2"
+                                                            title="Vista Previa"
+                                                        >
+                                                            <Search size={14} className="group-hover:scale-110 transition-transform" />
+                                                            <span className="text-[10px] font-black uppercase tracking-widest">Vista Previa</span>
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDownloadInvoice(p)}
+                                                            className="p-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg transition-all border border-emerald-500/20 group flex items-center gap-2"
+                                                            title="Descargar PDF"
+                                                        >
+                                                            <Download size={14} className="group-hover:scale-110 transition-transform" />
+                                                            <span className="text-[10px] font-black uppercase tracking-widest">PDF</span>
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))}
@@ -1081,6 +1144,62 @@ export default function MasterPanel({ onBack }) {
                                     </button>
                                 ))}
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Modal de Vista Previa de Factura */}
+            {invoicePreview && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8 bg-black/90 backdrop-blur-xl">
+                    <div className="bg-slate-900 w-full max-w-5xl h-full rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col relative">
+                        {/* Header Modal */}
+                        <div className="p-4 border-b border-white/5 flex justify-between items-center bg-slate-900/50">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-indigo-500/20 rounded-lg">
+                                    <FileText size={20} className="text-indigo-400" />
+                                </div>
+                                <div>
+                                    <h3 className="text-white font-black uppercase tracking-tighter">Vista Previa de Factura</h3>
+                                    <p className="text-[10px] text-white/40 font-bold uppercase tracking-[0.2em] italic">
+                                        ID Operación: FAC-2026-{invoicePreview.id.toUpperCase()}
+                                    </p>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => setInvoicePreview(null)}
+                                className="p-2 hover:bg-white/10 rounded-full text-white/40 hover:text-white transition-all"
+                            >
+                                <X size={24} />
+                            </button>
+                        </div>
+
+                        {/* Iframe Contenido */}
+                        <div className="flex-1 bg-slate-100 overflow-hidden relative">
+                            <iframe 
+                                srcDoc={getInvoiceHTML(invoicePreview)}
+                                className="w-full h-full border-none"
+                                title="Invoice Preview"
+                            />
+                        </div>
+
+                        {/* Footer Modal con acciones */}
+                        <div className="p-4 border-t border-white/5 bg-slate-900/80 flex justify-end gap-3">
+                            <button 
+                                onClick={() => setInvoicePreview(null)}
+                                className="px-6 py-2.5 rounded-xl text-white/60 font-black uppercase tracking-widest text-[10px] hover:bg-white/5 transition-all"
+                            >
+                                Cerrar
+                            </button>
+                            <button 
+                                onClick={() => {
+                                    handleDownloadInvoice(invoicePreview);
+                                    setInvoicePreview(null);
+                                }}
+                                className="px-8 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase tracking-widest text-[10px] shadow-lg shadow-indigo-500/20 flex items-center gap-2"
+                            >
+                                <Download size={14} />
+                                Abrir para Impresión
+                            </button>
                         </div>
                     </div>
                 </div>
