@@ -111,6 +111,10 @@ function downloadScriptPlugin() {
 
 export default defineConfig(({ mode }) => ({
   base: '/graduaciones2026/',
+  build: {
+    outDir: 'dist',
+    emptyOutDir: true
+  },
   server: {
     watch: {
       ignored: ['**/backups/**', '**/*.json', '**/*.log', '**/dist/**']
