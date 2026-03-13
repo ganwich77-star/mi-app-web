@@ -1,3 +1,4 @@
+// Versión de despliegue: 2026-03-13T12:45
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.jsx';
