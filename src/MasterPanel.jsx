@@ -8,6 +8,35 @@ import {
 } from 'lucide-react';
 import { deleteDoc } from 'firebase/firestore';
 
+// Componente Error Boundary simple para depuración en vivo
+function MasterErrorBoundary({ children }) {
+    const [error, setError] = React.useState(null);
+    React.useEffect(() => {
+        const handleError = (e) => {
+            console.error("Master Error:", e);
+            setError(e.message || "Error desconocido");
+        };
+        window.addEventListener('error', handleError);
+        return () => window.removeEventListener('error', handleError);
+    }, []);
+
+    if (error) {
+        return (
+            <div className="fixed inset-0 z-[999] bg-slate-950 p-10 font-mono text-red-400 overflow-auto">
+                <h1 className="text-2xl font-black mb-4 uppercase">⚠️ Falla Crítica Detectada</h1>
+                <p className="bg-red-400/10 p-4 rounded-xl border border-red-500/20">{error}</p>
+                <button 
+                    onClick={() => window.location.reload()}
+                    className="mt-6 px-6 py-3 bg-red-600 text-white rounded-xl font-black uppercase text-xs"
+                >
+                    Reintentar Carga
+                </button>
+            </div>
+        );
+    }
+    return children;
+}
+
 export default function MasterPanel({ onBack }) {
     const [photographers, setPhotographers] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -153,15 +182,21 @@ export default function MasterPanel({ onBack }) {
         }
     };
 
-    const filteredClients = photographers.filter(p =>
-        p.id.toLowerCase().includes(clientSearch.toLowerCase()) ||
-        (p.brandName && p.brandName.toLowerCase().includes(clientSearch.toLowerCase()))
-    );
+    const filteredClients = (photographers || []).filter(p => {
+        if (!p || !p.id) return false;
+        const search = (clientSearch || '').toLowerCase();
+        const idMatch = p.id.toLowerCase().includes(search);
+        const brandMatch = p.brandName && p.brandName.toLowerCase().includes(search);
+        return idMatch || brandMatch;
+    });
 
-    const filteredBilling = photographers.filter(p =>
-        p.id.toLowerCase().includes(billingSearch.toLowerCase()) ||
-        (p.brandName && p.brandName.toLowerCase().includes(billingSearch.toLowerCase()))
-    );
+    const filteredBilling = (photographers || []).filter(p => {
+        if (!p || !p.id) return false;
+        const search = (billingSearch || '').toLowerCase();
+        const idMatch = p.id.toLowerCase().includes(search);
+        const brandMatch = p.brandName && p.brandName.toLowerCase().includes(search);
+        return idMatch || brandMatch;
+    });
 
     // Sub-componente para calcular las estadísticas de cada fotógrafo de manera eficiente
     const PhotographerStats = ({ id }) => {
@@ -457,7 +492,9 @@ export default function MasterPanel({ onBack }) {
 
 
     return (
-        <div className="min-h-screen bg-[#020617] text-white p-6 font-sans relative">
+        <MasterErrorBoundary>
+            <div className="min-h-screen bg-[#020617] text-white p-6 font-sans relative">
+                {/* ... resto del JSX ... */}
             <div className="max-w-6xl mx-auto space-y-8">
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -1161,7 +1198,7 @@ export default function MasterPanel({ onBack }) {
                                 <div>
                                     <h3 className="text-white font-black uppercase tracking-tighter">Vista Previa de Factura</h3>
                                     <p className="text-[10px] text-white/40 font-bold uppercase tracking-[0.2em] italic">
-                                        ID Operación: FAC-2026-{invoicePreview.id.toUpperCase()}
+                                        ID Operación: FAC-2026-{invoicePreview?.id?.toUpperCase() || 'ERROR'}
                                     </p>
                                 </div>
                             </div>
@@ -1176,7 +1213,7 @@ export default function MasterPanel({ onBack }) {
                         {/* Iframe Contenido */}
                         <div className="flex-1 bg-slate-100 overflow-hidden relative">
                             <iframe 
-                                srcDoc={getInvoiceHTML(invoicePreview)}
+                                srcDoc={invoicePreview ? getInvoiceHTML(invoicePreview) : ''}
                                 className="w-full h-full border-none"
                                 title="Invoice Preview"
                             />
@@ -1192,8 +1229,10 @@ export default function MasterPanel({ onBack }) {
                             </button>
                             <button 
                                 onClick={() => {
-                                    handleDownloadInvoice(invoicePreview);
-                                    setInvoicePreview(null);
+                                    if (invoicePreview) {
+                                        handleDownloadInvoice(invoicePreview);
+                                        setInvoicePreview(null);
+                                    }
                                 }}
                                 className="px-8 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase tracking-widest text-[10px] shadow-lg shadow-indigo-500/20 flex items-center gap-2"
                             >
@@ -1204,7 +1243,7 @@ export default function MasterPanel({ onBack }) {
                     </div>
                 </div>
             )}
-        </div >
-
+            </div>
+        </MasterErrorBoundary>
     );
 }
