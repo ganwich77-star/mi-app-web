@@ -1,3 +1,4 @@
+// Force reload for deployment fix
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { db } from './firebase.js';
 import { collection, addDoc } from 'firebase/firestore';
