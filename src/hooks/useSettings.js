@@ -3,54 +3,55 @@ import { db } from '../firebase.js';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { PACKS, EXTRAS, DEMO_PACKS, DEMO_EXTRAS, DEFAULT_PAYMENT_METHODS, SCHOOLS, DEMO_2026_PACKS, DEMO_2026_EXTRAS } from '../constants.js';
 
+const ensureArray = (data, fallback) => {
+    if (Array.isArray(data)) return data;
+    if (data && typeof data === 'object') {
+        return Object.entries(data).map(([id, val]) => ({
+            ...(typeof val === 'object' ? val : { value: val }),
+            id: (val && typeof val === 'object' && val.id) ? val.id : id
+        }));
+    }
+    return fallback || [];
+};
+
 export function useSettings(photographerId, isDemo = false) {
     const SETTINGS_KEY = `orlas2026_settings_${photographerId}`;
     // Carga inicial desde LocalStorage
     const [settings, setSettings] = useState(() => {
         try {
             const stored = localStorage.getItem(SETTINGS_KEY);
-            return stored ? JSON.parse(stored) : {
-                paymentMethods: DEFAULT_PAYMENT_METHODS,
-                schools: [...SCHOOLS],
-                packs: [...PACKS],
-                extras: [...EXTRAS],
-                adminPin: '7373',
-                giftDiscount: 25,
-                fiscalName: '',
-                cif: '',
-                address: '',
-                postalCode: '',
-                city: '',
-                province: '',
-                logoUrl: null,
-                logoUrlDark: null,
-                shootingDateDefault: '',
-                appDeadlineDefault: '',
-                graduationDateDefault: '',
-                dateExceptions: []
-            };
-        } catch {
-            return {
-                paymentMethods: DEFAULT_PAYMENT_METHODS,
-                schools: [...SCHOOLS],
-                packs: [...PACKS],
-                extras: [...EXTRAS],
-                adminPin: '7373',
-                giftDiscount: 25,
-                fiscalName: '',
-                cif: '',
-                address: '',
-                postalCode: '',
-                city: '',
-                province: '',
-                logoUrl: null,
-                logoUrlDark: null,
-                shootingDateDefault: '',
-                appDeadlineDefault: '',
-                graduationDateDefault: '',
-                dateExceptions: []
-            };
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                return {
+                    ...parsed,
+                    packs: ensureArray(parsed.packs, PACKS),
+                    extras: ensureArray(parsed.extras, EXTRAS),
+                    schools: ensureArray(parsed.schools, SCHOOLS),
+                };
+            }
+        } catch (e) {
+            console.error("Error loading settings from localStorage:", e);
         }
+        return {
+            paymentMethods: DEFAULT_PAYMENT_METHODS,
+            schools: [...SCHOOLS],
+            packs: [...PACKS],
+            extras: [...EXTRAS],
+            adminPin: '7373',
+            giftDiscount: 25,
+            fiscalName: '',
+            cif: '',
+            address: '',
+            postalCode: '',
+            city: '',
+            province: '',
+            logoUrl: null,
+            logoUrlDark: null,
+            shootingDateDefault: '',
+            appDeadlineDefault: '',
+            graduationDateDefault: '',
+            dateExceptions: []
+        };
     });
 
     const isFirstLoad = useRef(true);
@@ -90,15 +91,13 @@ export function useSettings(photographerId, isDemo = false) {
                 const finalData = {
                     ...firebaseData,
                     paymentMethods: updatedPM,
-                    packs: firebaseData.packs || PACKS,
-                    extras: firebaseData.extras || EXTRAS,
-                    schools: firebaseData.schools || SCHOOLS,
+                    packs: ensureArray(firebaseData.packs, PACKS),
+                    extras: ensureArray(firebaseData.extras, EXTRAS),
+                    schools: ensureArray(firebaseData.schools, SCHOOLS),
                 };
                 setSettings(prev => ({ ...prev, ...finalData }));
                 localStorage.setItem(SETTINGS_KEY, JSON.stringify(finalData));
             } else if (isFirstLoad.current && !isDemo) {
-                // Al iniciar, no guardamos configuraciones semilla en Firebase si estamos en modo Demo.
-                // Esto evita machacar a un usuario real accidentalmente 
                 saveToFirebase(settings);
             }
             isFirstLoad.current = false;
@@ -110,7 +109,7 @@ export function useSettings(photographerId, isDemo = false) {
     }, [photographerId, SETTINGS_KEY]);
 
     const saveToFirebase = async (newSettings) => {
-        if (isDemo) return; // Bloqueo de seguridad: Evitar escribir ajustes configurados desde Demo
+        if (isDemo) return;
         try {
             const docRef = doc(db, 'orlas2026_photographers', photographerId, 'config', 'main');
             await setDoc(docRef, newSettings);
@@ -185,7 +184,6 @@ export function useSettings(photographerId, isDemo = false) {
         updateSettings({ adminPin: newPin });
     };
 
-
     const updateSettings = async (payload) => {
         setSettings(prev => {
             const updates = typeof payload === 'function' ? payload(prev) : payload;
@@ -197,14 +195,16 @@ export function useSettings(photographerId, isDemo = false) {
         });
     };
 
-
     const enabledPaymentMethods = settings.paymentMethods.filter(m => m.enabled);
     const availableSchools = (settings.schools || SCHOOLS).filter(s => s.id !== 'otros');
 
-    // Intercepción visual exclusiva en Modo Demo sin afectar la DB real
     const isDemo2026 = photographerId === 'demo2026';
-    const displayPacks = isDemo ? (isDemo2026 ? DEMO_2026_PACKS : DEMO_PACKS) : (settings.packs || PACKS);
-    const displayExtras = isDemo ? (isDemo2026 ? DEMO_2026_EXTRAS : DEMO_EXTRAS) : (settings.extras || EXTRAS);
+    const displayPacksRaw = isDemo ? (isDemo2026 ? DEMO_2026_PACKS : DEMO_PACKS) : (settings.packs || PACKS);
+    const displayExtrasRaw = isDemo ? (isDemo2026 ? DEMO_2026_EXTRAS : DEMO_EXTRAS) : (settings.extras || EXTRAS);
+    
+    // Aplicamos ensureArray también aquí por si acaso el estado interno o las constantes tienen un formato inesperado
+    const displayPacks = ensureArray(displayPacksRaw, PACKS);
+    const displayExtras = ensureArray(displayExtrasRaw, EXTRAS);
 
     return {
         settings,

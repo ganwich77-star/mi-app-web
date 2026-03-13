@@ -647,21 +647,21 @@ export default function App() {
 
         // Sumar Packs
         Object.entries(selectedPacks).forEach(([id, qty]) => {
-            const pack = allPacks.find(p => p.id === id);
+            const pack = (allPacks || []).find(p => p.id === id);
             if (pack) {
-                price += pack.price * qty;
-                cost += pack.cost * qty;
+                price += (Number(pack.price) || 0) * qty;
+                cost += (Number(pack.cost) || 0) * qty;
             }
         });
 
         // Sumar Suplementos por Pack
-        const activeSupplements = settings.supplements || [];
+        const activeSupplements = settings?.supplements || [];
         Object.entries(selectedPacks).forEach(([packId, packQty]) => {
             const packSups = selectedSupplements[packId] || {};
             Object.entries(packSups).forEach(([supId, supQty]) => {
-                const supplement = activeSupplements.find(s => s.id.toString() === supId.toString());
+                const supplement = (Array.isArray(activeSupplements) ? activeSupplements : []).find(s => s.id?.toString() === supId.toString());
                 if (supplement && supQty > 0) {
-                    price += supplement.price * supQty;
+                    price += (Number(supplement.price) || 0) * supQty;
                 }
             });
         });
@@ -669,8 +669,11 @@ export default function App() {
         // Sumar Extras
         Object.entries(extras).forEach(([id, qty]) => {
             if (qty > 0) {
-                const item = allExtras.find(e => e.id === id);
-                if (item) { price += item.price * qty; cost += item.cost * qty; }
+                const item = (allExtras || []).find(e => e.id === id);
+                if (item) { 
+                    price += (Number(item.price) || 0) * qty; 
+                    cost += (Number(item.cost) || 0) * qty; 
+                }
             }
         });
         return { price, cost, profit: price - cost };
@@ -737,13 +740,16 @@ export default function App() {
     const getExtrasDesc = () =>
         Object.entries(extras)
             .filter(([, qty]) => qty > 0)
-            .map(([id, qty]) => { const e = allExtras.find(x => x.id === id); return `${qty}x ${e.name}`; })
+            .map(([id, qty]) => { 
+                const e = (allExtras || []).find(x => x.id === id); 
+                return `${qty}x ${e?.name || id}`; 
+            })
             .join(', ');
 
     const getPacksDesc = () =>
         Object.entries(selectedPacks)
             .map(([id, qty]) => {
-                const p = allPacks.find(x => x.id === id);
+                const p = (allPacks || []).find(x => x.id === id);
                 return `${qty > 1 ? `${qty}x ` : ''}${p?.name || id}`;
             })
             .join(' + ');
@@ -1396,7 +1402,7 @@ export default function App() {
                 </>
             )}
 
-            {settings.isSuspended ? (
+            {settings.isSuspended && view !== 'master' && view !== 'command' && view !== 'landing' ? (
                 <div className="fixed inset-0 bg-[#020617] flex items-center justify-center p-6 z-[9999]">
                     <div className="fixed inset-0 overflow-hidden pointer-events-none -z-0 opacity-20">
                         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-red-500 blur-[120px] rounded-full" />

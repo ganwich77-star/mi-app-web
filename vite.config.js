@@ -112,7 +112,7 @@ function downloadScriptPlugin() {
 export default defineConfig(({ mode }) => ({
   base: '/graduaciones2026/',
   build: {
-    outDir: 'dist',
+    outDir: 'dist/graduaciones2026',
     emptyOutDir: true
   },
   server: {
@@ -188,7 +188,7 @@ export default defineConfig(({ mode }) => ({
         stringArrayEncoding: ['rc4'],
         stringArrayThreshold: 1,
         unicodeEscapeSequence: false,
-        domainLock: ['basecode.es', 'www.basecode.es', 'localhost', '127.0.0.1'] // Permitir local y www para evitar bloqueos
+        domainLock: ['asistente-digital-comuniones.web.app', 'asistente-digital-comuniones.firebaseapp.com', 'basecode.es', 'www.basecode.es', 'localhost', '127.0.0.1'] // Permitir local y dominios de Firebase
       },
     })
   ].filter(Boolean)
