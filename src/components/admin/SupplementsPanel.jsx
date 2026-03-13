@@ -11,7 +11,8 @@ import {
 const SupplementsPanel = ({
     settings,
     updateSettings,
-    theme
+    theme,
+    viewMode
 }) => {
     const isDark = theme === 'dark';
     const supplements = settings.supplements || [];

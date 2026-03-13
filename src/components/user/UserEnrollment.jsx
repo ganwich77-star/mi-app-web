@@ -44,6 +44,7 @@ const UserEnrollment = ({
     handleFinalize,
     selectedSupplements,
     toggleSupplement,
+    updateSupplementQuantity,
     copyToClipboard,
     CONTACT_PHONE,
     sendWhatsApp,
@@ -277,55 +278,76 @@ const UserEnrollment = ({
                                     </div>
                                 </div>
                                 <div className="space-y-4">
-                                    {allPacks.map(pack => (
-                                        <PackCard
-                                            key={pack.id}
-                                            pack={pack}
-                                            selected={!!selectedPacks[pack.id]}
-                                            quantity={selectedPacks[pack.id] || 1}
-                                            onSelect={() => togglePack(pack.id)}
-                                            onUpdateQuantity={(q) => updatePackQuantity(pack.id, q)}
-                                        />
-                                    ))}
-
-                                    {/* SECCIÓN SUPLEMENTOS */}
-                                    {(settings.supplements || []).filter(s => s.active).length > 0 && (
-                                        <div className="card p-6 mt-6 space-y-4 border-indigo-500/20 bg-indigo-500/5">
-                                            <div className="flex items-center gap-3 mb-2">
-                                                <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-500">
-                                                    <Sparkles size={16} />
-                                                </div>
-                                                <h3 className="text-sm font-black text-primary uppercase tracking-wider">Personaliza tu pedido</h3>
-                                            </div>
-
-                                            <div className="space-y-3">
-                                                {settings.supplements.filter(s => s.active).map(s => (
-                                                    <button
-                                                        key={s.id}
-                                                        onClick={() => toggleSupplement(s.id)}
-                                                        className={`w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all active:scale-[0.98]
-                                                            ${selectedSupplements[s.id]
-                                                                ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-600/20'
-                                                                : 'bg-primary/5 border-primary/5 text-secondary hover:border-indigo-500/30'}`}
-                                                    >
-                                                        <div className="flex items-center gap-3">
-                                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center border-2 transition-all
-                                                                ${selectedSupplements[s.id] ? 'bg-white border-white text-indigo-600' : 'border-current opacity-20'}`}>
-                                                                {selectedSupplements[s.id] && <Check size={14} strokeWidth={4} />}
-                                                            </div>
-                                                            <span className="text-xs font-bold uppercase tracking-tight">{s.name}</span>
+                                    {allPacks.map(pack => {
+                                        const isSelected = !!selectedPacks[pack.id];
+                                        const supplementsList = settings.supplements || [];
+                                        const activeSupplements = supplementsList.filter(s => s.active);
+                                        
+                                        return (
+                                            <div key={pack.id} className="mb-4">
+                                                <PackCard
+                                                    pack={pack}
+                                                    selected={isSelected}
+                                                    quantity={selectedPacks[pack.id] || 1}
+                                                    onSelect={() => togglePack(pack.id)}
+                                                    onUpdateQuantity={(q) => updatePackQuantity(pack.id, q)}
+                                                />
+                                                
+                                                {/* Suplementos por Pack */}
+                                                {isSelected && (
+                                                    <div className="ml-4 pl-4 border-l-2 border-indigo-500/20 py-2 space-y-3 mt-2 bg-indigo-500/5 rounded-r-2xl">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <Sparkles size={14} className="text-indigo-500" />
+                                                            <span className="text-[10px] font-black text-secondary uppercase tracking-wider">Suplementos para este pack</span>
                                                         </div>
-                                                        <span className={`text-xs font-black ${selectedSupplements[s.id] ? 'text-white' : 'text-indigo-500'}`}>
-                                                            +{s.price.toFixed(0)}€
-                                                        </span>
-                                                    </button>
-                                                ))}
+                                                        
+                                                        {activeSupplements.length > 0 ? (
+                                                            activeSupplements.map(s => {
+                                                                const supQty = selectedSupplements[pack.id]?.[s.id] || 0;
+                                                                return (
+                                                                    <div key={s.id} className={`flex items-center justify-between p-3 rounded-2xl border transition-all ${supQty > 0 ? 'bg-indigo-500/10 border-indigo-500/30' : 'bg-primary/5 border-transparent'}`}>
+                                                                        <div className="flex flex-col">
+                                                                            <span className="text-xs font-bold text-primary">{s.name}</span>
+                                                                            <span className="text-[10px] font-black text-indigo-500">+{s.price}€/ud</span>
+                                                                        </div>
+                                                                        
+                                                                        <div className="flex items-center gap-2">
+                                                                            {supQty > 0 ? (
+                                                                                <div className="flex items-center gap-3 bg-white/10 rounded-xl p-1 border border-white/10">
+                                                                                    <button 
+                                                                                        onClick={(e) => { e.stopPropagation(); updateSupplementQuantity(pack.id, s.id, supQty - 1); }}
+                                                                                        className="w-7 h-7 flex items-center justify-center rounded-lg bg-indigo-500 text-white active:scale-95 transition-all"
+                                                                                    >
+                                                                                        <Minus size={14} />
+                                                                                    </button>
+                                                                                    <span className="text-xs font-black text-primary w-4 text-center">{supQty}</span>
+                                                                                    <button 
+                                                                                        onClick={(e) => { e.stopPropagation(); updateSupplementQuantity(pack.id, s.id, supQty + 1); }}
+                                                                                        className="w-7 h-7 flex items-center justify-center rounded-lg bg-indigo-500 text-white active:scale-95 transition-all"
+                                                                                    >
+                                                                                        <Plus size={14} />
+                                                                                    </button>
+                                                                                </div>
+                                                                            ) : (
+                                                                                <button 
+                                                                                    onClick={(e) => { e.stopPropagation(); toggleSupplement(pack.id, s.id); }}
+                                                                                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-500 text-white text-[10px] font-black uppercase tracking-wider active:scale-95 transition-all"
+                                                                                >
+                                                                                    <Plus size={14} /> Añadir
+                                                                                </button>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })
+                                                        ) : (
+                                                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest text-center py-2 italic opacity-60">Sin suplementos disponibles</p>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
-                                            <p className="text-[9px] font-bold text-secondary uppercase tracking-[0.15em] opacity-40 text-center px-4">
-                                                Selecciona extras para mejorar el acabado de tu orla
-                                            </p>
-                                        </div>
-                                    )}
+                                        );
+                                    })}
 
                                     <button disabled={Object.keys(selectedPacks).length === 0} onClick={() => setStep(3)} className="btn-primary w-full text-base font-black flex items-center justify-center gap-2">
                                         Continuar <ChevronRight size={18} />

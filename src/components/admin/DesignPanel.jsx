@@ -5,8 +5,17 @@ import {
     Box, Download, History, Search, Check, X, Maximize2, Minimize2,
     ChevronLeft, ChevronRight, Layers, Type, Trash2, Edit, ZoomIn, ZoomOut, Eye, Settings2, UserCheck,
     Type as TypeIcon, Ruler, Users, Grid, Square, List, AlignCenterVertical, MousePointer2,
-    MoreVertical, Save, Trash, Minus, Plus, Shapes
+    MoreVertical, Save, Trash, Minus, Plus, Shapes, Wand2
 } from 'lucide-react';
+
+// ─── TAMAÑOS DE LIENZO ─────────────────────────────────────────────────────
+const CANVAS_SIZES = [
+    { id: 'a3', label: 'A3 (42x29)', w: 420, h: 297 },
+    { id: 'a4', label: 'A4 (29x21)', w: 297, h: 210 },
+    { id: '4030', label: '40x30 cm', w: 400, h: 300 },
+    { id: '3020', label: '30x20 cm', w: 300, h: 200 },
+    { id: 'custom', label: 'Personalizado', custom: true }
+];
 
 // ─── FORMAS DE PLACEHOLDER ─────────────────────────────────────────────────
 const PHOTO_SHAPES = [
@@ -166,6 +175,116 @@ const DesignPanel = ({
     const safeMmToPx = (mm) => (mm || 0) * factor;
     const safePxToMm = (px) => (px || 0) / factor;
 
+    // Función para obtener la etiqueta del formato actual
+    const getFormatLabel = (w, h) => {
+        const mmW = Math.round(safePxToMm(w));
+        const mmH = Math.round(safePxToMm(h));
+        const matchedSize = CANVAS_SIZES.find(s => !s.custom && s.w === mmW && s.h === mmH);
+        if (matchedSize) return matchedSize.label.split(' (')[0];
+        return `${Math.round(mmW/10)}x${Math.round(mmH/10)} cm`;
+    };
+
+    // Función para auto-ajustar la distribución de alumnos
+    const autoAdjustLayout = (currentConfig = configOrla) => {
+        const cfg = currentConfig;
+        
+        // 1. Límites Docentes
+        const docRows = Math.ceil((selectedStaffIds?.length || 0) / (cfg.dCols || 8));
+        const docH = (cfg.aH || 450) * (cfg.dScale || 1.2); // Usamos aH como referencia base
+        const docGapY = (cfg.dGapY || 100); 
+        const topLimit = (cfg.dY || 350) + (docRows * (docH + docGapY)) + 200; 
+
+        // 2. Límites Pie de Orla (Inferior)
+        const footerSpace = (cfg.fontSizeSchool || 200) + (cfg.fontSizePromo || 80) + 300; 
+        const bottomLimit = (cfg.canvasH || 3508) - (cfg.margin || 20) - footerSpace;
+
+        // 3. Espacio disponible para alumnos
+        const availableHeight = bottomLimit - topLimit;
+
+        // 4. Altura necesaria para alumnos
+        const aluRows = Math.ceil((filteredOrders?.length || 0) / (cfg.aCols || 8));
+        const aluH = (cfg.aH || 450) * (cfg.aScale || 1);
+        const currentAluGapY = cfg.aGapY || 650;
+        
+        let targetGapY = currentAluGapY;
+        let totalAluHeight = (aluRows * (aluH + targetGapY)) - targetGapY;
+
+        // Si no cabe o sobra demasiado, ajustamos el gap
+        if (aluRows > 1) {
+            // Intentamos mantener un gap proporcional al espacio disponible
+            targetGapY = Math.max(50, (availableHeight - (aluRows * aluH)) / (aluRows - 1));
+            // Limitamos el gap máximo para que no queden demasiado separados
+            targetGapY = Math.min(targetGapY, 800 * (cfg.canvasH / 3508)); 
+            totalAluHeight = (aluRows * (aluH + targetGapY)) - targetGapY;
+        }
+
+        // 5. Centrar el bloque de alumnos en el espacio libre
+        const newAStartY = topLimit + (availableHeight - totalAluHeight) / 2;
+
+        // Aplicar cambios masivos
+        setConfigOrla(prev => ({
+            ...prev,
+            aStartY: newAStartY,
+            aGapY: targetGapY
+        }));
+    };
+
+    // Función para escalar todo proporcionalmente
+    const scaleEverythingProportionally = (newW, newH) => {
+        const currentW = configOrla.canvasW || 4961;
+        const currentH = configOrla.canvasH || 3508;
+        
+        // Calculamos factores de escala para ancho y alto
+        const scaleFactorW = newW / currentW;
+        const scaleFactorH = newH / currentH;
+        
+        // Usamos el factor más restrictivo para evitar desbordamientos
+        const scaleFactor = Math.min(scaleFactorW, scaleFactorH);
+
+        if (scaleFactorW === 1 && scaleFactorH === 1) return;
+
+        const updates = {};
+        
+        // Parámetros a escalar
+        const paramsToScale = [
+            'margin', 'dY', 'dGapX', 'dOffsetX', 'fontSizeDoc', 'dTextOffset',
+            'aStartY', 'aGapX', 'aGapY', 'aOffsetX', 'fontSizeAlu', 'aTextOffset',
+            'aW', 'aH', 'fontSizeSchool', 'fontSizePromo'
+        ];
+
+        paramsToScale.forEach(key => {
+            let val = configOrla[key];
+            if (val === undefined) {
+                // Asignamos valores base si no existen para que se escalen
+                if (key === 'aW') val = 350;
+                if (key === 'aH') val = 450;
+                if (key === 'fontSizeSchool') val = 200;
+                if (key === 'fontSizePromo') val = 80;
+                if (key === 'fontSizeAlu') val = 100;
+                if (key === 'fontSizeDoc') val = 120;
+            }
+            if (val !== undefined) {
+                updates[key] = val * scaleFactor;
+            }
+        });
+
+        // Aplicar el nuevo tamaño de lienzo y los parámetros escalados
+        const newConfig = {
+            ...configOrla,
+            ...updates,
+            canvasW: newW,
+            canvasH: newH
+        };
+        
+        // Actualizamos configuración
+        setConfigOrla(newConfig);
+
+        // Disparamos el ajuste inteligente de forma diferida para que use el nuevo canvasH
+        setTimeout(() => {
+            autoAdjustLayout(newConfig);
+        }, 50);
+    };
+
     // CONFIGURACIÓN DE HERRAMIENTAS POR PESTAÑA
     const TOOLBAR_CONFIG = {
         'ALUMNOS': [
@@ -191,18 +310,30 @@ const DesignPanel = ({
         ],
         'GENERAL': [
             { icon: Ruler, label: 'MARGENES', key: 'margin', min: safeMmToPx(0), max: safeMmToPx(150) },
+            { icon: Maximize, label: 'TAMAÑO', key: 'canvasSize', isSizeSelector: true },
             { icon: Layers, label: 'ANCHO', key: 'canvasW', min: 2000, max: 10000, unit: 'PX' },
             { icon: Layers, label: 'ALTO', key: 'canvasH', min: 2000, max: 10000, unit: 'PX' },
             { icon: Grid, label: 'GUIAS', key: 'showGuides', isToggle: true },
             { icon: Shapes, label: 'FORMA', key: 'photoShape', isShapeSelector: true },
+            { 
+                icon: Wand2, 
+                label: 'AJUSTE INTELIGENTE', 
+                onClick: autoAdjustLayout,
+                className: "bg-accent/10 text-accent border-accent/20 hover:bg-accent hover:text-white"
+            },
         ]
     };
 
     // Efecto para sincronizar el parámetro activo al cambiar de pestaña
     useEffect(() => {
         if (isFullScreenDesign) {
+            // Reset de sub-menús específicos al cambiar de pestaña para evitar solapamientos
+            setShowSizeSelector(false);
+            setShowShapeSelector(false);
+            
             const firstTool = TOOLBAR_CONFIG[activeTab][0];
-            if (firstTool && !firstTool.isImmediate && !firstTool.isToggle && !firstTool.isShapeSelector) {
+            // No activamos automáticamente si es un selector o toggle inmediato
+            if (firstTool && !firstTool.isImmediate && !firstTool.isToggle && !firstTool.isShapeSelector && !firstTool.isSizeSelector && !firstTool.onClick) {
                 setActiveDesignParam(firstTool);
             } else {
                 setActiveDesignParam(null);
@@ -216,6 +347,7 @@ const DesignPanel = ({
     const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
     const [showGuides, setShowGuides] = useState(false);
     const [showShapeSelector, setShowShapeSelector] = useState(false);
+    const [showSizeSelector, setShowSizeSelector] = useState(false);
     const currentShape = configOrla.photoShape || 'circle';
 
     const handleWheel = (e) => {
@@ -407,6 +539,16 @@ const DesignPanel = ({
                                                 transformOrigin: 'center center',
                                             }}>
 
+                                        {/* Indicador de Formato */}
+                                        <div className="absolute top-4 left-4 z-50 pointer-events-none">
+                                            <div className="bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-lg shadow-xl border border-slate-200 flex items-center gap-2">
+                                                <div className="w-2 h-2 rounded-full bg-accent animate-pulse" />
+                                                <span className="text-[10px] font-black text-slate-800 uppercase tracking-widest leading-none">
+                                                    FORMATO: {getFormatLabel(configOrla.canvasW || 4961, configOrla.canvasH || 3508)}
+                                                </span>
+                                            </div>
+                                        </div>
+
                                     {/* Márgenes */}
                                     <div className="absolute border border-red-500/40 border-dashed pointer-events-none z-50"
                                         style={{ inset: (configOrla.margin || 20) / 10 + 'px' }} />
@@ -509,8 +651,8 @@ const DesignPanel = ({
 
                                     {/* Pie de Orla */}
                                     <div className="absolute bottom-[20px] w-full text-center" style={{ bottom: (configOrla.margin || 20) / 10 + 'px' }}>
-                                        <h2 className="text-[20px] font-normal text-black tracking-tighter uppercase">{currentSchool.name}</h2>
-                                        <p className="text-[8px] font-normal text-black tracking-[0.5em] mt-1 ml-[0.5em]">{configOrla.promoText || "PROMOCIÓN 2026"}</p>
+                                        <h2 className="font-normal text-black tracking-tighter uppercase" style={{ fontSize: (configOrla.fontSizeSchool || 200) / 10 + 'px' }}>{currentSchool.name}</h2>
+                                        <p className="font-normal text-black tracking-[0.5em] mt-1 ml-[0.5em]" style={{ fontSize: (configOrla.fontSizePromo || 80) / 10 + 'px' }}>{configOrla.promoText || "PROMOCIÓN 2026"}</p>
                                     </div>
                                 </div>
                             </div>
@@ -593,6 +735,23 @@ const DesignPanel = ({
                                 width: (configOrla.canvasW || 4961) / 10 + 'px',
                                 height: (configOrla.canvasH || 3508) / 10 + 'px'
                             }}>
+
+                            {/* Indicador de Formato (Pantalla Completa) */}
+                            <div className="absolute top-6 left-6 z-50 pointer-events-none group/format">
+                                <div className={`px-4 py-2 rounded-xl backdrop-blur-xl border flex items-center gap-3 transition-all duration-500 shadow-2xl ${
+                                    isDark 
+                                        ? 'bg-black/60 border-white/10 text-white' 
+                                        : 'bg-white/80 border-slate-200 text-slate-800'
+                                }`}>
+                                    <div className={`w-2 h-2 rounded-full animate-pulse ${isDark ? 'bg-indigo-400' : 'bg-accent'}`} />
+                                    <div className="flex flex-col">
+                                        <span className={`text-[8px] font-black uppercase tracking-[0.2em] opacity-40 leading-none mb-1`}>FORMATO ACTUAL</span>
+                                        <span className="text-sm font-black uppercase tracking-widest leading-none">
+                                            {getFormatLabel(configOrla.canvasW || 4961, configOrla.canvasH || 3508)}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
 
                             {/* Grid de diseño (visible solo en editor) */}
                             <div className={`absolute inset-0 opacity-[0.2] transition-colors duration-500`}
@@ -808,7 +967,11 @@ const DesignPanel = ({
                                     tool.isShapeSelector ? (
                                         <button
                                             key={tool.label}
-                                            onClick={() => { setShowShapeSelector(v => !v); setActiveDesignParam(null); }}
+                                            onClick={() => { 
+                                                setShowShapeSelector(v => !v); 
+                                                setShowSizeSelector(false);
+                                                setActiveDesignParam(null); 
+                                            }}
                                             className={`flex flex-col items-center justify-center gap-1.5 p-3 min-w-[85px] rounded-2xl transition-all active:scale-95 border ${
                                                 showShapeSelector
                                                     ? 'bg-accent text-white shadow-glow-indigo border-white/20'
@@ -820,11 +983,32 @@ const DesignPanel = ({
                                             <Shapes size={18} />
                                             <span className="text-[9px] font-black uppercase tracking-tighter text-center leading-none">FORMA</span>
                                         </button>
+                                    ) : tool.isSizeSelector ? (
+                                        <button
+                                            key={tool.label}
+                                            onClick={() => { 
+                                                setShowSizeSelector(v => !v); 
+                                                setShowShapeSelector(false);
+                                                setActiveDesignParam(null); 
+                                            }}
+                                            className={`flex flex-col items-center justify-center gap-1.5 p-3 min-w-[85px] rounded-2xl transition-all active:scale-95 border ${
+                                                showSizeSelector
+                                                    ? 'bg-accent text-white shadow-glow-indigo border-white/20'
+                                                    : isDark
+                                                        ? 'bg-white/5 border-transparent text-white/40 hover:text-white hover:bg-white/10'
+                                                        : 'bg-slate-100 border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-200'
+                                            }`}
+                                        >
+                                            <tool.icon size={18} />
+                                            <span className="text-[9px] font-black uppercase tracking-tighter text-center leading-none">TAMAÑO</span>
+                                        </button>
                                     ) : (
                                     <button
                                         key={tool.label}
                                         onClick={() => {
-                                            if (tool.isImmediate) {
+                                            if (tool.onClick) {
+                                                tool.onClick();
+                                            } else if (tool.isImmediate) {
                                                 updateConfig(tool.key, 0);
                                                 setActiveDesignParam(null);
                                             } else if (tool.isToggle) {
@@ -837,17 +1021,20 @@ const DesignPanel = ({
                                                 // Mantenemos el activeDesignParam actual para evitar saltos en la interfaz
                                             } else {
                                                 setShowShapeSelector(false);
+                                                setShowSizeSelector(false);
                                                 setActiveDesignParam(tool);
                                             }
                                         }}
                                         className={`flex flex-col items-center justify-center gap-1.5 p-3 min-w-[85px] rounded-2xl transition-all active:scale-95 border ${
-                                            ((tool.isToggle && tool.key === 'showGuides' && showGuides) || (tool.isToggle && tool.key !== 'showGuides' && configOrla[tool.key]))
-                                                ? 'bg-red-500 text-white shadow-[0_10px_30px_rgba(239,68,68,0.3)] border-red-400'
-                                                : activeDesignParam?.key === tool.key
-                                                    ? 'bg-accent text-white shadow-glow-indigo border-white/20'
-                                                    : isDark
-                                                        ? 'bg-white/5 border-transparent text-white/40 hover:text-white hover:bg-white/10'
-                                                        : 'bg-slate-100 border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-200'
+                                            (tool.onClick)
+                                                ? 'bg-accent/10 border-accent/30 text-accent hover:bg-accent hover:text-white'
+                                                : ((tool.isToggle && tool.key === 'showGuides' && showGuides) || (tool.isToggle && tool.key !== 'showGuides' && configOrla[tool.key]))
+                                                    ? 'bg-red-500 text-white shadow-[0_10px_30px_rgba(239,68,68,0.3)] border-red-400'
+                                                    : activeDesignParam?.key === tool.key
+                                                        ? 'bg-accent text-white shadow-glow-indigo border-white/20'
+                                                        : isDark
+                                                            ? 'bg-white/5 border-transparent text-white/40 hover:text-white hover:bg-white/10'
+                                                            : 'bg-slate-100 border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-200'
                                         }`}
                                     >
                                         <tool.icon size={18} />
@@ -885,14 +1072,55 @@ const DesignPanel = ({
                                               ((configOrla.hideApellidosDoc || configOrla.hideCargoDoc) && activeTab === 'DOCENTES');
                             const isEjeX = activeDesignParam?.key === 'aOffsetX' || activeDesignParam?.key === 'dOffsetX';
                             
-                            if (!activeDesignParam && !hasWarnings) return null;
+                            if (!activeDesignParam && !hasWarnings && !showShapeSelector && !showSizeSelector) return null;
 
                             return (
                                 <div className={`px-8 py-5 border-t animate-slide-up min-h-[85px] flex items-center ${isDark ? 'bg-accent border-white/30 shadow-[0_-10px_40px_rgba(0,0,0,0.3)]' : 'bg-slate-50 border-black/5 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]'}`}>
                                     
-
-
-                                    {activeDesignParam && (
+                                    {showShapeSelector ? (
+                                        <div className="flex-1 flex items-center gap-4 overflow-x-auto pb-2 scrollbar-hide py-1">
+                                            {PHOTO_SHAPES.map(shape => (
+                                                <ShapePill
+                                                    key={shape.id}
+                                                    shape={shape}
+                                                    active={currentShape === shape.id}
+                                                    onClick={() => updateConfig('photoShape', shape.id)}
+                                                    isDark={isDark}
+                                                />
+                                            ))}
+                                        </div>
+                                    ) : showSizeSelector ? (
+                                        <div className="flex-1 flex items-center gap-3 overflow-x-auto pb-2 scrollbar-hide py-1">
+                                            {CANVAS_SIZES.map(size => {
+                                                const isActive = size.custom 
+                                                    ? !CANVAS_SIZES.some(s => !s.custom && Math.round(safePxToMm(configOrla.canvasW)) === s.w && Math.round(safePxToMm(configOrla.canvasH)) === s.h)
+                                                    : Math.round(safePxToMm(configOrla.canvasW)) === size.w && Math.round(safePxToMm(configOrla.canvasH)) === size.h;
+                                                
+                                                return (
+                                                    <button
+                                                        key={size.id}
+                                                        onClick={() => {
+                                                            if (!size.custom) {
+                                                                scaleEverythingProportionally(safeMmToPx(size.w), safeMmToPx(size.h));
+                                                            } else {
+                                                                setActiveDesignParam(TOOLBAR_CONFIG['GENERAL'].find(t => t.key === 'canvasW'));
+                                                                setShowSizeSelector(false);
+                                                            }
+                                                        }}
+                                                        className={`px-6 py-3 rounded-xl border-2 font-black uppercase tracking-widest text-[10px] whitespace-nowrap transition-all active:scale-95 ${
+                                                            isActive
+                                                                ? 'bg-accent border-accent text-white shadow-glow-indigo'
+                                                                : isDark
+                                                                    ? 'bg-white/5 border-white/10 text-white/50 hover:text-white hover:bg-white/10'
+                                                                    : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
+                                                        }`}
+                                                    >
+                                                        {size.label}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : activeDesignParam ? (
                                         <div className="flex items-center gap-8">
                                             <div className="flex-shrink-0 min-w-[120px] relative">
                                                 <div className="flex items-center justify-between mb-1.5">
@@ -1011,13 +1239,17 @@ const DesignPanel = ({
                                             )}
 
                                             <button
-                                                onClick={() => setActiveDesignParam(null)}
+                                                onClick={() => {
+                                                    setActiveDesignParam(null);
+                                                    setShowShapeSelector(false);
+                                                    setShowSizeSelector(false);
+                                                }}
                                                 className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-2xl active:scale-90 transition-all ${isDark ? 'bg-white text-accent' : 'bg-accent text-white'}`}
                                             >
                                                 <Check size={28} className="stroke-[4]" />
                                             </button>
                                         </div>
-                                    )}
+                                    ) : null}
                                 </div>
                             );
                         })()}

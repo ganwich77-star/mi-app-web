@@ -470,7 +470,7 @@ export default function App() {
     const [courseName, setCourseName] = useState('');   // ej: "6º Primaria"
     const [courseLine, setCourseLine] = useState('');   // ej: "A"
     const [selectedPacks, setSelectedPacks] = useState({});
-    const [selectedSupplements, setSelectedSupplements] = useState({});
+    const [selectedSupplements, setSelectedSupplements] = useState({}); // { [packId]: { [supId]: quantity } }
     const [extras, setExtras] = useState({});
     const [formError, setFormError] = useState('');
 
@@ -653,14 +653,16 @@ export default function App() {
             }
         });
 
-        // Sumar Suplementos (aplican al total o a cada pack según lógica de negocio, aquí al total)
+        // Sumar Suplementos por Pack
         const activeSupplements = settings.supplements || [];
-        Object.keys(selectedSupplements).forEach(id => {
-            const supplement = activeSupplements.find(s => s.id.toString() === id.toString());
-            if (supplement && selectedSupplements[id]) {
-                price += supplement.price;
-                // Asumimos que el suplemento es 100% beneficio o tiene un coste despreciable por ahora
-            }
+        Object.entries(selectedPacks).forEach(([packId, packQty]) => {
+            const packSups = selectedSupplements[packId] || {};
+            Object.entries(packSups).forEach(([supId, supQty]) => {
+                const supplement = activeSupplements.find(s => s.id.toString() === supId.toString());
+                if (supplement && supQty > 0) {
+                    price += supplement.price * supQty;
+                }
+            });
         });
 
         // Sumar Extras
@@ -688,7 +690,15 @@ export default function App() {
     const togglePack = (packId) => {
         setSelectedPacks(prev => {
             const newPacks = { ...prev };
-            if (newPacks[packId]) delete newPacks[packId];
+            if (newPacks[packId]) {
+                delete newPacks[packId];
+                // Limpiar suplementos asociados
+                setSelectedSupplements(prevSups => {
+                    const newSups = { ...prevSups };
+                    delete newSups[packId];
+                    return newSups;
+                });
+            }
             else newPacks[packId] = 1;
             return newPacks;
         });
@@ -698,11 +708,28 @@ export default function App() {
         setSelectedPacks(prev => ({ ...prev, [packId]: Math.max(1, qty) }));
     };
 
-    const toggleSupplement = (id) => {
-        setSelectedSupplements(prev => ({
-            ...prev,
-            [id]: !prev[id]
-        }));
+    const toggleSupplement = (packId, supId) => {
+        setSelectedSupplements(prev => {
+            const packSups = { ...(prev[packId] || {}) };
+            if (packSups[supId]) {
+                delete packSups[supId];
+            } else {
+                packSups[supId] = 1;
+            }
+            return { ...prev, [packId]: packSups };
+        });
+    };
+
+    const updateSupplementQuantity = (packId, supId, qty) => {
+        setSelectedSupplements(prev => {
+            const packSups = { ...(prev[packId] || {}) };
+            if (qty <= 0) {
+                delete packSups[supId];
+            } else {
+                packSups[supId] = qty;
+            }
+            return { ...prev, [packId]: packSups };
+        });
     };
 
     // Helpers comunes
@@ -727,15 +754,21 @@ export default function App() {
         const packsDesc = getPacksDesc();
         const mainPackId = Object.keys(selectedPacks)[0];
 
-        // Suplementos descripción
+        // Suplementos descripción agrupada
         const activeSupplements = settings.supplements || [];
-        const supplementsDesc = Object.keys(selectedSupplements)
-            .filter(id => selectedSupplements[id])
-            .map(id => {
-                const s = activeSupplements.find(sup => sup.id.toString() === id.toString());
-                return s ? s.name : id;
+        const supplementsDesc = Object.entries(selectedSupplements)
+            .map(([packId, packSups]) => {
+                const p = allPacks.find(x => x.id === packId);
+                const sups = Object.entries(packSups)
+                    .map(([sId, sQty]) => {
+                        const s = activeSupplements.find(sup => sup.id.toString() === sId.toString());
+                        return `${sQty > 1 ? `${sQty}x ` : ''}${s?.name || sId}`;
+                    })
+                    .join(', ');
+                return sups ? `${p?.name || packId}: ${sups}` : '';
             })
-            .join(', ');
+            .filter(Boolean)
+            .join(' | ');
 
         const newOrder = {
             studentName: formData.studentName,
@@ -746,7 +779,16 @@ export default function App() {
             packs: Object.entries(selectedPacks).map(([id, qty]) => ({
                 id,
                 name: allPacks.find(p => p.id === id)?.name || id,
-                quantity: qty
+                quantity: qty,
+                supplements: Object.entries(selectedSupplements[id] || {}).map(([sId, sQty]) => {
+                    const s = (settings.supplements || []).find(sup => sup.id.toString() === sId.toString());
+                    return {
+                        id: sId,
+                        name: s?.name || sId,
+                        quantity: sQty,
+                        price: s?.price || 0
+                    };
+                })
             })),
             pack: { id: mainPackId, label: packsDesc }, // Para compatibilidad
             packId: mainPackId,
@@ -1459,6 +1501,7 @@ export default function App() {
                             setSelectedPacks={setSelectedPacks}
                             selectedSupplements={selectedSupplements}
                             toggleSupplement={toggleSupplement}
+                            updateSupplementQuantity={updateSupplementQuantity}
                             extras={extras}
                             setExtras={setExtras}
                             orderTotals={orderTotals}
