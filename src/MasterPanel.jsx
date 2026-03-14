@@ -250,6 +250,15 @@ export default function MasterPanel({ onBack }) {
         );
     };
 
+    // Nuevo componente para cargar el logo desde la sub-colección config/main
+    const PhotographerBranding = () => {
+        return (
+            <div className="w-10 h-10 bg-gradient-to-br from-white/10 to-white/5 rounded-xl flex items-center justify-center border border-white/10 overflow-hidden shrink-0">
+                <Globe size={18} className="text-white/20" />
+            </div>
+        );
+    };
+
     const getInvoiceHTML = (p) => {
         const amount = p.plan === 'pro' ? 449 : p.plan === 'flex' ? 249 : 149;
         const iva = (amount * 0.21).toFixed(2);
@@ -672,13 +681,7 @@ export default function MasterPanel({ onBack }) {
                                             <tr key={p.id} className="hover:bg-white/[0.02] transition-colors">
                                                 <td className="px-6 py-6">
                                                     <div className="flex items-center gap-4">
-                                                        <div className="w-12 h-12 bg-gradient-to-br from-white/10 to-white/5 rounded-2xl flex items-center justify-center border border-white/10 overflow-hidden">
-                                                            {p.logoUrl ? (
-                                                                <img src={p.logoUrl} className="w-full h-full object-contain p-2" alt="Logo" />
-                                                            ) : (
-                                                                <Globe size={20} className="text-white/20" />
-                                                            )}
-                                                        </div>
+                                                        <PhotographerBranding id={p.id} />
                                                         <div className="flex flex-col">
                                                             <p className="font-black text-lg tracking-tight leading-none uppercase">{p.id}</p>
                                                             <div className="flex items-center gap-2 mt-2">

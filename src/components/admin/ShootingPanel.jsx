@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { COURSE_GROUPS, PACKS, EXTRAS, STAFF_ROLES } from '../../constants.js';
 import { toTitleCase, getCourseBase, getGroup } from '../../utils/formatters.js';
+import Swal from 'sweetalert2';
 
 const ShootingPanel = ({
     orders,
@@ -94,12 +95,13 @@ const ShootingPanel = ({
         const photographerName = settings?.fiscalName || 'Pujalte Creative Studio';
         const currentYear = 2026;
 
+        const paymentMethodLabel = (newStudentForm.paymentMethod || 'efectivo').toUpperCase();
         const msg = `¡Hola! 👋 Soy *${photographerName}*.\n\n` +
             `Confirmamos el alta de *${newStudentForm.studentName || newStudentForm.name}* para hacerse la foto para la orla de graduación ${currentYear}. 📸\n\n` +
             `📦 *Pack:* ${packName}\n` +
             (supplementsNames.length > 0 ? `✨ *Suplementos:* ${supplementsNames.join(', ')}\n` : '') +
             `💰 *Total pagado:* ${total}€\n\n` +
-            `Hemos recibido el dinero en EFECTIVO en el momento de la sesión. Si necesita cualquier aclaración, estamos a su entera disposición.\n\n` +
+            `Hemos recibido el dinero en *${paymentMethodLabel}* en el momento de la sesión. Si necesita cualquier aclaración, estamos a su entera disposición.\n\n` +
             `¡Muchas gracias!`;
 
         const cleanPhone = newStudentForm.phone.replace(/\s+/g, '').replace('+', '');
@@ -107,9 +109,27 @@ const ShootingPanel = ({
     };
 
     const handleSaveQuickAdd = () => {
-        if ((!newStudentForm.studentName && !newStudentForm.name) || (!newStudentForm.packId && !newStudentForm.pack)) return;
-
+        // Validación de campos requeridos
+        const missingFields = [];
+        const studentName = newStudentForm.studentName || newStudentForm.name;
         const packId = newStudentForm.packId || newStudentForm.pack;
+        const course = newStudentForm.course || shootFilters.course;
+
+        if (!studentName) missingFields.push('Nombre del Alumno/a');
+        if (!course) missingFields.push('Curso');
+        if (!packId) missingFields.push('Pack de Selección');
+
+        if (missingFields.length > 0) {
+            Swal.fire({
+                title: 'Campos incompletos',
+                html: `Por favor, completa los siguientes campos obligatorios:<br/><br/><b class="text-red-500">${missingFields.join('<br/>')}</b>`,
+                icon: 'warning',
+                confirmButtonColor: '#52b788',
+                confirmButtonText: 'Entendido'
+            });
+            return;
+        }
+
         const selectedPack = PACKS.find(p => p.id === packId);
         const total = calculateQuickTotal();
 
@@ -125,12 +145,14 @@ const ShootingPanel = ({
             price: total,
             timestamp: new Date().toISOString(),
             status: 'Pendiente',
-            paymentMethod: 'efectivo'
+            paymentMethod: newStudentForm.paymentMethod || 'efectivo'
         };
 
         addOrder(orderData);
 
-        // Reset form
+        addOrder(orderData);
+
+        // Reset form completo
         setNewStudentForm({
             schoolId: '',
             studentName: '',
@@ -141,18 +163,34 @@ const ShootingPanel = ({
             phone: '',
             email: '',
             packId: '',
+            pack: '', // Aseguramos limpieza de ambos
             extras: [],
             complements: [],
             notes: '',
             photoFile: '',
             status: 'Pendiente',
-            paymentMethod: ''
+            paymentMethod: 'efectivo'
         });
         setShowQuickExtras(false);
     };
 
     const handleSaveStaffQuickAdd = () => {
-        if (!newStaffForm.firstName || !newStaffForm.lastName || !newStaffForm.role) return;
+        const missingFields = [];
+        if (!newStaffForm.firstName?.trim()) missingFields.push('Nombre');
+        if (!newStaffForm.lastName?.trim()) missingFields.push('Apellidos');
+        if (!newStaffForm.role?.trim()) missingFields.push('Cargo Principal');
+        
+        if (missingFields.length > 0) {
+            import('sweetalert2').then(({ default: Swal }) => {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Faltan datos del docente',
+                    text: `Por favor, completa: ${missingFields.join(', ')}`,
+                    confirmButtonColor: '#6366f1'
+                });
+            });
+            return;
+        }
 
         // Limpiamos campos temporales antes de guardar
         const { tempCourse, tempGroup, ...staffData } = newStaffForm;
@@ -229,7 +267,6 @@ const ShootingPanel = ({
     const filteredOrders = useMemo(() => {
         if (!orders || !Array.isArray(orders)) return [];
         return orders.filter(order => {
-            if (adminSchool && order.schoolId !== adminSchool) return false;
             if (shootSearch) {
                 const searchLower = shootSearch.toLowerCase();
                 const matchesSearch =
@@ -274,6 +311,22 @@ const ShootingPanel = ({
         return member.assignments.filter(a => !adminSchool || a.schoolId === adminSchool);
     };
 
+    const handleStartEditStaff = (member) => {
+        const initialRoles = member.roles || (member.role ? member.role.split(' • ') : []);
+        setStaffAssigning({
+            member,
+            firstName: member.firstName || member.name?.split(' ')[0] || '',
+            lastName: member.lastName || member.name?.split(' ').slice(1).join(' ') || '',
+            roles: initialRoles,
+            tempRole: '',
+            assignments: getStaffAssignments(member),
+            tempCourse: '',
+            tempGroup: '',
+            tempFile: member.photoFile || '',
+            schoolId: member.schoolId || adminSchool || ''
+        });
+    };
+
     const getPackName = (packData) => {
         if (!packData) return 'Sin Pack';
         const packId = typeof packData === 'object' ? packData.id : packData;
@@ -307,7 +360,7 @@ const ShootingPanel = ({
 
                         {/* Selector Centro */}
                         <div className="flex-1 hidden md:block relative max-w-2xl mx-auto">
-                            <select value={adminSchool} onChange={e => { setAdminSchool(e.target.value); setShootFilters({ course: '', group: '' }); }} className="w-full bg-primary/[0.02] border border-primary/10 text-primary text-[11px] font-bold uppercase tracking-wide rounded-[12px] px-6 py-3 h-[42px] outline-none appearance-none cursor-pointer hover:bg-primary/[0.04] transition-colors shadow-sm text-center truncate pr-10">
+                            <select value={adminSchool} onChange={e => { setAdminSchool(e.target.value); setShootFilters({ course: '', group: '' }); }} className="w-full bg-primary/[0.02] border border-primary/10 text-primary text-[11px] font-bold uppercase tracking-wide rounded-[12px] px-6 py-2.5 h-11 leading-normal outline-none appearance-none cursor-pointer hover:bg-primary/[0.04] transition-colors shadow-sm text-center truncate pr-10">
                                 <option value="">TODOS LOS CENTROS</option>
                                 {sortedSchools.map(s => (
                                     <option key={s.id} value={s.id}>{s.name.toUpperCase()}</option>
@@ -350,7 +403,7 @@ const ShootingPanel = ({
                                 {isFiltersExpanded && (
                                     <div className="px-5 pb-5 border-t border-primary/5 animate-in slide-in-from-top-2 duration-300">
                                         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-end pt-5">
-                                            <div className="md:col-span-5 space-y-2">
+                                            <div className="md:col-span-7 space-y-2">
                                                 <p className="text-[10px] font-bold uppercase tracking-widest text-primary/40 pl-1">Buscador</p>
                                                 <div className="flex items-center bg-transparent border border-primary/10 rounded-xl overflow-hidden focus-within:border-blue-500/50 focus-within:ring-1 focus-within:ring-blue-500/50 transition-all group/field">
                                                     <div className="px-4 py-3 border-r border-primary/10 text-primary/30 group-focus-within/field:text-blue-500 transition-colors">
@@ -360,7 +413,7 @@ const ShootingPanel = ({
                                                 </div>
                                             </div>
 
-                                            <div className="md:col-span-5 space-y-2">
+                                            <div className="md:col-span-3 space-y-2">
                                                 <p className="text-[10px] font-bold uppercase tracking-widest text-primary/40 pl-1">Curso</p>
                                                 <div className="flex items-center bg-transparent border border-primary/10 rounded-xl overflow-hidden focus-within:border-blue-500/50 focus-within:ring-1 focus-within:ring-blue-500/50 transition-all group/field relative">
                                                     <div className="px-4 py-3 border-r border-primary/10 text-primary/30 group-focus-within/field:text-blue-500 transition-colors">
@@ -509,9 +562,8 @@ const ShootingPanel = ({
                                                 </div>
                                             </div>
 
-                                            {/* FILA 3: PACK Y OBSERVACIONES */}
                                             <div className="grid grid-cols-1 md:grid-cols-12 gap-5 pt-5 pb-5 items-end border-b border-dashed border-primary/20">
-                                                <div className="md:col-span-4 space-y-2">
+                                                <div className="md:col-span-3 space-y-2">
                                                     <p className="text-[10px] font-bold uppercase tracking-widest text-primary/40 pl-1">Pack Selección</p>
                                                     <div className="flex items-center bg-transparent border border-primary/10 rounded-xl overflow-hidden focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/50 transition-all group/select relative">
                                                         <div className="px-4 py-3 border-r border-primary/10 text-primary/30 group-focus-within/select:text-emerald-500 transition-colors">
@@ -527,18 +579,35 @@ const ShootingPanel = ({
                                                     </div>
                                                 </div>
 
-                                                <div className="md:col-span-5 space-y-2">
-                                                    <p className="text-[10px] font-bold uppercase tracking-widest text-primary/40 pl-1">Observaciones / Notas del pedido</p>
+                                                <div className="md:col-span-3 space-y-2">
+                                                    <p className="text-[10px] font-bold uppercase tracking-widest text-primary/40 pl-1">Forma de Pago</p>
+                                                    <div className="flex items-center bg-transparent border border-primary/10 rounded-xl overflow-hidden focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/50 transition-all group/select relative">
+                                                        <div className="px-4 py-3 border-r border-primary/10 text-primary/30 group-focus-within/select:text-emerald-500 transition-colors">
+                                                            <CreditCard size={18} />
+                                                        </div>
+                                                        <select value={newStudentForm.paymentMethod || 'efectivo'} onChange={e => setNewStudentForm(p => ({ ...p, paymentMethod: e.target.value }))} className="flex-1 bg-transparent px-4 py-3 text-[13px] uppercase outline-none appearance-none cursor-pointer text-primary pr-10 min-w-0">
+                                                            <option value="efectivo">Efectivo</option>
+                                                            <option value="bizum">Bizum</option>
+                                                            <option value="card">Tarjeta</option>
+                                                        </select>
+                                                        <div className="absolute right-4 pointer-events-none text-primary/30 group-focus-within/select:text-emerald-500 transition-colors">
+                                                            <ChevronDown size={16} />
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="md:col-span-3 space-y-2">
+                                                    <p className="text-[10px] font-bold uppercase tracking-widest text-primary/40 pl-1">Notas / Observaciones</p>
                                                     <div className="flex items-start bg-transparent border border-primary/10 rounded-xl overflow-hidden focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/50 transition-all group/field">
                                                         <div className="px-4 py-3 border-r border-primary/10 text-primary/30 group-focus-within/field:text-emerald-500 transition-colors self-stretch flex items-center">
                                                             <FileText size={18} />
                                                         </div>
-                                                        <textarea value={newStudentForm.notes} onChange={e => setNewStudentForm(p => ({ ...p, notes: e.target.value }))} placeholder="Detalles o suplementos..." rows={1} className="flex-1 bg-transparent px-4 py-3 text-[13px] text-primary placeholder:text-primary/20 outline-none resize-none custom-scrollbar" />
+                                                        <textarea value={newStudentForm.notes} onChange={e => setNewStudentForm(p => ({ ...p, notes: e.target.value }))} placeholder="Detalles..." rows={1} className="flex-1 bg-transparent px-4 py-3 text-[13px] text-primary placeholder:text-primary/20 outline-none resize-none custom-scrollbar" />
                                                     </div>
                                                 </div>
 
                                                 <div className="md:col-span-3 flex items-end">
-                                                    <button onClick={handleSaveQuickAdd} disabled={(!newStudentForm.studentName && !newStudentForm.name) || (!newStudentForm.packId && !newStudentForm.pack) || !newStudentForm.course} className="w-full h-[46px] bg-[#52b788] hover:bg-[#40a075] disabled:bg-primary/5 disabled:border disabled:border-primary/10 disabled:text-primary/20 text-white text-[14px] font-bold rounded-xl shadow-md shadow-emerald-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                                                    <button onClick={handleSaveQuickAdd} className="w-full h-[46px] bg-[#52b788] hover:bg-[#40a075] disabled:bg-primary/5 disabled:border disabled:border-primary/10 disabled:text-primary/20 text-white text-[14px] font-bold rounded-xl shadow-md shadow-emerald-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
                                                         <CheckCircle size={18} /> Guardar Alumno
                                                     </button>
                                                 </div>
@@ -584,10 +653,10 @@ const ShootingPanel = ({
                                         )}
                                         {isStudentListExpanded && (
                                             <div className="hidden md:flex items-center gap-1 p-1 rounded-[10px] bg-primary/[0.02] border border-primary/10 shadow-sm" onClick={e => e.stopPropagation()}>
-                                                <button onClick={() => setViewStyle('grid')} className={`w-8 h-8 rounded-[6px] transition-all flex items-center justify-center ${viewStyle === 'grid' ? 'bg-white shadow-sm text-primary' : 'text-primary/40 hover:text-primary hover:bg-primary/5'}`} title="Cuadrícula">
+                                                <button onClick={() => setViewStyle('grid')} className={`w-8 h-8 rounded-[6px] transition-all flex items-center justify-center ${viewStyle === 'grid' ? 'bg-white shadow-sm text-slate-900' : 'text-primary/40 hover:text-primary hover:bg-primary/5'}`} title="Cuadrícula">
                                                     <LayoutGrid size={16} />
                                                 </button>
-                                                <button onClick={() => setViewStyle('list')} className={`w-8 h-8 rounded-[6px] transition-all flex items-center justify-center ${viewStyle === 'list' ? 'bg-white shadow-sm text-primary' : 'text-primary/40 hover:text-primary hover:bg-primary/5'}`} title="Lista / Edición">
+                                                <button onClick={() => setViewStyle('list')} className={`w-8 h-8 rounded-[6px] transition-all flex items-center justify-center ${viewStyle === 'list' ? 'bg-white shadow-sm text-slate-900' : 'text-primary/40 hover:text-primary hover:bg-primary/5'}`} title="Lista / Edición">
                                                     <List size={18} />
                                                 </button>
                                             </div>
@@ -926,10 +995,10 @@ const ShootingPanel = ({
                                                     )}
                                                 </div>
                                                 <div className="hidden md:flex items-center gap-1 p-1 rounded-[10px] bg-primary/[0.02] border border-primary/10 shadow-sm mr-2" onClick={e => e.stopPropagation()}>
-                                                    <button onClick={() => setStaffViewStyle('grid')} className={`w-8 h-8 rounded-[6px] transition-all flex items-center justify-center ${staffViewStyle === 'grid' ? 'bg-white shadow-sm text-primary' : 'text-primary/40 hover:text-primary hover:bg-primary/5'}`} title="Cuadrícula">
+                                                    <button onClick={() => setStaffViewStyle('grid')} className={`w-8 h-8 rounded-[6px] transition-all flex items-center justify-center ${staffViewStyle === 'grid' ? 'bg-white shadow-sm text-slate-900' : 'text-primary/40 hover:text-primary hover:bg-primary/5'}`} title="Cuadrícula">
                                                         <LayoutGrid size={16} />
                                                     </button>
-                                                    <button onClick={() => setStaffViewStyle('list')} className={`w-8 h-8 rounded-[6px] transition-all flex items-center justify-center ${staffViewStyle === 'list' ? 'bg-white shadow-sm text-primary' : 'text-primary/40 hover:text-primary hover:bg-primary/5'}`} title="Lista">
+                                                    <button onClick={() => setStaffViewStyle('list')} className={`w-8 h-8 rounded-[6px] transition-all flex items-center justify-center ${staffViewStyle === 'list' ? 'bg-white shadow-sm text-slate-900' : 'text-primary/40 hover:text-primary hover:bg-primary/5'}`} title="Lista">
                                                         <List size={18} />
                                                     </button>
                                                 </div>
@@ -992,21 +1061,7 @@ const ShootingPanel = ({
                                                                         </div>
                                                                     )}
                                                                 </div>
-                                                                <button onClick={() => {
-                                                                    const initialRoles = member.roles || (member.role ? member.role.split(' • ') : []);
-                                                                    setStaffAssigning({
-                                                                        member,
-                                                                        firstName: member.firstName || member.name?.split(' ')[0] || '',
-                                                                        lastName: member.lastName || member.name?.split(' ').slice(1).join(' ') || '',
-                                                                        roles: initialRoles,
-                                                                        tempRole: '',
-                                                                        assignments: getStaffAssignments(member),
-                                                                        tempCourse: '',
-                                                                        tempGroup: '',
-                                                                        tempFile: member.photoFile || '',
-                                                                        schoolId: member.schoolId || adminSchool || ''
-                                                                    });
-                                                                }} className="w-full py-2.5 bg-indigo-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-sm hover:bg-indigo-600 transition-all flex items-center justify-center gap-2">
+                                                                <button onClick={() => handleStartEditStaff(member)} className="w-full py-2.5 bg-indigo-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-sm hover:bg-indigo-600 transition-all flex items-center justify-center gap-2">
                                                                     <Users size={14} /> Editar Ficha Docente
                                                                 </button>
                                                             </div>
@@ -1105,7 +1160,7 @@ const ShootingPanel = ({
                                                                             <button onClick={() => selectStudent({ ...member, isStaff: true, studentName: member.name || `${member.firstName} ${member.lastName}` })} className="p-2.5 bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white rounded-xl transition-colors border border-blue-100 tooltip-trigger shadow-sm" title="Modo Disparo">
                                                                                 <Camera size={16} />
                                                                             </button>
-                                                                            <button onClick={(e) => { e.stopPropagation(); setStaffToEdit(member); }} className="px-5 py-2.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-500 hover:text-white border border-indigo-100 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-2 shadow-sm">
+                                                                            <button onClick={(e) => { e.stopPropagation(); handleStartEditStaff(member); }} className="px-5 py-2.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-500 hover:text-white border border-indigo-100 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-2 shadow-sm">
                                                                                 Editar
                                                                             </button>
                                                                         </div>

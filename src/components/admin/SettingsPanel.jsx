@@ -33,6 +33,9 @@ const SettingsPanel = ({
 
     const [notifForm, setNotifForm] = useState({ title: '', body: '' });
     const [sendingNotif, setSendingNotif] = useState(false);
+    const [editingSchool, setEditingSchool] = useState(null);
+    const [pendingLogos, setPendingLogos] = useState({ light: null, dark: null });
+    const [isSavingLogo, setIsSavingLogo] = useState(false);
 
     const toggleSection = (section) => {
         setOpenSections(prev => ({ ...prev, [section]: !prev[section] }));
@@ -98,148 +101,211 @@ const SettingsPanel = ({
                 />
 
                 <div className={`transition-all duration-700 ease-in-out ${openSections.general ? 'max-h-[3000px] opacity-100 p-8 pt-2' : 'max-h-0 opacity-0 pointer-events-none overflow-hidden'}`}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-
-                        {/* Sub-bloque: Pagos y Seguridad */}
-                        <div className="space-y-6">
-                            <h4 className="text-[11px] font-black text-indigo-500 uppercase tracking-[0.3em] mb-4 flex items-center gap-3">
-                                <Shield size={16} /> Pagos y Seguridad
+                    <div className="grid grid-cols-1 gap-8">
+                        {/* FILA 1: Pagos en una sola línea */}
+                        <div className="col-span-full bg-primary/2 p-6 rounded-[2.5rem] border border-primary/5">
+                            <h4 className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.3em] mb-6 flex items-center justify-center gap-3">
+                                <Shield size={16} /> Métodos de Pago Activos
                             </h4>
-                            <div className="grid grid-cols-1 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                 {paymentMethods.map(method => (
-                                    <div key={method.id} className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${method.enabled ? 'bg-indigo-500/5 border-indigo-500/20' : 'bg-primary/2 border-primary/5 opacity-40'}`}>
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg ${method.enabled ? 'bg-indigo-500/10 text-indigo-400' : 'bg-primary/5 text-secondary'}`}>
+                                    <div key={method.id} className={`group/pm flex items-center justify-between p-4 rounded-2xl border transition-all relative ${method.enabled ? 'bg-indigo-500/10 border-indigo-500/30 ring-1 ring-indigo-500/20' : 'bg-primary/2 border-primary/5 opacity-60'}`}>
+                                        {/* Botón de Información FUERA de la isla */}
+                                        <div className="absolute -top-1.5 -right-1.5 z-10 flex items-center justify-center group/info">
+                                            <div className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold bg-white dark:bg-gray-800 text-indigo-500 shadow-md group-hover/info:bg-indigo-500 group-hover/info:text-white transition-all cursor-help border border-indigo-500/20">
+                                                i
+                                            </div>
+                                            {/* Tooltip flotante */}
+                                            <div className="absolute bottom-full right-0 mb-2 w-56 p-3 bg-white dark:bg-gray-800 rounded-xl shadow-2xl opacity-0 translate-y-2 pointer-events-none group-hover/info:opacity-100 group-hover/info:translate-y-0 transition-all z-[60] border border-indigo-500/30">
+                                                <p className="text-[10px] text-gray-700 dark:text-gray-200 font-semibold leading-relaxed">
+                                                    {method.desc || 'Sin descripción disponible'}
+                                                </p>
+                                                <div className="absolute bottom-[-4px] right-2 w-2 h-2 bg-white dark:bg-gray-800 rotate-45 border-r border-b border-indigo-500/30" />
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-base shadow-sm shrink-0 transition-all ${method.enabled ? 'bg-indigo-500/20 text-indigo-400 scale-110' : 'bg-primary/5 text-secondary opacity-40'}`}>
                                                 {method.icon}
                                             </div>
-                                            <span className="text-[10px] font-black uppercase tracking-wider">{method.label}</span>
+                                            <span className={`text-[10px] font-black uppercase tracking-normal transition-colors truncate ${method.enabled ? 'text-indigo-400' : 'text-secondary/40'}`}>
+                                                {method.label}
+                                            </span>
                                         </div>
-                                        <button onClick={() => togglePaymentMethod(method.id)} className={`w-10 h-6 rounded-full relative transition-all duration-300 ${method.enabled ? 'bg-indigo-500' : 'bg-primary/20'}`}>
-                                            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-all duration-300 ${method.enabled ? 'right-1' : 'left-1'}`} />
+                                        
+                                        <button 
+                                            onClick={() => togglePaymentMethod(method.id)} 
+                                            className={`w-12 h-6 flex-shrink-0 rounded-full relative transition-all duration-500 shadow-inner p-1 group/sw ${method.enabled ? 'bg-indigo-500 shadow-[0_4px_10px_rgba(99,102,241,0.3)]' : 'bg-primary/20'}`}
+                                            style={{ transitionTimingFunction: 'cubic-bezier(0.68, -0.6, 0.32, 1.6)' }}
+                                        >
+                                            <div 
+                                                className={`w-4 h-4 bg-white rounded-full shadow-lg transition-all duration-500 transform ${method.enabled ? 'translate-x-6 scale-110' : 'translate-x-0 scale-90 opacity-80'}`}
+                                                style={{ transitionTimingFunction: 'cubic-bezier(0.68, -0.6, 0.32, 1.6)' }}
+                                            />
                                         </button>
                                     </div>
                                 ))}
                             </div>
-                            <div className="pt-4 space-y-5">
-                                <div>
-                                    <label className="text-[9px] font-black text-secondary uppercase tracking-widest block mb-2 opacity-60">Pin de Acceso</label>
-                                    <input type="text" maxLength={4} className="input-dark w-full py-4 text-sm tracking-[1.2em] font-black text-center rounded-xl border-indigo-500/10" placeholder="XXXX" onChange={e => {
-                                        const val = e.target.value.replace(/\D/g, '').substring(0, 4);
-                                        if (val.length === 4) { updateAdminPin(val); alert('✅ PIN actualizado'); e.target.value = ''; }
-                                    }} />
-                                </div>
-                                <div className="p-5 bg-pink-500/5 border border-pink-500/10 rounded-2xl">
-                                    <label className="text-[9px] font-black text-pink-500 uppercase tracking-widest block mb-3 flex items-center gap-2">
-                                        <Gift size={14} /> % Descuento Regalo
-                                    </label>
-                                    <div className="relative">
-                                        <input type="number" min="0" max="100" defaultValue={settings?.giftDiscount || 25} className="input-dark bg-slate-900/50 w-full py-4 text-sm font-black text-center rounded-xl pr-10 border-pink-500/10" onChange={e => {
-                                            const val = parseInt(e.target.value);
-                                            if (!isNaN(val) && val >= 0 && val <= 100) updateSettings({ giftDiscount: val });
+                        </div>
+
+                        {/* FILA 2: Tres columnas de detalle */}
+                        <div className="col-span-full grid grid-cols-1 md:grid-cols-3 gap-8 pt-4">
+
+                            {/* Columna 1: PIN y Descuento */}
+                            <div className="space-y-6">
+                                <h4 className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.3em] mb-4 flex items-center gap-3">
+                                    <Shield size={16} /> Seguridad y Ofertas
+                                </h4>
+                                <div className="space-y-5">
+                                    <div className="p-5 bg-primary/2 border border-primary/5 rounded-[2rem]">
+                                        <label className="text-[9px] font-black text-secondary uppercase tracking-widest block mb-4 opacity-60 text-center">Pin de Acceso</label>
+                                        <input type="text" maxLength={4} className="input-dark w-full py-4 text-sm tracking-[1.2em] font-black text-center rounded-xl border-indigo-500/10 bg-slate-900/40" placeholder="XXXX" onChange={e => {
+                                            const val = e.target.value.replace(/\D/g, '').substring(0, 4);
+                                            if (val.length === 4) { updateAdminPin(val); alert('✅ PIN actualizado'); e.target.value = ''; }
                                         }} />
-                                        <span className="absolute right-6 top-1/2 -translate-y-1/2 text-secondary font-black text-sm opacity-30">%</span>
+                                    </div>
+                                    <div className="p-6 bg-pink-500/5 border border-pink-500/10 rounded-[2rem]">
+                                        <label className="text-[9px] font-black text-pink-500 uppercase tracking-widest block mb-4 flex items-center justify-center gap-2">
+                                            <Gift size={14} /> % Descuento Regalo
+                                        </label>
+                                        <div className="relative">
+                                            <input type="number" min="0" max="100" defaultValue={settings?.giftDiscount || 25} className="input-dark bg-slate-900/50 w-full py-4 text-sm font-black text-center rounded-xl pr-10 border-pink-500/10" onChange={e => {
+                                                const val = parseInt(e.target.value);
+                                                if (!isNaN(val) && val >= 0 && val <= 100) updateSettings({ giftDiscount: val });
+                                            }} />
+                                            <span className="absolute right-6 top-1/2 -translate-y-1/2 text-secondary font-black text-sm opacity-30">%</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        {/* Sub-bloque: Identidad y Logo */}
-                        <div className="space-y-6">
-                            <h4 className="text-[11px] font-black text-violet-500 uppercase tracking-[0.3em] mb-4 flex items-center gap-3">
-                                <Sparkles size={16} /> Identidad y Logo
-                            </h4>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <label className="text-[8px] font-black text-secondary uppercase tracking-widest block opacity-40 text-center">LIGHT</label>
-                                    <input type="file" accept="image/png" id="logo-light-upload" className="hidden"
-                                        onChange={(e) => {
-                                            const file = e.target.files[0];
-                                            if (file) {
-                                                const reader = new FileReader();
-                                                reader.onload = (ev) => {
-                                                    const img = new Image(); img.src = ev.target.result;
-                                                    img.onload = () => {
-                                                        const canvas = document.createElement('canvas');
-                                                        const scale = Math.min(1, 800 / img.width);
-                                                        canvas.width = img.width * scale; canvas.height = img.height * scale;
-                                                        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-                                                        updateSettings({ logoUrl: canvas.toDataURL('image/png', 0.8) });
+                            {/* Columna 2: Identidad y Logo */}
+                            <div className="space-y-6">
+                                <h4 className="text-[10px] font-black text-violet-500 uppercase tracking-[0.3em] mb-4 flex items-center gap-3">
+                                    <Sparkles size={16} /> Identidad y Logo
+                                </h4>
+                                <div className="flex flex-col gap-4">
+                                    {/* LOGO LIGHT */}
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between px-2">
+                                            <label className="text-[8px] font-black text-secondary uppercase tracking-widest opacity-40">Logo Light</label>
+                                            {settings.logoUrl && <Sun size={12} className="text-amber-400" />}
+                                        </div>
+                                        <input type="file" accept="image/png" id="logo-light-upload" className="hidden"
+                                            onChange={(e) => {
+                                                const file = e.target.files[0];
+                                                if (file) {
+                                                    const reader = new FileReader();
+                                                    reader.onload = (ev) => {
+                                                        const img = new Image(); img.src = ev.target.result;
+                                                        img.onload = () => {
+                                                            const canvas = document.createElement('canvas');
+                                                            const scale = Math.min(1, 800 / img.width);
+                                                            canvas.width = img.width * scale; canvas.height = img.height * scale;
+                                                            canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                                                            const dataUrl = canvas.toDataURL('image/png', 0.8);
+                                                            setPendingLogos(prev => ({ ...prev, light: dataUrl }));
+                                                        };
                                                     };
-                                                };
-                                                reader.readAsDataURL(file);
+                                                    reader.readAsDataURL(file);
+                                                }
+                                            }}
+                                        />
+                                        <label htmlFor="logo-light-upload" className={`w-full h-24 bg-white/5 border-2 border-dashed rounded-2xl flex items-center justify-center cursor-pointer hover:border-violet-500 transition-all overflow-hidden p-3 group ${pendingLogos.light ? 'border-violet-500/50 ring-2 ring-violet-500/20' : 'border-primary/10'}`}>
+                                            {(pendingLogos.light || settings.logoUrl) ? <img src={pendingLogos.light || settings.logoUrl} alt="Light" className="w-full h-full object-contain" /> : <Sun size={20} className="text-secondary/20 group-hover:scale-110 transition-transform" />}
+                                        </label>
+                                    </div>
+
+                                    {/* LOGO DARK */}
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between px-2">
+                                            <label className="text-[8px] font-black text-secondary uppercase tracking-widest opacity-40">Logo Dark</label>
+                                            {settings.logoUrlDark && <Moon size={12} className="text-violet-400" />}
+                                        </div>
+                                        <input type="file" accept="image/png" id="logo-dark-upload" className="hidden"
+                                            onChange={(e) => {
+                                                const file = e.target.files[0];
+                                                if (file) {
+                                                    const reader = new FileReader();
+                                                    reader.onload = (ev) => {
+                                                        const img = new Image(); img.src = ev.target.result;
+                                                        img.onload = () => {
+                                                            const canvas = document.createElement('canvas');
+                                                            const scale = Math.min(1, 800 / img.width);
+                                                            canvas.width = img.width * scale; canvas.height = img.height * scale;
+                                                            canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                                                            const dataUrl = canvas.toDataURL('image/png', 0.8);
+                                                            setPendingLogos(prev => ({ ...prev, dark: dataUrl }));
+                                                        };
+                                                    };
+                                                    reader.readAsDataURL(file);
+                                                }
+                                            }}
+                                        />
+                                        <label htmlFor="logo-dark-upload" className={`w-full h-24 bg-slate-900/50 border-2 border-dashed rounded-2xl flex items-center justify-center cursor-pointer hover:border-violet-500 transition-all overflow-hidden p-3 group ${pendingLogos.dark ? 'border-violet-500/50 ring-2 ring-violet-500/20' : 'border-slate-700'}`}>
+                                            {(pendingLogos.dark || settings.logoUrlDark) ? <img src={pendingLogos.dark || settings.logoUrlDark} alt="Dark" className="w-full h-full object-contain" /> : <Moon size={20} className="text-white/10 group-hover:scale-110 transition-transform" />}
+                                        </label>
+                                    </div>
+                                </div>
+
+                                {(pendingLogos.light || pendingLogos.dark) && (
+                                    <button
+                                        onClick={async () => {
+                                            setIsSavingLogo(true);
+                                            try {
+                                                const updates = {};
+                                                if (pendingLogos.light) updates.logoUrl = pendingLogos.light;
+                                                if (pendingLogos.dark) updates.logoUrlDark = pendingLogos.dark;
+                                                await updateSettings(updates);
+                                                setPendingLogos({ light: null, dark: null });
+                                            } catch (e) {
+                                                alert("❌ Error al guardar logo");
+                                            } finally {
+                                                setIsSavingLogo(false);
                                             }
                                         }}
-                                    />
-                                    <label htmlFor="logo-light-upload" className="w-full h-28 bg-white/5 border-2 border-dashed border-primary/10 rounded-2xl flex items-center justify-center cursor-pointer hover:border-violet-500 transition-all overflow-hidden p-3 group">
-                                        {settings.logoUrl ? <img src={settings.logoUrl} alt="Light" className="w-full h-full object-contain" /> : <Sun size={20} className="text-secondary/20 group-hover:scale-110 transition-transform" />}
-                                    </label>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[8px] font-black text-secondary uppercase tracking-widest block opacity-40 text-center">DARK</label>
-                                    <input type="file" accept="image/png" id="logo-dark-upload" className="hidden"
-                                        onChange={(e) => {
-                                            const file = e.target.files[0];
-                                            if (file) {
-                                                const reader = new FileReader();
-                                                reader.onload = (ev) => {
-                                                    const img = new Image(); img.src = ev.target.result;
-                                                    img.onload = () => {
-                                                        const canvas = document.createElement('canvas');
-                                                        const scale = Math.min(1, 800 / img.width);
-                                                        canvas.width = img.width * scale; canvas.height = img.height * scale;
-                                                        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-                                                        updateSettings({ logoUrlDark: canvas.toDataURL('image/png', 0.8) });
-                                                    };
-                                                };
-                                                reader.readAsDataURL(file);
-                                            }
-                                        }}
-                                    />
-                                    <label htmlFor="logo-dark-upload" className="w-full h-28 bg-slate-900/50 border-2 border-dashed border-slate-700 rounded-2xl flex items-center justify-center cursor-pointer hover:border-violet-500 transition-all overflow-hidden p-3 group">
-                                        {settings.logoUrlDark ? <img src={settings.logoUrlDark} alt="Dark" className="w-full h-full object-contain" /> : <Moon size={20} className="text-white/10 group-hover:scale-110 transition-transform" />}
-                                    </label>
-                                </div>
+                                        disabled={isSavingLogo}
+                                        className="w-full py-4 bg-violet-600 hover:bg-violet-700 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-violet-600/20 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                                    >
+                                        {isSavingLogo ? 'GUARDANDO...' : (
+                                            <>
+                                                <Sparkles size={14} />
+                                                GUARDAR LOGOS
+                                            </>
+                                        )}
+                                    </button>
+                                )}
                             </div>
-                            <div className="space-y-4 pt-4">
-                                <div>
-                                    <label className="text-[9px] font-black text-secondary uppercase tracking-widest block mb-2 opacity-60">Nombre Comercial</label>
-                                    <input type="text" value={settings.brandName || ''} onChange={(e) => setSettings(prev => ({ ...prev, brandName: e.target.value }))} onBlur={(e) => updateSettings({ brandName: e.target.value })} className="input-dark w-full py-4 text-[11px] font-black uppercase tracking-widest rounded-xl" />
-                                </div>
-                                <div>
-                                    <label className="text-[9px] font-black text-secondary uppercase tracking-widest block mb-2 opacity-60">Email de Soporte</label>
-                                    <input type="email" value={settings.notificationEmail || ''} onChange={(e) => setSettings(prev => ({ ...prev, notificationEmail: e.target.value }))} onBlur={(e) => updateSettings({ notificationEmail: e.target.value })} className="input-dark w-full py-4 text-[11px] font-black lowercase rounded-xl" />
-                                </div>
-                            </div>
-                        </div>
 
-                        {/* Sub-bloque: Gestión de Datos */}
-                        <div className="space-y-6">
-                            <h4 className="text-[11px] font-black text-emerald-500 uppercase tracking-[0.3em] mb-4 flex items-center gap-3">
-                                <Database size={16} /> Gestión de Datos
-                            </h4>
-                            <div className="space-y-4">
-                                <button onClick={downloadMasterBackup} className="w-full py-4.5 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] text-emerald-500 flex items-center justify-center gap-3 hover:bg-emerald-500 hover:text-white transition-all shadow-lg shadow-emerald-500/5">
-                                    <Download size={16} /> Bajar Backup JSON
-                                </button>
-                                <button onClick={syncWithDrive} className={`w-full py-4.5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center gap-3 transition-all ${isBackingUp ? 'bg-indigo-500/20 text-indigo-400' : 'bg-primary/5 border border-primary/10 hover:border-indigo-500/30 text-secondary'}`}>
-                                    <Upload size={16} className={isBackingUp ? 'animate-spin' : ''} /> DRIVE (PRO)
-                                </button>
+                            {/* Columna 3: Gestión de Datos */}
+                            <div className="space-y-6">
+                                <h4 className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.3em] mb-4 flex items-center gap-3">
+                                    <Database size={16} /> Gestión de Datos
+                                </h4>
+                                <div className="space-y-3">
+                                    <button onClick={downloadMasterBackup} className="w-full py-4 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl font-black text-[9px] uppercase tracking-[0.2em] text-emerald-500 flex items-center justify-center gap-3 hover:bg-emerald-500 hover:text-white transition-all">
+                                        <Download size={14} /> Bajar Backup JSON
+                                    </button>
+                                    <button onClick={syncWithDrive} className={`w-full py-4 rounded-2xl font-black text-[9px] uppercase tracking-[0.2em] flex items-center justify-center gap-3 transition-all ${isBackingUp ? 'bg-indigo-500/20 text-indigo-400' : 'bg-primary/5 border border-primary/5 hover:border-indigo-500/40 text-secondary'}`}>
+                                        <Upload size={14} className={isBackingUp ? 'animate-spin' : ''} /> DRIVE (PRO)
+                                    </button>
+                                </div>
+                                <div className="pt-4 border-t border-primary/5">
+                                    <label className="text-[9px] font-black text-emerald-400 uppercase tracking-widest block mb-4 text-center">Exportar Listado</label>
+                                    <button onClick={() => {
+                                        const selectedSchoolObj = schools.find(s => s.id === adminSchool);
+                                        if (!selectedSchoolObj) return alert('Selecciona un centro primero');
+                                        exportCSV({ school: adminSchool });
+                                    }} className="w-full py-6 bg-gradient-to-br from-emerald-600 to-emerald-400 text-white rounded-[2rem] font-black text-[11px] uppercase tracking-[0.2em] flex flex-col items-center justify-center gap-1 hover:scale-[1.02] shadow-xl shadow-emerald-600/20 active:scale-95 transition-all">
+                                        <span>EXCEL MAESTRO</span>
+                                        <span className="text-[8px] opacity-70 tracking-widest font-bold">
+                                            {schools.find(s => s.id === adminSchool)?.name.toUpperCase().replace('MAESTRO ', '').slice(0, 20) || 'SELECCIONA CENTRO'}...
+                                        </span>
+                                    </button>
+                                </div>
                             </div>
-                            <div className="pt-6 border-t border-primary/5">
-                                <label className="text-[9px] font-black text-emerald-400 uppercase tracking-widest block mb-4 ml-1">Exportar Listado</label>
-                                <button onClick={() => {
-                                    const selectedSchoolObj = schools.find(s => s.id === adminSchool);
-                                    if (!selectedSchoolObj) return alert('Selecciona un centro primero');
-                                    exportCSV({ school: adminSchool });
-                                }} className="w-full py-6 bg-gradient-to-br from-emerald-600 to-emerald-400 text-white rounded-[2rem] font-black text-[11px] uppercase tracking-[0.2em] flex flex-col items-center justify-center gap-1 hover:scale-[1.02] shadow-xl shadow-emerald-600/20 active:scale-95 transition-all">
-                                    <span>EXCEL MAESTRO</span>
-                                    <span className="text-[8px] opacity-70 tracking-widest font-bold">
-                                        {schools.find(s => s.id === adminSchool)?.name.toUpperCase().replace('MAESTRO ', '').slice(0, 20) || 'SELECCIONA CENTRO'}...
-                                    </span>
-                                </button>
-                            </div>
-                        </div>
 
+                        </div>
                     </div>
                 </div>
             </div>
@@ -256,6 +322,18 @@ const SettingsPanel = ({
                 />
                 <div className={`transition-all duration-500 ease-in-out ${openSections.billing ? 'max-h-[1000px] opacity-100 p-8 pt-2' : 'max-h-0 opacity-0 pointer-events-none overflow-hidden'}`}>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-4">
+                        <div className="space-y-2">
+                            <label className="text-[9px] font-black text-secondary uppercase tracking-widest block opacity-50 ml-1">Nombre Comercial</label>
+                            <input type="text" value={settings.brandName || ''} onChange={(e) => setSettings(prev => ({ ...prev, brandName: e.target.value }))} onBlur={(e) => updateSettings({ brandName: e.target.value })} className="input-dark w-full py-4 text-[11px] font-black uppercase rounded-2xl" />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-[9px] font-black text-secondary uppercase tracking-widest block opacity-50 ml-1">Email de Soporte</label>
+                            <input type="email" value={settings.notificationEmail || ''} onChange={(e) => setSettings(prev => ({ ...prev, notificationEmail: e.target.value }))} onBlur={(e) => updateSettings({ notificationEmail: e.target.value })} className="input-dark w-full py-4 text-[11px] font-black lowercase rounded-2xl" />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-[9px] font-black text-secondary uppercase tracking-widest block opacity-50 ml-1">Teléfono de Contacto</label>
+                            <input type="text" value={settings.contactPhone || ''} onChange={(e) => setSettings(prev => ({ ...prev, contactPhone: e.target.value }))} onBlur={(e) => updateSettings({ contactPhone: e.target.value })} className="input-dark w-full py-4 text-[11px] font-black tracking-widest rounded-2xl" />
+                        </div>
                         <div className="space-y-2">
                             <label className="text-[9px] font-black text-secondary uppercase tracking-widest block opacity-50 ml-1">Razón Social</label>
                             <input type="text" value={settings.fiscalName || ''} onChange={(e) => setSettings(prev => ({ ...prev, fiscalName: e.target.value }))} onBlur={(e) => updateSettings({ fiscalName: e.target.value })} className="input-dark w-full py-4 text-[11px] font-black uppercase rounded-2xl" />

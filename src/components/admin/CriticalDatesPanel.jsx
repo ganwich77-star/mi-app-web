@@ -85,17 +85,25 @@ const CriticalDatesPanel = ({
                     </div>
                     <div>
                         <h3 className="text-2xl font-black text-primary tracking-tight">Fechas importantes</h3>
-                        <p className="text-[10px] font-bold text-secondary uppercase tracking-[0.2em] opacity-60">Cronograma de eventos y excepciones</p>
+                        <p className="text-[10px] font-bold text-secondary uppercase tracking-[0.2em]">Cronograma de eventos y excepciones</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-4">
-                    {/* Botón condicional: solo aparece si está abierto */}
-                    <div className={`transition-all duration-500 ${isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none translate-x-4'}`}>
+                    {/* Botones condicionales: solo aparecen si está abierto */}
+                    <div className={`flex items-center gap-3 transition-all duration-500 ${isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none translate-x-4'}`}>
+                        {selectedIds.length > 0 && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); removeDateExceptions(selectedIds); }}
+                                className="bg-rose-600 hover:bg-rose-500 text-white px-5 py-2.5 rounded-xl font-black flex items-center gap-2 transition-all shadow-lg shadow-rose-900/40 uppercase text-[10px] active:scale-95 shrink-0"
+                            >
+                                <Trash2 size={16} /> ELIMINAR FECHAS ({selectedIds.length})
+                            </button>
+                        )}
                         <button
                             onClick={addDateException}
                             className="bg-orange-600 hover:bg-orange-500 text-white px-5 py-2.5 rounded-xl font-black flex items-center gap-2 transition-all shadow-lg shadow-orange-900/20 uppercase text-[10px] active:scale-95 shrink-0"
                         >
-                            <Plus size={16} /> AÑADIR EXCEPCIÓN
+                            <Plus size={16} /> AÑADIR FECHAS
                         </button>
                     </div>
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-500 ${isOpen ? 'bg-orange-500/20 text-orange-500 rotate-180' : 'bg-primary/5 text-secondary'}`}>
@@ -195,7 +203,7 @@ const CriticalDatesPanel = ({
                                             type="date"
                                             value={value || ''}
                                             onChange={e => onChange(e.target.value)}
-                                            className="bg-transparent border-none text-2xl font-black text-primary [color-scheme:dark] cursor-pointer w-full focus:ring-0 focus:outline-none"
+                                            className="bg-transparent border-none text-2xl font-black text-black [color-scheme:light] cursor-pointer w-full focus:ring-0 focus:outline-none"
                                         />
                                     </div>
                                     <div className={`absolute -bottom-10 -right-10 w-32 h-32 opacity-[0.03] group-hover:opacity-[0.07] transition-opacity ${colorClass.replace('text-', 'bg-')}`} style={{ borderRadius: '50%' }} />
@@ -206,14 +214,14 @@ const CriticalDatesPanel = ({
                                 <div className="bg-primary/3 rounded-[3rem] p-12 border border-orange-500/20 shadow-2xl">
                                     <div className="space-y-12">
                                         {/* Fila superior: Configuración de Alcance */}
-                                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                                            <div>
-                                                <label className="text-[10px] font-black text-secondary uppercase tracking-[0.2em] mb-4 block opacity-60">Centro</label>
+                                        <div className="flex flex-col md:flex-row gap-8">
+                                            <div className="flex-[6]">
+                                                <label className="text-[10px] font-black text-black uppercase tracking-[0.2em] mb-4 block">Centro</label>
                                                 <div className="relative">
                                                     <select
                                                         value={ex.schoolId}
                                                         onChange={e => updateDateException(ex.id, { schoolId: e.target.value, courseName: '', groupName: '' })}
-                                                        className="input-dark w-full py-5 px-8 text-xs font-black uppercase rounded-2xl border-orange-500/10 appearance-none focus:border-orange-500/40 bg-primary/2"
+                                                        className="input-dark w-full py-5 px-8 text-xs font-black uppercase rounded-2xl border-orange-500/10 appearance-none focus:border-orange-500/40 bg-primary/2 !text-black cursor-pointer"
                                                     >
                                                         <option value="">TODOS LOS CENTROS</option>
                                                         {schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -221,14 +229,13 @@ const CriticalDatesPanel = ({
                                                     <ChevronDown size={20} className="absolute right-6 top-1/2 -translate-y-1/2 text-orange-500 pointer-events-none" />
                                                 </div>
                                             </div>
-                                            <div>
-                                                <label className="text-[10px] font-black text-secondary uppercase tracking-[0.2em] mb-4 block opacity-60">Curso</label>
+                                            <div className="flex-[2]">
+                                                <label className="text-[10px] font-black text-black uppercase tracking-[0.2em] mb-4 block">Curso</label>
                                                 <div className="relative">
                                                     <select
                                                         value={ex.courseName}
                                                         onChange={e => updateDateException(ex.id, { courseName: e.target.value, groupName: '' })}
-                                                        disabled={!ex.schoolId}
-                                                        className="input-dark w-full py-5 px-8 text-xs font-black uppercase rounded-2xl border-orange-500/10 appearance-none disabled:opacity-20 focus:border-orange-500/40 bg-primary/2"
+                                                        className="input-dark w-full py-5 px-5 text-xs font-black uppercase rounded-2xl border-orange-500/10 appearance-none focus:border-orange-500/40 bg-primary/2 text-black cursor-pointer"
                                                     >
                                                         <option value="">TODOS</option>
                                                         {COURSE_GROUPS.flatMap(g => g.courses).map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
@@ -236,14 +243,13 @@ const CriticalDatesPanel = ({
                                                     <ChevronDown size={20} className="absolute right-6 top-1/2 -translate-y-1/2 text-orange-500 pointer-events-none" />
                                                 </div>
                                             </div>
-                                            <div>
-                                                <label className="text-[10px] font-black text-secondary uppercase tracking-[0.2em] mb-4 block opacity-60">Grupo</label>
+                                            <div className="flex-[2]">
+                                                <label className="text-[10px] font-black text-black uppercase tracking-[0.2em] mb-4 block">Grupo</label>
                                                 <div className="relative">
                                                     <select
                                                         value={ex.groupName}
                                                         onChange={e => updateDateException(ex.id, { groupName: e.target.value })}
-                                                        disabled={!ex.courseName}
-                                                        className="input-dark w-full py-5 px-8 text-xs font-black uppercase rounded-2xl border-orange-500/10 appearance-none disabled:opacity-20 focus:border-orange-500/40 bg-primary/2"
+                                                        className="input-dark w-full py-5 px-5 text-xs font-black uppercase rounded-2xl border-orange-500/10 appearance-none focus:border-orange-500/40 bg-primary/2 text-black cursor-pointer"
                                                     >
                                                         <option value="">TODOS</option>
                                                         {(COURSE_GROUPS.flatMap(g => g.courses).find(c => c.name === ex.courseName)?.lines || []).map(l => (
@@ -289,7 +295,7 @@ const CriticalDatesPanel = ({
                                                 onClick={() => removeDateExceptions([ex.id])}
                                                 className="flex-1 py-5 flex items-center justify-center gap-3 text-red-500 hover:text-red-600 hover:bg-red-500/5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all"
                                             >
-                                                <Trash2 size={18} /> Eliminar excepción
+                                                <Trash2 size={18} /> ELIMINAR FECHAS
                                             </button>
                                             <button
                                                 onClick={() => setEditingExceptionId(null)}
@@ -328,10 +334,10 @@ const CriticalDatesPanel = ({
                                         </div>
 
                                         <div className="min-w-0">
-                                            <h5 className={`font-black text-primary uppercase tracking-wider truncate mb-0.5 ${viewMode === 'grid' ? 'text-[11px]' : 'text-[12px]'}`}>
+                                            <h5 className={`font-black text-black uppercase tracking-wider truncate mb-0.5 ${viewMode === 'grid' ? 'text-[11px]' : 'text-[12px]'}`}>
                                                 {schools.find(s => s.id === (ex.schoolId || ''))?.name || 'Todos los centros'}
                                             </h5>
-                                            <p className={`font-bold text-secondary uppercase tracking-widest opacity-60 truncate ${viewMode === 'grid' ? 'text-[9px]' : 'text-[10px]'}`}>
+                                            <p className={`font-bold text-black uppercase tracking-widest truncate ${viewMode === 'grid' ? 'text-[9px]' : 'text-[10px]'}`}>
                                                 {ex.courseName || 'Todos los cursos'}{ex.groupName ? ` • ${ex.groupName}` : ''}
                                             </p>
                                         </div>

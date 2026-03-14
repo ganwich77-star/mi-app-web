@@ -1,4 +1,5 @@
 import React from 'react';
+import Swal from 'sweetalert2';
 import { STAFF_ROLES, COURSE_GROUPS } from '../../constants.js';
 import { toTitleCase } from '../../utils/formatters.js';
 
@@ -135,8 +136,25 @@ const StaffEditModal = ({
                 <div className="flex gap-3 pt-4">
                     <button onClick={() => setStaffAssigning(null)} className="flex-1 py-3 text-xs font-bold text-secondary border border-primary/10 rounded-2xl hover:bg-primary/5 transition-all">Cancelar</button>
                     <button
-                        disabled={!staffAssigning.firstName.trim() || !staffAssigning.lastName.trim() || staffAssigning.roles.length === 0 || staffAssigning.assignments.length === 0}
                         onClick={() => {
+                            const missingFields = [];
+                            if (!staffAssigning.firstName?.trim()) missingFields.push('Nombre');
+                            if (!staffAssigning.lastName?.trim()) missingFields.push('Apellidos');
+                            if (!staffAssigning.roles || staffAssigning.roles.length === 0) missingFields.push('Puestos/Cargos');
+                            if (!staffAssigning.assignments || staffAssigning.assignments.length === 0) missingFields.push('Clases Asignadas');
+
+                            if (missingFields.length > 0) {
+                                Swal.fire({
+                                    icon: 'warning',
+                                    title: 'Campos incompletos',
+                                    text: `Por favor, completa los siguientes campos: ${missingFields.join(', ')}`,
+                                    confirmButtonColor: '#6366f1',
+                                    background: '#1e1b4b',
+                                    color: '#fff'
+                                });
+                                return;
+                            }
+
                             updateStaffMember(staffAssigning.member.id, {
                                 firstName: staffAssigning.firstName,
                                 lastName: staffAssigning.lastName,
@@ -149,7 +167,7 @@ const StaffEditModal = ({
                             });
                             setStaffAssigning(null);
                         }}
-                        className="flex-[1.5] py-3 text-xs font-black bg-gradient-to-r from-indigo-500 to-indigo-400 text-white rounded-2xl active:scale-95 disabled:opacity-30 transition-all shadow-lg shadow-indigo-500/20"
+                        className="flex-[1.5] py-3 text-xs font-black bg-gradient-to-r from-indigo-500 to-indigo-400 text-white rounded-2xl active:scale-95 transition-all shadow-lg shadow-indigo-500/20"
                     >GUARDAR CAMBIOS</button>
                 </div>
                 <button

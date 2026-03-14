@@ -188,7 +188,17 @@ export default defineConfig(({ mode }) => ({
         stringArrayEncoding: ['rc4'],
         stringArrayThreshold: 1,
         unicodeEscapeSequence: false,
-        domainLock: ['asistente-digital-comuniones.web.app', 'asistente-digital-comuniones.firebaseapp.com', 'basecode.es', 'www.basecode.es', 'localhost', '127.0.0.1'] // Permitir local y dominios de Firebase
+        domainLock: [
+          'asistente-digital-comuniones.web.app', 
+          'asistente-digital-comuniones.firebaseapp.com', 
+          'basecode.es', 
+          'www.basecode.es', 
+          'basecode.tech',
+          'pujaltecreative.com',
+          'graduaciones.pujaltecreative.com',
+          'localhost', 
+          '127.0.0.1'
+        ] // Permitir local y dominios de producción conocidos
       },
     })
   ].filter(Boolean)

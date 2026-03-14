@@ -30,88 +30,232 @@ import {
  * GENERADOR DE ETIQUETAS PUJALTE STUDIO V31.0 - "BRANDING MASTER"
  * Rediseño: Configuración horizontal desplegable y etiquetas debajo.
  */
-const LabelGenerator = () => {
-  const SHEET = { w: 210, h: 297 };
-  const LABEL = { w: 99.1, h: 57.2 };
-  const LABELS_PER_SHEET = 10;
-  
-  // --- SELECTORES DE CONTROL ---
-  const centers = ["CEIP MAESTRO JOAQUÍN CANTERO", "CEIP SAN JOSÉ", "CC SUSARTE"];
+const LabelGenerator = ({ orders = [], adminSchool, ordersFilters, schools = [], settings, updateSettings }) => {
+  const selectedSchoolObj = schools.find(s => s.id === adminSchool);
   
   // --- ESTADOS ---
-  const [selectedCenter, setSelectedCenter] = useState(centers[0]);
-  const [course, setCourse] = useState("6º Primaria");
+  const [selectedCenter, setSelectedCenter] = useState(selectedSchoolObj?.name || "");
+  const [course, setCourse] = useState(ordersFilters?.course || "");
   const [promo, setPromo] = useState("PROMOCIÓN 202“ — 2026");
   const [startLabel, setStartLabel] = useState(1);
-  const [quantity, setQuantity] = useState(10);
   const [showQr, setShowQr] = useState(true);
   const [showLogo, setShowLogo] = useState(true);
-  const [showIcon, setShowIcon] = useState(true);
   const [accentColor, setAccentColor] = useState("#6366f1");
   const [isConfigOpen, setIsConfigOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // --- CARGAR AJUSTES GUARDADOS ---
+  React.useEffect(() => {
+    if (settings?.labelConfig) {
+      const config = settings.labelConfig;
+      if (config.promo) setPromo(config.promo);
+      if (config.accentColor) setAccentColor(config.accentColor);
+      if (config.templateId) setActiveTemplate(config.templateId);
+      if (config.paperW) setPaperW(config.paperW);
+      if (config.paperH) setPaperH(config.paperH);
+      if (config.gridCols) setGridCols(config.gridCols);
+      if (config.gridRows) setGridRows(config.gridRows);
+      if (config.showQr !== undefined) setShowQr(config.showQr);
+      if (config.showLogo !== undefined) setShowLogo(config.showLogo);
+    }
+  }, [settings?.labelConfig]);
+
+  // --- PLANTILLAS ---
+  const TEMPLATES = [
+    { id: 'a4_10', name: 'A4 - 10 Etiquetas (99x57mm)', paperW: 210, paperH: 297, cols: 2, rows: 5 },
+    { id: 'a4_24', name: 'A4 - 24 Etiquetas (70x37mm)', paperW: 210, paperH: 297, cols: 3, rows: 8 },
+    { id: 'a4_14', name: 'A4 - 14 Etiquetas (105x42mm)', paperW: 210, paperH: 297, cols: 2, rows: 7 },
+    { id: 'custom', name: 'Personalizado...', paperW: 210, paperH: 297, cols: 2, rows: 5 }
+  ];
+
+  const [activeTemplate, setActiveTemplate] = useState('a4_10');
+  const [paperW, setPaperW] = useState(210);
+  const [paperH, setPaperH] = useState(297);
+  const [gridCols, setGridCols] = useState(2);
+  const [gridRows, setGridRows] = useState(5);
+
+  const handleTemplateChange = (templateId) => {
+    setActiveTemplate(templateId);
+    const template = TEMPLATES.find(t => t.id === templateId);
+    if (template && templateId !== 'custom') {
+      setPaperW(template.paperW);
+      setPaperH(template.paperH);
+      setGridCols(template.cols);
+      setGridRows(template.rows);
+    }
+  };
+
+  // Extraer centros únicos
+  const centers = useMemo(() => {
+    const fromSchools = schools.map(s => s.name).filter(Boolean);
+    const fromOrders = orders.map(o => o.schoolName).filter(Boolean);
+    const uniqueCenters = [...new Set([...fromSchools, ...fromOrders])].sort();
+    return uniqueCenters.length > 0 ? uniqueCenters : ["SIN CENTROS"];
+  }, [orders, schools]);
+
+  // Extraer cursos únicos del centro seleccionado
+  const availableCourses = useMemo(() => {
+    if (!selectedCenter) return [];
+    const courses = orders
+      .filter(o => o.schoolName === selectedCenter)
+      .map(o => o.course)
+      .filter(Boolean);
+    return [...new Set(courses)].sort();
+  }, [orders, selectedCenter]);
+
+  // Sincronizar centro y curso cuando cambien en el panel principal
+  React.useEffect(() => {
+    if (selectedSchoolObj?.name) {
+      setSelectedCenter(selectedSchoolObj.name);
+    }
+  }, [adminSchool, schools]);
+
+  React.useEffect(() => {
+    if (ordersFilters?.course !== undefined) {
+      setCourse(ordersFilters.course);
+    }
+  }, [ordersFilters?.course]);
 
   // --- DERIVADOS ---
-  const labelsToPrint = useMemo(() => {
-    return Array.from({ length: quantity }, (_, i) => i + 1);
-  }, [quantity]);
+  // Filtrar alumnos por centro y curso (Sincronizado con el Panel de Pedidos)
+  const filteredStudents = useMemo(() => {
+    return orders
+      .filter(o => o.schoolName === selectedCenter && (!course || o.course === course))
+      .sort((a, b) => (a.studentName || '').localeCompare(b.studentName || ''));
+  }, [orders, selectedCenter, course]);
+
+  // Cantidad se ajusta automáticamente al número de alumnos filtrados
+  const quantity = filteredStudents.length;
 
   const handlePrint = () => {
     window.print();
   };
 
+  const getQRUrl = (id) => {
+    const baseUrl = "https://asistente-digital-comuniones.web.app/";
+    return `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(baseUrl + "?view=download&id=" + id)}`;
+  };
+
+  const handleSaveSettings = async () => {
+    if (!updateSettings) return;
+    setIsSaving(true);
+    try {
+      await updateSettings({
+        labelConfig: {
+          promo,
+          accentColor,
+          templateId: activeTemplate,
+          paperW,
+          paperH,
+          gridCols,
+          gridRows,
+          showQr,
+          showLogo
+        }
+      });
+      // Feedback visual rápido
+      const { default: Swal } = await import('sweetalert2');
+      Swal.fire({
+        icon: 'success',
+        title: '¡Guardado!',
+        text: 'Configuración de etiquetas actualizada correctamente.',
+        timer: 1500,
+        showConfirmButton: false,
+        toast: true,
+        position: 'top-end'
+      });
+    } catch (error) {
+      console.error("Error al guardar:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-transparent animate-fade-in pb-20 no-print">
+    <div className="min-h-screen bg-transparent animate-fade-in pb-20 font-sans">
       {/* HEADER PANEL */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 no-print">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20 text-indigo-500 shadow-lg shadow-indigo-500/10">
             <Tag size={24} />
           </div>
           <div>
             <h1 className="text-2xl md:text-3xl font-black text-primary uppercase tracking-tight">Generador de Etiquetas</h1>
-            <p className="text-[10px] md:text-xs font-bold text-secondary uppercase tracking-[0.2em] opacity-60">System Branding V31.0 / Pujalte Studio</p>
+            <p className="text-[10px] md:text-xs font-bold text-secondary uppercase tracking-[0.2em] opacity-60">System Branding V32.0 / Pujalte Studio</p>
           </div>
         </div>
         
-        <button 
-          onClick={handlePrint}
-          className="flex items-center justify-center gap-3 px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black uppercase text-xs transition-all shadow-xl shadow-indigo-600/20 active:scale-95 group"
-        >
-          <Printer size={18} className="group-hover:animate-bounce" />
-          Imprimir Pliego
-        </button>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={handleSaveSettings}
+            disabled={isSaving}
+            className={`flex items-center justify-center gap-3 px-6 py-4 bg-white border border-primary/10 text-primary rounded-2xl font-black uppercase text-xs transition-all shadow-xl hover:bg-slate-50 active:scale-95 group ${isSaving ? 'opacity-50' : ''}`}
+          >
+            {isSaving ? (
+              <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <ShieldCheck size={18} className="text-indigo-600" />
+            )}
+            {isSaving ? 'Guardando...' : 'Guardar Ajustes'}
+          </button>
+
+          <button 
+            onClick={handlePrint}
+            disabled={quantity === 0}
+            className={`flex items-center justify-center gap-3 px-8 py-4 ${quantity === 0 ? 'bg-slate-300 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500'} text-white rounded-2xl font-black uppercase text-xs transition-all shadow-xl shadow-indigo-600/20 active:scale-95 group`}
+          >
+            <Printer size={18} className="group-hover:animate-bounce" />
+            Imprimir {quantity} Etiquetas
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-col gap-8">
         {/* PANEL DE CONFIGURACIÓN HORIZONTAL (ISLA) */}
-        <div className="w-full">
+        <div className="w-full no-print">
             <div className={`bg-card/50 backdrop-blur-xl border border-primary/10 rounded-[2.5rem] shadow-2xl overflow-hidden transition-all duration-500 ${isConfigOpen ? 'max-h-[1000px]' : 'max-h-[85px]'}`}>
                 {/* Cabecera Desplegable */}
-                <button 
+                <div 
+                    className="w-full p-8 flex items-center justify-between hover:bg-primary/5 transition-colors group cursor-pointer"
                     onClick={() => setIsConfigOpen(!isConfigOpen)}
-                    className="w-full p-8 flex items-center justify-between hover:bg-primary/5 transition-colors group"
                 >
-                    <h2 className="text-sm font-black uppercase tracking-widest text-primary flex items-center gap-2">
-                        <Settings size={16} className="text-secondary group-hover:rotate-90 transition-transform duration-500" /> 
-                        Configuración Visual del Pliego
-                    </h2>
-                    <div className="flex items-center gap-4">
-                        <div className="hidden lg:flex items-center gap-6 mr-4">
-                            <span className="text-[10px] font-bold uppercase text-primary/60">{selectedCenter}</span>
-                            <span className="text-[10px] font-bold uppercase text-primary/60">{course}</span>
-                            <span className="text-[10px] font-bold uppercase text-primary/60">{quantity} Etiquetas</span>
+                    <div className="flex items-center gap-6">
+                        <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center text-secondary">
+                            <Settings size={20} className="group-hover:rotate-90 transition-transform duration-500" />
                         </div>
-                        <div className={`w-8 h-8 rounded-full bg-primary/5 flex items-center justify-center transition-transform duration-500 ${isConfigOpen ? 'rotate-180' : ''}`}>
-                            <ChevronDown size={18} className="text-primary" />
+                        <div className="flex items-center gap-2">
+                            <h2 className="text-sm font-black uppercase tracking-widest text-primary">
+                                Configuración del Pliego Reales
+                            </h2>
+                            <ChevronDown size={14} className={`text-secondary transition-transform duration-300 ${isConfigOpen ? 'rotate-180' : ''}`} />
                         </div>
                     </div>
-                </button>
+                    
+                    <div className="flex items-center gap-4">
+                        <div className="hidden lg:flex items-center gap-3 mr-4">
+                            <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500/5 border border-indigo-500/10 rounded-full">
+                                <School size={12} className="text-indigo-500" />
+                                <span className="text-[10px] font-black uppercase text-indigo-500 whitespace-nowrap">{selectedCenter || "Sin Centro"}</span>
+                            </div>
+                            {course && (
+                                <div className="flex items-center gap-2 px-3 py-1.5 bg-secondary/5 border border-secondary/10 rounded-full">
+                                    <GraduationCap size={12} className="text-secondary" />
+                                    <span className="text-[10px] font-black uppercase text-secondary whitespace-nowrap">{course}</span>
+                                </div>
+                            )}
+                            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/5 border border-emerald-500/10 rounded-full">
+                                <Users size={12} className="text-emerald-500" />
+                                <span className="text-[10px] font-black uppercase text-emerald-500 whitespace-nowrap">{quantity} Alumnos</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 {/* Contenido Configuración */}
-                <div className="px-8 pb-10 space-y-8 animate-in fade-in slide-in-from-top-4 duration-500">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                <div className="px-8 pb-10 space-y-8 animate-in fade-in slide-in-from-top-4 duration-500 text-left">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-6 items-end">
                         {/* Selector de Centro */}
-                        <div className="space-y-2 lg:col-span-1">
+                        <div className="space-y-2 lg:col-span-3">
                             <label className="text-[10px] font-black uppercase tracking-wider text-secondary flex items-center gap-2 px-1">
                                 <School size={12} /> Centro Educativo
                             </label>
@@ -127,75 +271,174 @@ const LabelGenerator = () => {
                             </div>
                         </div>
 
-                        {/* Curso y Lema */}
-                        <div className="grid grid-cols-2 gap-4 lg:col-span-1">
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-wider text-secondary px-1 text-center block">Curso</label>
-                                <input 
-                                    type="text" 
-                                    value={course} 
+                        {/* Curso */}
+                        <div className="space-y-2 lg:col-span-2">
+                            <label className="text-[10px] font-black uppercase tracking-wider text-secondary flex items-center gap-2 px-1">
+                                <GraduationCap size={12} /> Curso
+                            </label>
+                            <div className="relative">
+                                <select 
+                                    value={course}
                                     onChange={(e) => setCourse(e.target.value)}
-                                    className="w-full h-12 bg-white/5 border border-primary/10 rounded-2xl px-4 text-xs font-bold text-primary focus:ring-2 ring-indigo-500/20 transition-all outline-none text-center"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-wider text-secondary px-1 text-center block">Slogan</label>
-                                <input 
-                                    type="text" 
-                                    value={promo} 
-                                    onChange={(e) => setPromo(e.target.value)}
-                                    className="w-full h-12 bg-white/5 border border-primary/10 rounded-2xl px-4 text-xs font-bold text-primary focus:ring-2 ring-indigo-500/20 transition-all outline-none text-center"
-                                />
+                                    className="w-full h-12 bg-white/5 border border-primary/10 rounded-2xl px-4 text-xs font-bold text-primary appearance-none focus:ring-2 ring-indigo-500/20 transition-all outline-none"
+                                >
+                                    <option value="" className="bg-slate-900">TODOS</option>
+                                    {availableCourses.map(c => (
+                                        <option key={c} value={c} className="bg-slate-900">{c}</option>
+                                    ))}
+                                </select>
+                                <ChevronDown size={14} className="absolute right-4 top-4 text-secondary pointer-events-none" />
                             </div>
                         </div>
 
-                        {/* Cantidad y Punto Inicio */}
-                        <div className="grid grid-cols-2 gap-4 lg:col-span-1">
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-wider text-secondary px-1 text-center block">Cantidad</label>
-                                <div className="flex items-center gap-1 bg-white/5 border border-primary/10 rounded-2xl p-1 h-12">
-                                    <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-8 h-8 flex items-center justify-center rounded-xl bg-primary/5 hover:bg-primary/10 text-primary transition-colors"><ChevronLeft size={14}/></button>
-                                    <span className="flex-1 text-center font-black text-primary text-xs">{quantity}</span>
-                                    <button onClick={() => setQuantity(Math.min(100, quantity + 1))} className="w-8 h-8 flex items-center justify-center rounded-xl bg-primary/5 hover:bg-primary/10 text-primary transition-colors"><ChevronRight size={14}/></button>
+                        {/* Lema */}
+                        <div className="space-y-2 lg:col-span-3">
+                            <label className="text-[10px] font-black uppercase tracking-wider text-secondary flex items-center gap-2 px-1">
+                                <Sparkles size={12} /> Lema
+                            </label>
+                            <input 
+                                type="text"
+                                value={promo}
+                                onChange={(e) => setPromo(e.target.value)}
+                                className="w-full h-12 bg-white/5 border border-primary/10 rounded-2xl px-4 text-xs font-bold text-primary focus:ring-2 ring-indigo-500/20 transition-all outline-none"
+                            />
+                        </div>
+
+                        {/* Etiqueta Inicial */}
+                        <div className="space-y-2 lg:col-span-2">
+                            <label className="text-[10px] font-black uppercase tracking-wider text-secondary flex items-center gap-2 px-1 whitespace-nowrap">
+                                <FileText size={12} /> Etiqueta inicial
+                            </label>
+                            <input 
+                                type="number"
+                                min="1"
+                                max="10"
+                                value={startLabel}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setStartLabel(val === '' ? '' : parseInt(val));
+                                }}
+                                className="w-full h-12 bg-white/5 border border-primary/10 rounded-2xl px-4 text-xs font-bold text-primary focus:ring-2 ring-indigo-500/20 transition-all outline-none"
+                            />
+                        </div>
+
+                        {/* Visualización */}
+                        <div className="space-y-2 lg:col-span-2">
+                            <label className="text-[10px] font-black uppercase tracking-wider text-secondary flex items-center gap-2 px-1">
+                                <Eye size={12} /> Visualización
+                            </label>
+                            <div className="flex bg-white/5 border border-primary/10 rounded-2xl p-1 h-12 gap-2">
+                                <button 
+                                    onClick={() => setShowQr(!showQr)}
+                                    className={`flex-1 flex items-center justify-center rounded-xl transition-all ${showQr ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-secondary hover:bg-white/5'}`}
+                                >
+                                    <QrCode size={16} />
+                                </button>
+                                <button 
+                                    onClick={() => setShowLogo(!showLogo)}
+                                    className={`flex-1 flex items-center justify-center rounded-xl transition-all ${showLogo ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-secondary hover:bg-white/5'}`}
+                                >
+                                    <Award size={16} />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Selector de Plantilla */}
+                        <div className="space-y-2 lg:col-span-12 mt-4 pt-6 border-t border-primary/5">
+                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400 flex items-center gap-2 px-1 mb-2">
+                                <Award size={14} /> Seleccionar Plantilla de Etiquetas
+                            </label>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                {TEMPLATES.map((t) => (
+                                    <button
+                                        key={t.id}
+                                        onClick={() => handleTemplateChange(t.id)}
+                                        className={`flex flex-col items-start p-4 rounded-2xl border transition-all ${
+                                            activeTemplate === t.id 
+                                            ? 'bg-indigo-600/20 border-indigo-500 shadow-lg shadow-indigo-500/10' 
+                                            : 'bg-white/5 border-primary/10 hover:bg-white/10 hover:border-primary/20'
+                                        }`}
+                                    >
+                                        <span className={`text-[10px] font-black uppercase tracking-wider mb-1 ${activeTemplate === t.id ? 'text-white' : 'text-primary'}`}>
+                                            {t.name}
+                                        </span>
+                                        <span className="text-[9px] font-bold text-secondary opacity-60">
+                                            {t.cols}x{t.rows} • {t.paperW}x{t.paperH}mm
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* MAQUETACIÓN AVANZADA */}
+                        <div className="lg:col-span-12 grid grid-cols-1 md:grid-cols-2 gap-8 pt-8 border-t border-primary/5 mt-4">
+                            {/* Tamaño Papel */}
+                            <div className="flex flex-col md:flex-row md:items-center gap-4">
+                                <label className="min-w-[180px] text-[10px] font-black uppercase tracking-wider text-secondary flex items-center gap-2">
+                                    <Crop size={14} className="text-indigo-400" /> Dimensiones Papel
+                                </label>
+                                <div className="flex-1 flex gap-4">
+                                    <div className="flex-1 flex flex-col gap-1.5">
+                                        <span className="text-[8px] font-black text-secondary/50 uppercase ml-2">Ancho (mm)</span>
+                                        <input 
+                                            type="number"
+                                            value={paperW}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setPaperW(val === '' ? '' : parseInt(val));
+                                                setActiveTemplate('custom');
+                                            }}
+                                            className="w-full h-11 bg-white/5 border border-primary/10 rounded-xl px-4 text-xs font-bold text-primary focus:ring-2 ring-indigo-500/20 transition-all outline-none"
+                                        />
+                                    </div>
+                                    <div className="flex-1 flex flex-col gap-1.5">
+                                        <span className="text-[8px] font-black text-secondary/50 uppercase ml-2">Alto (mm)</span>
+                                        <input 
+                                            type="number"
+                                            value={paperH}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setPaperH(val === '' ? '' : parseInt(val));
+                                                setActiveTemplate('custom');
+                                            }}
+                                            className="w-full h-11 bg-white/5 border border-primary/10 rounded-xl px-4 text-xs font-bold text-primary focus:ring-2 ring-indigo-500/20 transition-all outline-none"
+                                        />
+                                    </div>
                                 </div>
                             </div>
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-wider text-secondary px-1 text-center block">Inicio</label>
-                                <select 
-                                    value={startLabel}
-                                    onChange={(e) => setStartLabel(Number(e.target.value))}
-                                    className="w-full h-12 bg-white/5 border border-primary/10 rounded-2xl px-2 text-[10px] font-bold text-primary outline-none"
-                                >
-                                    {[...Array(10)].map((_, i) => <option key={i+1} value={i+1} className="bg-slate-900">Label {i+1}</option>)}
-                                </select>
-                            </div>
-                        </div>
 
-                        {/* Branding Toggles y Color */}
-                        <div className="grid grid-cols-3 gap-3 lg:col-span-1">
-                            <button 
-                                onClick={() => setShowLogo(!showLogo)}
-                                className={`flex flex-col items-center justify-center gap-1 rounded-2xl border transition-all ${showLogo ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400' : 'bg-white/5 border-primary/5 text-secondary opacity-50'}`}
-                            >
-                                <Eye size={14} />
-                                <span className="text-[8px] font-black uppercase">Logo</span>
-                            </button>
-                            <button 
-                                onClick={() => setShowQr(!showQr)}
-                                className={`flex flex-col items-center justify-center gap-1 rounded-2xl border transition-all ${showQr ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400' : 'bg-white/5 border-primary/5 text-secondary opacity-50'}`}
-                            >
-                                <QrCode size={14} />
-                                <span className="text-[8px] font-black uppercase">QR</span>
-                            </button>
-                            <div className="relative">
-                                <input 
-                                    type="color" 
-                                    value={accentColor}
-                                    onChange={(e) => setAccentColor(e.target.value)}
-                                    className="w-full h-full rounded-2xl cursor-pointer bg-white/5 border border-primary/10 p-1"
-                                />
-                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                    <div className="w-4 h-4 rounded-full border border-white/20" style={{backgroundColor: accentColor}} />
+                            {/* Malla del Pliego */}
+                            <div className="flex flex-col md:flex-row md:items-center gap-4">
+                                <label className="min-w-[180px] text-[10px] font-black uppercase tracking-wider text-secondary flex items-center gap-2">
+                                    <Tag size={14} className="text-indigo-400" /> Distribución Malla
+                                </label>
+                                <div className="flex-1 flex gap-4">
+                                    <div className="flex-1 flex flex-col gap-1.5">
+                                        <span className="text-[8px] font-black text-secondary/50 uppercase ml-2">Columnas</span>
+                                        <input 
+                                            type="number"
+                                            value={gridCols}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setGridCols(val === '' ? '' : parseInt(val));
+                                                setActiveTemplate('custom');
+                                            }}
+                                            className="w-full h-11 bg-white/5 border border-primary/10 rounded-xl px-4 text-xs font-bold text-primary focus:ring-2 ring-indigo-500/20 transition-all outline-none"
+                                        />
+                                    </div>
+                                    <div className="flex-1 flex flex-col gap-1.5">
+                                        <span className="text-[8px] font-black text-secondary/50 uppercase ml-2">Filas</span>
+                                        <input 
+                                            type="number"
+                                            value={gridRows}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setGridRows(val === '' ? '' : parseInt(val));
+                                                setActiveTemplate('custom');
+                                            }}
+                                            className="w-full h-11 bg-white/5 border border-primary/10 rounded-xl px-4 text-xs font-bold text-primary focus:ring-2 ring-indigo-500/20 transition-all outline-none"
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -203,235 +446,159 @@ const LabelGenerator = () => {
                 </div>
             </div>
         </div>
-        
-        {/* NOTA DE IMPRESIÓN */}
-        <div className="bg-amber-500/5 border border-amber-500/10 rounded-[2rem] p-6 flex items-center gap-6 max-w-4xl mx-auto w-full">
-            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.1)]">
-                <ShieldCheck size={24} />
-            </div>
-            <div className="flex flex-col gap-1">
-                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500/80">Nota de Impresión</h4>
-                <p className="text-sm font-medium text-primary/60">
-                    Asegúrese de configurar el tamaño de papel como <span className="text-primary font-bold">A4</span> y escala <span className="text-primary font-bold">100%</span> en los ajustes de su impresora.
-                </p>
-            </div>
-        </div>
 
-        {/* VISTA PREVIA ETIQUETAS */}
-        <div className="flex flex-col gap-6">
-          <div className="bg-white rounded-[3rem] shadow-2xl p-8 overflow-hidden relative group max-w-[210mm] mx-auto origin-top transition-transform duration-700 hover:scale-[1.01]">
-            <div className="absolute top-0 left-0 right-0 h-16 bg-slate-900 flex items-center justify-between px-10">
-              <div className="flex items-center gap-6">
-                 <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-[8px] font-black text-white/50 uppercase tracking-[0.3em]">Ready to Output</span>
-                 </div>
-                 <div className="flex items-center gap-2 text-white/40">
-                    <Crop size={12} />
-                    <span className="text-[8px] font-bold uppercase">99.1 x 57.2 mm</span>
-                 </div>
-              </div>
-              <div className="flex items-center gap-3">
-                 <Award size={14} className="text-amber-500" />
-                 <span className="text-[9px] font-black text-white uppercase tracking-widest">Master Layout Pliego</span>
-              </div>
-            </div>
-
-            <div 
-              style={{ width: '210mm', minHeight: '297mm', background: '#fff' }}
-              className="mt-16 p-[10mm] grid grid-cols-2 gap-[2.5mm]"
-            >
-              {[...Array(LABELS_PER_SHEET)].map((_, i) => {
-                const index = i + 1;
-                const isPrinting = index >= startLabel && index < startLabel + quantity;
+        {/* ÁREA DE PREVISUALIZACIÓN */}
+        <div className="w-full bg-card/30 rounded-[3rem] border border-primary/5 p-4 md:p-12 min-h-[600px] flex justify-center overflow-x-auto custom-scrollbar">
+            {/* EL PLIEGO REAL */}
+            <div className="print-sheet bg-white shadow-2xl origin-top transition-transform duration-500 relative"
+                 style={{ 
+                    width: `${paperW}mm`, 
+                    height: `${paperH}mm`, 
+                    padding: '6mm 5mm',
+                    color: '#1e293b'
+                 }}>
                 
-                return (
-                  <div 
-                    key={i} 
-                    style={{ 
-                      width: '99.1mm', 
-                      height: '57.2mm',
-                      border: isPrinting ? `1.5px solid ${accentColor}20` : '1px dashed #e2e8f0',
-                      background: isPrinting ? '#fff' : '#f8fafc',
-                      opacity: isPrinting ? 1 : 0.3,
-                      position: 'relative'
-                    }}
-                    className={`rounded-[1.5rem] transition-all duration-300 ${isPrinting ? 'shadow-[0_10px_30px_rgba(0,0,0,0.05)]' : ''}`}
-                  >
-                    {isPrinting ? (
-                      <div className="w-full h-full p-6 flex flex-col justify-between overflow-hidden">
-                        <div className="flex justify-between items-start">
-                           <div className="space-y-1 max-w-[70%]">
-                              <h3 className="text-[12px] font-black text-slate-900 uppercase tracking-tight line-clamp-2 leading-tight">
-                                {selectedCenter}
-                              </h3>
-                              <div className="flex items-center gap-2">
-                                <span className="bg-slate-100 text-[8px] font-black px-2 py-0.5 rounded-full text-slate-500 uppercase tracking-widest">
-                                  {course}
-                                </span>
-                              </div>
-                           </div>
-                           
-                           {showLogo && (
-                             <div className="flex flex-col items-end gap-1">
-                               <div className="text-[9px] font-black tracking-tighter text-slate-900 leading-none">pujalte</div>
-                               <div className={`text-[6px] font-black uppercase tracking-[0.2em] leading-none`} style={{color: accentColor}}>creative studio</div>
-                             </div>
-                           )}
-                        </div>
+                {/* Cuadrícula de Etiquetas */}
+                <div className="grid h-full" style={{ 
+                    gridTemplateColumns: `repeat(${gridCols}, 1fr)`,
+                    gridTemplateRows: `repeat(${gridRows}, 1fr)`,
+                    columnGap: '4mm',
+                    rowGap: '2mm'
+                }}>
+                    {/* Espacios vacíos si empieza en etiqueta > 1 */}
+                    {Array.from({ length: startLabel - 1 }).map((_, i) => (
+                        <div key={`empty-${i}`} className="border border-dashed border-slate-100 print:border-none"></div>
+                    ))}
+                    
+                    {/* Las etiquetas reales */}
+                    {filteredStudents.map((student, index) => (
+                        <div 
+                            key={student.id} 
+                            className="p-6 flex flex-col justify-between relative overflow-hidden group"
+                            style={{ border: '0.1mm solid #f1f5f9' }}
+                        >
+                            <div className="absolute left-0 top-0 bottom-0 w-1.5" style={{ backgroundColor: accentColor }}></div>
 
-                        <div className="relative py-3">
-                           <div className="text-[14px] font-black text-center uppercase tracking-[0.15em] leading-tight" style={{color: accentColor}}>
-                              {promo}
-                           </div>
-                           <div className="flex items-center justify-center gap-1 mt-1">
-                              <CheckCircle2 size={10} style={{color: accentColor}} />
-                              <span className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Producto Verificado</span>
-                           </div>
-                        </div>
-
-                        <div className="flex items-end justify-between border-t pt-4 border-slate-100">
-                           <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center border border-slate-100">
-                                 <GraduationCap size={16} className="text-slate-400" />
-                              </div>
-                              <div className="flex flex-col">
-                                 <span className="text-[6px] font-black text-slate-400 uppercase tracking-widest">Generation</span>
-                                 <span className="text-[8px] font-black text-slate-900 uppercase">Class of 2026</span>
-                              </div>
-                           </div>
-
-                           {showQr && (
-                             <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-100">
-                                <QrCode size={20} className="text-slate-900" />
-                                <div className="flex flex-col">
-                                   <span className="text-[5px] font-black uppercase text-slate-400 leading-none">Acceso</span>
-                                   <span className="text-[6px] font-black text-slate-900 leading-none uppercase">Digital</span>
+                            {/* Logo de Fondo (Watermark) */}
+                            <div className="absolute inset-4 flex items-center justify-center opacity-[0.05] pointer-events-none select-none z-0">
+                                <img 
+                                    src={settings?.logoUrl || "https://pujaltecreative.com/wp-content/uploads/2026/01/logo_negro.png"} 
+                                    className="w-[80%] h-auto grayscale object-contain" 
+                                    alt="Watermark" 
+                                />
+                            </div>
+                            
+                            {/* Header Etiqueta */}
+                            <div className="flex justify-between items-start z-10">
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-6 h-6 rounded-lg flex items-center justify-center text-white" style={{ backgroundColor: accentColor }}>
+                                            <GraduationCap size={14} />
+                                        </div>
+                                        <span className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: accentColor }}>{promo}</span>
+                                    </div>
+                                    <h3 className="text-xl font-black uppercase tracking-tighter leading-none mt-2 text-slate-800">{student.studentName}</h3>
+                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{course}</p>
                                 </div>
-                             </div>
-                           )}
+                                
+                                {showLogo && (
+                                    <img 
+                                      src={settings?.logoUrl || "https://pujaltecreative.com/wp-content/uploads/2026/01/logo_negro.png"} 
+                                      className="h-10 object-contain opacity-90" 
+                                      alt="Logo" 
+                                    />
+                                )}
+                            </div>
+
+                            {/* Footer Etiqueta */}
+                            <div className="flex justify-between items-end z-10">
+                                <div className="space-y-3">
+                                    <div className="flex flex-col">
+                                        <span className="text-[8px] font-black text-slate-300 uppercase tracking-[0.3em] mb-1">Centro Educativo</span>
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: accentColor }}></div>
+                                            <span className="text-[11px] font-black text-slate-600 uppercase tracking-tight">{selectedCenter}</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex flex-col gap-1.5 mt-2">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-3.5 h-3.5 rounded-full bg-slate-100 flex items-center justify-center">
+                                                <Globe size={10} style={{ color: accentColor }} />
+                                            </div>
+                                            <span className="text-[9px] font-black tracking-tight text-slate-500 uppercase">
+                                                {settings?.notificationEmail || 'soporte@tuapp.com'}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-3.5 h-3.5 rounded-full bg-slate-100 flex items-center justify-center">
+                                                <Phone size={10} style={{ color: accentColor }} />
+                                            </div>
+                                            <span className="text-[9px] font-black tracking-tight text-slate-500 uppercase">
+                                                {settings?.contactPhone || '965 120 120'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {showQr && (
+                                    <div className="relative group">
+                                        <div className="absolute -inset-2 bg-slate-50 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                        <div className="relative p-1 bg-white rounded-lg border border-slate-100 shadow-sm flex flex-col items-center">
+                                            <img 
+                                              src={getQRUrl(student.id)} 
+                                              className="w-14 h-14" 
+                                              alt="QR Descarga" 
+                                            />
+                                            <span className="text-[5px] font-black uppercase tracking-widest text-slate-300 mt-0.5 leading-none">Download</span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Elementos Decorativos de Fondo */}
+                            <div className="absolute -right-4 -bottom-4 w-24 h-24 rounded-full blur-3xl opacity-10" style={{ backgroundColor: accentColor }}></div>
                         </div>
-                      </div>
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">Posición {index}</span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                    ))}
+                </div>
             </div>
-          </div>
-          
-          <div className="bg-card/30 backdrop-blur-md rounded-[2rem] p-6 border border-primary/5 flex items-center gap-6">
-             <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 border border-amber-500/20">
-                <Shield size={24} />
-             </div>
-             <div>
-                <h4 className="text-sm font-black text-primary uppercase">Nota de Impresión</h4>
-                <p className="text-xs font-medium text-secondary opacity-60">Asegúrese de configurar el tamaño de papel como A4 y escala 100% en los ajustes de su impresora.</p>
-             </div>
-          </div>
         </div>
+
+        {/* ESTILOS DE IMPRESIÓN */}
+        <style dangerouslySetInnerHTML={{ __html: `
+            @media print {
+                html, body {
+                    height: 100%;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    overflow: hidden;
+                    background: white;
+                }
+                body * { visibility: hidden; }
+                .print-sheet, .print-sheet * { visibility: visible; }
+                .print-sheet {
+                    position: fixed !important;
+                    left: 0 !important;
+                    top: 0 !important;
+                    width: ${paperW}mm !important;
+                    height: ${paperH}mm !important;
+                    margin: 0 !important;
+                    padding: 6mm 5mm !important;
+                    box-shadow: none !important;
+                    transform: none !important;
+                    z-index: 9999;
+                    background: white !important;
+                }
+                .no-print { display: none !important; }
+                @page {
+                    size: ${paperW}mm ${paperH}mm;
+                    margin: 0;
+                }
+            }
+        `}} />
       </div>
-
-      {/* PLIEGO PARA IMPRESIÓN (OCULTO EN WEB) */}
-      <div id="printable-pliego" className="hidden print:block bg-white">
-          <div className="grid grid-cols-2 gap-[2.5mm]">
-              {[...Array(LABELS_PER_SHEET)].map((_, i) => {
-                  const index = i + 1;
-                  const isPrinting = index >= startLabel && index < startLabel + quantity;
-                  if (!isPrinting) return <div key={i} style={{ width: '99.1mm', height: '57.2mm' }} />;
-
-                  return (
-                      <div 
-                        key={i} 
-                        style={{ 
-                          width: '99.1mm', 
-                          height: '57.2mm',
-                          background: '#fff',
-                          border: '0.1px solid transparent'
-                        }}
-                        className="p-6 flex flex-col justify-between overflow-hidden"
-                      >
-                        <div className="flex justify-between items-start">
-                           <div className="space-y-1 max-w-[70%]">
-                              <h3 className="text-[12px] font-bold text-slate-900 uppercase tracking-tight line-clamp-2 leading-tight">
-                                {selectedCenter}
-                              </h3>
-                              <div className="flex items-center gap-2">
-                                <span className="bg-slate-100 text-[8px] font-bold px-2 py-0.5 rounded-full text-slate-500 uppercase tracking-widest">
-                                  {course}
-                                </span>
-                              </div>
-                           </div>
-                           
-                           {showLogo && (
-                             <div className="flex flex-col items-end gap-1">
-                               <div className="text-[9px] font-bold tracking-tighter text-slate-900 leading-none">pujalte</div>
-                               <div className={`text-[6px] font-bold uppercase tracking-[0.2em] leading-none`} style={{color: accentColor}}>creative studio</div>
-                             </div>
-                           )}
-                        </div>
-
-                        <div className="relative py-3">
-                           <div className="text-[14px] font-bold text-center uppercase tracking-[0.15em] leading-tight" style={{color: accentColor}}>
-                              {promo}
-                           </div>
-                           <div className="flex items-center justify-center gap-1 mt-1">
-                              <CheckCircle2 size={10} style={{color: accentColor}} />
-                              <span className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Producto Verificado</span>
-                           </div>
-                        </div>
-
-                        <div className="flex items-end justify-between border-t pt-4 border-slate-100">
-                           <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center border border-slate-100">
-                                 <GraduationCap size={16} className="text-slate-400" />
-                              </div>
-                              <div className="flex flex-col">
-                                 <span className="text-[6px] font-bold text-slate-400 uppercase tracking-widest">Generation</span>
-                                 <span className="text-[8px] font-bold text-slate-900 uppercase">Class of 2026</span>
-                              </div>
-                           </div>
-
-                           {showQr && (
-                             <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-100">
-                                <QrCode size={20} className="text-slate-900" />
-                                <div className="flex flex-col">
-                                   <span className="text-[5px] font-bold uppercase text-slate-400 leading-none">Acceso</span>
-                                   <span className="text-[6px] font-bold text-slate-900 leading-none uppercase">Digital</span>
-                                </div>
-                             </div>
-                           )}
-                        </div>
-                      </div>
-                  );
-              })}
-          </div>
-      </div>
-
-      <style>{`
-        @media print {
-          .no-print { display: none !important; }
-          #printable-pliego { 
-            display: block !important;
-            position: absolute; 
-            left: 0; 
-            top: 0; 
-            margin: 0 !important; 
-            padding: 10mm !important;
-            width: 210mm !important;
-            height: 297mm !important;
-            visibility: visible !important;
-          }
-          body { background: white !important; }
-          #printable-pliego * { visibility: visible !important; }
-        }
-      `}</style>
     </div>
   );
 };
 
 export default LabelGenerator;
-

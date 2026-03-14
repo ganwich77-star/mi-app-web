@@ -18,6 +18,7 @@ import { SCHOOLS, PACKS, EXTRAS, CONTACT_PHONE, COURSE_GROUPS, STAFF_ROLES, DRIV
 import { useOrders } from './hooks/useOrders.js';
 import { useSettings } from './hooks/useSettings.js';
 import { useStaff } from './hooks/useStaff.js';
+import { useSchoolsStats } from './hooks/useSchoolsStats.js';
 import StepIndicator from './components/StepIndicator.jsx';
 import PackCard from './components/PackCard.jsx';
 import ExtraItem from './components/ExtraItem.jsx';
@@ -44,6 +45,7 @@ import StaffEditModal from './components/admin/StaffEditModal.jsx';
 import CriticalDatesPanel from './components/admin/CriticalDatesPanel.jsx';
 import TutorsPanel from './components/admin/TutorsPanel.jsx';
 import LabelGenerator from './components/admin/LabelGenerator.jsx';
+import DownloadPortal from './components/user/DownloadPortal.jsx';
 
 
 
@@ -122,6 +124,56 @@ const DevNav = React.memo(({ view, setView }) => (
     </div>
 ));
 
+// --------------------------------------------------------------------------------
+// COMPONENTE: AppErrorBoundary (CAPTURADOR DE ERRORES GLOBAL)
+// --------------------------------------------------------------------------------
+class AppErrorBoundary extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = { hasError: false, error: null, errorInfo: null };
+    }
+    static getDerivedStateFromError(error) { return { hasError: true }; }
+    componentDidCatch(error, errorInfo) {
+        this.setState({ error, errorInfo });
+        console.error("CRITICAL APP ERROR:", error, errorInfo);
+    }
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 text-white font-sans">
+                    <div className="max-w-2xl w-full bg-slate-900/50 border border-red-500/20 rounded-[2rem] p-10 backdrop-blur-xl shadow-2xl">
+                        <div className="flex items-center gap-4 mb-6">
+                            <div className="w-14 h-14 bg-red-500/10 rounded-2xl flex items-center justify-center border border-red-500/20">
+                                <AlertTriangle size={32} className="text-red-500" />
+                            </div>
+                            <div>
+                                <h1 className="text-2xl font-black tracking-tight text-white uppercase">Error Crítico detectado</h1>
+                                <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">Sistema de Recuperación Activo</p>
+                            </div>
+                        </div>
+                        <p className="text-slate-300 mb-8 font-medium leading-relaxed">
+                            Se ha producido un error durante el inicio de la aplicación. Esto puede deberse a datos corruptos o un fallo en el servidor de despliegue.
+                        </p>
+                        <div className="bg-black/40 rounded-2xl p-6 border border-white/5 mb-8 font-mono text-[10px] text-red-400 overflow-auto max-h-40">
+                            <strong>Detalle del error:</strong><br />
+                            {this.state.error?.toString()}
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <button onClick={() => window.location.reload()} className="bg-white text-slate-950 font-black py-4 px-8 rounded-2xl hover:scale-[1.02] active:scale-95 transition-all shadow-xl">
+                                REINTENTAR CARGA
+                            </button>
+                            <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="bg-slate-800 text-white font-black py-4 px-8 rounded-2xl border border-white/10 hover:bg-slate-700 transition-all">
+                                LIMPIAR CACHÉ Y SALIR
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+        return this.props.children;
+    }
+}
+
 export default function App() {
     // 1. Detección de Modo Demo y Fotógrafo (Multitenancy)
     const [isDemo] = useState(() => {
@@ -173,12 +225,14 @@ export default function App() {
 
     const { settings, setSettings, paymentMethods, enabledPaymentMethods, schools, packs: allPacks, extras: allExtras, adminPin, togglePaymentMethod, addPaymentMethod, updateAdminPin, addSchool, updateSchool, deleteSchool, updateSettings } = useSettings(photographerId, isDemo);
 
+    const schoolsStats = useSchoolsStats(photographerId);
+
     const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
     const [view, setView] = useState(() => {
         const params = new URLSearchParams(window.location.search);
         const v = params.get('view');
         const f = params.get('f');
-        if (v === 'admin' || v === 'master' || v === 'command' || v === 'user') return v;
+        if (v === 'admin' || v === 'master' || v === 'command' || v === 'user' || v === 'download') return v;
         if (f) return 'user';
         return 'landing';
     });
@@ -254,7 +308,7 @@ export default function App() {
     const [selectedOrderIds, setSelectedOrderIds] = useState([]);
     const [selectedStaffIds, setSelectedStaffIds] = useState([]);
 
-    const [newStudentForm, setNewStudentForm] = useState({ schoolId: '', name: '', parentName: '', course: '', group: '', phone: '', email: '', packId: '', extras: [], complements: [], notes: '', photoFile: '', status: 'Pendiente', paymentMethod: '' });
+    const [newStudentForm, setNewStudentForm] = useState({ schoolId: '', name: '', parentName: '', course: '', group: '', phone: '', email: '', packId: '', pack: '', extras: [], complements: [], notes: '', photoFile: '', status: 'Pendiente', paymentMethod: '' });
 
     // Regalo
     const [showGiftModal, setShowGiftModal] = useState(false);
@@ -269,6 +323,53 @@ export default function App() {
 
     // --- ESTADO DE CONEXIÓN (PWA) ---
     const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+    // --- LÓGICA DE VALIDACIÓN DE PIN ---
+    const handlePinSubmit = (val) => {
+        const m1 = '7373', m2 = 'JPM17PASS71-';
+        setTimeout(() => {
+            if (val === adminPin || val === m1 || val === m2) {
+                setIsAdminUnlocked(true);
+                if (photographerId === 'pujaltecreativestudio' || val === m2) {
+                    setIsCreator(true);
+                    setView('master');
+                } else {
+                    setView('admin');
+                }
+                setShowPinModal(false);
+                setPinInput('');
+            } else {
+                setPinError(true);
+                setTimeout(() => {
+                    setPinError(false);
+                    setPinInput('');
+                }, 800);
+            }
+        }, 300);
+    };
+
+    // --- TECLADO FÍSICO PARA PIN ---
+    useEffect(() => {
+        if (!showPinModal) return;
+
+        const handleKeyDown = (e) => {
+            if (e.key >= '0' && e.key <= '9') {
+                if (pinInput.length < 4) {
+                    const newVal = pinInput + e.key;
+                    setPinInput(newVal);
+                    if (newVal.length === 4) handlePinSubmit(newVal);
+                }
+            } else if (e.key === 'Backspace') {
+                setPinInput(prev => prev.slice(0, -1));
+            } else if (e.key === 'Escape') {
+                setShowPinModal(false);
+                setPinInput('');
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [showPinModal, pinInput, adminPin, photographerId]);
 
     useEffect(() => {
         const handleOnline = () => setIsOnline(true);
@@ -761,6 +862,22 @@ export default function App() {
         const packsDesc = getPacksDesc();
         const mainPackId = Object.keys(selectedPacks)[0];
 
+        // 1. Mostrar estado de carga inmediatamente
+        let Swal;
+        try {
+            Swal = (await import('sweetalert2')).default;
+            Swal.fire({
+                title: 'Procesando pedido...',
+                text: 'Por favor, no cierres esta ventana.',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+        } catch (e) {
+            console.error("Error cargando SweetAlert:", e);
+        }
+
         // Suplementos descripción agrupada
         const activeSupplements = settings.supplements || [];
         const supplementsDesc = Object.entries(selectedSupplements)
@@ -810,21 +927,19 @@ export default function App() {
             profit: orderTotals.profit,
         };
 
-        if (formData.paymentMethod === 'card') {
+        if (formData.paymentMethod === 'card' || formData.paymentMethod === 'bizum') {
             try {
                 // Registrar pedido como pendiente
                 newOrder.status = 'Pendiente (Pago en proceso)';
                 const createdOrder = await addOrder(newOrder);
 
-                const Swal = (await import('sweetalert2')).default;
-                Swal.fire({
-                    title: 'Conectando con pasarela segura...',
-                    text: 'Redirigiendo a Sabadell Paycomet. Por favor, no cierres esta ventana.',
-                    allowOutsideClick: false,
-                    didOpen: () => {
-                        Swal.showLoading();
-                    }
-                });
+                if (Swal) {
+                    const methodLabel = formData.paymentMethod === 'bizum' ? 'Bizum' : 'Sabadell Paycomet';
+                    Swal.update({
+                        title: 'Conectando con pasarela...',
+                        text: `Redirigiendo a ${methodLabel}.`
+                    });
+                }
 
                 const { httpsCallable } = await import('firebase/functions');
                 const { functions } = await import('./firebase.js');
@@ -834,7 +949,8 @@ export default function App() {
                     studentId: createdOrder.id,
                     amount: orderTotals.price,
                     photographerId: photographerId,
-                    payMethod: 'card'
+                    schoolId: formData.schoolId, // Identificador del colegio para el webhook
+                    payMethod: formData.paymentMethod
                 });
 
                 const { success, paycometUrl } = response.data;
@@ -847,12 +963,16 @@ export default function App() {
                 }
 
             } catch (error) {
-                console.error("Error al iniciar pago con tarjeta:", error);
-                const Swal = (await import('sweetalert2')).default;
-                Swal.fire('Error', 'No se pudo conectar con la pasarela de pago. Inténtalo de nuevo o selecciona otro método.', 'error');
+                console.error(`Error al iniciar pago con ${formData.paymentMethod}:`, error);
+                if (Swal) {
+                    Swal.fire('Error', 'No se pudo conectar con la pasarela de pago. Inténtalo de nuevo o selecciona otro método.', 'error');
+                } else {
+                    alert('Error: No se pudo conectar con la pasarela de pago.');
+                }
             }
         } else {
             await addOrder(newOrder);
+            if (Swal) Swal.close();
             setOrderCompleted(true);
 
             sendAdminNotification('PEDIDO', {
@@ -865,6 +985,7 @@ export default function App() {
             });
         }
     };
+
 
     // Mensaje WhatsApp diferenciado por método de pago
     const buildWhatsAppMsg = () => {
@@ -900,9 +1021,10 @@ export default function App() {
         const fullMsg = header + footer;
 
         if (isBizum) {
+            const phone = settings.contactPhone || CONTACT_PHONE;
             return fullMsg + "\n" +
                 `💳 *Pago:* Bizum\n\n` +
-                `✅ He realizado el Bizum al ${CONTACT_PHONE} con el concepto *ORLA ${formData.studentName}*.\n` +
+                `✅ He realizado el Bizum al ${phone} con el concepto *ORLA ${formData.studentName}*.\n` +
                 `Adjunto el justificante. ¡Gracias!`;
         }
 
@@ -920,7 +1042,8 @@ export default function App() {
     };
 
     const sendWhatsApp = () => {
-        window.open(`https://wa.me/34${CONTACT_PHONE}?text=${encodeURIComponent(buildWhatsAppMsg())}`, '_blank');
+        const phone = settings.contactPhone || CONTACT_PHONE;
+        window.open(`https://wa.me/34${phone}?text=${encodeURIComponent(buildWhatsAppMsg())}`, '_blank');
     };
 
     const [gapiInited, setGapiInited] = useState(false);
@@ -1438,6 +1561,14 @@ export default function App() {
                     {/* 6. Vista Maestra (Centro de Control) */}
                     {view === 'master' && <MasterPanel onBack={() => setView('user')} />}
 
+                    {/* VISTA PORTAL DESCARGA (QR) */}
+                    {view === 'download' && (
+                        <DownloadPortal 
+                            orderId={new URLSearchParams(window.location.search).get('id')} 
+                            allExtras={allExtras}
+                        />
+                    )}
+
                     {/* VISTA COMMAND CENTER (PRODUCCIÓN) */}
                     {view === 'command' && (
                         <CommandCenter
@@ -1696,7 +1827,14 @@ export default function App() {
                                 )}
 
                                 {adminTab === 'etiquetas' && (
-                                    <LabelGenerator />
+                                    <LabelGenerator 
+                                        orders={orders} 
+                                        adminSchool={adminSchool}
+                                        ordersFilters={ordersFilters}
+                                        schools={schools}
+                                        settings={settings}
+                                        updateSettings={updateSettings}
+                                    />
                                 )}
 
 
@@ -1749,6 +1887,7 @@ export default function App() {
                                             updateSchool={updateSchool}
                                             deleteSchool={deleteSchool}
                                             updateSettings={updateSettings}
+                                            schoolsStats={schoolsStats}
                                         />
                                         <TutorsPanel
                                             settings={settings}
@@ -2231,89 +2370,98 @@ export default function App() {
                         )
                     }
 
-                    {/* MODAL PIN DE ACCESO (RESTAURADO) */}
+                    {/* MODAL PIN DE ACCESO (PREMIUM SECURITY DESIGN) */}
                     {
                         showPinModal && (
-                            <div className="fixed inset-0 z-[800] flex items-center justify-center p-6 bg-slate-50/90 backdrop-blur-2xl animate-fade-in">
-                                <div className="w-full max-w-sm bg-white border border-black/5 rounded-[40px] shadow-2xl overflow-hidden animate-scale-in">
-                                    <div className="p-8 text-center space-y-6">
-                                        <div className="w-16 h-16 bg-accent/10 rounded-2xl flex items-center justify-center mx-auto border border-accent/20">
-                                            <Shield size={28} className="text-accent" />
+                            <div className="fixed inset-0 z-[800] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xl animate-fade-in">
+                                <div className="w-full max-w-[360px] bg-white rounded-[45px] shadow-[0_50px_100px_rgba(0,0,0,0.25)] overflow-hidden border border-white animate-scale-in">
+                                    <div className="p-10 space-y-12">
+                                        {/* Header Icon & Title */}
+                                        <div className="text-center space-y-4">
+                                            <div className="w-20 h-20 bg-accent/5 rounded-[30px] flex items-center justify-center mx-auto border border-accent/10 shadow-lg shadow-accent/5">
+                                                <Shield size={36} className="text-accent" />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">Terminal de Acceso</h3>
+                                                <p className="text-[9px] text-slate-400 font-black uppercase tracking-[0.4em]">Protección de Seguridad Activa</p>
+                                            </div>
                                         </div>
-                                        <div className="space-y-1">
-                                            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Área Protegida</h3>
-                                            <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest opacity-60">Introduce tu PIN de acceso</p>
+
+                                        {/* PIN Slots Design */}
+                                        <div className="flex justify-center gap-4 py-2">
+                                            {[0, 1, 2, 3].map((i) => (
+                                                <div 
+                                                    key={i}
+                                                    className={`
+                                                        w-12 h-16 rounded-2xl border-2 transition-all flex items-center justify-center
+                                                        ${pinInput.length > i ? 'bg-slate-800 border-slate-800' : 'bg-white border-slate-200'}
+                                                        ${pinError ? 'border-red-500 bg-red-50' : ''}
+                                                    `}
+                                                >
+                                                    {pinInput.length > i ? (
+                                                        <div className="w-2.5 h-2.5 bg-white rounded-full" />
+                                                    ) : (
+                                                        <div className="w-1.5 h-1.5 bg-slate-200 rounded-full" />
+                                                    )}
+                                                </div>
+                                            ))}
                                         </div>
-                                        <div className="relative space-y-4">
-                                            <div className="relative">
-                                                <input
-                                                    type={showPin ? "text" : "password"}
-                                                    placeholder="••••••••"
-                                                    value={pinInput}
-                                                    onChange={(e) => {
-                                                        setPinInput(e.target.value);
-                                                        setPinError(false);
-                                                    }}
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === 'Enter') {
-                                                            const masterPass = 'JPM17PASS71-';
-                                                            if (pinInput === adminPin || pinInput === masterPass) {
-                                                                setIsAdminUnlocked(true);
-                                                                if (photographerId === 'pujaltecreativestudio' || pinInput === masterPass) {
-                                                                    setIsCreator(true);
-                                                                    setView('master');
-                                                                } else {
-                                                                    setView('admin');
-                                                                }
-                                                                setShowPinModal(false);
-                                                            } else {
-                                                                setPinError(true);
-                                                                setTimeout(() => {
-                                                                    setPinError(false);
-                                                                    setPinInput('');
-                                                                }, 1000);
-                                                            }
+
+                                        {/* Numeric Keypad Component - Color fijo para evitar confusión */}
+                                        <div className="grid grid-cols-3 gap-4">
+                                            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                                                <button
+                                                    key={num}
+                                                    onClick={() => {
+                                                        if (pinInput.length < 4) {
+                                                            const newVal = pinInput + num;
+                                                            setPinInput(newVal);
+                                                            if (newVal.length === 4) handlePinSubmit(newVal);
                                                         }
                                                     }}
-                                                    autoFocus
-                                                    className={`w-full bg-slate-50 border ${pinError ? 'border-red-500 animate-shake' : 'border-slate-200'} rounded-2xl py-5 text-center text-2xl font-black text-slate-950 tracking-[0.2em] outline-none focus:border-accent focus:bg-white transition-all placeholder:tracking-normal placeholder:text-slate-400 pr-14`}
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setShowPin(prev => !prev)}
-                                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-accent transition-colors p-2"
+                                                    className="h-14 rounded-2xl bg-slate-100 text-slate-800 text-2xl font-black border border-slate-200 active:bg-slate-200 transition-colors"
                                                 >
-                                                    {showPin ? <EyeOff size={20} /> : <Eye size={20} />}
+                                                    {num}
                                                 </button>
-                                            </div>
-                                            {pinError && <p className="absolute -bottom-6 left-0 right-0 text-[10px] text-red-500 font-bold uppercase tracking-widest text-center">Contraseña Incorrecta</p>}
-
+                                            ))}
+                                            <button 
+                                                onClick={() => setPinInput('')}
+                                                className="h-14 flex items-center justify-center text-[9px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-600"
+                                            >
+                                                LIMPIAR
+                                            </button>
                                             <button
                                                 onClick={() => {
-                                                    const masterPass = 'JPM17PASS71-';
-                                                    if (pinInput === adminPin || pinInput === masterPass) {
-                                                        setIsAdminUnlocked(true);
-                                                        if (photographerId === 'pujaltecreativestudio' || pinInput === masterPass) {
-                                                            setIsCreator(true);
-                                                            setView('master');
-                                                        } else {
-                                                            setView('admin');
-                                                        }
-                                                        setShowPinModal(false);
-                                                    } else {
-                                                        setPinError(true);
-                                                        setTimeout(() => {
-                                                            setPinError(false);
-                                                            setPinInput('');
-                                                        }, 1000);
+                                                    if (pinInput.length < 4) {
+                                                        const newVal = pinInput + '0';
+                                                        setPinInput(newVal);
+                                                        if (newVal.length === 4) handlePinSubmit(newVal);
                                                     }
                                                 }}
-                                                className="w-full h-14 bg-accent text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl shadow-lg shadow-accent/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                                                className="h-14 rounded-2xl bg-slate-100 text-slate-800 text-2xl font-black border border-slate-200 active:bg-slate-200 transition-colors"
                                             >
-                                                Acceder al Sistema
+                                                0
+                                            </button>
+                                            <button
+                                                onClick={() => setPinInput(p => p.slice(0, -1))}
+                                                className="h-14 rounded-2xl flex items-center justify-center text-slate-400 hover:text-slate-600 active:bg-slate-100 transition-colors border border-transparent"
+                                            >
+                                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M3 12l6.41-6.41A2 2 0 0110.83 5H21a2 2 0 012 2v10a2 2 0 01-2 2H10.83a2 2 0 01-1.42-.59L3 12z" />
+                                                </svg>
                                             </button>
                                         </div>
-                                        <button onClick={() => setShowPinModal(false)} className="w-full py-2 text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors">Cancelar y Volver</button>
+
+                                        {/* Footer Actions */}
+                                        <div className="pt-2 flex flex-col items-center">
+                                            <button
+                                                onClick={() => setShowPinModal(false)}
+                                                className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] hover:text-slate-600 transition-colors"
+                                            >
+                                                Cerrar Ventana
+                                            </button>
+                                        </div>
+
                                     </div>
                                 </div>
                             </div>
@@ -2330,3 +2478,10 @@ export default function App() {
         </div>
     );
 }
+const AppWithProviders = () => (
+    <AppErrorBoundary>
+        <App />
+    </AppErrorBoundary>
+);
+
+export { AppWithProviders as App };

@@ -11,6 +11,44 @@ import PricingCalculator from '../PricingCalculator.jsx';
 import { toTitleCase } from '../../utils/formatters.js';
 import OptimizedImage from '../common/OptimizedImage.jsx';
 
+import { AlertTriangle } from 'lucide-react';
+
+// --------------------------------------------------------------------------------
+// COMPONENTE: UserErrorBoundary (CAPTURADOR DE ERRORES DE VISTA DE USUARIO)
+// --------------------------------------------------------------------------------
+class UserErrorBoundary extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = { hasError: false, error: null };
+    }
+    static getDerivedStateFromError(error) { return { hasError: true }; }
+    componentDidCatch(error, errorInfo) {
+        this.setState({ error });
+        console.error("USER VIEW ERROR:", error, errorInfo);
+    }
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-slate-900 font-sans">
+                    <div className="max-w-md w-full bg-white border border-red-200 rounded-[2rem] p-8 shadow-2xl text-center">
+                        <div className="w-20 h-20 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-red-100">
+                            <AlertTriangle size={40} className="text-red-500" />
+                        </div>
+                        <h1 className="text-xl font-black tracking-tight uppercase mb-2">Error en la Aplicación</h1>
+                        <p className="text-slate-500 font-medium mb-6 text-sm">
+                            Lo sentimos, la aplicación ha encontrado un problema al cargar los datos. Por favor, intenta recargar la página.
+                        </p>
+                        <button onClick={() => window.location.reload()} className="bg-slate-900 text-white font-black py-4 px-8 rounded-2xl w-full active:scale-95 transition-all shadow-xl">
+                            REINTENTAR AHORA
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+        return this.props.children;
+    }
+}
+
 const UserEnrollment = ({
     settings,
     theme,
@@ -94,9 +132,9 @@ const UserEnrollment = ({
                                 <div className="absolute top-0 right-0 w-40 h-40 bg-indigo-500/10 rounded-full blur-[40px] pointer-events-none" />
                                 <div className="absolute bottom-0 left-0 w-40 h-40 bg-violet-500/10 rounded-full blur-[40px] pointer-events-none" />
 
-                                <h2 className="text-3xl font-black text-primary tracking-tight leading-tight">¡Te damos la<br /><span className="text-accent">bienvenida!</span></h2>
+                                <h2 className="text-3xl font-black text-black tracking-tight leading-tight">¡Te damos la<br /><span className="text-accent">bienvenida!</span></h2>
 
-                                <p className="text-secondary font-medium leading-relaxed px-2">Rellena tus datos en solo 3 pasos para asegurar tu plaza en la orla de este año.</p>
+                                <p className="text-black font-bold leading-relaxed px-2">Rellena tus datos en solo 3 pasos para asegurar tu plaza en la orla de este año.</p>
 
                                 <button onClick={() => setStep(1)} className="btn-primary w-full text-lg py-5 mt-4 flex items-center justify-center gap-3 font-black shadow-xl">
                                     Comenzar reserva <ChevronRight size={20} />
@@ -115,41 +153,41 @@ const UserEnrollment = ({
                                         <User size={22} />
                                     </div>
                                     <div>
-                                        <h2 className="text-2xl font-black text-primary tracking-tight leading-none bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">Datos del Alumno</h2>
-                                        <p className="text-[10px] font-black text-secondary tracking-widest uppercase mt-1 opacity-70">Paso 1 de 3</p>
+                                        <h2 className="text-2xl font-black text-black tracking-tight leading-none bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">Datos del Alumno</h2>
+                                        <p className="text-[10px] font-black text-black tracking-widest uppercase mt-1">Paso 1 de 3</p>
                                     </div>
                                 </div>
                                 <div className="space-y-4">
                                     <div>
-                                        <label className="text-primary font-bold">Nombre y Apellidos *</label>
+                                        <label className="text-black font-black uppercase text-[10px] tracking-widest">Nombre y Apellidos *</label>
                                         <input
                                             type="text"
                                             lang="es"
                                             spellCheck={true}
                                             autoCorrect="on"
-                                            autoCapitalize="words"
+                                            autoCapitalize="characters"
+                                            style={{ textTransform: 'uppercase' }}
                                             className={`input-dark ${formError && !formData.studentName.trim() ? 'border-red-500 bg-red-50' : ''}`}
-                                            placeholder="Ej: Mario López Pérez"
+                                            placeholder="EJ: MARIO LÓPEZ PÉREZ"
                                             value={formData.studentName}
-                                            onChange={e => { setFormData({ ...formData, studentName: e.target.value }); if (formError) setFormError(''); }}
-                                            onBlur={e => setFormData(prev => ({ ...prev, studentName: toTitleCase(e.target.value) }))}
+                                            onChange={e => { setFormData({ ...formData, studentName: e.target.value.toUpperCase() }); if (formError) setFormError(''); }}
                                         />
                                     </div>
 
                                     <div>
-                                        <label className="text-primary font-bold">Centro Educativo *</label>
+                                        <label className="text-black font-black uppercase text-[10px] tracking-widest">Centro Educativo *</label>
                                         <div className="relative">
                                             <select className={`input-dark appearance-none pr-10 ${formError && !formData.schoolId ? 'border-red-500 bg-red-50' : ''}`} value={formData.schoolId} onChange={e => { setFormData({ ...formData, schoolId: e.target.value }); if (formError) setFormError(''); }}>
                                                 <option value="">Selecciona tu Centro</option>
-                                                {schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                                {(schools || []).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                                             </select>
                                             <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-primary/50 pointer-events-none" />
                                         </div>
                                     </div>
 
                                     <div>
-                                        <label className="text-primary font-bold">Curso / Clase *</label>
-                                        <div className="grid grid-cols-2 gap-3">
+                                        <label className="text-black font-black uppercase text-[10px] tracking-widest">Curso / Clase *</label>
+                                        <div className="grid grid-cols-[1.5fr_1fr] gap-3">
                                             <div className="relative">
                                                 <select className="input-dark appearance-none pr-10" value={courseName} onChange={e => {
                                                     const selected = e.target.value; setCourseName(selected); setCourseLine('');
@@ -273,13 +311,13 @@ const UserEnrollment = ({
                                         <ChevronRight size={18} className="rotate-180" />
                                     </button>
                                     <div>
-                                        <h2 className="text-xl font-black text-primary tracking-tight leading-none">Selecciona tu Pack</h2>
-                                        <p className="text-[9px] font-black text-secondary tracking-widest uppercase mt-0.5 opacity-50">Configura tu pedido · 2/3</p>
+                                        <h2 className="text-xl font-black text-black tracking-tight leading-none">Selecciona tu Pack</h2>
+                                        <p className="text-[9px] font-black text-black tracking-widest uppercase mt-0.5">Configura tu pedido · 2/3</p>
                                     </div>
                                 </div>
                                 <div className="space-y-4">
-                                    {allPacks.map(pack => {
-                                        const isSelected = !!selectedPacks[pack.id];
+                                    {(allPacks || []).map(pack => {
+                                        const isSelected = !!selectedPacks?.[pack.id];
                                         const supplementsList = settings.supplements || [];
                                         const activeSupplements = supplementsList.filter(s => s.active);
                                         
@@ -298,7 +336,7 @@ const UserEnrollment = ({
                                                     <div className="ml-4 pl-4 border-l-2 border-indigo-500/20 py-2 space-y-3 mt-2 bg-indigo-500/5 rounded-r-2xl">
                                                         <div className="flex items-center gap-2 mb-1">
                                                             <Sparkles size={14} className="text-indigo-500" />
-                                                            <span className="text-[10px] font-black text-secondary uppercase tracking-wider">Suplementos para este pack</span>
+                                                            <span className="text-[10px] font-black text-black uppercase tracking-wider">Suplementos para este pack</span>
                                                         </div>
                                                         
                                                         {activeSupplements.length > 0 ? (
@@ -307,7 +345,7 @@ const UserEnrollment = ({
                                                                 return (
                                                                     <div key={s.id} className={`flex items-center justify-between p-3 rounded-2xl border transition-all ${supQty > 0 ? 'bg-indigo-500/10 border-indigo-500/30' : 'bg-primary/5 border-transparent'}`}>
                                                                         <div className="flex flex-col">
-                                                                            <span className="text-xs font-bold text-primary">{s.name}</span>
+                                                                            <span className="text-xs font-bold text-black">{s.name}</span>
                                                                             <span className="text-[10px] font-black text-indigo-500">+{s.price}€/ud</span>
                                                                         </div>
                                                                         
@@ -349,8 +387,17 @@ const UserEnrollment = ({
                                         );
                                     })}
 
-                                    <button disabled={Object.keys(selectedPacks).length === 0} onClick={() => setStep(3)} className="btn-primary w-full text-base font-black flex items-center justify-center gap-2">
-                                        Continuar <ChevronRight size={18} />
+                                    {formError && <div className="p-3 mb-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-bold text-center animate-shake uppercase">{formError}</div>}
+
+                                    <button onClick={() => {
+                                        if (Object.keys(selectedPacks).length === 0) {
+                                            setFormError('SELECCIONA AL MENOS 1 PACK PARA CONTINUAR');
+                                            return;
+                                        }
+                                        setFormError('');
+                                        setStep(3);
+                                    }} className="btn-primary w-full text-base font-black flex items-center justify-center gap-2">
+                                        CONTINUAR <ChevronRight size={18} />
                                     </button>
                                 </div>
                             </div>
@@ -364,23 +411,25 @@ const UserEnrollment = ({
                                         <ChevronRight size={18} className="rotate-180" />
                                     </button>
                                     <div>
-                                        <h2 className="text-xl font-black text-primary tracking-tight leading-none">Resumen de tu pedido</h2>
-                                        <p className="text-[9px] font-black text-secondary tracking-widest uppercase mt-0.5 opacity-50">Finalizar pedido · 3/3</p>
+                                        <h2 className="text-xl font-black text-black tracking-tight leading-none">Resumen de tu pedido</h2>
+                                        <p className="text-[9px] font-black text-black tracking-widest uppercase mt-0.5">Finalizar pedido · 3/3</p>
                                     </div>
                                 </div>
 
                                 <div className="relative overflow-hidden rounded-[30px] p-8 text-center bg-accent/5 border-accent/20 shadow-2xl">
                                     <div className="absolute inset-0 bg-gradient-to-br from-accent/10 to-transparent pointer-events-none" />
-                                    <p className="text-[11px] font-black text-accent uppercase tracking-[0.2em] mb-2 opacity-80">Total del pedido</p>
-                                    <p className="text-6xl font-black text-primary leading-none">{orderTotals.price.toFixed(0)}<span className="text-3xl text-accent ml-1">€</span></p>
-                                    <p className="text-[10px] text-secondary mt-3 font-black uppercase tracking-widest leading-relaxed">
+                                    <p className="text-[11px] font-black text-accent uppercase tracking-[0.2em] mb-2">Total del pedido</p>
+                                    <p className="text-6xl font-black text-black leading-none">{orderTotals.price.toFixed(0)}<span className="text-3xl text-accent ml-1">€</span></p>
+                                    <p className="text-[10px] text-black mt-3 font-black uppercase tracking-widest leading-relaxed">
                                         {getPacksDesc()}
                                     </p>
                                 </div>
 
                                 <div className="card p-6 space-y-4">
-                                    <h3 className="text-sm font-bold text-primary flex items-center gap-2"><Package size={18} className="text-accent" /> Añadir extras opcionales</h3>
-                                    {allExtras.map(extra => <ExtraItem key={extra.id} extra={extra} qty={extras[extra.id] || 0} onToggle={(delta) => toggleExtra(extra.id, delta)} />)}
+                                    <h3 className="text-sm font-bold text-black flex items-center gap-2"><Package size={18} className="text-accent" /> Añadir extras opcionales</h3>
+                                    <div className="grid grid-cols-2 gap-3 mt-2">
+                                        {(allExtras || []).map(extra => <ExtraItem key={extra.id} extra={extra} qty={extras?.[extra.id] || 0} onToggle={(delta) => toggleExtra(extra.id, delta)} />)}
+                                    </div>
 
                                     <div className="flex gap-3 items-start p-4 rounded-2xl bg-amber-400/8 border border-amber-400/20 mt-2">
                                         <span className="text-lg leading-none mt-0.5">⚡</span>
@@ -392,7 +441,7 @@ const UserEnrollment = ({
                                 </div>
 
                                 <div className="card p-6">
-                                    <h3 className="text-sm font-bold text-primary flex items-center gap-2 mb-5"><CreditCard size={18} className="text-accent" /> Método de pago</h3>
+                                    <h3 className="text-sm font-bold text-black flex items-center gap-2 mb-5"><CreditCard size={18} className="text-accent" /> Método de pago</h3>
                                     {enabledPaymentMethods.length > 0 ? (
                                         <div className={`grid ${enabledPaymentMethods.length === 1 ? 'grid-cols-1 max-w-[200px] mx-auto w-full' : 'grid-cols-2'} gap-3`}>
                                             {enabledPaymentMethods.map(m => (
@@ -421,8 +470,8 @@ const UserEnrollment = ({
                     <div className="card p-10 space-y-8 text-center animate-scale-in">
                         <div className="w-24 h-24 bg-emerald-500/10 rounded-[30px] flex items-center justify-center mx-auto border border-emerald-500/20 shadow-xl shadow-emerald-500/5"><CheckCircle size={56} className="text-emerald-500" /></div>
                         <div className="space-y-3">
-                            <h2 className="text-3xl font-black text-primary tracking-tight">¡Reserva Completada!</h2>
-                            <p className="text-secondary text-sm font-black uppercase tracking-widest opacity-60 px-4">{formData.paymentMethod === 'bizum' ? 'Completa el Bizum y envíanos el justificante.' : 'Realiza el pago y avísanos por WhatsApp.'}</p>
+                            <h2 className="text-3xl font-black text-black tracking-tight">¡Reserva Completada!</h2>
+                            <p className="text-black text-sm font-black uppercase tracking-widest px-4">{formData.paymentMethod === 'bizum' ? 'Completa el Bizum y envíanos el justificante.' : 'Realiza el pago y avísanos por WhatsApp.'}</p>
                         </div>
                         <div className="bg-primary/5 rounded-[30px] p-8 border border-primary/10 text-left space-y-5 backdrop-blur-md">
                             <div className="flex justify-between items-center border-b border-primary/10 pb-5">
@@ -435,8 +484,32 @@ const UserEnrollment = ({
                             </div>
                             {formData.paymentMethod === 'bizum' && (
                                 <div className="space-y-4">
-                                    <button onClick={() => copyToClipboard(CONTACT_PHONE, 'teléfono')} className="w-full flex items-center justify-between p-5 rounded-2xl bg-primary/5 border border-primary/10 active:bg-primary/10 transition-all"><div className="text-left"><p className="text-[10px] text-secondary font-black tracking-widest opacity-40 uppercase">Teléfono Bizum</p><p className="text-xl font-black text-primary mt-1">{CONTACT_PHONE}</p></div><Copy size={20} className="text-secondary opacity-60" /></button>
+                                    <button onClick={() => copyToClipboard(settings.contactPhone || CONTACT_PHONE, 'teléfono')} className="w-full flex items-center justify-between p-5 rounded-2xl bg-primary/5 border border-primary/10 active:bg-primary/10 transition-all"><div className="text-left"><p className="text-[10px] text-secondary font-black tracking-widest opacity-40 uppercase">Teléfono Bizum</p><p className="text-xl font-black text-primary mt-1">{settings.contactPhone || CONTACT_PHONE}</p></div><Copy size={20} className="text-secondary opacity-60" /></button>
                                     <button onClick={() => copyToClipboard(`ORLA ${formData.studentName}`, 'concepto')} className="w-full flex items-center justify-between p-5 rounded-2xl bg-primary/5 border border-primary/10 active:bg-primary/10 transition-all"><div className="text-left"><p className="text-[10px] text-secondary font-black tracking-widest opacity-40 uppercase">Concepto</p><p className="text-lg font-black text-primary mt-1 truncate max-w-[200px]">ORLA {formData.studentName}</p></div><Copy size={20} className="text-secondary opacity-60" /></button>
+                                </div>
+                            )}
+
+                            {/* Mostrar email y contacto si existe en ajustes */}
+                            {(settings.notificationEmail || settings.contactPhone) && formData.paymentMethod !== 'bizum' && (
+                                <div className="space-y-3 pt-4 border-t border-primary/5">
+                                    {settings.notificationEmail && (
+                                        <button onClick={() => copyToClipboard(settings.notificationEmail, 'email')} className="w-full flex items-center justify-between p-4 rounded-xl bg-primary/2 border border-primary/5 active:bg-primary/10 transition-all text-left">
+                                            <div>
+                                                <p className="text-[9px] text-secondary font-black tracking-widest opacity-40 uppercase">Email de soporte</p>
+                                                <p className="text-xs font-black text-primary mt-0.5">{settings.notificationEmail}</p>
+                                            </div>
+                                            <Mail size={16} className="text-secondary opacity-40" />
+                                        </button>
+                                    )}
+                                    {settings.contactPhone && (
+                                        <button onClick={() => copyToClipboard(settings.contactPhone, 'teléfono')} className="w-full flex items-center justify-between p-4 rounded-xl bg-primary/2 border border-primary/5 active:bg-primary/10 transition-all text-left">
+                                            <div>
+                                                <p className="text-[9px] text-secondary font-black tracking-widest opacity-40 uppercase">Teléfono de contacto</p>
+                                                <p className="text-xs font-black text-primary mt-0.5">{settings.contactPhone}</p>
+                                            </div>
+                                            <Phone size={16} className="text-secondary opacity-40" />
+                                        </button>
+                                    )}
                                 </div>
                             )}
                             {formData.paymentMethod === 'efectivo' && <div className="p-5 bg-amber-50 rounded-2xl border border-amber-100 text-center text-amber-700 text-sm font-semibold">Entrega del importe en el centro escolar.</div>}
@@ -542,4 +615,10 @@ const UserEnrollment = ({
     );
 };
 
-export default UserEnrollment;
+const UserEnrollmentWithBoundary = (props) => (
+    <UserErrorBoundary>
+        <UserEnrollment {...props} />
+    </UserErrorBoundary>
+);
+
+export default UserEnrollmentWithBoundary;

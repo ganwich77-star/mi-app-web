@@ -28,22 +28,22 @@ export default function PackCard({ pack, selected, quantity = 1, onSelect, onUpd
             <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
                 {/* Info izquierda */}
                 <div className="flex-1 min-w-0 w-full">
-                    <p className={`text-[9px] font-black uppercase tracking-[0.2em] mb-1.5 transition-opacity ${selected ? 'text-accent opacity-100' : 'text-secondary opacity-50'}`}>
+                    <p className={`text-[9px] font-black uppercase tracking-[0.2em] mb-1.5 transition-opacity ${selected ? 'text-accent' : 'text-black'}`}>
                         {pack.subtitle}
                     </p>
-                    <h3 className={`text-xl font-black transition-colors ${selected ? 'text-accent' : 'text-primary'}`}>
+                    <h3 className={`text-xl font-black transition-colors ${selected ? 'text-accent' : 'text-black'}`}>
                         {pack.name}
                     </h3>
 
                     {/* Items del pack - Mejorado contraste */}
                     <ul className="mt-5 space-y-2.5">
                         {pack.items.map((item, i) => (
-                            <li key={i} className="flex items-center gap-2.5 text-[13px] text-secondary font-bold tracking-tight">
+                            <li key={i} className="flex items-center gap-2.5 text-[13px] text-black font-bold tracking-tight">
                                 <span className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 transition-all
-                  ${selected ? 'bg-accent text-white shadow-glow' : 'bg-primary/10 text-secondary opacity-60'}`}>
+                  ${selected ? 'bg-accent text-white shadow-glow' : 'bg-black/10 text-black'}`}>
                                     <Check size={10} strokeWidth={4} />
                                 </span>
-                                <span className={selected ? 'opacity-100' : 'opacity-70'}>{item}</span>
+                                <span>{item}</span>
                             </li>
                         ))}
                     </ul>

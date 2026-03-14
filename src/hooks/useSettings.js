@@ -39,6 +39,7 @@ export function useSettings(photographerId, isDemo = false) {
             extras: [...EXTRAS],
             adminPin: '7373',
             giftDiscount: 25,
+            brandName: '',
             fiscalName: '',
             cif: '',
             address: '',
@@ -47,6 +48,8 @@ export function useSettings(photographerId, isDemo = false) {
             province: '',
             logoUrl: null,
             logoUrlDark: null,
+            notificationEmail: '',
+            contactPhone: '',
             shootingDateDefault: '',
             appDeadlineDefault: '',
             graduationDateDefault: '',
@@ -71,21 +74,40 @@ export function useSettings(photographerId, isDemo = false) {
                 const hasBizum = updatedPM.some(m => m.id === 'bizum');
                 const hasCard = updatedPM.some(m => m.id === 'card');
 
-                if (!hasEfectivo) updatedPM.push({ id: 'efectivo', label: 'Efectivo', enabled: false });
-                if (!hasBizum) updatedPM.push({ id: 'bizum', label: 'Bizum', enabled: false });
+                if (!hasEfectivo) updatedPM.push({ id: 'efectivo', label: 'Efectivo', enabled: true });
+                if (!hasBizum) updatedPM.push({ id: 'bizum', label: 'Bizum', enabled: true });
                 if (!hasCard) updatedPM.push({ id: 'card', label: 'Tarjeta / TPV', enabled: true });
+                if (!updatedPM.some(m => m.id === 'tarjeta_bizum')) updatedPM.push({ id: 'tarjeta_bizum', label: 'Tarjeta / Bizum', enabled: false });
 
                 // Mapeo forzado de iconos para consistencia premium
                 const pmConfig = {
-                    'efectivo': { icon: '💶', label: 'Efectivo' },
-                    'bizum': { icon: '📲', label: 'Bizum' },
-                    'card': { icon: '💳', label: 'Tarjeta / TPV' }
+                    'efectivo': { 
+                        icon: '💶', 
+                        label: 'EFECTIVO',
+                        desc: 'Actívalo si deseas que se paguen así los packs. Al padre se le indicará que debe llevar el dinero exacto en un sobre con el nombre del alumno.'
+                    },
+                    'bizum': { 
+                        icon: '📲', 
+                        label: 'BIZUM',
+                        desc: 'Envío normal de Bizum con su app del banco. Incompatible con la pasarela Tarjeta/Bizum.'
+                    },
+                    'card': { 
+                        icon: '💳', 
+                        label: 'TARJETA',
+                        desc: 'Pasarela de pago solo tarjeta.'
+                    },
+                    'tarjeta_bizum': { 
+                        icon: '📲', 
+                        label: 'TARJETA/BIZUM',
+                        desc: 'Pasarela de pago Tarjeta y Bizum. Si se activa, el Bizum normal se desactivará automáticamente ya que no pueden estar activos a la vez.'
+                    }
                 };
 
                 updatedPM = updatedPM.map(m => ({
                     ...m,
                     icon: pmConfig[m.id]?.icon || '🛡️',
-                    label: pmConfig[m.id]?.label || (m.label ? m.label.replace(/[💶📲💳]/g, '').trim() : m.id)
+                    label: pmConfig[m.id]?.label || (m.label ? m.label.replace(/[💶📲💳]/g, '').trim() : m.id),
+                    desc: pmConfig[m.id]?.desc || ''
                 }));
 
                 const finalData = {
@@ -94,6 +116,7 @@ export function useSettings(photographerId, isDemo = false) {
                     packs: ensureArray(firebaseData.packs, PACKS),
                     extras: ensureArray(firebaseData.extras, EXTRAS),
                     schools: ensureArray(firebaseData.schools, SCHOOLS),
+                    dateExceptions: ensureArray(firebaseData.dateExceptions, []),
                 };
                 setSettings(prev => ({ ...prev, ...finalData }));
                 localStorage.setItem(SETTINGS_KEY, JSON.stringify(finalData));
@@ -119,11 +142,33 @@ export function useSettings(photographerId, isDemo = false) {
     };
 
     const togglePaymentMethod = (id) => {
+        let updatedPMs = settings.paymentMethods.map(m =>
+            m.id === id ? { ...m, enabled: !m.enabled } : m
+        );
+
+        // Lógica de conmutación forzada entre TARJETA y TARJETA/BIZUM
+        if (id === 'card') {
+            const isNowEnabled = updatedPMs.find(m => m.id === 'card').enabled;
+            updatedPMs = updatedPMs.map(m => m.id === 'tarjeta_bizum' ? { ...m, enabled: !isNowEnabled } : m);
+        } else if (id === 'tarjeta_bizum') {
+            const isNowEnabled = updatedPMs.find(m => m.id === 'tarjeta_bizum').enabled;
+            updatedPMs = updatedPMs.map(m => m.id === 'card' ? { ...m, enabled: !isNowEnabled } : m);
+            // Si activo Tarjeta/Bizum, el Bizum normal se desactiva
+            if (isNowEnabled) {
+                updatedPMs = updatedPMs.map(m => m.id === 'bizum' ? { ...m, enabled: false } : m);
+            }
+        } else if (id === 'bizum') {
+            const isNowEnabled = updatedPMs.find(m => m.id === 'bizum').enabled;
+            // Si activo Bizum normal, el Tarjeta/Bizum se desactiva y el Tarjeta normal se activa (por el espejo)
+            if (isNowEnabled) {
+                updatedPMs = updatedPMs.map(m => m.id === 'tarjeta_bizum' ? { ...m, enabled: false } : m);
+                updatedPMs = updatedPMs.map(m => m.id === 'card' ? { ...m, enabled: true } : m);
+            }
+        }
+
         const updated = {
             ...settings,
-            paymentMethods: settings.paymentMethods.map(m =>
-                m.id === id ? { ...m, enabled: !m.enabled } : m
-            ),
+            paymentMethods: updatedPMs,
         };
         setSettings(updated);
         saveToFirebase(updated);

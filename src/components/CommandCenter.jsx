@@ -70,60 +70,58 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                 const totalDocentes = filteredStaff.length;
                 if (totalDocentes === 0) return '';
                 
-                const aW = design.aW || 350; // Base width for calculations
-                const aH = design.aH || 450; // Base height for calculations
-
+                const aW = design.aW || 350;
+                const aH = design.aH || 450;
                 const dScale = design.dScale || 1.2;
                 const dynamicW = aW * dScale;
                 const dynamicH = aH * dScale;
-                const dGapX = design.dGapX ?? 0;
+                const dGapX = design.dGapX ?? 50; // Gap horizontal
                 const canvasW = design.canvasW || 4961;
                 const dY = design.dY || 0;
                 const dOffsetX = design.dOffsetX || 0;
-                const fontSizePx = (design.fontSizeDoc || 10) * 0.55 * dScale;
-                const roleFontSizePx = (design.fontSizeDoc || 10) * 0.4 * dScale;
+                
+                // Usar valores reales del auto-ajuste
+                const fontSizePx = design.fontSizeDocName || (design.fontSizeDoc || 10) * 0.55 * dScale;
+                const roleFontSizePx = design.fontSizeDocRole || (design.fontSizeDoc || 10) * 0.4 * dScale;
+                const textOffset = design.dTextOffset || (20 * dScale);
 
-                // Ancho total del flow unscaled
-                const maxStaffUnscaled = (totalDocentes * aW) + ((totalDocentes - 1) * dGapX);
-                const startX_unscaled = (canvasW / 2) - (maxStaffUnscaled / 2) + dOffsetX;
+                const maxStaffScaled = (totalDocentes * dynamicW) + ((totalDocentes - 1) * dGapX);
+                const startX_scaled = (canvasW / 2) - (maxStaffScaled / 2) + dOffsetX;
 
                 return filteredStaff.map((member, i) => {
-                    const uncX = startX_unscaled + (i * (aW + dGapX));
-                    const centerX = uncX + aW / 2;
-                    const phX = centerX - (dynamicW / 2);
+                    const phX = startX_scaled + (i * (dynamicW + dGapX));
                     const phY = dY;
                     
-                    // Texto centrado en centerX
-                    // Y del texto (baseline) = top_container + aH*scale + mb-1(40px)*scale + font_size*scale
-                    const nameY = dY + (aH + 40) * dScale + fontSizePx;
-                    // Suponiendo 2 lineas de nombre (1.25 lineheight = 2.5 * fontSizePx total alto de la caja de nombre aprox)
-                    const roleY = nameY + (fontSizePx * 1.25) + (20 * dScale) + roleFontSizePx; 
+                    const nameY = phY + dynamicH + textOffset;
+                    // Los apellidos irán un poco más abajo del nombre
+                    const surnameY = nameY + fontSizePx;
+                    const roleY = surnameY + (roleFontSizePx * 1.5); 
 
                     const nameParts = splitName(member.name || member.studentName || 'DOCENTE');
-                    return `createItem(docentesGroup, "${nameParts.nombre}", "${nameParts.apellidos}", "${member.role || 'DOCENTE'}", "${member.id}", ${phX}, ${phY}, ${dynamicW}, ${dynamicH}, ${centerX}, ${nameY}, ${fontSizePx}, ${roleY}, ${roleFontSizePx}, true);`;
+                    const esc = (val) => JSON.stringify(String(val || ""));
+                    return `    createItem(docentesGroup, ${esc(nameParts.nombre)}, ${esc(nameParts.apellidos)}, ${esc(member.role || 'DOCENTE')}, ${esc(member.id)}, ${phX.toFixed(2)}, ${phY.toFixed(2)}, ${dynamicW.toFixed(2)}, ${dynamicH.toFixed(2)}, ${nameY.toFixed(2)}, ${fontSizePx.toFixed(2)}, ${roleY.toFixed(2)}, ${roleFontSizePx.toFixed(2)}, true, ${surnameY.toFixed(2)});`;
                 }).join('\n');
             })();
 
             const aluLines = (() => {
-                const isStaff = false;
                 const totalAlus = graduates.length;
                 if (totalAlus === 0) return '';
 
-                const aW = design.aW || 350; // Base width for calculations
-                const aH = design.aH || 450; // Base height for calculations
-
+                const aW = design.aW || 350;
+                const aH = design.aH || 450;
                 const aScale = design.aScale || 1.0;
                 const dynamicW = aW * aScale;
                 const dynamicH = aH * aScale;
                 const aCols = parseInt(design.aCols) || 8;
-                const aGapX = design.aGapX ?? 0;
+                const aGapX = design.aGapX ?? 40;
                 const aGapY = design.aGapY ?? 650;
                 const canvasW = design.canvasW || 4961;
                 const aStartY = design.aStartY || 1350;
                 const aOffsetX = design.aOffsetX || 0;
-                const fontSizePx = (design.fontSizeAlu || 10) * 0.55 * aScale;
+                
+                const fontSizePx = design.fontSizeAluName || (design.fontSizeAlu || 10) * 0.55 * aScale;
+                const textOffset = design.aTextOffset || (15 * aScale);
 
-                // Ordenación por apellidos (misma lógica que DesignPanel)
                 const sortedAlus = [...graduates].sort((a, b) => {
                     const nameA = a.studentName || '';
                     const nameB = b.studentName || '';
@@ -135,35 +133,37 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                     const totalRows = Math.ceil(totalAlus / aCols);
                     const isLastRow = row === totalRows - 1;
                     const itemsInThisRow = isLastRow ? (totalAlus % aCols || aCols) : aCols;
-
-                    // Centrado de BLOQUE (como el grid de CSS)
-                    const maxGridUnscaled = (aCols * aW) + ((aCols - 1) * aGapX);
-                    const gridStartX = (canvasW / 2) - (maxGridUnscaled / 2) + aOffsetX;
-
                     const colInRow = i % aCols;
-                    const uncX = gridStartX + colInRow * (aW + aGapX);
-                    const centerX = uncX + aW / 2;
+
+                    const rowWidthScaled = (itemsInThisRow * dynamicW) + ((itemsInThisRow - 1) * aGapX);
+                    const rowStartX = (canvasW / 2) - (rowWidthScaled / 2) + aOffsetX;
+
+                    const itemHeightStep = dynamicH + textOffset + (fontSizePx * 2.5) + aGapY;
+                    const phY = aStartY + (row * itemHeightStep);
+                    const phX = rowStartX + colInRow * (dynamicW + aGapX);
                     
-                    // Altura total del flow del elemento alumno unscaled
-                    const itemHeightUnscaled = aH + 40 + ((design.fontSizeAlu || 10) * 0.55 * 2.5);
-                    const uncY = aStartY + row * (itemHeightUnscaled + aGapY);
-                    
-                    const phX = centerX - (dynamicW / 2);
-                    const phY = uncY;
-                    const nameY = uncY + (aH + 40) * aScale + fontSizePx;
+                    // Espacio vertical para nombre + apellidos (aprox 2 líneas)
+                    const nameY = phY + dynamicH + textOffset;
+                    const fontSizeSur = fontSizePx * 0.75;
+                    const surnameY = nameY + fontSizePx * 1.05;
 
                     const nameParts = splitName(g.studentName || 'ALUMNO');
                     const containerId = g.photoFile || g.id;
+                    const esc = (val) => JSON.stringify(String(val || ""));
 
-                    return `createItem(alumnosGroup, "${nameParts.nombre}", "${nameParts.apellidos}", "", "${containerId}", ${phX}, ${phY}, ${dynamicW}, ${dynamicH}, ${centerX}, ${nameY}, ${fontSizePx}, 0, 0, false);`;
+                    return `    createItem(alumnosGroup, ${esc(nameParts.nombre)}, ${esc(nameParts.apellidos)}, "", ${esc(containerId)}, ${phX.toFixed(2)}, ${phY.toFixed(2)}, ${dynamicW.toFixed(2)}, ${dynamicH.toFixed(2)}, ${nameY.toFixed(2)}, ${fontSizePx.toFixed(2)}, 0, 0, false, ${surnameY.toFixed(2)});`;
                 }).join('\n');
             })();
 
             content = [
-                '/* FINALIZAR ORLA V3.3 - CONSTRUCTOR PSD */',
+                '/* FINALIZAR ORLA V13.1 - CONSTRUCTOR PSD */',
+                '// 1. CONFIGURACIÓN INICIAL DE UNIDADES (CRÍTICO)',
+                'var savedRuler = app.preferences.rulerUnits;',
+                'var savedType = app.preferences.typeUnits;',
                 'app.preferences.rulerUnits = Units.PIXELS;',
                 'app.preferences.typeUnits = TypeUnits.PIXELS;',
-                `var doc = app.documents.add(${design.canvasW}, ${design.canvasH}, 300, "${groupName}", NewDocumentMode.RGB);`,
+                '',
+                `var doc = app.documents.add(${design.canvasW}, ${design.canvasH}, 300, ${JSON.stringify(groupName)}, NewDocumentMode.RGB);`,
                 '',
                 '// Helper para mascaras circulares en ExtendScript',
                 'function selectEllipse(top, left, bottom, right) {',
@@ -194,117 +194,81 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                 '}',
                 '',
                 '// Función: crea item dentro del grupo padre dado',
-                `var currentShape = "${design.photoShape || 'circle'}";`,
-                'function createItem(parentGroup, nombre, apellidos, cargo, id, phX, phY, phW, phH, nameX, nameY, nameSizePx, roleY, roleSizePx, isStaff) {',
+                `var currentShape = ${JSON.stringify(design.photoShape || 'circle')};`,
+                `var defaultFont = ${JSON.stringify(design.fontFamily || "MyriadPro-Bold")};`,
+                '// Factor de corrección: En documentos de 300dpi, Photoshop interpreta mal el tamaño si se da en "px".',
+                '// Usaremos Puntos (pt) calculando la equivalencia exacta: 1pt = 1/72 pulgada. 1px = 1/300 pulgada.',
+                '// Ratio = 72 / 300 = 0.24',
+                'var PX_TO_PT = 0.24;',
+                '',
+                'function createItem(parentGroup, nombre, apellidos, cargo, id, phX, phY, phW, phH, nameY, nameSizePx, roleY, roleSizePx, isStaff, surnameY) {',
                 '    var group = parentGroup.layerSets.add();',
                 '    group.name = id;',
                 '',
-                '    // 1. Crear el placeholder (con soporte de forma proporcional 1:1)',
-                '    var sW = Math.min(phW, phH);',
-                '    var sH = sW;',
-                '    var sX = phX + (phW - sW) / 2;',
-                '    var sY = phY + (phH - sH) / 2;',
+                '    // 1. PLACEHOLDER',
+                '    var sW = Math.min(phW, phH); var sH = sW;',
+                '    var sX = phX + (phW - sW) / 2; var sY = phY + (phH - sH) / 2;',
                 '',
-                '    if (currentShape === "circle") {',
-                '        selectEllipse(sY, sX, sY + sH, sX + sW);',
-                '    } else if (currentShape === "oval") {',
-                '        selectEllipse(phY, phX, phY + phH, phX + phW);',
-                '    } else if (currentShape === "shield") {',
-                '        var p = [];',
-                '        // Top line',
-                '        p.push([sX + sW * 0.1, sY + sH * 0.04]);',
-                '        p.push([sX + sW * 0.9, sY + sH * 0.04]);',
-                '        // Right side',
-                '        p.push([sX + sW * 0.9, sY + sH * 0.65]);',
-                '        // Bottom curve right (bezier approximation)',
-                '        for (var t = 0.1; t <= 1; t += 0.1) {',
-                '            var mt = 1 - t;',
-                '            var bx = mt*mt * (sX + sW * 0.9) + 2*mt*t * (sX + sW * 0.9) + t*t * (sX + sW * 0.5);',
-                '            var by = mt*mt * (sY + sH * 0.65) + 2*mt*t * (sY + sH * 0.85) + t*t * (sY + sH * 0.96);',
-                '            p.push([bx, by]);',
+                '    if (currentShape === "circle") selectEllipse(sY, sX, sY + sH, sX + sW);',
+                '    else if (currentShape === "oval") selectEllipse(phY, phX, phY + phH, phX + phW);',
+                '    else if (currentShape === "shield") {',
+                '        var p = [[sX+sW*0.1, sY+sH*0.04],[sX+sW*0.9, sY+sH*0.04],[sX+sW*0.9, sY+sH*0.65]];',
+                '        for(var t=0.1;t<=1;t+=0.1){',
+                '            var mt=1-t; var bx=mt*mt*(sX+sW*0.9)+2*mt*t*(sX+sW*0.9)+t*t*(sX+sW*0.5);',
+                '            var by=mt*mt*(sY+sH*0.65)+2*mt*t*(sY+sH*0.85)+t*t*(sY+sH*0.96); p.push([bx,by]);',
                 '        }',
-                '        // Bottom curve left (bezier approximation)',
-                '        for (var t = 0.1; t <= 1; t += 0.1) {',
-                '            var mt = 1 - t;',
-                '            var bx = mt*mt * (sX + sW * 0.5) + 2*mt*t * (sX + sW * 0.1) + t*t * (sX + sW * 0.1);',
-                '            var by = mt*mt * (sY + sH * 0.96) + 2*mt*t * (sY + sH * 0.85) + t*t * (sY + sH * 0.65);',
-                '            p.push([bx, by]);',
+                '        for(var t=0.1;t<=1;t+=0.1){',
+                '            var mt=1-t; var bx=mt*mt*(sX+sW*0.5)+2*mt*t*(sX+sW*0.1)+t*t*(sX+sW*0.1);',
+                '            var by=mt*mt*(sY+sH*0.96)+2*mt*t*(sY+sH*0.85)+t*t*(sY+sH*0.65); p.push([bx,by]);',
                 '        }',
-                '        // Left side up',
-                '        p.push([sX + sW * 0.1, sY + sH * 0.04]);',
-                '        doc.selection.select(p);',
-                '    } else if (currentShape === "arch") {',
-                '        var p = [];',
-                '        // Bottom line',
-                '        p.push([sX + sW * 0.1, sY + sH * 0.96]);',
-                '        p.push([sX + sW * 0.9, sY + sH * 0.96]);',
-                '        // Right side up',
-                '        p.push([sX + sW * 0.9, sY + sH * 0.48]);',
-                '        // Top arc (semicircle approximation)',
-                '        for (var a = 0; a <= Math.PI; a += Math.PI/12) {',
-                '            var ax = (sX + sW * 0.5) + Math.cos(-a) * (sW * 0.4);',
-                '            var ay = (sY + sH * 0.48) + Math.sin(-a) * (sH * 0.48 * (0.4/0.4)); // Mantener proporción según el radio',
-                '            // Nota: En la web es A 0.4 0.48, así que escalamos ay',
-                '            var ayScale = (sY + sH * 0.48) - Math.sin(a) * (sH * 0.48);',
-                '            var axScale = (sX + sW * 0.5) + Math.cos(a) * (sW * 0.4);',
-                '            p.push([axScale, ayScale]);',
-                '        }',
-                '        // Left side down',
-                '        p.push([sX + sW * 0.1, sY + sH * 0.96]);',
                 '        doc.selection.select(p);',
                 '    } else if (currentShape === "rect34r") {',
-                '        var r = phW * 0.12;',
-                '        var p = [];',
-                '        // Top-Right corner',
-                '        for (var a=1.5*Math.PI; a<=2*Math.PI; a+=Math.PI/10) {',
-                '            p.push([phX + phW - r + Math.cos(a)*r, phY + r + Math.sin(a)*r]);',
-                '        }',
-                '        // Bottom-Right corner',
-                '        for (var a=0; a<=0.5*Math.PI; a+=Math.PI/10) {',
-                '            p.push([phX + phW - r + Math.cos(a)*r, phY + phH - r + Math.sin(a)*r]);',
-                '        }',
-                '        // Bottom-Left corner',
-                '        for (var a=0.5*Math.PI; a<=Math.PI; a+=Math.PI/10) {',
-                '            p.push([phX + r + Math.cos(a)*r, phY + phH - r + Math.sin(a)*r]);',
-                '        }',
-                '        // Top-Left corner',
-                '        for (var a=Math.PI; a<=1.5*Math.PI; a+=Math.PI/10) {',
-                '            p.push([phX + r + Math.cos(a)*r, phY + r + Math.sin(a)*r]);',
-                '        }',
+                '        var r = phW * 0.12; var p = [];',
+                '        for (var a=1.5*Math.PI; a<=2*Math.PI; a+=Math.PI/10) p.push([phX+phW-r+Math.cos(a)*r, phY+r+Math.sin(a)*r]);',
+                '        for (var a=0; a<=0.5*Math.PI; a+=Math.PI/10) p.push([phX+phW-r+Math.cos(a)*r, phY+phH-r+Math.sin(a)*r]);',
+                '        for (var a=0.5*Math.PI; a<=Math.PI; a+=Math.PI/10) p.push([phX+r+Math.cos(a)*r, phY+phH-r+Math.sin(a)*r]);',
+                '        for (var a=Math.PI; a<=1.5*Math.PI; a+=Math.PI/10) p.push([phX+r+Math.cos(a)*r, phY+r+Math.sin(a)*r]);',
                 '        doc.selection.select(p);',
-                '    } else {',
-                '        doc.selection.select([[phX, phY], [phX + phW, phY], [phX + phW, phY + phH], [phX, phY + phH]]);',
+                '    } else doc.selection.select([[phX, phY], [phX + phW, phY], [phX + phW, phY + phH], [phX, phY + phH]]);',
+                '',
+                '    var fillLayer = group.artLayers.add(); fillLayer.name = "PLACEHOLDER";',
+                '    var fillColor = new SolidColor(); fillColor.rgb.hexValue = "F0F0F0";',
+                '    doc.selection.fill(fillColor); doc.selection.deselect();',
+                '',
+                '    // 2. TEXTO NOMBRE (POINT TEXT - CENTRADO ABSOLUTO)',
+                '    var centerX = phX + (phW / 2);',
+                '    ',
+                '    var nameLayer = group.artLayers.add(); nameLayer.kind = LayerKind.TEXT;',
+                '    var nameItem = nameLayer.textItem;',
+                '    nameItem.kind = TextType.POINTTEXT;',
+                '    nameItem.font = defaultFont;',
+                '    nameItem.size = nameSizePx * PX_TO_PT;',
+                '    nameItem.justification = Justification.CENTER;',
+                '    nameItem.contents = nombre.toUpperCase();',
+                '    nameItem.position = [centerX, nameY];',
+                '',
+                '    // 3. APELLIDOS (CAPA SEPARADA PARA CONTROL TOTAL)',
+                '    if (apellidos && apellidos.length > 0) {',
+                '        var surLayer = group.artLayers.add(); surLayer.kind = LayerKind.TEXT;',
+                '        var surItem = surLayer.textItem;',
+                '        surItem.kind = TextType.POINTTEXT;',
+                '        surItem.font = defaultFont;',
+                '        surItem.size = (isStaff ? nameSizePx : (nameSizePx * 0.75)) * PX_TO_PT;',
+                '        surItem.justification = Justification.CENTER;',
+                '        surItem.contents = apellidos.toUpperCase();',
+                '        surItem.position = [centerX, surnameY];',
                 '    }',
                 '',
-                '    var fillLayer = group.artLayers.add();',
-                '    fillLayer.name = "PLACEHOLDER";',
-                '    var fillColor = new SolidColor();',
-                '    fillColor.rgb.hexValue = "F0F0F0";',
-                '    doc.selection.fill(fillColor);',
-                '    doc.selection.deselect();',
-                '',
-                '    // 2. Texto de Nombre',
-                '    var nameLayer = group.artLayers.add();',
-                '    nameLayer.kind = LayerKind.TEXT;',
-                '    var nameItem = nameLayer.textItem;',
-                '    nameItem.contents = nombre.toUpperCase() + "\\r" + apellidos.toUpperCase();',
-                '    nameItem.size = new UnitValue(nameSizePx, "px");',
-                '    nameItem.leading = new UnitValue(nameSizePx * 1.25, "px");',
-                '    nameItem.justification = Justification.CENTER;',
-                '    nameItem.font = "MyriadPro-Regular";',
-                '    nameItem.position = [nameX, nameY];',
-                '',
-                '    // 3. Texto de Cargo (Solo Staff)',
+                '    // 4. CARGO',
                 '    if (isStaff && cargo) {',
-                '        var roleLayer = group.artLayers.add();',
-                '        roleLayer.kind = LayerKind.TEXT;',
+                '        var roleLayer = group.artLayers.add(); roleLayer.kind = LayerKind.TEXT;',
                 '        var roleItem = roleLayer.textItem;',
-                '        roleItem.contents = cargo.toUpperCase();',
-                '        roleItem.size = new UnitValue(roleSizePx, "px");',
-                '        roleItem.color = (function(){ var c = new SolidColor(); c.rgb.hexValue = "666666"; return c; })();',
+                '        roleItem.kind = TextType.POINTTEXT;',
+                '        roleItem.font = defaultFont;',
+                '        roleItem.size = roleSizePx * PX_TO_PT;',
                 '        roleItem.justification = Justification.CENTER;',
-                '        roleItem.font = "MyriadPro-Regular";',
-                '        roleItem.position = [nameX, roleY];',
+                '        roleItem.contents = cargo.toUpperCase();',
+                '        roleItem.position = [centerX, roleY];',
                 '    }',
                 '}',
                 '',
@@ -316,40 +280,101 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                 '',
                 aluLines,
                 '',
-                '// PIE DE ORLA',
-                'var footerGroup = doc.layerSets.add();',
-                'footerGroup.name = "PIE DE ORLA";',
-                'var schoolLayer = footerGroup.artLayers.add();',
-                'schoolLayer.kind = LayerKind.TEXT;',
-                'var schoolText = schoolLayer.textItem;',
-                // Usar groupName como fallback pero priorizar el nombre editado si existiera en un futuro
-                `schoolText.contents = "${(groupName || "").toUpperCase()}";`,
-                'schoolText.size = 38;',
-                'schoolText.tracking = 120;',
-                `schoolText.font = "${design.fontFamily}";`,
-                'schoolText.justification = Justification.CENTER;',
-                `schoolText.position = [${design.canvasW / 2}, ${design.canvasH - design.margin - 160}];`,
+                // PIE DE ORLA (BASADO EN POSICIONAMIENTO DEL EDITOR)
+                'app.activeDocument = doc;',
+                'var footerGroup = doc.layerSets.add(); footerGroup.name = "PIE DE ORLA";',
+                'var centerCanvasX = doc.width / 2;',
+                `var footerBaseY = ${design.canvasH} - ${(design.footerY || 180)};`,
+                `var marginPx = ${design.margin || 200};`,
+                'app.refresh();',
                 '',
-                'var promoLayer = footerGroup.artLayers.add();',
-                'promoLayer.kind = LayerKind.TEXT;',
-                'var promoText = promoLayer.textItem;',
-                `promoText.contents = "${(design.promoText || "PROMOCIÓN 2026").toUpperCase()}";`,
-                'promoText.size = 16;',
-                'promoText.tracking = 600;',
-                `promoText.font = "${design.fontFamily}";`,
-                'promoText.justification = Justification.CENTER;',
-                `promoText.position = [${design.canvasW / 2}, ${design.canvasH - design.margin - 40}];`,
+                'function autoFitFontSize(layer, maxW) {',
+                '  app.activeDocument = doc;',
+                '  app.refresh();',
+                '  var bounds = layer.bounds;',
+                '  var currentW = bounds[2] - bounds[0];',
+                '  if (currentW > maxW) {',
+                '    var ratio = maxW / currentW;',
+                '    layer.textItem.size = layer.textItem.size * ratio;',
+                '    app.refresh();',
+                '  }',
+                '}',
                 '',
-                '// CONFIGURACIÓN FINAL DE GUÍAS EN MM Y REGLAS',
+                // 1. ESCUELA
+                !design.hideSchool ? [
+                    'app.activeDocument = doc;',
+                    'var schoolLayer = footerGroup.artLayers.add(); schoolLayer.kind = LayerKind.TEXT;',
+                    'var schoolText = schoolLayer.textItem;',
+                    'schoolText.kind = TextType.POINTTEXT;',
+                    `schoolText.contents = ${JSON.stringify((groupName || "").toUpperCase())};`,
+                    `schoolText.size = (${design.fontSizeSchool || 240}) * PX_TO_PT;`,
+                    'schoolText.tracking = -50;',
+                    `schoolText.font = defaultFont;`,
+                    'schoolText.justification = Justification.CENTER;',
+                    `schoolText.position = [centerCanvasX, footerBaseY - (${design.fontSizePromo || 90}) * 1.5 - (${design.fontSizeCourse || 60}) * 1.5];`,
+                    `autoFitFontSize(schoolLayer, doc.width - marginPx * 4);`
+                ].join('\n') : '',
+                '',
+                // 2. PROMOCIÓN
+                !design.hidePromo ? [
+                    'app.activeDocument = doc;',
+                    'var promoLayer = footerGroup.artLayers.add(); promoLayer.kind = LayerKind.TEXT;',
+                    'var promoText = promoLayer.textItem;',
+                    'promoText.kind = TextType.POINTTEXT;',
+                    `promoText.contents = ${JSON.stringify((design.promoText || "PROMOCIÓN 2026").toUpperCase())};`,
+                    `promoText.size = (${design.fontSizePromo || 90}) * PX_TO_PT;`,
+                    'promoText.tracking = 500;',
+                    `promoText.font = defaultFont;`,
+                    'promoText.justification = Justification.CENTER;',
+                    `promoText.position = [centerCanvasX, footerBaseY - (${design.fontSizeCourse || 60}) * 1.3];`,
+                    `autoFitFontSize(promoLayer, doc.width - marginPx * 3);`
+                ].join('\n') : '',
+                '',
+                // 3. CURSO
+                !design.hideCourse ? [
+                    'app.activeDocument = doc;',
+                    'var courseLayer = footerGroup.artLayers.add(); courseLayer.kind = LayerKind.TEXT;',
+                    'var courseText = courseLayer.textItem;',
+                    'courseText.kind = TextType.POINTTEXT;',
+                    `courseText.contents = ${JSON.stringify((design.courseText || (course + " " + group)).toUpperCase())};`,
+                    `courseText.size = (${design.fontSizeCourse || 60}) * PX_TO_PT;`,
+                    'courseText.tracking = 100;',
+                    `courseText.font = defaultFont;`,
+                    'courseText.justification = Justification.CENTER;',
+                    `courseText.position = [centerCanvasX, footerBaseY];`,
+                    `autoFitFontSize(courseLayer, doc.width - marginPx * 3);`
+                ].join('\n') : '',
+                '',
+                // CONFIGURACIÓN FINAL DE GUÍAS Y RESTAURAR
                 'app.preferences.rulerUnits = Units.MM;',
-                'app.preferences.typeUnits = TypeUnits.POINTS;',
-                `doc.guides.add(Direction.VERTICAL,   ${(design.canvasW / (design.dpi || 300) * 25.4 / 2).toFixed(2)}); // Centro V`,
-                `doc.guides.add(Direction.HORIZONTAL, ${(design.canvasH / (design.dpi || 300) * 25.4 / 2).toFixed(2)}); // Centro H`,
+                `doc.guides.add(Direction.VERTICAL,   ${(design.canvasW / (design.dpi || 300) * 25.4 / 2).toFixed(2)});`,
+                `doc.guides.add(Direction.HORIZONTAL, ${(design.canvasH / (design.dpi || 300) * 25.4 / 2).toFixed(2)});`,
                 `doc.guides.add(Direction.VERTICAL,   ${(design.margin / (design.dpi || 300) * 25.4).toFixed(2)});`,
                 `doc.guides.add(Direction.VERTICAL,   ${((design.canvasW - design.margin) / (design.dpi || 300) * 25.4).toFixed(2)});`,
                 `doc.guides.add(Direction.HORIZONTAL, ${(design.margin / (design.dpi || 300) * 25.4).toFixed(2)});`,
                 `doc.guides.add(Direction.HORIZONTAL, ${((design.canvasH - design.margin) / (design.dpi || 300) * 25.4).toFixed(2)});`,
-                'alert("Estructura V13.0 - (Margen Técnico 6mm)\\rby PUJALTE CREATIVE STUDIO");',
+                'app.preferences.rulerUnits = savedRuler;',
+                'app.preferences.typeUnits = savedType;',
+                '',
+                '// CUADRO DE DIÁLOGO PERSONALIZADO (TEXTO CENTRADO)',
+                'var win = new Window("dialog", "Finalización de Orla");',
+                'win.orientation = "column";',
+                'win.alignChildren = ["center","center"];',
+                'win.spacing = 15;',
+                'win.margins = 40;',
+                '',
+                'var title = win.add("statictext", undefined, "Orla Generada Correctamente - Script V15");',
+                'title.graphics.font = ScriptUI.newFont("Helvetica", "Bold", 16);',
+                '',
+                'var subtitle = win.add("statictext", undefined, "by PUJALTE CREATIVE STUDIO");',
+                'subtitle.graphics.font = ScriptUI.newFont("Helvetica", "Regular", 12);',
+                '',
+                'var btn = win.add("button", undefined, "Aceptar", {name: "ok"});',
+                'btn.size = [120, 40];',
+                'btn.onClick = function() { win.close(); };',
+                '',
+                'win.center();',
+                'win.show();',
             ].join('\n');
 
 
@@ -365,8 +390,9 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                 '    var files = folder.getFiles(/\\.(jpg|jpeg|png|tif|tiff)$/i);',
                 '    var fileMap = {};',
                 '    for (var f = 0; f < files.length; f++) {',
-                '        var name = decodeURI(files[f].name).split(".")[0];',
-                '        fileMap[name] = files[f];',
+                '        var fileName = decodeURI(files[f].name);',
+                '        var baseName = fileName.substring(0, fileName.lastIndexOf(".")) || fileName;',
+                '        fileMap[baseName.toLowerCase()] = files[f];',
                 '    }',
                 '',
                 '    var groups = ["ALUMNOS", "DOCENTES"];',
@@ -379,7 +405,8 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                 '        // Iteramos por subgrupos (cada ID de estudiante/docente)',
                 '        for (var i = 0; i < parentGroup.layerSets.length; i++) {',
                 '            var layerGroup = parentGroup.layerSets[i];',
-                '            var targetId = layerGroup.name;',
+                '            var layerName = layerGroup.name;',
+                '            var targetId = (layerName.substring(0, layerName.lastIndexOf(".")) || layerName).toLowerCase();',
                 '            var file = fileMap[targetId];',
                 '',
                 '            if (!file) continue;',
@@ -704,7 +731,7 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                                     </div>
                                 </div>
 
-                                <button onClick={() => downloadScript('CONSTRUCTOR')} className="w-full flex items-center justify-between p-4 bg-blue-600/20 rounded-2xl border border-blue-500/30 group/btn transition-all hover:bg-blue-600 text-white shadow-lg">
+                                <button onClick={() => downloadScript('CONSTRUCTOR')} className="w-full flex items-center justify-between p-4 bg-blue-600/20 text-blue-400 rounded-2xl border border-blue-500/30 transition-all shadow-lg active:scale-100">
                                     <span className="text-[10px] font-black uppercase tracking-widest">Descargar Script Estructura</span>
                                     <Download size={18} />
                                 </button>
@@ -737,11 +764,26 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                                     </div>
                                 </div>
 
-                                <button onClick={() => downloadScript('RASTER')} className="w-full flex items-center justify-between p-4 bg-amber-600/20 rounded-2xl border border-amber-500/30 group/btn transition-all hover:bg-amber-600 text-white shadow-lg">
+                                <button onClick={() => downloadScript('RASTER')} className="w-full flex items-center justify-between p-4 bg-amber-600/20 text-amber-400 rounded-2xl border border-amber-500/30 transition-all shadow-lg active:scale-100">
                                     <span className="text-[10px] font-black uppercase tracking-widest">Bajar Motor de Vuelco</span>
                                     <Download size={18} />
                                 </button>
                             </div>
+                        </div>
+
+                        {/* BOTÓN VOLVER ATRÁS CENTRADO */}
+                        <div className="flex justify-center -mt-2">
+                            <button 
+                                onClick={onBack}
+                                className={`flex items-center gap-2 px-8 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 ${
+                                    theme === 'dark' 
+                                    ? 'bg-white/5 text-white/40 border border-white/10 hover:bg-white/10 hover:text-white' 
+                                    : 'bg-slate-100 text-slate-400 border border-slate-200 hover:bg-slate-200 hover:text-slate-600'
+                                }`}
+                            >
+                                <ArrowLeft size={16} />
+                                Volver Atrás
+                            </button>
                         </div>
                     </div>
 
@@ -774,54 +816,53 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
 
             {/* MODAL: Fallback portapapeles (solo si el endpoint falla) */}
             {scriptModal && (
-                <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setScriptModal(null)}>
-                    <div className="bg-[#0f0f0f] border border-white/10 rounded-[32px] w-full max-w-2xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between p-6 border-b border-white/10">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center text-blue-400">
-                                    <FileCode size={20} />
-                                </div>
-                                <div>
-                                    <p className="text-white font-black text-sm uppercase tracking-wider">Script Generado</p>
-                                    <p className="text-white/40 text-[10px] font-mono truncate max-w-[300px]">{scriptModal.filename}</p>
-                                </div>
+                <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setScriptModal(null)}>
+                    <div className={`${theme === 'dark' ? 'bg-[#0a0a0a] border-white/10' : 'bg-white border-slate-200'} border rounded-[40px] w-full max-w-sm shadow-2xl overflow-hidden animate-scale-in`} onClick={e => e.stopPropagation()}>
+                        <div className="p-8 text-center space-y-6">
+                            {/* Header Icon */}
+                            <div className={`w-16 h-16 ${theme === 'dark' ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : 'bg-blue-50 border-blue-100 text-blue-600'} rounded-2xl flex items-center justify-center mx-auto border shadow-lg`}>
+                                <FileCode size={32} />
                             </div>
-                            <button onClick={() => setScriptModal(null)} className="p-2 hover:bg-white/5 rounded-xl text-white/40 hover:text-white transition-colors">
-                                <X size={18} />
-                            </button>
-                        </div>
-                        <div className="p-6 space-y-4">
+
+                            {/* Title & Filename */}
+                            <div className="space-y-1">
+                                <p className={`${theme === 'dark' ? 'text-white' : 'text-slate-900'} font-black text-lg uppercase tracking-tighter`}>Script Preparado</p>
+                                <p className={`${theme === 'dark' ? 'text-white/30' : 'text-slate-400'} text-[8px] font-mono break-all px-4 line-clamp-2`}>{scriptModal.filename}</p>
+                            </div>
+
+                            {/* Status Message */}
                             {scriptModal.saved ? (
-                                <div className="flex items-center gap-3 bg-green-500/10 border border-green-500/30 rounded-2xl p-4">
-                                    <CheckCircle2 size={20} className="text-green-400 flex-shrink-0" />
-                                    <div>
-                                        <p className="text-green-400 text-xs font-black uppercase tracking-wider">✅ Archivo guardado correctamente</p>
-                                        <p className="text-green-300/60 text-[10px] font-mono mt-1 italic opacity-80 break-all">{scriptModal.savedPath.includes('/') || scriptModal.savedPath.includes('\\') ? scriptModal.savedPath : `Ubicación seleccionada / ${scriptModal.filename}`}</p>
-                                    </div>
+                                <div className={`space-y-1 py-4 px-6 ${theme === 'dark' ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-emerald-50 border-emerald-100'} border rounded-3xl`}>
+                                    <CheckCircle2 size={20} className="text-emerald-500 mx-auto" />
+                                    <p className="text-emerald-500 text-[9px] font-black uppercase tracking-widest">Archivo guardado con éxito</p>
+                                    <p className={`${theme === 'dark' ? 'text-emerald-300/30' : 'text-emerald-700/40'} text-[8px] font-mono italic truncate`}>{scriptModal.savedPath}</p>
                                 </div>
                             ) : (
-                                <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-2xl p-4">
-                                    <CheckCircle2 size={16} className="text-green-400 flex-shrink-0" />
-                                    <p className="text-green-400 text-xs font-black uppercase tracking-wider">Script copiado al portapapeles</p>
+                                <div className={`space-y-1 py-4 ${theme === 'dark' ? 'bg-blue-500/5 border-blue-500/20' : 'bg-blue-50 border-blue-100'} border rounded-3xl`}>
+                                    <CheckCircle2 size={20} className="text-blue-500 mx-auto" />
+                                    <p className="text-blue-500 text-[9px] font-black uppercase tracking-widest">Copiado al portapapeles</p>
                                 </div>
                             )}
-                            <div className="bg-white/5 rounded-2xl p-4 space-y-3">
-                                <p className="text-white/60 text-[11px] font-black uppercase tracking-widest">Cómo ejecutarlo:</p>
-                                <ol className="space-y-3">
+
+                            {/* Instructions Centered */}
+                            <div className="space-y-4 py-2">
+                                <p className={`${theme === 'dark' ? 'text-white/40' : 'text-slate-400'} text-[8px] font-black uppercase tracking-[0.2em]`}>Siguientes pasos:</p>
+                                <div className="space-y-3">
                                     {[
-                                        'Localiza el archivo en la ubicación seleccionada',
-                                        `Archivo: "${scriptModal.filename}"`,
-                                        'Haz clic derecho → Abrir con → Otra app...',
-                                        'Selecciona Adobe Photoshop y marca "Usar siempre esta aplicación" → Abrir',
+                                        'Descargas / Copia el archivo',
+                                        'Abrir con Photoshop 2026',
+                                        '¡La orla se generará sola!'
                                     ].map((txt, i) => (
-                                        <li key={i} className="flex items-start gap-3">
-                                            <span className="w-6 h-6 bg-violet-500/30 rounded-lg flex items-center justify-center text-violet-400 text-[10px] font-black flex-shrink-0 mt-0.5">{i + 1}</span>
-                                            <span className="text-white/70 text-xs leading-relaxed">{txt}</span>
-                                        </li>
+                                        <div key={i} className="flex flex-col items-center gap-0.5">
+                                            <span className="text-violet-500 text-[8px] font-black uppercase tracking-widest opacity-60">Paso {i + 1}</span>
+                                            <span className={`${theme === 'dark' ? 'text-white/80' : 'text-slate-700'} text-[11px] font-bold`}>{txt}</span>
+                                        </div>
                                     ))}
-                                </ol>
+                                </div>
                             </div>
-                            <div className="flex flex-col gap-3">
+
+                            {/* Actions */}
+                            <div className="space-y-2 pt-2">
                                 {scriptModal.saved && (
                                     <button
                                         onClick={() => fetch('/graduaciones2026/api/reveal-file', {
@@ -829,14 +870,18 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                                             headers: { 'Content-Type': 'application/json' },
                                             body: JSON.stringify({ path: scriptModal.savedPath })
                                         })}
-                                        className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-emerald-900/20"
+                                        className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-emerald-900/20"
                                     >
-                                        📁 MOSTRAR EN CARPETA
+                                        📁 Mostrar Carpeta
                                     </button>
                                 )}
                                 <button onClick={() => setScriptModal(null)}
-                                    className="w-full py-4 bg-white/10 hover:bg-white/20 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 border border-white/10">
-                                    CERRAR VENTANA
+                                    className={`w-full py-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 border ${
+                                        theme === 'dark' 
+                                        ? 'bg-white/5 hover:bg-white/10 text-white border-white/10' 
+                                        : 'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-200'
+                                    }`}>
+                                    Cerrar y Continuar
                                 </button>
                             </div>
                         </div>

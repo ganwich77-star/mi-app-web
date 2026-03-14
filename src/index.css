@@ -11,8 +11,8 @@
     /* Semitransparente para ver orbes */
     --bg-input: rgba(255, 255, 255, 0.6);
     /* Transparencia para efecto cristal */
-    --text-primary: #1E293B;
-    --text-secondary: #64748B;
+    --text-primary: #000000;
+    --text-secondary: #000000;
     --accent: #6366F1;
     --accent-hover: #4F46E5;
     --border-card: rgba(226, 232, 240, 0.6);
@@ -77,11 +77,12 @@
   input,
   select,
   textarea {
-    color: var(--text-primary) !important;
+    color: var(--text-primary);
   }
 
   input::placeholder {
-    color: #94a3b8;
+    color: #000000;
+    opacity: 1;
   }
 
   input:focus,
@@ -246,7 +247,7 @@
     box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
     @apply w-full rounded-[18px] text-base font-medium transition-all duration-300;
     padding: 1rem 1.5rem;
-    color: var(--text-primary) !important;
+    color: var(--text-primary);
   }
 
   [data-theme='dark'] .input-dark,
@@ -263,8 +264,8 @@
   }
 
   label {
-    @apply text-xs font-black uppercase tracking-[0.15em] mb-3 block opacity-80;
-    color: var(--text-primary);
+    @apply text-xs font-black uppercase tracking-[0.15em] mb-3 block;
+    color: #000000;
   }
 
   /* Stepper */

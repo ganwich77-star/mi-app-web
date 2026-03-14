@@ -32,10 +32,10 @@ jobs:
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./dist/graduaciones2026/
-          server-dir: /public_html/graduaciones2026/
+          server-dir: public_html/graduaciones2026/
           protocol: ftp
           port: 21
-          dangerous-clean-slate: true
+          dangerous-clean-slate: false
 
       - name: 🔥 Desplegar Functions a Firebase
         uses: w9jds/firebase-action@v13.6.0

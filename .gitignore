@@ -12,6 +12,10 @@ backups/
 *.json
 !package.json
 !package-lock.json
+*.backup
+*.backup_*
+*.bak
+*.bak.jsx
 
 # Dependencies
 node_modules/

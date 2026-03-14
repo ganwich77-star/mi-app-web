@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { GraduationCap, Plus, Edit, Trash2, ChevronDown, Search, School, RefreshCcw, LayoutGrid, List } from 'lucide-react';
+import { GraduationCap, Plus, Edit, Trash2, ChevronDown, Search, School, RefreshCcw, LayoutGrid, List, Users, UserCheck } from 'lucide-react';
 import { SCHOOLS } from '../../constants.js';
 
 const SchoolsPanel = ({
@@ -14,6 +14,7 @@ const SchoolsPanel = ({
     updateSchool,
     deleteSchool,
     updateSettings,
+    schoolsStats = {},
     theme = 'dark'
 }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -137,6 +138,7 @@ const SchoolsPanel = ({
                     {filteredSchools.map(s => {
                         const isSelected = adminSchool === s.id;
                         const isEditing = schoolToEdit === s.id;
+                        const stats = schoolsStats[s.id] || { students: 0, staff: 0 };
 
                         return (
                             <div
@@ -202,6 +204,23 @@ const SchoolsPanel = ({
                                                     <h4 className={`${viewMode === 'list' ? 'text-[11px]' : 'text-[13px] sm:text-sm'} font-black uppercase tracking-tight truncate transition-colors ${isSelected ? 'text-orange-500' : 'text-primary'}`}>
                                                         {s.name}
                                                     </h4>
+                                                    
+                                                    {/* Estadísticas de Alumnos y Docentes */}
+                                                    <div className={`flex items-center gap-4 ${viewMode === 'list' ? 'mt-1 mb-1' : 'mt-2 mb-2'}`}>
+                                                        <div className="flex items-center gap-1.5" title="Total Alumnos">
+                                                            <Users size={viewMode === 'list' ? 12 : 14} className={isSelected ? 'text-orange-400' : 'text-secondary/40'} />
+                                                            <span className={`${viewMode === 'list' ? 'text-[9px]' : 'text-[10px]'} font-black ${isSelected ? 'text-orange-300' : 'text-secondary/60'}`}>
+                                                                {stats.students} <span className="opacity-40 font-bold ml-0.5">ALUMNOS</span>
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1.5" title="Total Docentes">
+                                                            <UserCheck size={viewMode === 'list' ? 12 : 14} className={isSelected ? 'text-orange-400' : 'text-secondary/40'} />
+                                                            <span className={`${viewMode === 'list' ? 'text-[9px]' : 'text-[10px]'} font-black ${isSelected ? 'text-orange-300' : 'text-secondary/60'}`}>
+                                                                {stats.staff} <span className="opacity-40 font-bold ml-0.5">DOCENTES</span>
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
                                                     <div className={`flex items-center justify-between ${viewMode === 'list' ? 'mt-0.5' : 'mt-1 h-8'}`}>
                                                         <div className="flex items-center gap-2">
                                                             <span className={`${viewMode === 'list' ? 'text-[9px]' : 'text-[10px] sm:text-[11px]'} font-bold text-secondary opacity-40 uppercase tracking-widest shrink-0`}>CÓDIGO:</span>
