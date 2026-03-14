@@ -175,7 +175,7 @@ export default defineConfig(({ mode }) => ({
         deadCodeInjectionThreshold: 1,
         debugProtection: true,
         debugProtectionInterval: 4000,
-        disableConsoleOutput: true,
+        disableConsoleOutput: false,
         identifierNamesGenerator: 'hexadecimal',
         log: false,
         numbersToExpressions: true,
