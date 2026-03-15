@@ -231,7 +231,7 @@ exports.handlePaymentNotification = onRequest(async (req, res) => {
         const calculatedSignature = createSignature(dsOrder, paramsBase64, CLAVE_SECRETA_TEST);
 
         // Limpieza Safe Base64 de URLs (reemplazando + y / por precaución o si Redsys te los devuelve modificados) 
-        const cSig = calculatedSignature.replace(/\\+/g, "-").replace(/\\/ / g, "_");
+        const cSig = calculatedSignature.replace(/\+/g, "-").replace(/\//g, "_");
         const rSig = receivedSignature;
 
         if (cSig !== rSig && calculatedSignature !== receivedSignature) {
