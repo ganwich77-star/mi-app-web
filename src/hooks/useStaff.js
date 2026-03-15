@@ -97,5 +97,30 @@ export function useStaff(photographerId, schoolId) {
         saveToFirebase(updated);
     };
 
-    return { staff, addStaff, updateStaffPhoto, updateStaffMember, deleteStaff };
+    const bulkAddStaff = async (newStaffMembers) => {
+        if (!newStaffMembers || newStaffMembers.length === 0) return;
+
+        const preparedMembers = newStaffMembers.map(m => ({
+            id: m.id || `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            firstName: m.firstName || '',
+            lastName: m.lastName || '',
+            name: `${m.firstName || ''} ${m.lastName || ''}`.trim(),
+            role: m.role || '',
+            assignments: m.assignments || [],
+            photoFile: m.photoFile || '',
+            schoolId: m.schoolId || schoolId
+        }));
+
+        const updated = [...staff, ...preparedMembers];
+        setStaff(updated);
+        await saveToFirebase(updated);
+        return preparedMembers;
+    };
+
+    const updateAllStaff = async (newStaff) => {
+        setStaff(newStaff);
+        await saveToFirebase(newStaff);
+    };
+
+    return { staff, addStaff, updateStaffPhoto, updateStaffMember, deleteStaff, bulkAddStaff, updateAllStaff };
 }

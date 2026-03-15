@@ -726,13 +726,26 @@ const DesignPanel = ({
                                                     style={{ width: (w * baseScale) + 'px' }}
                                                 >
                                                     <div className="relative group/member">
-                                                        <div className="bg-slate-200" style={{
+                                                        <div className="relative overflow-hidden" style={{
                                                             width: w + 'px',
                                                             height: h + 'px',
                                                             ...getShapeStyle(currentShape, w, h),
                                                             transform: `scale(${baseScale})`,
                                                             transformOrigin: 'top center'
-                                                        }} />
+                                                        }}>
+                                                            {member.digitalPhotoUrl ? (
+                                                                <img 
+                                                                    src={member.digitalPhotoUrl} 
+                                                                    className="w-full h-full object-cover" 
+                                                                    style={{ ...getShapeStyle(currentShape, w, h) }}
+                                                                    alt={member.name}
+                                                                />
+                                                            ) : (
+                                                                <div className="w-full h-full bg-slate-200 flex items-center justify-center">
+                                                                    <div className="text-slate-400 font-black opacity-40" style={{ fontSize: (w * 0.15) + 'px' }}>STAFF</div>
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                         <div className="flex flex-col items-center px-1" style={{
                                                             marginTop: (h * (baseScale - 1)) + (configOrla.dTextOffset || 0) + 'px'
                                                         }}>
@@ -822,13 +835,26 @@ const DesignPanel = ({
                                                         style={{ width: (w * baseScale) + 'px' }}
                                                     >
                                                         <div className="relative">
-                                                            <div className="bg-slate-100" style={{
+                                                            <div className="relative overflow-hidden" style={{
                                                                 width: w + 'px',
                                                                 height: h + 'px',
                                                                 ...getShapeStyle(currentShape, w, h),
                                                                 transform: `scale(${baseScale})`,
                                                                 transformOrigin: 'top center'
-                                                            }} />
+                                                            }}>
+                                                                {o.digitalPhotoUrl ? (
+                                                                    <img 
+                                                                        src={o.digitalPhotoUrl} 
+                                                                        className="w-full h-full object-cover" 
+                                                                        style={{ ...getShapeStyle(currentShape, w, h) }}
+                                                                        alt={o.studentName}
+                                                                    />
+                                                                ) : (
+                                                                    <div className="w-full h-full bg-slate-100 flex items-center justify-center">
+                                                                        <div className="text-slate-300 font-black" style={{ fontSize: (w * 0.15) + 'px' }}>{o.photo_file_number || '?'}</div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
                                                             <div className="flex flex-col items-center px-1" style={{
                                                                 marginTop: (h * (baseScale - 1)) + (configOrla.aTextOffset || 0) + 'px'
                                                             }}>
@@ -1063,13 +1089,29 @@ const DesignPanel = ({
                                             style={{ width: (w * baseScale) + 'px' }}
                                         >
                                             <div className="relative flex flex-col items-center">
-                                                <div className="bg-slate-100" style={{
+                                                <div className="relative overflow-visible" style={{
                                                     width: w + 'px',
                                                     height: h + 'px',
                                                     ...getShapeStyle(currentShape, w, h),
                                                     transform: `scale(${baseScale})`,
                                                     transformOrigin: 'top center'
-                                                }} />
+                                                }}>
+                                                    {member.digitalPhotoUrl ? (
+                                                        <img 
+                                                            src={member.digitalPhotoUrl} 
+                                                            className="w-full h-full object-cover" 
+                                                            style={{ 
+                                                                ...getShapeStyle(currentShape, w, h),
+                                                                clipPath: currentShape.toLowerCase() === 'circle' ? 'circle(50% at 50% 50%)' : currentShape.toLowerCase() === 'oval' ? 'ellipse(50% 50% at 50% 50%)' : 'none'
+                                                            }}
+                                                            alt={member.name}
+                                                        />
+                                                    ) : (
+                                                        <div className="w-full h-full bg-slate-100 flex items-center justify-center">
+                                                            <div className="text-slate-300 font-black" style={{ fontSize: (w * 0.15) + 'px' }}>STAFF</div>
+                                                        </div>
+                                                    )}
+                                                </div>
                                                 <div className="flex flex-col items-center w-full" style={{
                                                     marginTop: (h * (baseScale - 1)) + (configOrla.dTextOffset || 0) + 'px',
                                                 }}>
@@ -1158,13 +1200,29 @@ const DesignPanel = ({
                                                 style={{ width: (w * baseScale) + 'px' }}
                                             >
                                                 <div className="relative flex flex-col items-center">
-                                                    <div className="bg-slate-100" style={{
+                                                    <div className="relative overflow-visible" style={{
                                                         width: w + 'px',
                                                         height: h + 'px',
                                                         ...getShapeStyle(currentShape, w, h),
                                                         transform: `scale(${baseScale})`,
                                                         transformOrigin: 'top center'
-                                                    }} />
+                                                    }}>
+                                                        {o.digitalPhotoUrl ? (
+                                                            <img 
+                                                                src={o.digitalPhotoUrl} 
+                                                                className="w-full h-full object-cover" 
+                                                                style={{ 
+                                                                    ...getShapeStyle(currentShape, w, h),
+                                                                    clipPath: currentShape.toLowerCase() === 'circle' ? 'circle(50% at 50% 50%)' : currentShape.toLowerCase() === 'oval' ? 'ellipse(50% 50% at 50% 50%)' : 'none'
+                                                                }}
+                                                                alt={o.studentName}
+                                                            />
+                                                        ) : (
+                                                            <div className="w-full h-full bg-slate-100 flex items-center justify-center">
+                                                                <div className="text-slate-300 font-black" style={{ fontSize: (w * 0.15) + 'px' }}>{o.photo_file_number || '?'}</div>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                     <div className="flex flex-col items-center w-full px-1" style={{
                                                         marginTop: (h * (baseScale - 1)) + (configOrla.aTextOffset || 0) + 'px'
                                                     }}>

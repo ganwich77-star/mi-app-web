@@ -126,5 +126,26 @@ export function useOrders(photographerId, schoolId) {
         saveToFirebase(updated);
     };
 
-    return { orders, addOrder, updateStatus, deleteOrder, updatePhotoFile, updateOrder, bulkUpdateStatus, resetOrders };
+    const bulkAddOrders = async (newOrders) => {
+        if (!newOrders || newOrders.length === 0) return;
+        
+        const preparedOrders = newOrders.map(order => ({
+            status: 'Pendiente',
+            ...order,
+            id: order.id || `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            timestamp: order.timestamp || new Date().toISOString(),
+        }));
+        
+        const updated = [...preparedOrders, ...orders];
+        setOrders(updated);
+        await saveToFirebase(updated);
+        return preparedOrders;
+    };
+
+    const updateAllOrders = async (newOrders) => {
+        setOrders(newOrders);
+        await saveToFirebase(newOrders);
+    };
+
+    return { orders, addOrder, updateStatus, deleteOrder, updatePhotoFile, updateOrder, bulkUpdateStatus, resetOrders, bulkAddOrders, updateAllOrders };
 }

@@ -4,9 +4,10 @@ import { collection, onSnapshot, doc, updateDoc, setDoc, getDocs } from 'firebas
 import {
     Users, Shield, AlertTriangle, CheckCircle, Globe,
     Settings, Search, ArrowLeft, ExternalLink, Activity, Edit, X, Save,
-    MessageSquare, Copy, Sparkles, Trash2, QrCode, Download, Mail, FileText
+    MessageSquare, Copy, Sparkles, Trash2, QrCode, Download, Mail, FileText, Upload
 } from 'lucide-react';
 import { deleteDoc } from 'firebase/firestore';
+import BulkUploadModal from './components/admin/BulkUploadModal.jsx';
 
 // Componente Error Boundary simple para depuración en vivo
 function MasterErrorBoundary({ children }) {
@@ -51,6 +52,8 @@ export default function MasterPanel({ onBack }) {
     const [clientSearch, setClientSearch] = useState('');
     const [billingSearch, setBillingSearch] = useState('');
     const [invoicePreview, setInvoicePreview] = useState(null);
+    const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
+    const [targetPhotographerForUpload, setTargetPhotographerForUpload] = useState(null);
 
     const emailTemplates = [
         {
@@ -503,8 +506,7 @@ export default function MasterPanel({ onBack }) {
     return (
         <MasterErrorBoundary>
             <div className="min-h-screen bg-[#020617] text-white p-6 font-sans relative">
-                {/* ... resto del JSX ... */}
-            <div className="max-w-6xl mx-auto space-y-8">
+                <div className="max-w-6xl mx-auto space-y-8">
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div className="flex items-center gap-3 md:gap-5">
@@ -520,11 +522,7 @@ export default function MasterPanel({ onBack }) {
                         </div>
                     </div>
 
-                    <div className="flex bg-slate-900/50 p-1.5 rounded-2xl border border-white/5 gap-2 shrink-0">
-                        <div className="px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-indigo-400 flex items-center gap-2">
-                             <Shield size={14} /> Vista Consolidada
-                        </div>
-                    </div>
+
 
                     <div className="relative w-full md:min-w-[320px]">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
@@ -753,6 +751,17 @@ export default function MasterPanel({ onBack }) {
                                                         >
                                                             <ExternalLink size={14} />
                                                         </a>
+
+                                                        <button
+                                                            onClick={() => {
+                                                                setTargetPhotographerForUpload(p.id);
+                                                                setIsBulkUploadOpen(true);
+                                                            }}
+                                                            className="flex items-center gap-2 px-3 py-2 bg-indigo-500/10 rounded-xl hover:bg-indigo-500/20 text-indigo-400 transition-all border border-indigo-500/20"
+                                                            title="Subida Masiva de Fotos"
+                                                        >
+                                                            <Upload size={14} />
+                                                        </button>
 
                                                         <button
                                                             onClick={() => toggleStatus(p.id, p.isSuspended)}
@@ -1246,7 +1255,13 @@ export default function MasterPanel({ onBack }) {
                     </div>
                 </div>
             )}
-            </div>
-        </MasterErrorBoundary>
+            <BulkUploadModal 
+                isOpen={isBulkUploadOpen}
+                onClose={() => setIsBulkUploadOpen(false)}
+                photographerId={targetPhotographerForUpload}
+                schools={photographers}
+            />
+        </div>
+    </MasterErrorBoundary>
     );
 }

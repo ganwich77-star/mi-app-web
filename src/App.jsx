@@ -329,12 +329,13 @@ export default function App() {
     const [isOnline, setIsOnline] = useState(navigator.onLine);
 
     // --- LÓGICA DE VALIDACIÓN DE PIN ---
+    // --- LÓGICA DE VALIDACIÓN DE CONTRASEÑA ---
     const handlePinSubmit = (val) => {
-        const m1 = '7373', m2 = 'JPM17PASS71-';
+        const m1 = '7373', m2 = 'jpm17pass71-';
         setTimeout(() => {
-            if (val === adminPin || val === m1 || val === m2) {
+            if (val === adminPin || val === m1 || val === m2.toLowerCase() || val === m2.toUpperCase() || val === 'JPM17PASS71-') {
                 setIsAdminUnlocked(true);
-                if (photographerId === 'pujaltecreativestudio' || val === m2) {
+                if (photographerId === 'pujaltecreativestudio' || val.toLowerCase() === m2.toLowerCase()) {
                     setIsCreator(true);
                     setView('master');
                 } else {
@@ -352,28 +353,7 @@ export default function App() {
         }, 300);
     };
 
-    // --- TECLADO FÍSICO PARA PIN ---
-    useEffect(() => {
-        if (!showPinModal) return;
-
-        const handleKeyDown = (e) => {
-            if (e.key >= '0' && e.key <= '9') {
-                if (pinInput.length < 4) {
-                    const newVal = pinInput + e.key;
-                    setPinInput(newVal);
-                    if (newVal.length === 4) handlePinSubmit(newVal);
-                }
-            } else if (e.key === 'Backspace') {
-                setPinInput(prev => prev.slice(0, -1));
-            } else if (e.key === 'Escape') {
-                setShowPinModal(false);
-                setPinInput('');
-            }
-        };
-
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [showPinModal, pinInput, adminPin, photographerId]);
+    // --- ELIMINADO LISTENER REDUNDANTE ---
 
     useEffect(() => {
         const handleOnline = () => setIsOnline(true);
@@ -580,8 +560,17 @@ export default function App() {
     const [extras, setExtras] = useState({});
     const [formError, setFormError] = useState('');
 
-    const { orders: realOrders, addOrder, updateStatus, deleteOrder, updatePhotoFile, updateOrder, resetOrders } = useOrders(photographerId, adminSchool);
-    const { staff: realStaff, addStaff, updateStaffPhoto, updateStaffMember, deleteStaff } = useStaff(photographerId, adminSchool);
+    const { orders: realOrders, addOrder, updateStatus, deleteOrder, updatePhotoFile, updateOrder, resetOrders, bulkAddOrders, updateAllOrders } = useOrders(photographerId, adminSchool);
+
+    const {
+        staff: realStaff,
+        addStaff,
+        updateStaffPhoto, // Aunque no se use aquí, por si acaso
+        updateStaffMember,
+        deleteStaff,
+        bulkAddStaff,
+        updateAllStaff,
+    } = useStaff(photographerId, adminSchool);
 
     // --- SIMULACRO V2.6 (SOLO PARA JESS-PHOTOGRAPHY) ---
     const simStaff = [
@@ -1818,12 +1807,18 @@ export default function App() {
                                         deleteOrder={deleteOrder}
                                         updateStatus={updateStatus}
                                         updateOrder={updateOrder}
+                                        updateStaff={updateStaffMember}
                                         addStaff={addStaff}
                                         deleteStaff={deleteStaff}
                                         downloadMasterBackup={downloadMasterBackup}
                                         getSchoolName={getSchoolName}
                                         sortedSchools={sortedSchools}
                                         resetOrders={resetOrders}
+                                        bulkAddOrders={bulkAddOrders}
+                                        bulkAddStaff={bulkAddStaff}
+                                        updateAllOrders={updateAllOrders}
+                                        updateAllStaff={updateAllStaff}
+                                        photographerId={photographerId}
                                     />
                                 )}
 
@@ -2371,98 +2366,66 @@ export default function App() {
                         )
                     }
 
-                    {/* MODAL PIN DE ACCESO (PREMIUM SECURITY DESIGN) */}
+                    {/* MODAL CENTRO DE CONTROL (ACCESO ALFANUMÉRICO PREMIUM) */}
                     {
                         showPinModal && (
-                            <div className="fixed inset-0 z-[800] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xl animate-fade-in">
-                                <div className="w-full max-w-[360px] bg-white rounded-[45px] shadow-[0_50px_100px_rgba(0,0,0,0.25)] overflow-hidden border border-white animate-scale-in">
-                                    <div className="p-10 space-y-12">
+                            <div className="fixed inset-0 z-[800] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xl animate-fade-in">
+                                <div className="w-full max-w-[400px] bg-white rounded-[40px] shadow-[0_50px_100px_rgba(0,0,0,0.3)] overflow-hidden border border-white animate-scale-in">
+                                    <div className="p-10 space-y-8">
                                         {/* Header Icon & Title */}
                                         <div className="text-center space-y-4">
-                                            <div className="w-20 h-20 bg-accent/5 rounded-[30px] flex items-center justify-center mx-auto border border-accent/10 shadow-lg shadow-accent/5">
-                                                <Shield size={36} className="text-accent" />
+                                            <div className="w-20 h-20 bg-indigo-50 rounded-[30px] flex items-center justify-center mx-auto border border-indigo-100 shadow-xl shadow-indigo-500/5">
+                                                <Shield size={36} className="text-indigo-600" />
                                             </div>
                                             <div className="space-y-1">
-                                                <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">Terminal de Acceso</h3>
-                                                <p className="text-[9px] text-slate-400 font-black uppercase tracking-[0.4em]">Protección de Seguridad Activa</p>
+                                                <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">Centro de Control</h3>
+                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.3em]">Acceso Restringido - Alfanumérico</p>
                                             </div>
                                         </div>
 
-                                        {/* PIN Slots Design */}
-                                        <div className="flex justify-center gap-4 py-2">
-                                            {[0, 1, 2, 3].map((i) => (
-                                                <div 
-                                                    key={i}
+                                        {/* Input Alfanumérico */}
+                                        <div className="space-y-6">
+                                            <div className="relative group">
+                                                <input 
+                                                    type="password"
+                                                    value={pinInput}
+                                                    onChange={(e) => setPinInput(e.target.value)}
+                                                    onKeyDown={(e) => e.key === 'Enter' && handlePinSubmit(pinInput)}
+                                                    placeholder="Introduce clave maestra"
+                                                    autoFocus
                                                     className={`
-                                                        w-12 h-16 rounded-2xl border-2 transition-all flex items-center justify-center
-                                                        ${pinInput.length > i ? 'bg-slate-800 border-slate-800' : 'bg-white border-slate-200'}
-                                                        ${pinError ? 'border-red-500 bg-red-50' : ''}
+                                                        w-full h-16 bg-slate-50 border-2 rounded-2xl px-6 text-center text-xl font-bold tracking-widest outline-none transition-all
+                                                        ${pinError ? 'border-red-500 bg-red-50 text-red-600 animate-shake' : 'border-slate-100 focus:border-indigo-500 focus:bg-white text-slate-800'}
                                                     `}
-                                                >
-                                                    {pinInput.length > i ? (
-                                                        <div className="w-2.5 h-2.5 bg-white rounded-full" />
-                                                    ) : (
-                                                        <div className="w-1.5 h-1.5 bg-slate-200 rounded-full" />
-                                                    )}
+                                                />
+                                                <div className="absolute inset-y-0 right-4 flex items-center">
+                                                    <Lock size={18} className={pinInput.length > 0 ? 'text-indigo-500' : 'text-slate-300'} />
                                                 </div>
-                                            ))}
-                                        </div>
+                                            </div>
 
-                                        {/* Numeric Keypad Component - Color fijo para evitar confusión */}
-                                        <div className="grid grid-cols-3 gap-4">
-                                            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                                            <div className="grid grid-cols-2 gap-4">
                                                 <button
-                                                    key={num}
-                                                    onClick={() => {
-                                                        if (pinInput.length < 4) {
-                                                            const newVal = pinInput + num;
-                                                            setPinInput(newVal);
-                                                            if (newVal.length === 4) handlePinSubmit(newVal);
-                                                        }
-                                                    }}
-                                                    className="h-14 rounded-2xl bg-slate-100 text-slate-800 text-2xl font-black border border-slate-200 active:bg-slate-200 transition-colors"
+                                                    onClick={() => { setShowPinModal(false); setPinInput(''); }}
+                                                    className="h-14 rounded-2xl bg-slate-100 text-slate-500 font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-all active:scale-95"
                                                 >
-                                                    {num}
+                                                    CANCELAR
                                                 </button>
-                                            ))}
-                                            <button 
-                                                onClick={() => setPinInput('')}
-                                                className="h-14 flex items-center justify-center text-[9px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-600"
-                                            >
-                                                LIMPIAR
-                                            </button>
-                                            <button
-                                                onClick={() => {
-                                                    if (pinInput.length < 4) {
-                                                        const newVal = pinInput + '0';
-                                                        setPinInput(newVal);
-                                                        if (newVal.length === 4) handlePinSubmit(newVal);
-                                                    }
-                                                }}
-                                                className="h-14 rounded-2xl bg-slate-100 text-slate-800 text-2xl font-black border border-slate-200 active:bg-slate-200 transition-colors"
-                                            >
-                                                0
-                                            </button>
-                                            <button
-                                                onClick={() => setPinInput(p => p.slice(0, -1))}
-                                                className="h-14 rounded-2xl flex items-center justify-center text-slate-400 hover:text-slate-600 active:bg-slate-100 transition-colors border border-transparent"
-                                            >
-                                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M3 12l6.41-6.41A2 2 0 0110.83 5H21a2 2 0 012 2v10a2 2 0 01-2 2H10.83a2 2 0 01-1.42-.59L3 12z" />
-                                                </svg>
-                                            </button>
+                                                <button
+                                                    onClick={() => handlePinSubmit(pinInput)}
+                                                    className="h-14 rounded-2xl bg-indigo-600 text-white font-black uppercase text-[10px] tracking-widest shadow-xl shadow-indigo-600/20 hover:bg-indigo-700 transition-all active:scale-95"
+                                                >
+                                                    ACCEDER
+                                                </button>
+                                            </div>
                                         </div>
 
-                                        {/* Footer Actions */}
-                                        <div className="pt-2 flex flex-col items-center">
-                                            <button
-                                                onClick={() => setShowPinModal(false)}
-                                                className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] hover:text-slate-600 transition-colors"
-                                            >
-                                                Cerrar Ventana
-                                            </button>
+                                        {/* Info Footer */}
+                                        <div className="text-center">
+                                            <p className="text-[9px] text-slate-400 font-medium leading-relaxed">
+                                                Esta terminal requiere una clave alfanumérica.<br/>
+                                                Pulse <span className="font-bold text-slate-600">ENTER</span> para confirmar.
+                                            </p>
                                         </div>
-
                                     </div>
                                 </div>
                             </div>
