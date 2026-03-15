@@ -110,9 +110,9 @@ function downloadScriptPlugin() {
 }
 
 export default defineConfig(({ mode }) => ({
-  base: '/graduaciones2026/',
+  base: '/',
   build: {
-    outDir: 'dist/graduaciones2026',
+    outDir: 'dist',
     emptyOutDir: true
   },
   server: {

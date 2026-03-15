@@ -26,7 +26,7 @@ jobs:
         run: npm run build
 
       - name: 🔍 Depurar Carpeta Dist
-        run: ls -R ./dist/graduaciones2026/
+        run: ls -R ./dist/
 
       - name: 🔄 Desplegar Frontend a Hostinger (FTP)
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
@@ -34,8 +34,8 @@ jobs:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ./dist/graduaciones2026/
-          server-dir: public_html/graduaciones2026/
+          local-dir: ./dist/
+          server-dir: public_html/
           protocol: ftp
           port: 21
           dangerous-clean-slate: false
