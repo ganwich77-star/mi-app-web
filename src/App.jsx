@@ -176,7 +176,7 @@ class AppErrorBoundary extends React.Component {
 
 export default function App() {
     useEffect(() => {
-        console.log("🚀 ORLAS 2026 - VERSIÓN DESPLEGADA: 15-03-2026 01:30");
+        console.log("🚀 ORLAS 2026 - v8.3.4 - 15/03/2026 02:15");
     }, []);
 
     // 1. Detección de Modo Demo y Fotógrafo (Multitenancy)
