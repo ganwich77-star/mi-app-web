@@ -7,6 +7,8 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
     const [scriptModal, setScriptModal] = useState(null);
     const [activeFilter, setActiveFilter] = useState({ type: 'role', id: 'ALL' });
 
+    const isHosting = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+
     // Construcción del nombre de la carpeta: ORLA + CENTRO + CURSO + GRUPO
     const folderName = `ORLA ${groupName} ${course} ${group}`.trim().toUpperCase();
 
@@ -57,7 +59,7 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
         };
     };
 
-    const downloadScript = (type) => {
+    const downloadScript = async (type) => {
         const cleanCenter = groupName.replace(/ORLA/gi, '').trim();
         const folderName = `ORLA ${cleanCenter} ${course} ${group}`.trim().toUpperCase();
         const timestamp = new Date().getTime();
@@ -289,14 +291,24 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                 'app.refresh();',
                 '',
                 'function autoFitFontSize(layer, maxW) {',
-                '  app.activeDocument = doc;',
-                '  app.refresh();',
-                '  var bounds = layer.bounds;',
-                '  var currentW = bounds[2] - bounds[0];',
-                '  if (currentW > maxW) {',
-                '    var ratio = maxW / currentW;',
-                '    layer.textItem.size = layer.textItem.size * ratio;',
+                '  try {',
+                '    if (!layer || layer.kind !== LayerKind.TEXT) return;',
                 '    app.refresh();',
+                '    var contents = layer.textItem.contents;',
+                '    if (!contents || contents.replace(/\\s/g, "") === "") return;',
+                '',
+                '    var bounds = layer.bounds;',
+                '    if (!bounds || bounds.length < 4) return;',
+                '    var currentW = bounds[2] - bounds[0];',
+                '',
+                '    if (currentW > maxW && currentW > 0) {',
+                '      var ratio = maxW / currentW;',
+                '      var newSize = layer.textItem.size * ratio;',
+                '      layer.textItem.size = Math.max(1, newSize);',
+                '      app.refresh();',
+                '    }',
+                '  } catch (e) {',
+                '    $.writeln("AutoFit error: " + e);',
                 '  }',
                 '}',
                 '',
@@ -453,34 +465,60 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
             ].join('\n');
         }
 
-        // Intentar usar el diálogo de guardado nativo del servidor (macOS Only + Local Dev)
-        // Esto permite que el usuario elija cualquier carpeta y nosotros sepamos cuál es para el botón "Mostrar en carpeta"
-        fetch('/graduaciones2026/api/save-as', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content, filename })
-        })
-            .then(r => {
-                if (!r.ok) throw new Error('API save-as no disponible');
-                return r.json();
-            })
-            .then(data => {
-                if (data.success) {
-                    setScriptModal({ content, filename: data.filename, copied: false, saved: true, savedPath: data.path });
-                    fetch('/graduaciones2026/api/reveal-file', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ path: data.path })
-                    }).catch(() => { });
-                } else if (data.cancelled) {
-                    return;
-                } else {
-                    fallbackDownload(content, filename, folderName);
+        // 0. Intentar File System Access API (showSaveFilePicker) para navegadores modernos
+        if ('showSaveFilePicker' in window) {
+            try {
+                const handle = await window.showSaveFilePicker({
+                    suggestedName: filename,
+                    types: [{
+                        description: 'Adobe ExtendScript File',
+                        accept: { 'text/javascript': ['.jsx'] },
+                    }],
+                });
+                const writable = await handle.createWritable();
+                await writable.write(content);
+                await writable.close();
+                
+                setScriptModal({ 
+                    content, 
+                    filename, 
+                    copied: false, 
+                    saved: true, 
+                    savedPath: handle.name 
+                });
+                return;
+            } catch (err) {
+                if (err.name === 'AbortError') return;
+                console.error('Error con showSaveFilePicker:', err);
+            }
+        }
+
+        // 1. Fallback: Diálogo del servidor (Solo Local / macOS)
+        if (!isHosting) {
+            try {
+                const r = await fetch('/graduaciones2026/api/save-as', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content, filename })
+                });
+                
+                if (r.ok) {
+                    const data = await r.json();
+                    if (data.success) {
+                        setScriptModal({ content, filename: data.filename, copied: false, saved: true, savedPath: data.path });
+                        fetch('/graduaciones2026/api/reveal-file', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ path: data.path })
+                        }).catch(() => { });
+                        return;
+                    }
                 }
-            })
-            .catch(() => {
-                fallbackDownload(content, filename, folderName);
-            });
+            } catch (e) { }
+        }
+
+        // 2. Segundo Fallback: Descarga directa vía API o Browser
+        fallbackDownload(content, filename, folderName);
     };
 
     const fallbackDownload = (content, filename, folderName) => {
@@ -835,7 +873,9 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                                 <div className={`space-y-1 py-4 px-6 ${theme === 'dark' ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-emerald-50 border-emerald-100'} border rounded-3xl`}>
                                     <CheckCircle2 size={20} className="text-emerald-500 mx-auto" />
                                     <p className="text-emerald-500 text-[9px] font-black uppercase tracking-widest">Archivo guardado con éxito</p>
-                                    <p className={`${theme === 'dark' ? 'text-emerald-300/30' : 'text-emerald-700/40'} text-[8px] font-mono italic truncate`}>{scriptModal.savedPath}</p>
+                                    <p className={`${theme === 'dark' ? 'text-emerald-300/30' : 'text-emerald-700/40'} text-[8px] font-mono italic truncate`}>
+                                        {isHosting ? 'Descargas del Navegador' : scriptModal.savedPath}
+                                    </p>
                                 </div>
                             ) : (
                                 <div className={`space-y-1 py-4 ${theme === 'dark' ? 'bg-blue-500/5 border-blue-500/20' : 'bg-blue-50 border-blue-100'} border rounded-3xl`}>
@@ -863,7 +903,7 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
 
                             {/* Actions */}
                             <div className="space-y-2 pt-2">
-                                {scriptModal.saved && (
+                                {scriptModal.saved && !isHosting && (
                                     <button
                                         onClick={() => fetch('/graduaciones2026/api/reveal-file', {
                                             method: 'POST',

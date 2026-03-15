@@ -215,24 +215,37 @@ const DesignPanel = ({
         updates.aCols = (numStudents > 0) ? Math.min(numStudents, maxAluCols) : maxAluCols;
         updates.dCols = (numStaff > 0) ? Math.min(numStaff, 10) : 8;
 
-        // 3. FUENTES (Valores absolutos optimizados)
-        updates.fontSizeAluName = isA3 ? 55 : 42;
+        // 3. FUENTES (Valores proporcionales optimizados)
+        const fontBase = (cfg.canvasW || 4961) / 4961; // Factor de escala basado en A3 (4961px)
+        
+        updates.fontSizeAluName = Math.round((isA3 ? 55 : 42) * fontBase);
         updates.fontSizeAluSur = Math.round(updates.fontSizeAluName * 0.75);
         updates.fontSizeDocName = Math.round(updates.fontSizeAluName * 1.2);
         updates.fontSizeDocRole = Math.round(updates.fontSizeDocName * 0.75);
         
-        updates.fontSizeSchool = isA3 ? 240 : 180;
-        updates.fontSizePromo = isA3 ? 90 : 72;
-        updates.fontSizeCourse = isA3 ? 72 : 56;
+        // El pie de página DEBE ser proporcional al ancho para que no desborde en A4/40x30/30x20
+        const schoolName = schools.find(s => s.id === adminSchool)?.name || schools[0]?.name || "NOMBRE DEL COLEGIO";
+        const schoolNameLen = schoolName.length || 20;
+        // Estimación: un carácter suele ocupar ~0.7 de su altura en ancho (un poco más conservador que 0.65).
+        // El availableWidth real es el ancho del lienzo menos los márgenes izq y der.
+        const margin = cfg.margin || safeMmToPx(15);
+        const canvasW = cfg.canvasW || 4961;
+        const availableWidth = canvasW - (margin * 2);
+        
+        // Calculamos el tamaño máximo permitido para que el nombre quepa en una sola línea dentro de las guías
+        const maxFontSizeByWidth = Math.floor((availableWidth * 0.95) / (schoolNameLen * 0.7));
+        
+        updates.fontSizeSchool = Math.min(Math.round(240 * fontBase), maxFontSizeByWidth);
+        updates.fontSizePromo = Math.round(Math.min(90 * fontBase, updates.fontSizeSchool * 0.4));
+        updates.fontSizeCourse = Math.round(Math.min(72 * fontBase, updates.fontSizeSchool * 0.35));
 
         // 4. LÍMITES VERTICALES Y GAPS
-        const margin = cfg.margin || safeMmToPx(15);
-        const availableWidth = (cfg.canvasW || 4961) - (margin * 2);
         const canvasH = cfg.canvasH || 3508;
+        const heightBase = canvasH / 3508; // Factor de escala vertical
         
         // Gap Horizontal Docentes (Mucho más generoso para centrado perfecto)
         updates.dGapX = Math.max(safeMmToPx(45), (availableWidth * 0.15)); 
-        updates.dGapY = safeMmToPx(30); 
+        updates.dGapY = safeMmToPx(30) * heightBase; 
         
         const docRows = Math.ceil(numStaff / updates.dCols);
         const baseH = (cfg.aH || 450);
@@ -241,8 +254,12 @@ const DesignPanel = ({
         updates.dY = canvasH * 0.12; 
         const topLimit = updates.dY + (docRows * docHWithText) + safeMmToPx(30);
 
-        const currentFooterY = cfg.footerY || margin;
-        const footerSpaceTotal = currentFooterY + updates.fontSizeSchool + updates.fontSizePromo + updates.fontSizeCourse + safeMmToPx(35); 
+        // Ajuste de footerY proporcional a la altura total
+        const footerYRecommended = Math.round(180 * heightBase);
+        updates.footerY = footerYRecommended;
+        
+        const currentFooterY = updates.footerY;
+        const footerSpaceTotal = currentFooterY + updates.fontSizeSchool + updates.fontSizePromo + updates.fontSizeCourse + (safeMmToPx(35) * heightBase); 
         const bottomLimit = canvasH - footerSpaceTotal;
 
         // 5. AJUSTE DE ALUMNOS (Centrado y Espaciado)
@@ -257,7 +274,7 @@ const DesignPanel = ({
         updates.aGapX = Math.max(updates.aGapX, safeMmToPx(25));
 
         // Gap vertical alumnos
-        let targetGapY = safeMmToPx(65) * updates.aScale;
+        let targetGapY = safeMmToPx(65) * updates.aScale * heightBase;
         let totalAluHeight = (aluRows * (aluHWithText + targetGapY)) - targetGapY;
 
         if (totalAluHeight > availableHeight) {
@@ -271,8 +288,8 @@ const DesignPanel = ({
         // Reset offsets para asegurar alineación perfecta
         updates.aOffsetX = 0;
         updates.dOffsetX = 0;
-        updates.aTextOffset = safeMmToPx(10);
-        updates.dTextOffset = safeMmToPx(12);
+        updates.aTextOffset = safeMmToPx(10) * updates.aScale;
+        updates.dTextOffset = safeMmToPx(12) * updates.dScale;
 
         setConfigOrla(prev => ({
             ...prev,
@@ -452,6 +469,29 @@ const DesignPanel = ({
             }
         }
     }, [isFullScreenDesign, configOrla.canvasW, configOrla.canvasH]);
+
+    // Efecto reactivo: Si cambia el margen, reajustamos el pie de página para que quepa en las guías
+    useEffect(() => {
+        if (configOrla.margin !== undefined && isFullScreenDesign) {
+            const schoolName = schools.find(s => s.id === adminSchool)?.name || schools[0]?.name || "NOMBRE DEL COLEGIO";
+            const schoolNameLen = schoolName.length || 20;
+            const canvasW = configOrla.canvasW || 4961;
+            const availableWidth = canvasW - (configOrla.margin * 2);
+            const fontBase = canvasW / 4961;
+
+            const maxFontSizeByWidth = Math.floor((availableWidth * 0.95) / (schoolNameLen * 0.7));
+            const newFontSizeSchool = Math.min(Math.round(240 * fontBase), maxFontSizeByWidth);
+            
+            if (newFontSizeSchool !== configOrla.fontSizeSchool) {
+                setConfigOrla(prev => ({
+                    ...prev,
+                    fontSizeSchool: newFontSizeSchool,
+                    fontSizePromo: Math.round(Math.min(90 * fontBase, newFontSizeSchool * 0.4)),
+                    fontSizeCourse: Math.round(Math.min(72 * fontBase, newFontSizeSchool * 0.35))
+                }));
+            }
+        }
+    }, [configOrla.margin, adminSchool, schools]);
 
     // Calcular escala para la vista previa pequeña
     const [previewScale, setPreviewScale] = useState(0.1);
@@ -1204,7 +1244,7 @@ const DesignPanel = ({
                                             setActiveTab('PIE');
                                             setActiveDesignParam(TOOLBAR_CONFIG['PIE'].tools[2]); // T. COLEGIO
                                         }}
-                                        className="font-normal text-black uppercase tracking-tighter outline-none cursor-text hover:text-accent hover:bg-accent/5 focus:bg-white focus:ring-8 focus:ring-accent/10 transition-all duration-300 focus:shadow-2xl inline-block px-4 rounded"
+                                        className="font-normal text-black uppercase tracking-tighter outline-none cursor-text hover:text-accent hover:bg-accent/5 focus:bg-white focus:ring-8 focus:ring-accent/10 transition-all duration-300 focus:shadow-2xl inline-block px-4 rounded whitespace-nowrap mx-auto"
                                         style={{ fontSize: (configOrla.fontSizeSchool || 200) + 'px' }}
                                         onBlur={(e) => {
                                             const newName = e.target.innerText.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
@@ -1232,7 +1272,7 @@ const DesignPanel = ({
                                             setActiveTab('PIE');
                                             setActiveDesignParam(TOOLBAR_CONFIG['PIE'].tools[4]); // T. PROMO
                                         }}
-                                        className="font-normal text-black tracking-[0.5em] mt-1 outline-none cursor-text hover:text-accent hover:bg-accent/5 focus:bg-white focus:ring-8 focus:ring-accent/10 transition-all duration-300 focus:shadow-2xl inline-block px-2 rounded ml-[0.5em]"
+                                        className="font-normal text-black tracking-[0.5em] mt-1 outline-none cursor-text hover:text-accent hover:bg-accent/5 focus:bg-white focus:ring-8 focus:ring-accent/10 transition-all duration-300 focus:shadow-2xl inline-block px-2 rounded ml-[0.5em] max-w-[95%]"
                                         style={{ fontSize: (configOrla.fontSizePromo || 80) + 'px' }}
                                         onBlur={(e) => {
                                             const newText = e.target.innerText.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
@@ -1260,7 +1300,7 @@ const DesignPanel = ({
                                             setActiveTab('PIE');
                                             setActiveDesignParam(TOOLBAR_CONFIG['PIE'].tools[6]); // T. CURSO
                                         }}
-                                        className="font-semibold text-gray-500 uppercase tracking-widest mt-0.5 outline-none cursor-text hover:text-accent hover:bg-accent/5 focus:bg-white focus:ring-8 focus:ring-accent/10 transition-all duration-300 focus:shadow-2xl inline-block px-2 rounded"
+                                        className="font-semibold text-gray-500 uppercase tracking-widest mt-0.5 outline-none cursor-text hover:text-accent hover:bg-accent/5 focus:bg-white focus:ring-8 focus:ring-accent/10 transition-all duration-300 focus:shadow-2xl inline-block px-2 rounded max-w-[95%]"
                                         style={{ fontSize: (configOrla.fontSizeCourse || 60) + 'px' }}
                                         onBlur={(e) => {
                                             const newText = e.target.innerText.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();

@@ -1746,7 +1746,7 @@ export default function App() {
                                                                 adminTab === 'design' ? <Palette size={18} /> :
                                                                     adminTab === 'orders' ? <Users size={18} /> :
                                                                         adminTab === 'precios' ? <Euro size={18} /> :
-                                                                adminTab === 'billing' ? <FileText size={18} /> : 
+                                                                    adminTab === 'billing' ? <FileText size={18} /> : 
                                                                     adminTab === 'etiquetas' ? <Tag size={18} /> : <Settings size={18} />}
 
                                                     </div>
@@ -1785,9 +1785,6 @@ export default function App() {
                                         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
                                             <button onClick={() => setShowPlanSelector(true)} className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-[9px] md:text-[10px] uppercase rounded-xl transition-all flex items-center justify-center gap-3 shadow-xl shadow-indigo-600/20">
                                                 Cambiar Plan <ArrowRight size={14} />
-                                            </button>
-                                            <button onClick={() => setAdminTab('billing')} className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white font-black text-[9px] md:text-[10px] uppercase rounded-xl transition-all flex items-center justify-center gap-3 shadow-xl shadow-slate-700/20">
-                                                <FileText size={14} /> Mis Facturas
                                             </button>
                                         </div>
                                     </div>
