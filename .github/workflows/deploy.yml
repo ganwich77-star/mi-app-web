@@ -25,10 +25,18 @@ jobs:
       - name: 🏗️ Compilar (Build)
         run: npm run build
 
-      - name: 🔍 Depurar Carpeta Dist
-        run: ls -R ./dist/
+      - name: 🔍 Inspeccionar Archivos Generados
+        run: |
+          echo "Contenido del directorio raíz:"
+          ls -F
+          echo "---"
+          echo "Contenido de la carpeta dist:"
+          find dist/ -maxdepth 2
+          echo "---"
+          echo "Contenido de VERSION.txt en dist:"
+          cat dist/VERSION.txt
 
-      - name: 🔄 Desplegar Frontend a Hostinger (FTP)
+      - name: 🔄 Desplegar Frontend (FTP) - LIMPIEZA FORZADA
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
@@ -38,7 +46,7 @@ jobs:
           server-dir: public_html/graduaciones2026/
           protocol: ftp
           port: 21
-          dangerous-clean-slate: false
+          dangerous-clean-slate: true
 
   deploy-firebase:
     runs-on: ubuntu-latest
