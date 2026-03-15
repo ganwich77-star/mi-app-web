@@ -110,7 +110,7 @@ function downloadScriptPlugin() {
 }
 
 export default defineConfig(({ mode }) => ({
-  base: '/grav2.1.3-FINAL-FIX-1102',
+  base: '/graduaciones2026/',
   build: {
     outDir: 'dist',
     emptyOutDir: true

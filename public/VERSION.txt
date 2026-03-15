@@ -1,5 +1,1 @@
-v2.1.3-debug-hostinger-15032026-1035
-Token actualizado en GitHub. Disparando despliegue de funciones.
-BUILD_TIME: Sunday, March 15, 2026 08:25
-CHECK: FORCE_PROJECT_ID_DEPLOY
-STATUS: PUSHING_TO_HOSTINGER
+v2.1.3-FIX-1102
