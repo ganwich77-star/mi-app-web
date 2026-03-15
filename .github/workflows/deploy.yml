@@ -37,6 +37,20 @@ jobs:
           port: 21
           dangerous-clean-slate: false
 
+  deploy-firebase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📂 Obtener código
+        uses: actions/checkout@v4
+
+      - name: 🟢 Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 🛠️ Instalar Dependencias de Functions
+        run: cd functions && npm install
+
       - name: 🔥 Desplegar Functions a Firebase
         uses: w9jds/firebase-action@v13.6.0
         with:
