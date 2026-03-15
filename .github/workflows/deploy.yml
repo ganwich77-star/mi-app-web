@@ -25,6 +25,9 @@ jobs:
       - name: 🏗️ Compilar (Build)
         run: npm run build
 
+      - name: 🔍 Depurar Carpeta Dist
+        run: ls -R ./dist/graduaciones2026/
+
       - name: 🔄 Desplegar Frontend a Hostinger (FTP)
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
