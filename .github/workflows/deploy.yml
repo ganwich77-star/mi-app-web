@@ -1,4 +1,4 @@
-name: 🚀 Build y Despliegue (Hostinger + Firebase)
+name: 🚀 Build y Despliegue Directo
 
 on:
   push:
@@ -18,53 +18,19 @@ jobs:
           node-version: '20'
 
       - name: 🛠️ Instalar Dependencias
-        run: |
-          npm install
-          cd functions && npm install
+        run: npm install
 
       - name: 🏗️ Compilar (Build)
         run: npm run build
 
-      - name: 🔍 Inspeccionar Archivos Generados
-        run: |
-          echo "Contenido del directorio raíz:"
-          ls -F
-          echo "---"
-          echo "Contenido de la carpeta dist:"
-          find dist/ -maxdepth 2
-          echo "---"
-          echo "Contenido de VERSION.txt en dist:"
-          cat dist/VERSION.txt
-
-      - name: 🔄 Desplegar Frontend (Diagnóstico Raíz)
+      - name: 🔄 Desplegar Frontend (Ruta Directa)
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./dist/
-          server-dir: public_html/graduaciones2026/
+          server-dir: graduaciones2026/
           protocol: ftp
           port: 21
           dangerous-clean-slate: false
-
-  deploy-firebase:
-    runs-on: ubuntu-latest
-    steps:
-      - name: 📂 Obtener código
-        uses: actions/checkout@v4
-
-      - name: 🟢 Configurar Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: 🛠️ Instalar Dependencias de Functions
-        run: cd functions && npm install
-
-      - name: 🔥 Desplegar Functions a Firebase
-        uses: w9jds/firebase-action@v13.6.0
-        with:
-          args: deploy --only functions --project asistente-digital-comuniones
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
