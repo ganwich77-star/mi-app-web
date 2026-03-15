@@ -12,6 +12,9 @@ backups/
 *.json
 !package.json
 !package-lock.json
+!firebase.json
+!functions/package.json
+!functions/package-lock.json
 *.backup
 *.backup_*
 *.bak
