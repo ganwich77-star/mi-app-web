@@ -1,5 +1,5 @@
-v2.1.2-deploy-retry-15032026-0845
-Intentando despliegue de funciones tras corrección de firebase.json y posible actualización de token.
+v2.1.2-deploy-auth-fixed-15032026-0906
+Token actualizado en GitHub. Disparando despliegue de funciones.
 BUILD_TIME: Sunday, March 15, 2026 08:25
 CHECK: FORCE_PROJECT_ID_DEPLOY
 STATUS: PUSHING_TO_HOSTINGER
