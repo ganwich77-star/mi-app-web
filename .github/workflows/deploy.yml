@@ -36,17 +36,17 @@ jobs:
           echo "Contenido de VERSION.txt en dist:"
           cat dist/VERSION.txt
 
-      - name: 🔄 Desplegar Frontend (FTP) - LIMPIEZA FORZADA
+      - name: 🔄 Desplegar Frontend (Diagnóstico Raíz)
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./dist/
-          server-dir: public_html/graduaciones2026/
+          server-dir: public_html/
           protocol: ftp
           port: 21
-          dangerous-clean-slate: true
+          dangerous-clean-slate: false
 
   deploy-firebase:
     runs-on: ubuntu-latest
