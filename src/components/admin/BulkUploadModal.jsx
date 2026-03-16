@@ -79,33 +79,43 @@ const BulkUploadModal = ({ isOpen, onClose, photographerId, schools }) => {
                 // 2. Comprimir
                 const compressedFile = await compressImage(file);
 
-                // 3. Buscar la orden/alumno correspondiente por photo_file_number (o ID si coincide)
-                // Primero intentamos buscar en todas las escuelas del fotógrafo una orden con ese photo_file_number
-                let targetOrder = null;
+                // 3. Buscar en 'orders' (alumnos)
+                let targetDoc = null;
+                let collectionName = 'orders';
+                
                 const ordersRef = collection(db, 'orders');
-                const q = query(
+                const qOrders = query(
                     ordersRef, 
                     where('photographerId', '==', photographerId),
                     where('photo_file_number', '==', fileId)
                 );
                 
-                const querySnapshot = await getDocs(q);
+                const ordersSnapshot = await getDocs(qOrders);
                 
-                if (!querySnapshot.empty) {
-                    targetOrder = { id: querySnapshot.docs[0].id, data: querySnapshot.docs[0].data() };
+                if (!ordersSnapshot.empty) {
+                    targetDoc = { id: ordersSnapshot.docs[0].id, data: ordersSnapshot.docs[0].data(), collection: 'orders' };
                 } else {
-                    // Si no lo encuentra por photo_file_number, intentamos por ID directo
-                    const directDoc = doc(db, 'orders', fileId);
-                    // Esto es menos común pero por si acaso
+                    // 4. Buscar en 'staff' (docentes)
+                    const staffRef = collection(db, 'staff');
+                    const qStaff = query(
+                        staffRef,
+                        where('photographerId', '==', photographerId),
+                        where('photo_file_number', '==', fileId)
+                    );
+                    const staffSnapshot = await getDocs(qStaff);
+                    
+                    if (!staffSnapshot.empty) {
+                        targetDoc = { id: staffSnapshot.docs[0].id, data: staffSnapshot.docs[0].data(), collection: 'staff' };
+                    }
                 }
 
-                if (!targetOrder) {
-                    newResults.push({ fileName: file.name, status: 'error', message: 'No se encontró alumno con este número.' });
+                if (!targetDoc) {
+                    newResults.push({ fileName: file.name, status: 'error', message: 'No se encontró registro con este número.' });
                     continue;
                 }
 
-                // 4. Subir a Storage
-                const storagePath = `photographers/${photographerId}/photos/${targetOrder.id}_${file.name}`;
+                // 5. Subir a Storage
+                const storagePath = `photographers/${photographerId}/photos/${targetDoc.id}_${file.name}`;
                 const storageRef = ref(storage, storagePath);
                 
                 const uploadTask = uploadBytesResumable(storageRef, compressedFile);
@@ -123,14 +133,20 @@ const BulkUploadModal = ({ isOpen, onClose, photographerId, schools }) => {
 
                 const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
 
-                // 5. Actualizar Firestore
-                await updateDoc(doc(db, 'orders', targetOrder.id), {
-                    digitalPhotoUrl: downloadURL,
-                    photoStatus: 'Uploaded',
+                // 6. Actualizar Firestore
+                const updateData = {
+                    photoFile: downloadURL,
                     updatedAt: new Date().toISOString()
-                });
+                };
 
-                newResults.push({ fileName: file.name, status: 'success', message: `Vinculado a ${targetOrder.data.studentName}` });
+                // Si es un alumno, también marcamos el status como production si no lo está
+                if (targetDoc.collection === 'orders') {
+                    updateData.status = 'production';
+                }
+
+                await updateDoc(doc(db, targetDoc.collection, targetDoc.id), updateData);
+
+                newResults.push({ fileName: file.name, status: 'success', message: `Vinculado a ${targetDoc.data.studentName || targetDoc.data.name || targetDoc.data.firstName}` });
 
             } catch (error) {
                 console.error("Error uploading file:", file.name, error);

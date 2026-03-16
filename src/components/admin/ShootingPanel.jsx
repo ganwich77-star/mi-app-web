@@ -2053,6 +2053,14 @@ const ShootingPanel = ({
             }
 
 
+            {/* MODAL DE SUBIDA MASIVA (RESTAURADO) */}
+            <BulkUploadModal 
+                isOpen={showBulkUpload} 
+                onClose={() => setShowBulkUpload(false)} 
+                photographerId={photographerId}
+                schools={schools}
+            />
+
             {/* MODAL DE MAPEO DINÁMICO EXCEL (NAVAJA SUIZA) - REDISEÑO ORIENTADO A USUARIO */}
             {showExcelMappingModal && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-primary/20 backdrop-blur-md animate-in fade-in duration-300">
