@@ -139,7 +139,8 @@ export default function MasterPanel({ onBack }) {
             city: p.city || '',
             province: p.province || '',
             plan: p.plan || 'starter',
-            isPaid: p.isPaid || false
+            isPaid: p.isPaid || false,
+            isExempt: p.isExempt || false
         });
     };
 
@@ -152,7 +153,8 @@ export default function MasterPanel({ onBack }) {
             await updateDoc(rootRef, {
                 brandName: editData.brandName,
                 plan: editData.plan,
-                isPaid: editData.isPaid
+                isPaid: editData.isPaid,
+                isExempt: editData.isExempt
             });
 
             setEditingPhotographer(null);
@@ -177,6 +179,7 @@ export default function MasterPanel({ onBack }) {
 
             // 2. Borrar documento raíz (esto es lo que lo quita de la lista)
             const rootRef = doc(db, 'orlas2026_photographers', id);
+            await deleteDoc(rootRef);
             console.log("Documento raíz borrado");
 
             setDeleteConfirm(null);
@@ -195,6 +198,7 @@ export default function MasterPanel({ onBack }) {
 
     const filteredBilling = (photographers || []).filter(p => {
         if (!p || !p.id) return false;
+        if (p.isExempt) return false; // Excluir fotógrafos exentos de pago
         const search = (billingSearch || '').toLowerCase();
         const idMatch = p.id.toLowerCase().includes(search);
         const brandMatch = p.brandName && p.brandName.toLowerCase().includes(search);
@@ -977,6 +981,21 @@ export default function MasterPanel({ onBack }) {
                                             <option value="paid" className="bg-slate-900">PAGADO (Confirmado)</option>
                                             <option value="pending" className="bg-slate-900">PENDIENTE (Bloqueado)</option>
                                         </select>
+                                    </div>
+
+                                    <div className="col-span-2">
+                                        <label className="flex items-center gap-3 p-4 bg-white/5 border border-white/10 rounded-2xl cursor-pointer hover:bg-white/10 transition-all group">
+                                            <input
+                                                type="checkbox"
+                                                checked={editData.isExempt}
+                                                onChange={e => setEditData({ ...editData, isExempt: e.target.checked })}
+                                                className="w-5 h-5 rounded-lg border-2 border-white/20 bg-slate-950 checked:bg-indigo-500 checked:border-indigo-500 transition-all cursor-pointer accent-indigo-500"
+                                            />
+                                            <div className="flex flex-col">
+                                                <span className="text-[10px] font-black text-white uppercase tracking-widest group-hover:text-indigo-400 transition-colors">Exento de Pago / Facturación</span>
+                                                <span className="text-[9px] text-white/40 font-bold uppercase tracking-wider">No se generarán facturas ni aparecerá en el listado de cobros</span>
+                                            </div>
+                                        </label>
                                     </div>
 
                                     {/* Campos de Facturación */}

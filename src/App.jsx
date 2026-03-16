@@ -560,7 +560,7 @@ export default function App() {
     const [extras, setExtras] = useState({});
     const [formError, setFormError] = useState('');
 
-    const { orders: realOrders, addOrder, updateStatus, deleteOrder, updatePhotoFile, updateOrder, resetOrders, bulkAddOrders, updateAllOrders } = useOrders(photographerId, adminSchool);
+    const { orders: realOrders, addOrder, updateStatus, deleteOrder, updatePhotoFile, updateOrder, bulkUpdateOrders, resetOrders, bulkAddOrders, updateAllOrders } = useOrders(photographerId, adminSchool);
 
     const {
         staff: realStaff,
@@ -1807,6 +1807,7 @@ export default function App() {
                                         deleteOrder={deleteOrder}
                                         updateStatus={updateStatus}
                                         updateOrder={updateOrder}
+                                        bulkUpdateOrders={bulkUpdateOrders}
                                         updateStaff={updateStaffMember}
                                         addStaff={addStaff}
                                         deleteStaff={deleteStaff}

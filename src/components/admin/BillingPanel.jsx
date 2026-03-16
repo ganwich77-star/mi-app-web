@@ -2,16 +2,24 @@ import React, { useState } from 'react';
 import { FileText, Download, TrendingUp, CreditCard, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export default function BillingPanel({ settings, photographerId }) {
-    const [invoices, setInvoices] = useState([
-        {
-            id: 'FAC-2026-001',
-            date: new Date().toLocaleDateString(),
-            plan: settings.plan?.toUpperCase() || 'STARTER',
-            amount: settings.plan === 'pro' ? '449.00€' : '149.00€',
-            status: 'Pagado',
-            method: 'Transferencia'
+    const [invoices, setInvoices] = useState([]);
+
+    React.useEffect(() => {
+        if (settings.isExempt) {
+            setInvoices([]);
+        } else {
+            setInvoices([
+                {
+                    id: 'FAC-2026-001',
+                    date: new Date().toLocaleDateString(),
+                    plan: settings.plan?.toUpperCase() || 'STARTER',
+                    amount: settings.plan === 'pro' ? '449.00€' : '149.00€',
+                    status: 'Pagado',
+                    method: 'Transferencia'
+                }
+            ]);
         }
-    ]);
+    }, [settings.isExempt, settings.plan]);
 
     const handleDownload = (invoice) => {
         const printWindow = window.open('', '_blank');

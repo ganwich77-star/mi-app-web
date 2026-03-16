@@ -56,23 +56,23 @@ const EditOrderModal = ({
     };
 
     return (
-        <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-fade-in">
-            <div className="w-full max-w-md bg-card rounded-3xl p-7 border border-primary/10 shadow-2xl animate-slide-up space-y-5 overflow-y-auto max-h-[90vh]">
-                <div className="flex items-center gap-3 mb-2">
-                    <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center text-2xl border border-emerald-500/20">📝</div>
+        <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
+            <div className="w-full max-w-md bg-white rounded-[2rem] p-8 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.15)] animate-slide-up space-y-6 overflow-y-auto max-h-[90vh] border border-slate-100">
+                <div className="flex items-center gap-4 mb-2">
+                    <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center text-3xl shadow-sm border border-emerald-100">📝</div>
                     <div>
-                        <p className="text-lg font-black text-primary leading-tight">Editar Pedido</p>
-                        <p className="text-xs text-secondary uppercase tracking-widest font-bold">{orderToEdit.schoolName}</p>
+                        <p className="text-xl font-black text-slate-800 leading-tight">Editar Pedido</p>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-bold">{orderToEdit.schoolName}</p>
                     </div>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-5">
                     {/* Subida de Foto Digital */}
-                    <div className="p-4 bg-emerald-500/5 rounded-2xl border border-emerald-500/10 space-y-3">
+                    <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
                         <div className="flex justify-between items-center">
-                            <label className="text-[10px] font-black text-emerald-400 uppercase tracking-widest block">Foto Digital para QR</label>
-                            <span className="text-[9px] font-bold text-emerald-400/60 break-words max-w-[150px] text-right">
-                                {orderToEdit.digitalPhotoUrl ? '✓ Lista para descargar' : 'Pendiente de subir'}
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Foto Digital para QR</label>
+                            <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                                {orderToEdit.digitalPhotoUrl ? '✓ LISTA' : 'PENDIENTE'}
                             </span>
                         </div>
 
@@ -87,87 +87,87 @@ const EditOrderModal = ({
                             />
                             <label 
                                 htmlFor="photo-upload"
-                                className={`flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl cursor-pointer transition-all ${
-                                    uploading ? 'border-emerald-500/30 bg-emerald-500/5 pointer-events-none' : 'border-emerald-500/20 hover:border-emerald-500/40 hover:bg-emerald-500/5'
+                                className={`flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-2xl cursor-pointer transition-all ${
+                                    uploading ? 'border-emerald-200 bg-emerald-50/30' : 'border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/30 bg-white'
                                 }`}
                             >
                                 {uploading ? (
                                     <>
                                         <Loader2 className="w-8 h-8 text-emerald-500 animate-spin mb-2" />
-                                        <p className="text-[11px] font-black text-primary">SUBIENDO... {Math.round(uploadProgress)}%</p>
-                                        <div className="w-full h-1 bg-emerald-500/20 rounded-full mt-2 overflow-hidden">
+                                        <p className="text-[11px] font-black text-slate-800 uppercase">Subiendo... {Math.round(uploadProgress)}%</p>
+                                        <div className="w-full h-1.5 bg-slate-100 rounded-full mt-3 overflow-hidden">
                                             <div className="h-full bg-emerald-500 transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
                                         </div>
                                     </>
                                 ) : (
                                     <>
-                                        <div className="w-10 h-10 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mb-2">
-                                            <Upload size={20} />
+                                        <div className="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mb-2 border border-emerald-100 shadow-sm">
+                                            <Upload size={22} />
                                         </div>
-                                        <p className="text-[11px] font-black text-primary">
-                                            {orderToEdit.digitalPhotoUrl ? 'REEMPLAZAR FOTO ACTUAL' : 'SUBIR FOTO ORIGINAL'}
+                                        <p className="text-[11px] font-black text-slate-800 uppercase tracking-wide">
+                                            {orderToEdit.digitalPhotoUrl ? 'REEMPLAZAR CAPTURA' : 'SUBIR FOTO ORIGINAL'}
                                         </p>
-                                        <p className="text-[9px] text-secondary mt-1 font-bold">Tamaño ideal: 3600 x 2400 (3:2) • JPG</p>
+                                        <p className="text-[9px] text-slate-400 mt-1 font-bold italic">3600 x 2400 (3:2) • JPG</p>
                                     </>
                                 )}
                             </label>
                         </div>
                         
                         {orderToEdit.digitalPhotoUrl && (
-                            <div className="flex items-center gap-2 p-2 bg-emerald-500/10 rounded-lg">
+                            <div className="flex items-center gap-2 p-2.5 bg-emerald-500/5 rounded-xl border border-emerald-500/10">
                                 <CheckCircle2 className="text-emerald-500" size={14} />
-                                <span className="text-[10px] text-emerald-400 font-bold truncate">URL guardada correctamente</span>
+                                <span className="text-[10px] text-emerald-700 font-bold truncate">Imagen vinculada correctamente</span>
                             </div>
                         )}
                     </div>
 
                     <div>
-                        <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1.5 block">Nombre del Alumno</label>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block ml-1">Nombre del Alumno</label>
                         <input type="text" value={orderToEdit.studentName}
                             onChange={e => setOrderToEdit(p => ({ ...p, studentName: e.target.value }))}
                             onBlur={e => setOrderToEdit(p => ({ ...p, studentName: toTitleCase(e.target.value) }))}
-                            className="w-full bg-primary/5 border border-primary/10 text-primary text-sm rounded-xl px-4 py-3 outline-none focus:border-emerald-400/50" />
+                            className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm font-bold rounded-xl px-4 py-3.5 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all" />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1.5 block">Curso</label>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block ml-1">Curso</label>
                             <select value={orderToEdit.tempCourse} onChange={e => setOrderToEdit(p => ({ ...p, tempCourse: e.target.value, tempGroup: '' }))}
-                                className="w-full bg-primary/5 border border-primary/10 text-primary text-xs font-bold rounded-xl px-4 py-3 outline-none">
-                                <option value="" className="text-slate-900">— Seleccionar —</option>
-                                {COURSE_GROUPS.flatMap(g => g.courses).map(c => <option key={c.name} value={c.name} className="text-slate-900">{c.name}</option>)}
+                                className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs font-bold rounded-xl px-4 py-3.5 outline-none focus:border-emerald-500 cursor-pointer transition-all">
+                                <option value="" className="text-slate-900">— SELECCIONAR —</option>
+                                {COURSE_GROUPS.flatMap(g => g.courses).map(c => <option key={c.name} value={c.name} className="text-slate-900 font-bold">{c.name}</option>)}
                             </select>
                         </div>
                         <div>
-                            <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1.5 block">Grupo</label>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block ml-1">Grupo</label>
                             <select value={orderToEdit.tempGroup} onChange={e => setOrderToEdit(p => ({ ...p, tempGroup: e.target.value }))}
-                                className="w-full bg-primary/5 border border-primary/10 text-primary text-xs font-bold rounded-xl px-4 py-3 outline-none">
+                                className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs font-bold rounded-xl px-4 py-3.5 outline-none focus:border-emerald-500 cursor-pointer transition-all">
                                 <option value="" className="text-slate-900">— G —</option>
-                                {['A', 'B', 'C', 'D'].map(g => <option key={g} value={g} className="text-slate-900">{g}</option>)}
+                                {['A', 'B', 'C', 'D'].map(g => <option key={g} value={g} className="text-slate-900 font-bold">{g}</option>)}
                             </select>
                         </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1.5 block">Pack Seleccionado</label>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block ml-1">Pack Seleccionado</label>
                             <select value={orderToEdit.packId} onChange={e => setOrderToEdit(p => ({ ...p, packId: e.target.value }))}
-                                className="w-full bg-primary/5 border border-primary/10 text-primary text-xs font-bold rounded-xl px-4 py-3 outline-none focus:border-emerald-400/50">
-                                {allPacks.map(pack => <option key={pack.id} value={pack.id} className="text-slate-900">{pack.name}</option>)}
-                                <option value="manual" className="text-slate-900">Personalizado / Manual</option>
+                                className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs font-bold rounded-xl px-4 py-3.5 outline-none focus:border-emerald-500 cursor-pointer transition-all">
+                                {allPacks.map(pack => <option key={pack.id} value={pack.id} className="text-slate-900 font-bold">{pack.name}</option>)}
+                                <option value="manual" className="text-slate-900 font-bold">Personalizado</option>
                             </select>
                         </div>
                         <div>
-                            <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1.5 block">Nº de Packs</label>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block ml-1">Cantidad</label>
                             <div className="flex items-center gap-2">
                                 <button onClick={() => setOrderToEdit(p => ({ ...p, packQuantity: Math.max(1, p.packQuantity - 1) }))}
-                                    className="w-10 h-10 bg-primary/5 border border-primary/10 text-primary rounded-xl flex items-center justify-center hover:bg-primary/10 transition-all active:scale-90">
-                                    <Minus size={14} />
+                                    className="w-11 h-11 bg-white border border-slate-200 text-slate-600 rounded-xl flex items-center justify-center hover:bg-slate-50 transition-all active:scale-90 shadow-sm">
+                                    <Minus size={16} />
                                 </button>
-                                <span className="flex-1 text-center font-black text-lg text-primary">{orderToEdit.packQuantity}</span>
+                                <span className="flex-1 text-center font-black text-xl text-slate-800">{orderToEdit.packQuantity}</span>
                                 <button onClick={() => setOrderToEdit(p => ({ ...p, packQuantity: p.packQuantity + 1 }))}
-                                    className="w-10 h-10 bg-primary/5 border border-primary/10 text-primary rounded-xl flex items-center justify-center hover:bg-primary/10 transition-all active:scale-90">
-                                    <Plus size={14} />
+                                    className="w-11 h-11 bg-white border border-slate-200 text-slate-600 rounded-xl flex items-center justify-center hover:bg-slate-50 transition-all active:scale-90 shadow-sm">
+                                    <Plus size={16} />
                                 </button>
                             </div>
                         </div>
@@ -175,19 +175,19 @@ const EditOrderModal = ({
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1.5 block">Estado</label>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block ml-1">Estado del Pedido</label>
                             <select value={orderToEdit.tempStatus} onChange={e => setOrderToEdit(p => ({ ...p, tempStatus: e.target.value }))}
-                                className="w-full bg-primary/5 border border-primary/10 text-primary text-xs font-bold rounded-xl px-4 py-3 outline-none">
-                                <option value="Pendiente" className="text-slate-900">Pendiente</option>
-                                <option value="Pagado" className="text-slate-900">Pagado</option>
-                                <option value="Producido" className="text-slate-900">Producido</option>
-                                <option value="Entregado" className="text-slate-900">Entregado</option>
+                                className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs font-bold rounded-xl px-4 py-3.5 outline-none focus:border-emerald-500 cursor-pointer">
+                                <option value="Pendiente" className="text-slate-900">PENDIENTE DE PAGO</option>
+                                <option value="Pagado" className="text-slate-900">HACER FOTO (PAGADO)</option>
+                                <option value="Producido" className="text-slate-900">LISTO / PRODUCIDO</option>
+                                <option value="Entregado" className="text-slate-900">ENTREGADO</option>
                             </select>
                         </div>
                         <div>
-                            <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1.5 block">Pago</label>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block ml-1">Método Pago</label>
                             <select value={orderToEdit.tempPayment} onChange={e => setOrderToEdit(p => ({ ...p, tempPayment: e.target.value }))}
-                                className="w-full bg-primary/5 border border-primary/10 text-primary text-xs font-bold rounded-xl px-4 py-3 outline-none">
+                                className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs font-bold rounded-xl px-4 py-3.5 outline-none focus:border-emerald-500 cursor-pointer">
                                 <option value="Bizum" className="text-slate-900">Bizum</option>
                                 <option value="Efectivo" className="text-slate-900">Efectivo</option>
                             </select>
@@ -195,14 +195,14 @@ const EditOrderModal = ({
                     </div>
 
                     <div>
-                        <label className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1.5 block">Nº Fichero Cámara</label>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block ml-1">Fichero Cámara (Nº)</label>
                         <input type="text" value={orderToEdit.tempPhotoFile} onChange={e => setOrderToEdit(p => ({ ...p, tempPhotoFile: e.target.value }))}
-                            placeholder="DSC_0000" className="w-full bg-primary/10 border border-primary/20 text-emerald-400 font-mono text-base rounded-xl px-4 py-3 outline-none" />
+                            placeholder="DSC_0000" className="w-full bg-emerald-50 border border-emerald-100 text-emerald-700 font-mono font-black text-lg rounded-xl px-4 py-4 outline-none shadow-inner focus:ring-2 focus:ring-emerald-500/10 transition-all" />
                     </div>
                 </div>
 
-                <div className="flex gap-3 pt-2">
-                    <button onClick={() => setOrderToEdit(null)} className="flex-1 py-3 text-xs font-bold text-secondary border border-primary/10 rounded-2xl hover:bg-primary/5 transition-all">Cancelar</button>
+                <div className="flex gap-4 pt-4">
+                    <button onClick={() => setOrderToEdit(null)} className="flex-1 py-4 text-xs font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 transition-all">Descartar</button>
                     <button
                         disabled={uploading}
                         onClick={() => {
@@ -214,7 +214,7 @@ const EditOrderModal = ({
                                 photoFile: orderToEdit.tempPhotoFile,
                                 status: orderToEdit.tempStatus,
                                 paymentMethod: orderToEdit.tempPayment,
-                                digitalPhotoUrl: orderToEdit.digitalPhotoUrl // Aseguramos que se guarde la URL
+                                digitalPhotoUrl: orderToEdit.digitalPhotoUrl
                             };
                             delete updatedOrder.tempCourse;
                             delete updatedOrder.tempGroup;
@@ -225,10 +225,10 @@ const EditOrderModal = ({
                             updateOrder(orderToEdit.id, updatedOrder);
                             setOrderToEdit(null);
                         }}
-                        className={`flex-[1.5] py-3 text-xs font-black rounded-2xl transition-all shadow-lg ${
-                            uploading ? 'bg-slate-700 text-slate-400 cursor-not-allowed' : 'bg-gradient-to-r from-emerald-600 to-emerald-500 text-white active:scale-95 shadow-emerald-500/20'
+                        className={`flex-[2] py-4 text-xs font-black rounded-2xl transition-all shadow-xl uppercase tracking-widest ${
+                            uploading ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-950 text-white hover:bg-slate-800 active:scale-95 shadow-slate-200'
                         }`}
-                    >{uploading ? 'ESPERE...' : 'ACTUALIZAR PEDIDO'}</button>
+                    >{uploading ? 'PROCESANDO...' : 'GUARDAR CAMBIOS'}</button>
                 </div>
             </div>
         </div>

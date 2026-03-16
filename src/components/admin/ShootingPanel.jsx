@@ -4,7 +4,7 @@ import {
     MessageSquare, Database, UserCheck, Users, Hash, ArrowRight, ArrowLeft,
     Sparkles, XCircle, RotateCcw, Tv, Camera, CheckCircle2, Zap, FolderUp,
     ChevronRight, AlertCircle, CreditCard, ChevronDown, ChevronUp, Mail, FileText,
-    Package, Plus, LayoutGrid, List, Upload, X, User, Home
+    Package, Plus, LayoutGrid, List, Upload, X, User, Home, Pencil
 } from 'lucide-react';
 
 import { COURSE_GROUPS, PACKS, EXTRAS, STAFF_ROLES } from '../../constants.js';
@@ -39,6 +39,7 @@ const ShootingPanel = ({
     deleteOrder,
     updateStatus,
     updateOrder,
+    bulkUpdateOrders,
     updateStaff,
     addStaff,
     deleteStaff,
@@ -89,6 +90,7 @@ const ShootingPanel = ({
         email: '',
         notes: '',
         photoNum: '',
+        parentName: '',
         role: '',
         type: ''
     });
@@ -188,6 +190,7 @@ const ShootingPanel = ({
                 course: headers.find(h => ['CURSO', 'NIVEL', 'COURSE', 'CLASS'].includes(h.toUpperCase())) || '',
                 group: headers.find(h => ['GRUPO', 'SECTION', 'GROUP', 'LETRA', 'CLASE'].includes(h.toUpperCase())) || '',
                 photoNum: headers.find(h => ['FOTO', 'NUMERO', 'NUMBER', 'Nº FOTO', 'NÚMERO FOTO'].includes(h.toUpperCase())) || '',
+                parentName: headers.find(h => ['TUTOR', 'PADRE', 'MADRE', 'REPRESENTANTE', 'PARENT'].includes(h.toUpperCase())) || '',
                 role: headers.find(h => ['CARGO', 'PUESTO', 'ROLE', 'STAFF', 'POSITION'].includes(h.toUpperCase())) || '',
                 type: headers.find(h => ['TIPO', 'CATEGORIA', 'CATEGORY', 'TYPE'].includes(h.toUpperCase())) || '',
                 schoolName: headers.find(h => ['CENTRO', 'COLEGIO', 'ESCUELA', 'SCHOOL', 'CENTER'].includes(h.toUpperCase())) || '',
@@ -239,6 +242,7 @@ const ShootingPanel = ({
                 const customPack = row[excelMapping.pack] || '';
                 const phone = row[excelMapping.phone] || '';
                 const email = row[excelMapping.email] || '';
+                const tutorFromExcel = row[excelMapping.parentName] || '';
                 const notes = row[excelMapping.notes] || '';
 
                 if (fullName || role || type) {
@@ -265,6 +269,7 @@ const ShootingPanel = ({
                             photo_file_number: photoNum?.toString() || '',
                             schoolId: adminSchool,
                             schoolName: customSchool || excelDefaults.schoolName || getSchoolName(adminSchool),
+                            parentName: tutorFromExcel || findTutorForClass(courseColumn || excelDefaults.course || shootFilters.course, groupColumn || excelDefaults.group || shootFilters.group) || '',
                             pack: customPack 
                                 ? { id: 'custom', label: customPack.toString() } 
                                 : availablePacks.find(p => p.id === excelDefaults.pack) 
@@ -418,6 +423,7 @@ const ShootingPanel = ({
             schoolName: getSchoolName(adminSchool),
             course: newStudentForm.course || shootFilters.course || 'PENDIENTE',
             group: newStudentForm.group || shootFilters.group || '',
+            parentName: newStudentForm.parentName || findTutorForClass(newStudentForm.course || shootFilters.course, newStudentForm.group || shootFilters.group) || '',
             pack: { id: packId, label: selectedPack?.name || packId },
             packId: packId,
             price: total,
@@ -575,6 +581,65 @@ const ShootingPanel = ({
         });
     }, [staff, adminSchool, shootSearch, shootFilters]);
 
+    // MAPA DE TUTORES PARA AUTO-ASIGNACIÓN
+    const tutorMap = useMemo(() => {
+        const map = {};
+        if (!staff || !Array.isArray(staff)) return map;
+        staff.forEach(member => {
+            const role = (member.role || '').toUpperCase();
+            if (role.includes('TUTOR')) {
+                const name = (member.name || `${member.firstName || ''} ${member.lastName || ''}`).trim();
+                member.assignments?.forEach(a => {
+                    const aBase = getCourseBase(a.course);
+                    const aGroup = getGroup(a.course) || a.group;
+                    const key = `${aBase}|${aGroup || ''}`.toUpperCase();
+                    if (!map[key]) map[key] = name;
+                });
+            }
+        });
+        return map;
+    }, [staff]);
+
+    const findTutorForClass = (courseName, groupLetter) => {
+        if (!courseName) return null;
+        const key = `${courseName}|${groupLetter || ''}`.toUpperCase();
+        return tutorMap[key] || tutorMap[`${courseName.toUpperCase()}|`] || null;
+    };
+
+    const handleAutoAssignTutors = () => {
+        let count = 0;
+        const updated = orders.map(o => {
+            const isVisible = filteredOrders.some(fo => fo.id === o.id);
+            if (isVisible && !o.parentName) {
+                const tutorName = findTutorForClass(o.course, o.group);
+                if (tutorName) {
+                    count++;
+                    return { ...o, parentName: tutorName };
+                }
+            }
+            return o;
+        });
+
+        if (count > 0) {
+            updateAllOrders(updated);
+            Swal.fire({ 
+                icon: 'success', 
+                title: 'Tutores Asignados', 
+                text: `Se ha asignado tutor a ${count} alumnos automáticamente basándose en el personal docente.`, 
+                timer: 2000, 
+                showConfirmButton: false 
+            });
+        } else {
+            Swal.fire({ 
+                icon: 'info', 
+                title: 'Sin cambios', 
+                text: 'No se encontraron tutores coincidentes para los alumnos sin asignar.', 
+                timer: 2000, 
+                showConfirmButton: false 
+            });
+        }
+    };
+
     // Grupos únicos para el curso seleccionado
     const availableGroups = shootFilters.course
         ? (COURSE_GROUPS.find(g => g.courses.some(c => c.name === shootFilters.course))
@@ -644,29 +709,94 @@ const ShootingPanel = ({
                     <div className="flex items-center gap-3 md:gap-4 flex-1 text-primary">
                         {/* Selector Alumnos / Docentes */}
                         <div className="flex p-1.5 rounded-[14px] bg-primary/[0.03] border border-primary/10 shrink-0 w-full max-w-[220px] md:max-w-[260px] gap-1">
-                            <button onClick={() => { setShootMode('students'); setShootSearch(''); }} className={`flex-1 px-3 py-2 rounded-[10px] text-[10px] md:text-[11px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${shootMode === 'students' ? 'bg-white text-indigo-600 shadow-md ring-2 ring-indigo-500/20' : 'text-primary/40 hover:text-primary hover:bg-white/50'}`}>
+                            <button onClick={() => { setShootMode('students'); setShootSearch(''); }} className={`flex-1 px-3 py-2 rounded-[10px] text-[10px] md:text-[11px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${shootMode === 'students' ? 'bg-white text-indigo-600 shadow-md ring-2 ring-indigo-500/20' : 'text-primary/40 hover:text-primary hover:bg-white/50'}`} title="Modo Alumnos: Ver y gestionar listado de estudiantes">
                                 <Users size={14} /> Alumnos
                             </button>
-                            <button onClick={() => { setShootMode('staff'); setShootSearch(''); }} className={`flex-1 px-3 py-2 rounded-[10px] text-[10px] md:text-[11px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${shootMode === 'staff' ? 'bg-white text-indigo-600 shadow-md ring-2 ring-indigo-500/20' : 'text-primary/40 hover:text-primary hover:bg-white/50'}`}>
+                            <button onClick={() => { setShootMode('staff'); setShootSearch(''); }} className={`flex-1 px-3 py-2 rounded-[10px] text-[10px] md:text-[11px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${shootMode === 'staff' ? 'bg-white text-indigo-600 shadow-md ring-2 ring-indigo-500/20' : 'text-primary/40 hover:text-primary hover:bg-white/50'}`} title="Modo Docentes: Ver y gestionar listado de personal">
                                 <UserCheck size={14} /> Docentes
                             </button>
                         </div>
 
-                        {/* Selector Centro */}
-                        <div className="flex-1 hidden md:block relative max-w-2xl mx-auto">
-                            <select value={adminSchool} onChange={e => { setAdminSchool(e.target.value); setShootFilters({ course: '', group: '' }); }} className="w-full bg-primary/[0.02] border border-primary/10 text-primary text-[11px] font-bold uppercase tracking-wide rounded-[12px] px-6 py-2.5 h-11 leading-normal outline-none appearance-none cursor-pointer hover:bg-primary/[0.04] transition-colors shadow-sm text-center truncate pr-10">
-                                <option value="">TODOS LOS CENTROS</option>
-                                {sortedSchools.map(s => (
-                                    <option key={s.id} value={s.id}>{s.name.toUpperCase()}</option>
-                                ))}
-                            </select>
-                            <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-primary/40 pointer-events-none" />
+                        {/* Selector Centro y Clase */}
+                        <div className="flex-1 hidden md:flex items-center justify-center gap-4 max-w-5xl mx-auto">
+                            {/* SECTOR CENTRO */}
+                            <div className="flex flex-col gap-1 items-start">
+                                <span className="text-[9px] font-black text-indigo-500/50 uppercase tracking-tighter pl-1">CENTRO EDUCATIVO</span>
+                                <div className="relative min-w-[300px]">
+                                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 w-7 h-7 bg-indigo-500/10 rounded-lg flex items-center justify-center text-indigo-500 pointer-events-none">
+                                        <Home size={12} />
+                                    </div>
+                                    <select 
+                                        value={adminSchool} 
+                                        onChange={e => { setAdminSchool(e.target.value); setShootFilters({ course: '', group: '' }); }} 
+                                        className="w-full bg-white border border-primary/10 text-primary text-[11px] font-black uppercase tracking-widest rounded-xl pl-12 pr-10 py-2.5 h-11 outline-none appearance-none cursor-pointer hover:border-indigo-500/30 transition-all shadow-sm"
+                                    >
+                                        <option value="">SELECCIONAR CENTRO</option>
+                                        {sortedSchools.map(s => (
+                                            <option key={s.id} value={s.id}>{s.name.toUpperCase()}</option>
+                                        ))}
+                                    </select>
+                                    <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-primary/40 pointer-events-none" />
+                                </div>
+                            </div>
+
+                            <div className="h-10 w-px bg-primary/10" />
+
+                            {/* SECTOR CLASE */}
+                            <div className="flex flex-col gap-1 items-start">
+                                <span className="text-[9px] font-black text-emerald-500/50 uppercase tracking-tighter pl-1">CLASE / CURSO</span>
+                                <div className="flex items-center gap-2">
+                                    <div className="relative min-w-[180px]">
+                                        <div className="absolute left-3.5 top-1/2 -translate-y-1/2 w-7 h-7 bg-emerald-500/10 rounded-lg flex items-center justify-center text-emerald-500 pointer-events-none">
+                                            <Hash size={12} />
+                                        </div>
+                                        <select 
+                                            value={shootFilters.course} 
+                                            onChange={e => setShootFilters(p => ({ ...p, course: e.target.value, group: '' }))}
+                                            className="w-full bg-white border border-primary/10 text-primary text-[11px] font-black uppercase tracking-widest rounded-xl pl-12 py-2.5 h-11 outline-none appearance-none cursor-pointer hover:border-emerald-500/30 transition-all shadow-sm pr-10"
+                                        >
+                                            <option value="">CURSO COMPLETO</option>
+                                            {activeCourses.map(c => (
+                                                <option key={c.name} value={c.name}>{c.name}</option>
+                                            ))}
+                                        </select>
+                                        <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-primary/40 pointer-events-none" />
+                                    </div>
+
+                                    {(shootFilters.course) && (
+                                        <div className="relative min-w-[90px]">
+                                            <select 
+                                                value={shootFilters.group} 
+                                                onChange={e => setShootFilters(p => ({ ...p, group: e.target.value }))}
+                                                className="w-full bg-emerald-50 border border-emerald-100 text-emerald-700 text-[11px] font-black uppercase tracking-widest rounded-xl px-4 py-2.5 h-11 outline-none appearance-none cursor-pointer hover:bg-emerald-100/50 transition-all shadow-sm pr-10 text-center"
+                                            >
+                                                <option value="">GRUPO</option>
+                                                {availableGroups.map(g => (
+                                                    <option key={g} value={g}>{g}</option>
+                                                ))}
+                                            </select>
+                                            <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-400 pointer-events-none" />
+                                        </div>
+                                    )}
+
+                                    {(shootFilters.course || shootFilters.group) && (
+                                        <button 
+                                            onClick={() => setShootFilters({ course: '', group: '' })}
+                                            className="w-11 h-11 bg-rose-50 text-rose-500 rounded-xl flex items-center justify-center hover:bg-rose-100 transition-all border border-rose-100 shadow-sm shrink-0"
+                                            title="Limpiar filtros"
+                                        >
+                                            <X size={18} />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
                         </div>
+
                     </div>
 
                     {/* Acciones Derecha - Backup SOS se mantiene aquí por ahora o se mueve a ajustes */}
                     <div className="flex items-center gap-2 md:gap-3 shrink-0">
-                        <button onClick={downloadMasterBackup} className="px-4 py-2 h-[38px] md:h-[42px] bg-amber-500/10 border border-amber-500/20 text-amber-600 hover:bg-amber-500/20 text-[10px] md:text-[11px] font-bold uppercase tracking-wide rounded-[10px] transition-all flex items-center justify-center gap-2 shrink-0 shadow-sm">
+                        <button onClick={downloadMasterBackup} className="px-4 py-2 h-[38px] md:h-[42px] bg-amber-500/10 border border-amber-500/20 text-amber-600 hover:bg-amber-500/20 text-[10px] md:text-[11px] font-bold uppercase tracking-wide rounded-[10px] transition-all flex items-center justify-center gap-2 shrink-0 shadow-sm" title="Backup SOS: Descargar copia de seguridad de todos los datos">
                             <Database size={14} /> <span className="hidden sm:inline">Backup SOS</span>
                         </button>
                     </div>
@@ -694,6 +824,7 @@ const ShootingPanel = ({
                                         <button 
                                             onClick={() => setShowBulkUpload(true)} 
                                             className="h-[44px] flex-1 md:flex-none flex items-center justify-center gap-2 px-6 bg-indigo-500 text-white rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-indigo-600 transition-all shadow-md shadow-indigo-500/20 active:scale-95 border border-transparent"
+                                            title="Subida Masiva: Subir fotos de alumnos o docentes por lote"
                                         >
                                             <Upload size={16} />
                                             <span>Subir Fotos</span>
@@ -702,6 +833,7 @@ const ShootingPanel = ({
                                         <button 
                                             onClick={() => document.getElementById('excel-import-input').click()}
                                             className="h-[44px] flex-1 md:flex-none flex items-center justify-center gap-2 px-6 bg-blue-500/5 hover:bg-blue-500/10 text-blue-600 rounded-xl transition-all border border-blue-500/20 font-black text-[11px] uppercase tracking-widest active:scale-95 shadow-sm"
+                                            title="Importación Excel: Cargar listado de alumnos desde un archivo .xlsx o .xls"
                                         >
                                             <FileText size={16} />
                                             <span>Importar Excel</span>
@@ -719,7 +851,7 @@ const ShootingPanel = ({
                         </div>
                         <div className="px-4 pt-4 shrink-0">
                             <div className="bg-card border border-primary/10 border-l-4 border-l-blue-500 rounded-[16px] shadow-sm overflow-hidden">
-                                <button onClick={() => setIsFiltersExpanded(!isFiltersExpanded)} className="w-full px-5 py-4 flex items-center justify-between hover:bg-primary/[0.02] transition-colors text-primary border-b border-primary/5">
+                                <button onClick={() => setIsFiltersExpanded(!isFiltersExpanded)} className="w-full px-5 py-4 flex items-center justify-between hover:bg-primary/[0.02] transition-colors text-primary border-b border-primary/5" title={isFiltersExpanded ? "Contraer filtros" : "Expandir filtros y buscador"}>
                                     <div className="flex items-center gap-4">
                                         <div className="w-10 h-10 bg-blue-500/10 rounded-xl flex items-center justify-center text-blue-500">
                                             <Search size={20} />
@@ -817,6 +949,7 @@ const ShootingPanel = ({
                                                             <button
                                                                 onClick={() => setNewStudentForm(p => ({ ...p, parentName: '', phone: '' }))}
                                                                 className="text-[9px] font-black text-rose-500 hover:text-rose-600 uppercase tracking-tighter transition-colors flex items-center gap-1"
+                                                                title="Limpiar datos del tutor"
                                                             >
                                                                 <RotateCcw size={10} /> Limpiar
                                                             </button>
@@ -842,7 +975,7 @@ const ShootingPanel = ({
 
                                                 <div className="md:col-span-4 space-y-2 flex flex-col justify-end">
                                                     <p className="text-[10px] font-black uppercase tracking-widest text-transparent pointer-events-none select-none pl-1 opacity-0">Acción</p>
-                                                    <button onClick={handleWhatsAppQuickAdd} disabled={!newStudentForm.phone || (!newStudentForm.studentName && !newStudentForm.name)} className="w-full h-[46px] bg-transparent border border-primary/10 text-primary/50 hover:bg-primary/[0.02] hover:text-primary hover:border-primary/20 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-20 shadow-sm font-bold text-[13px] tracking-wide group">
+                                                    <button onClick={handleWhatsAppQuickAdd} disabled={!newStudentForm.phone || (!newStudentForm.studentName && !newStudentForm.name)} className="w-full h-[46px] bg-transparent border border-primary/10 text-primary/50 hover:bg-primary/[0.02] hover:text-primary hover:border-primary/20 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-20 shadow-sm font-bold text-[13px] tracking-wide group" title="Enviar recibo de pedido por WhatsApp">
                                                         <MessageSquare size={16} className="group-hover:animate-bounce" />
                                                         <span>RECIBO</span>
                                                     </button>
@@ -939,7 +1072,7 @@ const ShootingPanel = ({
                                                 </div>
 
                                                 <div className="md:col-span-3 flex items-end">
-                                                    <button onClick={handleSaveQuickAdd} className="w-full h-[46px] bg-[#52b788] hover:bg-[#40a075] disabled:bg-primary/5 disabled:border disabled:border-primary/10 disabled:text-primary/20 text-white text-[14px] font-bold rounded-xl shadow-md shadow-emerald-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                                                    <button onClick={handleSaveQuickAdd} className="w-full h-[46px] bg-[#52b788] hover:bg-[#40a075] disabled:bg-primary/5 disabled:border disabled:border-primary/10 disabled:text-primary/20 text-white text-[14px] font-bold rounded-xl shadow-md shadow-emerald-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2" title="Guardar cambios y dar de alta al alumno">
                                                         <CheckCircle size={18} /> Guardar Alumno
                                                     </button>
                                                 </div>
@@ -959,48 +1092,68 @@ const ShootingPanel = ({
                                             <Users size={20} />
                                         </div>
                                         <div className="text-left">
-                                            <h2 className="text-sm font-black uppercase tracking-widest text-primary">Listado de Alumnos</h2>
+                                            <h2 className="text-sm font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                                                Listado de Alumnos 
+                                                {shootFilters.course && (
+                                                    <span className="text-orange-500 bg-orange-500/10 px-2 py-0.5 rounded-md text-[10px] border border-orange-500/10">
+                                                        {shootFilters.course} {shootFilters.group && `- GRUPO ${shootFilters.group}`}
+                                                    </span>
+                                                )}
+                                            </h2>
                                             <p className="text-[10px] text-primary/40 font-bold uppercase tracking-wider">{filteredOrders?.length || 0} alumnos encontrados</p>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-4">
+                                    <div className="flex items-center gap-3">
                                         {isStudentListExpanded && filteredOrders.length > 0 && (
-                                            <div className="hidden md:flex items-center gap-2 mr-2" onClick={e => e.stopPropagation()}>
+                                            <div className="hidden md:flex items-center gap-3 mr-3" onClick={e => e.stopPropagation()}>
                                                 <button onClick={(e) => {
                                                     e.stopPropagation();
-                                                    if (selectedOrderIds.length === filteredOrders.length) setSelectedOrderIds([]);
-                                                    else setSelectedOrderIds(filteredOrders.map(o => o.id));
-                                                }} className="px-3 py-1.5 bg-primary/[0.03] border border-primary/10 rounded-[8px] text-[10px] font-bold tracking-wide flex items-center gap-2 hover:bg-primary/[0.06] transition-colors text-primary shadow-sm">
-                                                    <CheckSquare size={14} /> {selectedOrderIds.length > 0 && selectedOrderIds.length === filteredOrders.length ? 'Desmarcar Todos' : 'Seleccionar Todos'}
+                                                    Swal.fire({
+                                                        title: '¿Auto-Numerar Alumnos?',
+                                                        text: `Se asignarán números del 0001 al ${filteredOrders.length.toString().padStart(4, '0')} a los alumnos visibles.`,
+                                                        icon: 'question',
+                                                        showCancelButton: true,
+                                                        confirmButtonColor: '#3b82f6',
+                                                        cancelButtonColor: '#6b7280',
+                                                        confirmButtonText: 'Sí, Numerar',
+                                                        cancelButtonText: 'Cancelar'
+                                                    }).then((result) => {
+                                                        if (result.isConfirmed) {
+                                                            const updated = orders.map(o => {
+                                                                const fIndex = filteredOrders.findIndex(fo => fo.id === o.id);
+                                                                if (fIndex !== -1) {
+                                                                    return { ...o, photo_file_number: (fIndex + 1).toString().padStart(4, '0') };
+                                                                }
+                                                                return o;
+                                                            });
+                                                            updateAllOrders(updated);
+                                                            Swal.fire({ icon: 'success', title: 'Numeración Aplicada', text: 'Se ha asignado el Nº de foto secuencial a los alumnos.', timer: 1500, showConfirmButton: false });
+                                                        }
+                                                    });
+                                                }} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-md shadow-blue-500/20 active:scale-[0.98] transition-all flex items-center gap-2" title="Asignar números de foto 0001, 0002... a los alumnos filtrados">
+                                                    <Hash size={15} /> Auto-Numerar
                                                 </button>
                                                 <button onClick={(e) => {
                                                     e.stopPropagation();
-                                                    // Actualización inteligente: Mapear sobre TODOS los pedidos pero solo modificar los que pasan el filtro actual
-                                                    const updated = orders.map(o => {
-                                                        const fIndex = filteredOrders.findIndex(fo => fo.id === o.id);
-                                                        if (fIndex !== -1) {
-                                                            return { ...o, photo_file_number: (fIndex + 1).toString().padStart(4, '0') };
-                                                        }
-                                                        return o;
-                                                    });
-                                                    updateAllOrders(updated);
-                                                    Swal.fire({ icon: 'success', title: 'Numeración Aplicada', text: 'Se ha asignado el Nº de foto secuencial a todos los alumnos visibles.', timer: 1500, showConfirmButton: false });
-                                                }} className="px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-[8px] text-[10px] font-bold tracking-wide flex items-center gap-2 hover:bg-blue-500/20 transition-colors text-blue-600 shadow-sm ml-1">
-                                                    <Hash size={14} /> Auto-Numerar
+                                                    handleAutoAssignTutors();
+                                                }} className="px-3 py-2 bg-orange-500/10 border border-orange-500/20 rounded-xl text-[10px] font-black tracking-wider flex items-center gap-2 hover:bg-orange-500/20 transition-colors text-orange-600 shadow-sm" title="Asignar Tutores automáticamente según personal docente">
+                                                    <UserCheck size={14} /> Auto-Tutor
                                                 </button>
                                             </div>
                                         )}
                                         {isStudentListExpanded && (
-                                            <div className="hidden md:flex items-center gap-1 p-1 rounded-[10px] bg-primary/[0.02] border border-primary/10 shadow-sm" onClick={e => e.stopPropagation()}>
-                                                <button onClick={() => setViewStyle('grid')} className={`w-8 h-8 rounded-[6px] transition-all flex items-center justify-center ${viewStyle === 'grid' ? 'bg-white shadow-sm text-slate-900' : 'text-primary/40 hover:text-primary hover:bg-primary/5'}`} title="Cuadrícula">
+                                            <div className="hidden md:flex items-center gap-1 p-1 rounded-xl bg-primary/[0.02] border border-primary/10 shadow-sm mr-2" onClick={e => e.stopPropagation()}>
+                                                <button onClick={() => setViewStyle('grid')} className={`w-8 h-8 rounded-lg transition-all flex items-center justify-center ${viewStyle === 'grid' ? 'bg-white shadow-sm text-slate-900 border border-primary/5' : 'text-primary/40 hover:text-primary hover:bg-primary/5'}`} title="Cuadrícula">
                                                     <LayoutGrid size={16} />
                                                 </button>
-                                                <button onClick={() => setViewStyle('list')} className={`w-8 h-8 rounded-[6px] transition-all flex items-center justify-center ${viewStyle === 'list' ? 'bg-white shadow-sm text-slate-900' : 'text-primary/40 hover:text-primary hover:bg-primary/5'}`} title="Lista / Edición">
+                                                <button onClick={() => setViewStyle('list')} className={`w-8 h-8 rounded-lg transition-all flex items-center justify-center ${viewStyle === 'list' ? 'bg-white shadow-sm text-slate-900 border border-primary/5' : 'text-primary/40 hover:text-primary hover:bg-primary/5'}`} title="Lista / Edición">
                                                     <List size={18} />
                                                 </button>
                                             </div>
                                         )}
-                                        {isStudentListExpanded ? <ChevronUp size={20} className="text-primary/20" /> : <ChevronDown size={20} className="text-primary/20" />}
+                                        <div className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-primary/5 transition-colors">
+                                            {isStudentListExpanded ? <ChevronUp size={20} className="text-primary/40" /> : <ChevronDown size={20} className="text-primary/40" />}
+                                        </div>
                                     </div>
                                 </button>
                                 {isStudentListExpanded && (
@@ -1017,7 +1170,7 @@ const ShootingPanel = ({
                                                     <div key={order.id} className="relative group/card">
                                                         <button 
                                                             onClick={() => selectStudent(order)} 
-                                                            className={`w-full relative flex flex-col items-center p-4 rounded-[16px] border transition-all duration-300 active:scale-95 ${isPhotoSelected ? 'border-orange-500 bg-orange-50 shadow-md ring-2 ring-orange-500/20 z-10 scale-[1.02]' : isBulkSelected ? 'border-orange-300 bg-orange-50/30 shadow-sm' : 'border-primary/10 bg-card hover:border-primary/30 hover:shadow-md'}`}
+                                                            className={`w-full relative flex flex-col items-center p-4 rounded-[16px] border transition-all duration-300 active:scale-95 ${isPhotoSelected ? 'border-orange-500 bg-orange-50 shadow-md ring-2 ring-orange-500/20 z-10 scale-[1.02]' : isBulkSelected ? 'border-orange-300 bg-orange-50/30' : 'border-primary/10 bg-card hover:border-primary/30 hover:shadow-md'}`}
                                                         >
                                                             <div className={`w-12 h-12 rounded-full flex flex-col items-center justify-center mb-3 overflow-hidden transition-all ${isPhotoSelected ? 'bg-orange-100 text-orange-600' : isBulkSelected ? 'bg-orange-100/50 text-orange-500' : 'bg-primary/5 text-primary/40'}`}>
                                                                 {hasPhoto ? <Camera size={20} className="text-emerald-500" /> : <Users size={20} />}
@@ -1042,98 +1195,168 @@ const ShootingPanel = ({
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="p-0 w-full flex-1">
-                                        <table className="w-full text-left border-collapse">
-                                            <thead className="bg-primary/5 sticky top-[210px] md:top-[262px] z-[40] backdrop-blur-md border-b border-primary/10 shadow-sm">
-                                                <tr>
-                                                    <th className="py-3 px-5 text-[10px] font-black uppercase tracking-widest text-primary/40 w-12 text-center">
-                                                        <button onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            if (selectedOrderIds.length === filteredOrders.length) setSelectedOrderIds([]);
-                                                            else setSelectedOrderIds(filteredOrders.map(o => o.id));
-                                                        }} className="text-primary/40 hover:text-orange-500 transition-colors">
-                                                            {selectedOrderIds.length > 0 && selectedOrderIds.length === filteredOrders.length ? <CheckSquare size={16} className="text-orange-500" /> : <Square size={16} />}
+                                    <div className="w-full overflow-hidden">
+                                        <table className="w-full text-left border-collapse table-fixed">
+                                            <thead className="bg-white sticky top-0 md:top-0 z-[110] border-b-2 border-primary/10 shadow-sm">
+                                                <tr className="bg-white">
+                                                    <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-primary/40 w-[40px] text-center bg-white">
+                                                        <button 
+                                                            onClick={() => {
+                                                                if (selectedOrderIds.length === filteredOrders.length && filteredOrders.length > 0) {
+                                                                    setSelectedOrderIds([]);
+                                                                } else {
+                                                                    setSelectedOrderIds(filteredOrders.map(o => o.id));
+                                                                }
+                                                            }}
+                                                            className="flex items-center justify-center w-full h-full text-primary/20 hover:text-orange-500 transition-colors"
+                                                        >
+                                                            {selectedOrderIds.length === filteredOrders.length && filteredOrders.length > 0 ? <CheckSquare size={18} className="text-orange-500" /> : <Square size={18} />}
                                                         </button>
                                                     </th>
-                                                    <th className="py-3 px-5 text-[10px] font-black uppercase tracking-widest text-primary/40 w-12 text-center">Nº</th>
-                                                    <th className="py-3 px-5 text-[10px] font-black uppercase tracking-widest text-primary/40">Alumno</th>
-                                                    <th className="py-3 px-5 text-[10px] font-black uppercase tracking-widest text-primary/40">Curso / Grupo</th>
-                                                    <th className="py-3 px-5 text-[10px] font-black uppercase tracking-widest text-primary/40">Pack Seleccionado</th>
-                                                    <th className="py-3 px-5 text-[10px] font-black uppercase tracking-widest text-primary/40 text-center">Estado</th>
-                                                    <th className="py-3 px-5 text-[10px] font-black uppercase tracking-widest text-primary/40 text-center">Nº Foto Real</th>
-                                                    <th className="py-3 px-5 text-[10px] font-black uppercase tracking-widest text-primary/40 text-right">Acciones</th>
+                                                    <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-primary/40 w-[50px] text-center bg-white border-r border-primary/5">Nº</th>
+                                                    <th className="py-3 px-4 text-[10px] font-black uppercase tracking-wider text-primary/40 w-[30%] bg-white">Alumno / Tutor</th>
+                                                    <th className="py-3 px-3 text-[10px] font-black uppercase tracking-wider text-primary/40 w-[200px] bg-white">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-secondary">Pack</span>
+                                                            <button 
+                                                                onClick={() => {
+                                                                    const firstPack = filteredOrders[0]?.pack;
+                                                                    if (!firstPack) {
+                                                                        Swal.fire({
+                                                                            title: 'Atención',
+                                                                            text: 'Selecciona primero un pack para el primer alumno para poder replicarlo.',
+                                                                            icon: 'warning'
+                                                                        });
+                                                                        return;
+                                                                    }
+                                                                    Swal.fire({
+                                                                        title: '¿Sincronizar Packs?',
+                                                                        text: `Se aplicará "${firstPack.label || firstPack}" a todos los alumnos mostrados.`,
+                                                                        icon: 'question',
+                                                                        showCancelButton: true,
+                                                                        confirmButtonColor: '#10b981',
+                                                                        confirmButtonText: 'Sí, aplicar a todos'
+                                                                    }).then((result) => {
+                                                                        if (result.isConfirmed) {
+                                                                            const ids = filteredOrders.map(o => o.id);
+                                                                            bulkUpdateOrders(ids, { pack: firstPack });
+                                                                        }
+                                                                    });
+                                                                }}
+                                                                className="text-[9px] bg-emerald-600 text-white px-2 py-1 rounded-lg hover:bg-emerald-700 transition-all font-black shadow-sm"
+                                                            >
+                                                                APLICAR A TODOS
+                                                            </button>
+                                                        </div>
+                                                    </th>
+                                                    <th className="py-3 px-3 text-[10px] font-black uppercase tracking-wider text-primary/40 text-center w-[160px] bg-white">Estado</th>
+                                                    <th className="py-3 px-3 text-[10px] font-black uppercase tracking-wider text-primary/40 text-center w-[120px] bg-white">Nº Foto</th>
+                                                    <th className="py-3 px-3 text-right text-[10px] font-black uppercase tracking-wider text-primary/40 w-[120px] bg-white">Acciones</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {filteredOrders.map((order, idx) => (
-                                                    <tr key={order.id} className={`border-b border-primary/5 hover:bg-primary/[0.01] transition-colors group ${selectedOrderIds.includes(order.id) ? 'bg-orange-50/70' : ''} ${activeStudent?.id === order.id ? 'ring-2 ring-inset ring-orange-500/50 bg-orange-50' : ''}`}>
-                                                        <td className="py-4 px-5 text-center align-middle">
+                                                    <tr key={order.id} className={`relative z-0 border-b border-primary/5 hover:bg-primary/[0.01] transition-colors group ${selectedOrderIds.includes(order.id) ? 'bg-orange-50/70' : ''} ${activeStudent?.id === order.id ? 'ring-2 ring-inset ring-orange-500/50 bg-orange-50' : ''}`}>
+                                                        <td className="py-4 px-3 text-center align-middle">
                                                             <button onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 setSelectedOrderIds(prev => prev.includes(order.id) ? prev.filter(id => id !== order.id) : [...prev, order.id]);
                                                             }} className="text-primary/20 hover:text-orange-500 transition-colors">
-                                                                {selectedOrderIds.includes(order.id) ? <CheckSquare size={16} className="text-orange-500" /> : <Square size={16} />}
+                                                                {selectedOrderIds.includes(order.id) ? <CheckSquare size={18} className="text-orange-500" /> : <Square size={18} />}
                                                             </button>
                                                         </td>
-                                                        <td className="py-4 px-5 text-center align-middle">
+                                                        <td className="py-4 px-3 text-center align-middle">
                                                             <span className="text-[10px] font-mono font-black text-primary/30 group-hover:text-orange-500 transition-colors">
                                                                 {(idx + 1).toString().padStart(4, '0')}
                                                             </span>
                                                         </td>
-                                                        <td className="py-4 px-5">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${order.status === 'production' || order.photoFile ? 'bg-emerald-50 text-emerald-500' : 'bg-primary/5 text-primary/30'}`}>
-                                                                    {order.status === 'production' || order.photoFile ? <Camera size={16} /> : <Users size={16} />}
-                                                                </div>
-                                                                <div>
-                                                                    <p className="text-xs font-black text-primary uppercase leading-tight">{order.studentName}</p>
-                                                                    <p className="text-[9px] font-bold text-primary/40 uppercase mt-1">
-                                                                        {order.parentName || 'Sin tutor reg.'} {order.phone && `· ${order.phone}`}
-                                                                        {!adminSchool && <span className="ml-1 text-orange-500"> · {getSchoolName(order.schoolId)}</span>}
-                                                                        {order.notes && <span className="block mt-1 text-amber-600 italic font-black bg-amber-50 px-1 py-0.5 rounded">Nota: {order.notes}</span>}
-                                                                    </p>
+                                                        <td className="py-4 px-3 overflow-hidden">
+                                                            <div className="flex flex-col gap-0.5 min-w-0">
+                                                                <p className="text-[13px] font-black text-slate-800 uppercase leading-none tracking-tight truncate">{order.studentName}</p>
+                                                                <p className="text-[9px] font-bold text-slate-400 uppercase truncate">
+                                                                    {order.parentName || 'SIN TUTOR ASIGNADO'}
+                                                                </p>
+                                                            </div>
+                                                        </td>
+
+                                                        <td className="py-4 px-3 align-middle">
+                                                            <div className="relative group/pack w-full">
+                                                                <select 
+                                                                    value={order.pack?.id || order.pack || ''} 
+                                                                    onChange={(e) => {
+                                                                        const selectedPack = availablePacks.find(p => p.id === e.target.value);
+                                                                        if (selectedPack) {
+                                                                            updateOrder(order.id, { pack: { id: selectedPack.id, label: selectedPack.name } });
+                                                                        } else if (e.target.value === 'manual') {
+                                                                            updateOrder(order.id, { pack: { id: 'manual', label: 'Personalizado' } });
+                                                                        }
+                                                                    }}
+                                                                    className={`w-full appearance-none bg-emerald-50 text-emerald-700 text-[9px] font-black uppercase tracking-tight px-3 py-2 rounded-lg border transition-all cursor-pointer outline-none ${
+                                                                        (order.pack?.id || order.pack) ? 'border-emerald-500/20 hover:border-emerald-500' : 'border-rose-200 bg-rose-50 text-rose-600 animate-pulse'
+                                                                    }`}
+                                                                >
+                                                                    <option value="" disabled>PACK?</option>
+                                                                    {availablePacks.map(p => (
+                                                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                                                    ))}
+                                                                    <option value="manual">PERSONALIZADO</option>
+                                                                </select>
+                                                                <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-emerald-500/40 pointer-events-none group-hover/pack:text-emerald-500" />
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-4 px-3 text-center align-middle">
+                                                            <div className="relative inline-flex items-center">
+                                                                <select 
+                                                                    value={order.status || 'Pendiente'} 
+                                                                    onChange={(e) => updateOrder(order.id, { status: e.target.value })}
+                                                                    className="absolute inset-0 opacity-0 cursor-pointer z-10 w-full"
+                                                                >
+                                                                    <option value="Pendiente">PENDIENTE PAGO</option>
+                                                                    <option value="Pagado">HACER FOTO (PAGADO)</option>
+                                                                    <option value="Producido">LISTO / PRODUCIDO</option>
+                                                                    <option value="Entregado">ENTREGADO</option>
+                                                                </select>
+                                                                <div className={`px-2.5 py-1.5 rounded-lg flex items-center gap-2 min-w-[130px] transition-all shadow-sm border border-black/5 ${
+                                                                    order.status === 'Entregado' ? 'bg-emerald-500 text-white shadow-emerald-500/20' : 
+                                                                    order.status === 'Producido' ? 'bg-indigo-600 text-white shadow-indigo-600/20' : 
+                                                                    order.status === 'Pagado' || order.paymentMethod ? 'bg-amber-500 text-white shadow-amber-500/20' : 
+                                                                    'bg-rose-500 text-white shadow-rose-500/20'
+                                                                }`}>
+                                                                    <div className="bg-white/20 p-1 rounded-md shrink-0">
+                                                                        {order.status === 'Entregado' ? <CheckCircle2 size={12} /> : 
+                                                                         order.status === 'Producido' ? <Package size={12} /> : 
+                                                                         order.status === 'Pagado' || order.paymentMethod ? <Camera size={12} /> : 
+                                                                         <AlertCircle size={12} />}
+                                                                    </div>
+                                                                    <span className="text-[9px] font-black uppercase tracking-tight whitespace-nowrap">
+                                                                        {order.status === 'Entregado' ? 'ENTREGADO' : 
+                                                                         order.status === 'Producido' ? 'PRODUCIDO' : 
+                                                                         order.status === 'Pagado' || order.paymentMethod ? 'HACER FOTO' : 
+                                                                         'PENDIENTE'}
+                                                                    </span>
+                                                                    <ChevronDown size={10} className="ml-auto opacity-60" />
                                                                 </div>
                                                             </div>
                                                         </td>
-                                                        <td className="py-4 px-5 align-middle">
-                                                            <span className="text-[10px] font-bold text-secondary uppercase bg-primary/5 px-2.5 py-1.5 rounded-lg border border-primary/5 inline-flex items-center">
-                                                                {order.course} {order.group && <span className="ml-1 text-primary/40 block"> | {order.group}</span>}
-                                                            </span>
-                                                        </td>
-                                                        <td className="py-4 px-5 align-middle">
-                                                            <span className="text-[11px] font-black text-emerald-600 uppercase italic">{getPackName(order.pack)}</span>
-                                                        </td>
-                                                        <td className="py-4 px-5 text-center align-middle">
-                                                            <div className="flex items-center justify-center gap-2">
-                                                                {order.paymentMethod ? (
-                                                                    <div className="w-7 h-7 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center border border-emerald-500/20" title={`Pagado: ${order.paymentMethod}`}>
-                                                                        <CheckCircle2 size={14} />
-                                                                    </div>
-                                                                ) : (
-                                                                    <div className="w-7 h-7 rounded-full bg-rose-500/10 text-rose-500 flex items-center justify-center border border-rose-500/20" title="Pendiente de pago">
-                                                                        <AlertCircle size={14} />
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                        <td className="py-4 px-5 text-center align-middle min-w-[100px]">
-                                                            <div className="flex items-center justify-center relative">
+                                                        <td className="py-2 px-3 text-center align-middle">
+                                                            <div className="flex items-center justify-center relative group/input mx-auto w-[100px]">
+                                                                <Hash size={11} className="absolute left-3 text-orange-500 opacity-40 group-focus-within/input:opacity-100 transition-opacity" />
                                                                 <input 
                                                                     type="text" 
                                                                     value={order.photo_file_number || ''} 
                                                                     onChange={(e) => updateOrder(order.id, { photo_file_number: e.target.value })}
                                                                     placeholder={(idx + 1).toString().padStart(4, '0')}
-                                                                    className="w-20 bg-primary/5 border border-primary/10 rounded-lg px-2 py-1.5 text-[11px] font-black text-center text-primary placeholder:text-primary/20 focus:border-blue-500/50 focus:bg-white outline-none transition-all shadow-inner"
+                                                                    className="w-full bg-white border border-primary/10 rounded-lg pl-8 pr-2 py-1.5 text-[12px] font-black text-center text-primary placeholder:text-primary/20 focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all"
                                                                 />
                                                             </div>
                                                         </td>
-                                                        <td className="py-4 px-5 text-right align-middle">
-                                                            <div className="flex items-center justify-end gap-2">
-                                                                <button onClick={() => selectStudent(order)} className="p-2.5 bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white rounded-xl transition-colors border border-blue-100 tooltip-trigger shadow-sm" title="Modo Disparo">
-                                                                    <Camera size={16} />
+                                                        <td className="py-2 px-3 text-right align-middle">
+                                                            <div className="flex items-center justify-end gap-1.5">
+                                                                <button onClick={() => selectStudent(order)} className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white rounded-lg transition-colors border border-blue-100 shadow-sm" title="Modo Disparo">
+                                                                    <Camera size={14} />
                                                                 </button>
-                                                                <button onClick={(e) => { e.stopPropagation(); setOrderToEdit(order); }} className="px-5 py-2.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-500 hover:text-white border border-indigo-100 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-2 shadow-sm">
-                                                                    Editar Ficha
+                                                                <button onClick={(e) => { e.stopPropagation(); setOrderToEdit(order); }} className="p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-500 hover:text-white border border-indigo-100 rounded-lg transition-colors shadow-sm" title="Editar Ficha del Alumno">
+                                                                    <Pencil size={14} />
                                                                 </button>
                                                             </div>
                                                         </td>
@@ -1146,8 +1369,8 @@ const ShootingPanel = ({
                                                 <p className="text-xs font-black uppercase tracking-widest">No hay alumnos para mostrar</p>
                                             </div>
                                         )}
-                                    </div>
-                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -1156,9 +1379,10 @@ const ShootingPanel = ({
                 )}
 
                 {shootMode === 'staff' && (
-                    <div className="flex flex-col h-full overflow-hidden animate-fade-in p-4 text-primary">
+                    <div className="flex flex-col h-full overflow-hidden animate-fade-in text-primary">
                         {adminSchool && (
-                            <div className="mb-4 shrink-0 focus-within:z-50">
+                            <>
+                                <div className="mb-4 shrink-0 focus-within:z-50">
                                 <div className="bg-card border border-primary/10 border-l-4 border-l-emerald-500 rounded-[16px] overflow-hidden text-primary shadow-sm">
                                     <button onClick={() => setIsStaffQuickAddExpanded(!isStaffQuickAddExpanded)} className="w-full px-5 py-4 flex items-center justify-between hover:bg-primary/[0.02] transition-colors text-primary border-b border-primary/5">
                                         <div className="flex items-center gap-3">
@@ -1239,6 +1463,7 @@ const ShootingPanel = ({
                                                             <button 
                                                                 onClick={() => setNewStaffForm(p => ({ ...p, assignments: p.assignments.filter((_, i) => i !== idx) }))}
                                                                 className="text-indigo-400 hover:text-rose-500 transition-colors"
+                                                                title="Eliminar esta asignación de clase"
                                                             >
                                                                 <XCircle size={14} />
                                                             </button>
@@ -1290,6 +1515,7 @@ const ShootingPanel = ({
                                                             }}
                                                             disabled={!newStaffForm.tempCourse}
                                                             className="w-full h-[40px] bg-emerald-500/10 hover:bg-emerald-500 text-emerald-600 hover:text-white border border-emerald-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 disabled:opacity-30 shadow-sm"
+                                                            title="Vincular este curso al docente seleccionado"
                                                         >
                                                             <Plus size={14} /> Añadir Clase
                                                         </button>
@@ -1299,19 +1525,21 @@ const ShootingPanel = ({
 
                                             {/* FILA 3: GUARDAR */}
                                             <div className="pt-5 flex justify-end">
-                                                <button onClick={handleSaveStaffQuickAdd} disabled={!newStaffForm.firstName || !newStaffForm.lastName || !newStaffForm.role} className="w-full md:w-auto px-10 h-[46px] bg-[#52b788] hover:bg-[#40a075] disabled:bg-primary/5 disabled:border disabled:border-primary/10 disabled:text-primary/20 text-white text-[14px] font-bold rounded-xl shadow-md shadow-emerald-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
-                                                    <CheckCircle size={18} /> Guardar Docente
+                                                <button onClick={handleSaveStaffQuickAdd} disabled={!newStaffForm.firstName || !newStaffForm.lastName || !newStaffForm.role} className="w-full md:w-auto px-10 h-[46px] bg-[#52b788] hover:bg-[#40a075] disabled:bg-primary/5 disabled:border disabled:border-primary/10 disabled:text-primary/20 text-white text-[14px] font-bold rounded-xl shadow-md shadow-emerald-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2" title="Crear y guardar nuevo perfil docente en este centro">
+                                                    <CheckCircle2 size={18} /> Guardar Docente
                                                 </button>
                                             </div>
                                         </div>
                                     )}
                                 </div>
                             </div>
-                        )}
 
-                        <div className="flex-1 px-0 py-4 text-primary flex flex-col items-center">
+                        <div className="flex-1 px-4 py-4 text-primary flex flex-col items-center">
                             <div className="w-full max-w-[1700px] bg-card rounded-[16px] border border-primary/10 border-l-4 border-l-indigo-500 shadow-xl flex flex-col">
-                                <button onClick={() => setIsStaffListExpanded(!isStaffListExpanded)} className="w-full p-4 md:p-5 border-b border-primary/5 flex justify-between items-center shrink-0 hover:bg-primary/[0.02] transition-colors cursor-pointer text-left">
+                                <button 
+                                    onClick={() => setIsStaffListExpanded(!isStaffListExpanded)} 
+                                    className="w-full p-4 md:p-5 border-b border-primary/5 flex justify-between items-center shrink-0 hover:bg-primary/[0.02] transition-colors cursor-pointer text-left"
+                                >
                                     <div className="flex items-center gap-3">
                                         <div className="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-500 shrink-0">
                                             <UserCheck size={20} />
@@ -1319,231 +1547,242 @@ const ShootingPanel = ({
                                         <div className="text-left">
                                             <h2 className="text-sm font-black uppercase tracking-widest text-primary">Listado de Docentes</h2>
                                             <p className="text-[10px] text-primary/40 font-bold uppercase tracking-wider">
-                                                {staff.filter(m => {
-                                                    const sq = (shootSearch || '').trim().toLowerCase();
-                                                    const matchesSearch = !sq || (m.firstName + ' ' + m.lastName + ' ' + (m.name || '')).toLowerCase().includes(sq);
-                                                    const matchesCourse = !shootFilters.course || m.assignments?.some(a => getCourseBase(a.course) === shootFilters.course && (!shootFilters.group || getGroup(a.course) === shootFilters.group));
-                                                    return matchesSearch && matchesCourse;
-                                                }).length} docentes encontrados
+                                                {filteredStaff.length} docentes encontrados
                                             </p>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-4">
+                                    <div className="flex items-center gap-3">
                                         {isStaffListExpanded && (
-                                            <div className="flex items-center gap-2">
-                                                <div className="hidden md:flex items-center gap-2 mr-2" onClick={e => e.stopPropagation()}>
-                                                    <button onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        const sq = (shootSearch || '').trim().toLowerCase();
-                                                        const filteredStaff = staff.filter(m => {
-                                                            const matchesSearch = !sq || (m.firstName + ' ' + m.lastName + ' ' + (m.name || '')).toLowerCase().includes(sq);
-                                                            const matchesCourse = !shootFilters.course || m.assignments?.some(a => getCourseBase(a.course) === shootFilters.course && (!shootFilters.group || getGroup(a.course) === shootFilters.group));
-                                                            return matchesSearch && matchesCourse;
-                                                        });
-                                                        if (selectedStaffIds.length === filteredStaff.length) setSelectedStaffIds([]);
-                                                        else setSelectedStaffIds(filteredStaff.map(m => m.id));
-                                                    }} className="px-3 py-1.5 bg-primary/[0.03] border border-primary/10 rounded-[8px] text-[10px] font-bold tracking-wide flex items-center gap-2 hover:bg-primary/[0.06] transition-colors text-primary shadow-sm">
-                                                        <CheckSquare size={14} /> {selectedStaffIds.length > 0 && selectedStaffIds.length === filteredStaff.length ? 'Desmarcar Todos' : 'Seleccionar Todos'}
-                                                    </button>
-                                                    <button onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        const sq = (shootSearch || '').trim().toLowerCase();
-                                                        const filteredStaff = staff.filter(m => {
-                                                            const matchesSearch = !sq || (m.firstName + ' ' + m.lastName + ' ' + (m.name || '')).toLowerCase().includes(sq);
-                                                            const matchesCourse = !shootFilters.course || m.assignments?.some(a => getCourseBase(a.course) === shootFilters.course && (!shootFilters.group || getGroup(a.course) === shootFilters.group));
-                                                            return matchesSearch && matchesCourse;
-                                                        });
-                                                        // Actualización inteligente: No perder datos de otros docentes al auto-numerar filtrados
-                                                        const updated = staff.map(m => {
-                                                            const fIndex = filteredStaff.findIndex(fm => fm.id === m.id);
-                                                            if (fIndex !== -1) {
-                                                                return { ...m, photo_file_number: (fIndex + 1).toString().padStart(4, '0') };
-                                                            }
-                                                            return m;
-                                                        });
-                                                        updateAllStaff(updated);
-                                                        Swal.fire({ icon: 'success', title: 'Numeración Aplicada', text: 'Se ha asignado el Nº de foto secuencial a todos los docentes visibles.', timer: 1500, showConfirmButton: false });
-                                                    }} className="px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-[8px] text-[10px] font-bold tracking-wide flex items-center gap-2 hover:bg-indigo-500/20 transition-colors text-indigo-600 shadow-sm ml-1">
-                                                        <Hash size={14} /> Auto-Numerar
+                                            <div className="flex items-center gap-3">
+                                                <div className="hidden md:flex items-center gap-3 mr-3" onClick={e => e.stopPropagation()}>
+                                                    <button 
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            Swal.fire({
+                                                                title: '¿Auto-Numerar Docentes?',
+                                                                text: `Se asignarán números del 0001 al ${filteredStaff.length.toString().padStart(4, '0')} a los docentes visibles.`,
+                                                                icon: 'question',
+                                                                showCancelButton: true,
+                                                                confirmButtonColor: '#6366f1',
+                                                                cancelButtonColor: '#6b7280',
+                                                                confirmButtonText: 'Sí, Numerar',
+                                                                cancelButtonText: 'Cancelar'
+                                                            }).then((result) => {
+                                                                if (result.isConfirmed) {
+                                                                    const updated = staff.map(m => {
+                                                                        const fIndex = filteredStaff.findIndex(fm => fm.id === m.id);
+                                                                        if (fIndex !== -1) {
+                                                                            return { ...m, photo_file_number: (fIndex + 1).toString().padStart(4, '0') };
+                                                                        }
+                                                                        return m;
+                                                                    });
+                                                                    updateAllStaff(updated);
+                                                                    Swal.fire({ icon: 'success', title: 'Numeración Aplicada', text: 'Se ha asignado el Nº de foto secuencial a los docentes.', timer: 1500, showConfirmButton: false });
+                                                                }
+                                                            });
+                                                        }} 
+                                                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-md shadow-indigo-500/20 active:scale-[0.98] transition-all flex items-center gap-2" 
+                                                        title="Asignar números de foto 0001, 0002... a los docentes filtrados"
+                                                    >
+                                                        <Hash size={15} /> Auto-Numerar
                                                     </button>
                                                 </div>
-                                                <div className="hidden md:flex items-center gap-1 p-1 rounded-[10px] bg-primary/[0.02] border border-primary/10 shadow-sm mr-2" onClick={e => e.stopPropagation()}>
-                                                    <button onClick={() => setStaffViewStyle('grid')} className={`w-8 h-8 rounded-[6px] transition-all flex items-center justify-center ${staffViewStyle === 'grid' ? 'bg-white shadow-sm text-slate-900' : 'text-primary/40 hover:text-primary hover:bg-primary/5'}`} title="Cuadrícula">
+                                                <div className="hidden md:flex items-center gap-1 p-1 rounded-xl bg-primary/[0.02] border border-primary/10 shadow-sm mr-2" onClick={e => e.stopPropagation()}>
+                                                    <button 
+                                                        onClick={() => setStaffViewStyle('grid')} 
+                                                        className={`w-8 h-8 rounded-lg transition-all flex items-center justify-center ${staffViewStyle === 'grid' ? 'bg-white shadow-sm text-slate-900 border border-primary/5' : 'text-primary/40 hover:text-primary hover:bg-primary/5'}`} 
+                                                        title="Cuadrícula"
+                                                    >
                                                         <LayoutGrid size={16} />
                                                     </button>
-                                                    <button onClick={() => setStaffViewStyle('list')} className={`w-8 h-8 rounded-[6px] transition-all flex items-center justify-center ${staffViewStyle === 'list' ? 'bg-white shadow-sm text-slate-900' : 'text-primary/40 hover:text-primary hover:bg-primary/5'}`} title="Lista">
+                                                    <button 
+                                                        onClick={() => setStaffViewStyle('list')} 
+                                                        className={`w-8 h-8 rounded-lg transition-all flex items-center justify-center ${staffViewStyle === 'list' ? 'bg-white shadow-sm text-slate-900 border border-primary/5' : 'text-primary/40 hover:text-primary hover:bg-primary/5'}`} 
+                                                        title="Lista"
+                                                    >
                                                         <List size={18} />
                                                     </button>
                                                 </div>
                                             </div>
                                         )}
-                                        {isStaffListExpanded ? <ChevronUp size={20} className="text-primary/20" /> : <ChevronDown size={20} className="text-primary/20" />}
+                                        <div className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-primary/5 transition-colors">
+                                            {isStaffListExpanded ? <ChevronUp size={20} className="text-primary/40" /> : <ChevronDown size={20} className="text-primary/40" />}
+                                        </div>
                                     </div>
                                 </button>
+
                                 {isStaffListExpanded && (
                                     <div className="flex-1 custom-scrollbar p-0">
                                         {staffViewStyle === 'grid' ? (
-                                        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-3 md:gap-4 content-start p-4 md:p-5 pb-20">
-                                            {staff.filter(m => {
-                                                const matchesSearch = !shootSearch || (m.firstName + ' ' + m.lastName + ' ' + (m.name || '')).toLowerCase().includes(shootSearch.toLowerCase());
-                                                const matchesCourse = !shootFilters.course || m.assignments?.some(a => getCourseBase(a.course) === shootFilters.course && (!shootFilters.group || getGroup(a.course) === shootFilters.group));
-                                                return matchesSearch && matchesCourse;
-                                            }).map(member => {
-                                                const isExpanded = expandedId === member.id;
-                                                const isPhotoSelected = activeStudent?.id === member.id;
-                                                const isBulkSelected = selectedStaffIds.includes(member.id);
-                                                const hasPhoto = !!member.photoFile;
-                                                return (
-                                                    <div key={member.id} className="relative group/card">
-                                                        <button onClick={() => selectStudent({ ...member, isStaff: true, studentName: member.name || `${member.firstName} ${member.lastName}` })} className={`w-full relative flex flex-col items-center p-4 rounded-[16px] border transition-all duration-300 active:scale-95 ${isPhotoSelected ? 'border-primary bg-primary/[0.03] shadow-md ring-2 ring-primary/20 z-10 scale-[1.02]' : isBulkSelected ? 'border-indigo-300 bg-indigo-50/30' : 'border-primary/10 bg-card hover:border-primary/30 hover:shadow-md'}`}>
-                                                            <div className={`w-12 h-12 rounded-full flex flex-col items-center justify-center mb-3 overflow-hidden transition-all ${isPhotoSelected ? (hasPhoto ? 'bg-emerald-100 text-emerald-600' : 'bg-indigo-100 text-indigo-500') : isBulkSelected ? 'bg-indigo-100/50 text-indigo-500' : (hasPhoto ? 'bg-emerald-50 text-emerald-500' : 'bg-amber-50 text-amber-500')}`}>
-                                                                {hasPhoto ? <Camera size={20} /> : <Users size={20} />}
-                                                            </div>
-                                                            <p className="text-[11px] font-bold text-center text-primary leading-tight line-clamp-2 w-full uppercase">
-                                                                {member.firstName ? `${member.firstName} ${member.lastName}` : member.name}
-                                                            </p>
-                                                            <span className="text-[9px] font-black text-indigo-500/60 uppercase tracking-widest mt-1">{member.role}</span>
-                                                            
-                                                            <div onClick={(e) => { e.stopPropagation(); setExpandedId(isExpanded ? null : member.id); }} className="absolute bottom-2 right-2 p-1 text-primary/20 hover:text-indigo-500 transition-colors">
-                                                                {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                                                            </div>
-                                                        </button>
-
-                                                        {/* Checkbox para selección masiva en Grid (Docentes) */}
-                                                        <button 
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setSelectedStaffIds(prev => prev.includes(member.id) ? prev.filter(id => id !== member.id) : [...prev, member.id]);
-                                                            }}
-                                                            className={`absolute top-2 left-2 w-6 h-6 rounded-lg border transition-all flex items-center justify-center z-20 ${isBulkSelected ? 'bg-indigo-500 border-indigo-500 text-white shadow-lg' : 'bg-white/80 border-primary/10 text-primary/10 hover:border-indigo-300 opacity-0 group-hover/card:opacity-100 backdrop-blur-sm'}`}
-                                                        >
-                                                            <CheckSquare size={14} />
-                                                        </button>
-
-                                                        {isExpanded && (
-                                                            <div className="absolute top-full left-0 right-0 z-50 mt-2 p-4 bg-card border border-primary/10 rounded-2xl shadow-xl animate-in fade-in slide-in-from-top-1 duration-200">
-                                                                <div className="p-3 rounded-xl bg-primary/5 space-y-2 mb-3">
-                                                                    <div className="flex justify-between items-center text-[9px]">
-                                                                        <span className="font-black uppercase opacity-40">Clases</span>
-                                                                        <span className="font-bold text-secondary text-right">{getStaffAssignments(member).map(a => `${a.course}${a.group ? ' ' + a.group : ''}`).join(', ') || 'Sin clases'}</span>
-                                                                    </div>
-                                                                    {member.photoFile && (
-                                                                        <div className="flex justify-between items-center text-[9px]">
-                                                                             <span className="font-black uppercase opacity-40">Nº Foto</span>
-                                                                             <span className="font-mono text-emerald-400">#{member.photoFile}</span>
-                                                                        </div>
-                                                                    )}
+                                            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4 content-start p-4 md:p-5 pb-20">
+                                                {filteredStaff.map(member => {
+                                                    const isSelected = activeStudent?.id === member.id;
+                                                    const isBulkSelected = selectedStaffIds.includes(member.id);
+                                                    const hasPhoto = member.photo_file_number;
+                                                    
+                                                    return (
+                                                        <div key={member.id} className="relative group/card">
+                                                            <button 
+                                                                onClick={() => selectStudent({ ...member, isStaff: true, studentName: member.name || `${member.firstName} ${member.lastName}` })}
+                                                                className={`w-full relative flex flex-col items-center p-5 rounded-[20px] border transition-all duration-300 active:scale-95 ${
+                                                                    isSelected 
+                                                                        ? 'border-indigo-500 bg-indigo-50 shadow-md ring-2 ring-indigo-500/10 z-10 scale-[1.02]' 
+                                                                        : isBulkSelected 
+                                                                            ? 'border-indigo-300 bg-indigo-50/30' 
+                                                                            : 'border-primary/10 bg-white hover:border-indigo-500/30 hover:shadow-md'
+                                                                }`}
+                                                            >
+                                                                <div className={`w-14 h-14 rounded-full flex flex-col items-center justify-center mb-4 transition-all ${
+                                                                    isSelected ? 'bg-indigo-100 text-indigo-600' : isBulkSelected ? 'bg-indigo-100/50 text-indigo-500' : 'bg-primary/5 text-primary/40'
+                                                                }`}>
+                                                                    {hasPhoto ? <Camera size={24} className="text-emerald-500" /> : <User size={24} />}
                                                                 </div>
-                                                                <button onClick={() => handleStartEditStaff(member)} className="w-full py-2.5 bg-indigo-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-sm hover:bg-indigo-600 transition-all flex items-center justify-center gap-2">
-                                                                    <Users size={14} /> Editar Ficha Docente
-                                                                </button>
+                                                                
+                                                                <div className="flex flex-col items-center w-full min-w-0">
+                                                                    <p className="text-[12px] font-black text-center text-slate-800 leading-tight uppercase truncate w-full">
+                                                                        {member.firstName}
+                                                                    </p>
+                                                                    <p className="text-[10px] font-bold text-center text-slate-500 uppercase tracking-widest truncate w-full mt-0.5">
+                                                                        {member.lastName}
+                                                                    </p>
+                                                                    <span className={`mt-2 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest ${
+                                                                        hasPhoto ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'
+                                                                    }`}>
+                                                                        {hasPhoto ? member.photo_file_number : 'PENDIENTE'}
+                                                                    </span>
+                                                                </div>
+                                                            </button>
+
+                                                            {/* Checkbox para selección masiva */}
+                                                            <button 
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setSelectedStaffIds(prev => prev.includes(member.id) ? prev.filter(id => id !== member.id) : [...prev, member.id]);
+                                                                }}
+                                                                className={`absolute top-2 left-2 w-7 h-7 rounded-lg border transition-all flex items-center justify-center z-20 ${
+                                                                    isBulkSelected ? 'bg-indigo-500 border-indigo-500 text-white shadow-lg' : 'bg-white/90 border-primary/10 text-primary/10 hover:border-indigo-300 opacity-0 group-hover/card:opacity-100 backdrop-blur-sm'
+                                                                }`}
+                                                            >
+                                                                <CheckSquare size={16} />
+                                                            </button>
+
+                                                            {/* Icono de Editar rápido */}
+                                                            <div className="absolute top-2 right-2 opacity-0 group-hover/card:opacity-100 transition-opacity z-20">
+                                                                <div className="p-1.5 bg-primary/5 hover:bg-indigo-500 hover:text-white rounded-lg text-primary/30 transition-all cursor-pointer border border-primary/5">
+                                                                    <Pencil size={14} />
+                                                                </div>
                                                             </div>
-                                                        )}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
                                         ) : (
-                                            <div className="w-full flex-1">
-                                                <table className="w-full text-left border-collapse">
-                                                    <thead className="bg-primary/5 sticky top-[210px] md:top-[262px] z-[40] backdrop-blur-md border-b border-primary/10 shadow-sm">
-                                                        <tr>
-                                                            <th className="py-3 px-5 text-[10px] font-black uppercase tracking-widest text-primary/40 w-12 text-center">
-                                                                {(() => {
-                                                                    const sq = (shootSearch || '').trim().toLowerCase();
-                                                                    const filteredStaff = staff.filter(m => {
-                                                                        const matchesSearch = !sq || (m.firstName + ' ' + m.lastName + ' ' + (m.name || '')).toLowerCase().includes(sq);
-                                                                        const matchesCourse = !shootFilters.course || m.assignments?.some(a => getCourseBase(a.course) === shootFilters.course && (!shootFilters.group || getGroup(a.course) === shootFilters.group));
-                                                                        return matchesSearch && matchesCourse;
-                                                                    });
-                                                                    return (
-                                                                        <button onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            if (selectedStaffIds.length === filteredStaff.length) setSelectedStaffIds([]);
-                                                                            else setSelectedStaffIds(filteredStaff.map(m => m.id));
-                                                                        }} className="text-primary/40 hover:text-indigo-500 transition-colors">
-                                                                            {selectedStaffIds.length > 0 && selectedStaffIds.length === filteredStaff.length ? <CheckSquare size={16} className="text-indigo-500" /> : <Square size={16} />}
-                                                                        </button>
-                                                                    );
-                                                                })()}
+                                            <div className="w-full overflow-hidden">
+                                                <table className="w-full text-left border-collapse table-fixed">
+                                                    <thead className="bg-white sticky top-0 md:top-0 z-[110] border-b-2 border-primary/10 shadow-sm">
+                                                        <tr className="bg-white">
+                                                            <th className="py-4 px-5 text-[10px] font-black uppercase tracking-widest text-primary/40 w-[60px] text-center bg-white">
+                                                                <button 
+                                                                    onClick={() => {
+                                                                        if (selectedStaffIds.length === filteredStaff.length && filteredStaff.length > 0) {
+                                                                            setSelectedStaffIds([]);
+                                                                        } else {
+                                                                            setSelectedStaffIds(filteredStaff.map(m => m.id));
+                                                                        }
+                                                                    }}
+                                                                    className="flex items-center justify-center w-full h-full text-primary/20 hover:text-indigo-500 transition-colors"
+                                                                >
+                                                                    {selectedStaffIds.length === filteredStaff.length && filteredStaff.length > 0 ? <CheckSquare size={18} className="text-indigo-500" /> : <Square size={18} />}
+                                                                </button>
                                                             </th>
-                                                            <th className="py-3 px-5 text-[10px] font-black uppercase tracking-widest text-primary/40 w-12 text-center">Nº</th>
-                                                            <th className="py-3 px-5 text-[10px] font-black uppercase tracking-widest text-primary/40">Docente</th>
-                                                            <th className="py-3 px-5 text-[10px] font-black uppercase tracking-widest text-primary/40">Cargo / Dept.</th>
-                                                            <th className="py-3 px-5 text-[10px] font-black uppercase tracking-widest text-primary/40 text-center">Estado</th>
-                                                            <th className="py-3 px-5 text-[10px] font-black uppercase tracking-widest text-primary/40 text-center">Nº Foto Real</th>
-                                                            <th className="py-3 px-5 text-[10px] font-black uppercase tracking-widest text-primary/40 text-right">Acciones</th>
+                                                            <th className="py-4 px-5 text-[10px] font-black uppercase tracking-widest text-primary/40 w-[60px] text-center bg-white border-r border-primary/5">Nº</th>
+                                                            <th className="py-3 px-3 text-[10px] font-black uppercase tracking-wider text-primary/40 w-[25%] bg-white">Docente</th>
+                                                            <th className="py-3 px-3 text-[10px] font-black uppercase tracking-wider text-primary/40 text-center w-[20%] bg-white">Cargo / Función</th>
+                                                            <th className="py-3 px-3 text-[10px] font-black uppercase tracking-wider text-primary/40 text-center w-[120px] bg-white">Estado</th>
+                                                            <th className="py-3 px-3 text-center text-[10px] font-black uppercase tracking-wider text-primary/40 w-[100px] bg-white">Nº Foto</th>
+                                                            <th className="py-3 px-3 text-right text-[10px] font-black uppercase tracking-wider text-primary/40 w-[100px] bg-white">Acciones</th>
                                                         </tr>
                                                     </thead>
-                                                    <tbody>
+                                                    <tbody className="divide-y divide-primary/5">
                                                         {filteredStaff.map((member, idx) => {
                                                             const isPhotoSelected = activeStudent?.id === member.id;
-                                                            const isBulkSelected = selectedStaffIds.includes(member.id);
                                                             const hasPhoto = !!member.photoFile || !!member.photo_file_number;
                                                             return (
-                                                                <tr key={member.id} className={`border-b border-primary/5 hover:bg-primary/[0.01] transition-colors group ${isBulkSelected ? 'bg-indigo-50/70' : ''} ${isPhotoSelected ? 'ring-2 ring-inset ring-primary/50 bg-primary/[0.03]' : ''}`}>
-                                                                    <td className="py-4 px-5 text-center align-middle">
+                                                                <tr key={member.id} className={`relative z-0 hover:bg-primary/[0.01] transition-colors group ${isPhotoSelected ? 'ring-2 ring-inset ring-primary/50 bg-primary/[0.03]' : ''} ${selectedStaffIds.includes(member.id) ? 'bg-indigo-50/50' : ''}`}>
+                                                                    <td className="py-4 px-5 text-center">
                                                                         <button onClick={(e) => {
                                                                             e.stopPropagation();
                                                                             setSelectedStaffIds(prev => prev.includes(member.id) ? prev.filter(id => id !== member.id) : [...prev, member.id]);
-                                                                        }} className="text-primary/20 hover:text-indigo-500 transition-colors">
-                                                                            {isBulkSelected ? <CheckSquare size={16} className="text-indigo-500" /> : <Square size={16} />}
+                                                                        }} className="text-primary/40 hover:text-indigo-500 transition-colors">
+                                                                            {selectedStaffIds.includes(member.id) ? <CheckSquare size={18} className="text-indigo-500" /> : <Square size={18} />}
                                                                         </button>
                                                                     </td>
-                                                                    <td className="py-4 px-5 text-center align-middle">
-                                                                        <span className="text-[11px] font-mono font-black text-indigo-500 group-hover:scale-110 transition-all inline-block">
-                                                                            {(idx + 1).toString().padStart(4, '0')}
-                                                                        </span>
+                                                                    <td className="py-4 px-5 text-center">
+                                                                        <span className="text-[11px] font-mono font-black text-indigo-500">{(idx + 1).toString().padStart(4, '0')}</span>
                                                                     </td>
                                                                     <td className="py-4 px-5">
                                                                         <div className="flex items-center gap-3">
-                                                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${hasPhoto ? 'bg-emerald-50 text-emerald-500 border border-emerald-100' : 'bg-primary/5 text-primary/30'}`}>
+                                                                            <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${hasPhoto ? 'bg-emerald-50 text-emerald-500 border border-emerald-100' : 'bg-primary/5 text-primary/30'}`}>
                                                                                 {hasPhoto ? <Camera size={16} /> : <Users size={16} />}
                                                                             </div>
                                                                             <div>
-                                                                                <p className="text-xs font-black text-primary uppercase leading-tight">{member.firstName ? `${member.firstName} ${member.lastName}` : member.name}</p>
-                                                                                <p className="text-[9px] font-bold text-primary/40 uppercase mt-1">{member.email || 'Sin email reg.'}</p>
+                                                                                <p className="text-xs font-black text-primary uppercase leading-tight">{member.firstName} {member.lastName}</p>
+                                                                                <p className="text-[9px] font-bold text-primary/40 uppercase mt-0.5">{member.assignments?.[0]?.course || 'General'}</p>
                                                                             </div>
                                                                         </div>
                                                                     </td>
-                                                                    <td className="py-4 px-5 align-middle">
-                                                                        <div className="flex flex-col gap-1">
-                                                                            <span className="text-[10px] font-bold text-secondary uppercase bg-primary/5 px-2.5 py-1.5 rounded-lg border border-primary/5 inline-flex items-center w-fit">
-                                                                                {member.role || 'Docente'}
+                                                                    <td className="py-4 px-3 text-center">
+                                                                        <span className="px-2 py-1 bg-primary/5 text-primary/60 rounded-lg text-[9px] font-black uppercase tracking-tight border border-primary/5 truncate block">
+                                                                            {member.role || 'DOCENTE'}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td className="py-4 px-3 text-center">
+                                                                        <div className={`px-2.5 py-1.5 rounded-lg flex items-center justify-center gap-2 transition-all shadow-sm border border-black/5 mx-auto w-[130px] ${
+                                                                            hasPhoto ? 'bg-emerald-500 text-white shadow-emerald-500/20' : 'bg-rose-500 text-white shadow-rose-500/20'
+                                                                        }`}>
+                                                                            <div className="bg-white/20 p-1 rounded-md shrink-0">
+                                                                                {hasPhoto ? <Camera size={12} /> : <AlertCircle size={12} />}
+                                                                            </div>
+                                                                            <span className="text-[9px] font-black uppercase tracking-tight whitespace-nowrap">
+                                                                                {hasPhoto ? 'FOTO LISTA' : 'SIN FOTO'}
                                                                             </span>
                                                                         </div>
                                                                     </td>
-                                                                    <td className="py-4 px-5 text-center align-middle">
-                                                                        <div className="flex items-center justify-center gap-2">
-                                                                            {hasPhoto ? (
-                                                                                <div className="w-7 h-7 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center border border-emerald-500/20">
-                                                                                    <CheckCircle2 size={14} />
-                                                                                </div>
-                                                                            ) : (
-                                                                                <div className="w-7 h-7 rounded-full bg-primary/5 text-primary/20 flex items-center justify-center border border-primary/10">
-                                                                                    <AlertCircle size={14} />
-                                                                                </div>
-                                                                            )}
-                                                                        </div>
-                                                                    </td>
-                                                                    <td className="py-4 px-5 text-center align-middle min-w-[120px]">
-                                                                        <div className="flex items-center justify-center relative">
+                                                                    <td className="py-4 px-3 text-center align-middle">
+                                                                        <div className="flex items-center justify-center relative group/input mx-auto w-[100px]">
+                                                                            <Hash size={11} className="absolute left-3 text-indigo-500 opacity-40 group-focus-within/input:opacity-100 transition-opacity" />
                                                                             <input 
                                                                                 type="text" 
                                                                                 value={member.photo_file_number || ''} 
                                                                                 onChange={(e) => updateStaff(member.id, { photo_file_number: e.target.value })}
                                                                                 placeholder={(idx + 1).toString().padStart(4, '0')}
-                                                                                className="w-24 bg-white border-2 border-primary/10 rounded-xl px-3 py-2 text-[13px] font-black text-center text-primary placeholder:text-primary/20 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all shadow-sm"
+                                                                                className="w-full bg-white border border-primary/10 rounded-lg pl-8 pr-2 py-1.5 text-[12px] font-black text-center text-primary placeholder:text-primary/20 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
                                                                             />
                                                                         </div>
                                                                     </td>
-                                                                    <td className="py-4 px-5 text-right align-middle">
-                                                                        <div className="flex items-center justify-end gap-2">
-                                                                            <button onClick={() => selectStudent({ ...member, isStaff: true, studentName: member.name || `${member.firstName} ${member.lastName}` })} className="p-2.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-500 hover:text-white rounded-xl transition-colors border border-indigo-100 shadow-sm" title="Modo Disparo">
-                                                                                <Camera size={16} />
+                                                                    <td className="py-2 px-3 text-right align-middle">
+                                                                        <div className="flex items-center justify-end gap-1.5">
+                                                                            <button onClick={() => selectStudent({ ...member, isStaff: true, studentName: member.name || `${member.firstName} ${member.lastName}` })} className="p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-500 hover:text-white rounded-lg transition-colors border border-indigo-100 shadow-sm" title="Modo Disparo">
+                                                                                <Camera size={14} />
                                                                             </button>
-                                                                            <button onClick={(e) => { e.stopPropagation(); handleStartEditStaff(member); }} className="px-5 py-2.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-500 hover:text-white border border-indigo-100 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-2 shadow-sm">
-                                                                                Editar Ficha
+                                                                            <button onClick={(e) => { e.stopPropagation(); handleStartEditStaff(member); }} className="p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-500 hover:text-white border border-indigo-100 rounded-lg shadow-sm transition-colors" title="Editar Ficha del Docente">
+                                                                                <Pencil size={14} />
+                                                                            </button>
+                                                                            <button onClick={(e) => { 
+                                                                                e.stopPropagation(); 
+                                                                                Swal.fire({
+                                                                                    title: '¿Eliminar docente?',
+                                                                                    text: `Se eliminará permanentemente a ${member.firstName} ${member.lastName}.`,
+                                                                                    icon: 'warning',
+                                                                                    showCancelButton: true,
+                                                                                    confirmButtonColor: '#ef4444',
+                                                                                    confirmButtonText: 'Sí, borrar',
+                                                                                    cancelButtonText: 'Cancelar'
+                                                                                }).then(result => {
+                                                                                    if (result.isConfirmed) deleteStaff([member.id]);
+                                                                                });
+                                                                            }} className="p-2.5 bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white border border-rose-100 rounded-xl shadow-sm transition-colors" title="Eliminar Docente">
+                                                                                <Trash2 size={16} />
                                                                             </button>
                                                                         </div>
                                                                     </td>
@@ -1552,13 +1791,8 @@ const ShootingPanel = ({
                                                         })}
                                                     </tbody>
                                                 </table>
-                                                {staff.filter(m => {
-                                                    const sq = (shootSearch || '').trim().toLowerCase();
-                                                    const matchesSearch = !sq || (m.firstName + ' ' + m.lastName + ' ' + (m.name || '')).toLowerCase().includes(sq);
-                                                    const matchesCourse = !shootFilters.course || m.assignments?.some(a => getCourseBase(a.course) === shootFilters.course && (!shootFilters.group || getGroup(a.course) === shootFilters.group));
-                                                    return matchesSearch && matchesCourse;
-                                                }).length === 0 && (
-                                                    <div className="p-8 text-center text-primary/40">
+                                                {filteredStaff.length === 0 && (
+                                                    <div className="p-12 text-center text-primary/30">
                                                         <p className="text-xs font-black uppercase tracking-widest">No hay docentes para mostrar</p>
                                                     </div>
                                                 )}
@@ -1568,9 +1802,11 @@ const ShootingPanel = ({
                                 )}
                             </div>
                         </div>
-                    </div>
+                    </>
                 )}
-            </main>
+            </div>
+        )}
+    </main>
 
             {/* MODAL DISPARO ACTIVO */}
             {
@@ -1614,6 +1850,7 @@ const ShootingPanel = ({
                                                             setShowPaymentSelector(!showPaymentSelector);
                                                             setShowStatusSelector(false);
                                                         }}
+                                                        title="Haga clic para cambiar el estado de pago del alumno"
                                                     >
                                                         <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${activeStudent.paymentMethod ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`}>
                                                             {activeStudent.paymentMethod ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
@@ -1665,6 +1902,7 @@ const ShootingPanel = ({
                                                             setShowStatusSelector(!showStatusSelector);
                                                             setShowPaymentSelector(false);
                                                         }}
+                                                        title="Haga clic para cambiar si la foto ya ha sido realizada"
                                                     >
                                                         <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${activeStudent.status === 'production' || activeStudent.photoFile ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}`}>
                                                             <Camera size={16} />
@@ -1719,7 +1957,7 @@ const ShootingPanel = ({
                                 </div>
 
                                 <div className="w-full lg:w-3/5 p-8 lg:p-12 bg-main flex flex-col justify-center relative">
-                                    <button onClick={() => selectStudent(null)} className="absolute top-8 right-8 w-12 h-12 bg-primary/5 hover:bg-primary/10 rounded-2xl flex items-center justify-center text-primary transition-all active:scale-90 z-30">
+                                    <button onClick={() => selectStudent(null)} className="absolute top-8 right-8 w-12 h-12 bg-primary/5 hover:bg-primary/10 rounded-2xl flex items-center justify-center text-primary transition-all active:scale-90 z-30" title="Cerrar ventana y volver al panel principal">
                                         <ArrowLeft size={24} />
                                     </button>
 
@@ -1731,7 +1969,7 @@ const ShootingPanel = ({
                                                     {(photoPrefix || photoNumber) && (
                                                         <button
                                                             onClick={() => { setPhotoPrefix(""); setPhotoNumber(""); }}
-                                                            className="flex items-center gap-2 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white rounded-xl transition-all text-[10px] font-black uppercase tracking-wider"
+                                                            className="flex items-center gap-2 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white rounded-xl transition-all text-[10px] font-black uppercase tracking-wider" title="Borrar prefijo y número de foto actuales"
                                                         >
                                                             <RotateCcw size={14} />
                                                             Limpiar Todo
@@ -1744,7 +1982,7 @@ const ShootingPanel = ({
                                                     <div className="w-full flex justify-between items-center px-2">
                                                         <span className="text-[9px] font-black text-primary/30 uppercase tracking-widest leading-none">Prefijo</span>
                                                         {photoPrefix && (
-                                                            <button onClick={() => setPhotoPrefix("")} className="text-rose-500 hover:text-rose-600 transition-colors p-1.5"><RotateCcw size={12} /></button>
+                                                            <button onClick={() => setPhotoPrefix("")} className="text-rose-500 hover:text-rose-600 transition-colors p-1.5" title="Borrar prefijo"><RotateCcw size={12} /></button>
                                                         )}
                                                     </div>
                                                     <input type="text" value={photoPrefix} onChange={e => setPhotoPrefix(e.target.value.toUpperCase())} placeholder="ABCD" className={`w-full font-black text-center text-primary/60 placeholder:text-primary/10 focus:outline-none bg-primary/5 border-b-2 border-primary/10 focus:border-indigo-400 py-4 px-4 rounded-2xl transition-all uppercase ${getFontSize(photoPrefix, true)}`} />
@@ -1755,7 +1993,7 @@ const ShootingPanel = ({
                                                     <div className="w-full flex justify-between items-center px-2 mt-4">
                                                         <span className="text-[9px] font-black text-primary/30 uppercase tracking-widest leading-none">Nº Archivo</span>
                                                         {photoNumber && (
-                                                            <button onClick={() => setPhotoNumber("")} className="text-rose-500 hover:text-rose-600 transition-colors p-1.5"><RotateCcw size={12} /></button>
+                                                            <button onClick={() => setPhotoNumber("")} className="text-rose-500 hover:text-rose-600 transition-colors p-1.5" title="Borrar número"><RotateCcw size={12} /></button>
                                                         )}
                                                     </div>
                                                     <input ref={inputRef} type="number" value={photoNumber} onChange={e => setPhotoNumber(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleConfirmPhoto()} placeholder="0000" className={`w-full font-black text-center text-primary placeholder:text-primary/10 focus:outline-none bg-transparent transition-all border-b-4 border-primary/10 focus:border-emerald-500 selection:bg-emerald-500 selection:text-white ${getFontSize(photoNumber)}`} />
@@ -1774,7 +2012,7 @@ const ShootingPanel = ({
                                                         <input type="text" value={modalSearch} onFocus={() => setIsFocused(true)} onChange={e => setModalSearch(e.target.value)} placeholder="BUSCAR OTRO ALUMNO..." className="w-full bg-primary/5 border border-primary/10 rounded-2xl px-5 py-4 text-[10px] font-black uppercase tracking-widest text-primary placeholder:text-primary/20 focus:outline-none focus:border-emerald-500 transition-all" />
                                                         <Search size={14} className="absolute right-5 top-1/2 -translate-y-1/2 text-primary/20 group-focus-within/search:text-emerald-500 transition-colors" />
                                                     </div>
-                                                    <button onClick={() => { setModalSearch(""); setIsFocused(!isFocused); }} className="w-12 h-12 bg-blue-500 text-white rounded-2xl flex items-center justify-center shadow-lg hover:bg-blue-600 active:scale-95 transition-all shrink-0">
+                                                    <button onClick={() => { setModalSearch(""); setIsFocused(!isFocused); }} className="w-12 h-12 bg-blue-500 text-white rounded-2xl flex items-center justify-center shadow-lg hover:bg-blue-600 active:scale-95 transition-all shrink-0" title={isFocused ? "Cerrar lista de alumnos" : "Ver lista de alumnos del mismo curso"}>
                                                         <ChevronUp size={20} className={isFocused ? "" : "rotate-180"} />
                                                     </button>
                                                 </div>
@@ -1850,6 +2088,7 @@ const ShootingPanel = ({
                                         { id: 'studentName', label: 'Nombre Alumno (Oblig.)', icon: <User size={12} />, color: 'emerald' },
                                         { id: 'lastName', label: 'Apellidos / Apellido 1', icon: <User size={12} />, color: 'emerald' },
                                         { id: 'lastName2', label: 'Apellido 2', icon: <User size={12} />, color: 'emerald' },
+                                        { id: 'parentName', label: 'Tutor / Padre (Ficha)', icon: <Users size={12} />, color: 'blue' },
                                         { id: 'course', label: 'Curso / Clase', icon: <Hash size={12} />, color: 'blue' },
                                         { id: 'group', label: 'Grupo / Letra', icon: <LayoutGrid size={12} />, color: 'blue' },
                                         { id: 'schoolName', label: 'Centro / Colegio', icon: <Home size={12} />, color: 'indigo' },
@@ -1895,6 +2134,7 @@ const ShootingPanel = ({
                                                             ? 'border-emerald-500 text-emerald-600 focus:ring-4 focus:ring-emerald-500/10' 
                                                             : 'border-primary/10 text-primary/40 hover:border-primary/30 focus:border-primary focus:text-primary focus:ring-4 focus:ring-primary/5'
                                                         }`}
+                                                        title="Asigna esta columna de Excel a un campo de la aplicación"
                                                     >
                                                         <option value="">-- Ignorar columna --</option>
                                                         {systemField.map(f => (
@@ -2015,7 +2255,7 @@ const ShootingPanel = ({
                                     setSelectedOrderIds([]);
                                     setSelectedStaffIds([]);
                                 }}
-                                className="px-6 py-3 text-[11px] font-black text-white/50 uppercase tracking-widest hover:text-white transition-colors"
+                                className="px-6 py-3 text-[11px] font-black text-white/50 uppercase tracking-widest hover:text-white transition-colors" title="Deseleccionar todos los elementos marcados"
                             >
                                 Desmarcar Todo
                             </button>

@@ -168,6 +168,7 @@ const DesignPanel = ({
 }) => {
     // ESTADO PARA PESTAÑAS DEL EDITOR
     const [activeTab, setActiveTab] = useState('GENERAL');
+    const [hoveredTool, setHoveredTool] = useState(null); // Para mostrar descripción en el dock
     const isDark = theme === 'dark';
 
     // Conversiones Internas Robustas para Orla A3 (420mm -> 4961px)
@@ -368,51 +369,52 @@ const DesignPanel = ({
                     label: 'AJUSTE INTELIGENTE', 
                     onClick: () => autoAdjustLayout(),
                     isImmediate: true,
+                    description: 'Calcula automáticamente la mejor distribución para las fotos actuales',
                     className: "bg-accent/10 text-accent border-accent/20 hover:bg-accent hover:text-white"
                 },
-                { icon: Ruler, label: 'MARGENES', key: 'margin', min: safeMmToPx(0), max: safeMmToPx(150), unit: 'MM' },
-                { icon: Eye, label: 'GUÍA MARGEN', key: 'showMarginGuide', isToggle: true },
-                { icon: Maximize, label: 'TAMAÑO', key: 'canvasSize', isSizeSelector: true },
-                { icon: Layers, label: 'ANCHO', key: 'canvasW', min: 2000, max: 10000, unit: 'PX' },
-                { icon: Layers, label: 'ALTO', key: 'canvasH', min: 2000, max: 10000, unit: 'PX' },
-                { icon: Grid, label: 'GUIAS', key: 'showGuides', isToggle: true },
-                { icon: Shapes, label: 'FORMA', key: 'photoShape', isShapeSelector: true },
+                { icon: Ruler, label: 'MARGENES', key: 'margin', min: safeMmToPx(0), max: safeMmToPx(150), unit: 'MM', description: 'Ajusta el margen de seguridad exterior de la orla' },
+                { icon: Eye, label: 'GUÍA MARGEN', key: 'showMarginGuide', isToggle: true, description: 'Muestra u oculta la línea guía del margen de seguridad' },
+                { icon: Maximize, label: 'TAMAÑO', key: 'canvasSize', isSizeSelector: true, description: 'Cambia el formato de impresión (A3, A4, 40x30, etc.)' },
+                { icon: Layers, label: 'ANCHO', key: 'canvasW', min: 2000, max: 10000, unit: 'PX', description: 'Ajuste manual del ancho del lienzo en píxeles' },
+                { icon: Layers, label: 'ALTO', key: 'canvasH', min: 2000, max: 10000, unit: 'PX', description: 'Ajuste manual del alto del lienzo en píxeles' },
+                { icon: Grid, label: 'GUIAS', key: 'showGuides', isToggle: true, description: 'Muestra u oculta la rejilla de alineación' },
+                { icon: Shapes, label: 'FORMA', key: 'photoShape', isShapeSelector: true, description: 'Cambia el recorte de todas las fotos (Círculo, Óvalo, Escudo...)' },
             ]
         },
         'PIE': {
             label: 'PIE DE ORLA',
             icon: Baseline,
             tools: [
-                { icon: MoveVertical, label: 'EJE Y', key: 'footerY', min: safeMmToPx(0), max: safeMmToPx(500), unit: 'MM' },
-                { icon: Type, label: 'CENTRO', key: 'fontSizeSchool', min: 10, max: 800, step: 10, unit: 'PT', toggleKey: 'hideSchool' },
-                { icon: TypeIcon, label: 'PROMO', key: 'fontSizePromo', min: 10, max: 500, step: 5, unit: 'PT', toggleKey: 'hidePromo' },
-                { icon: TypeIcon, label: 'CURSO', key: 'fontSizeCourse', min: 10, max: 500, step: 5, unit: 'PT', toggleKey: 'hideCourse' },
+                { icon: MoveVertical, label: 'EJE Y', key: 'footerY', min: safeMmToPx(0), max: safeMmToPx(500), unit: 'MM', description: 'Posición vertical del bloque de texto inferior' },
+                { icon: Type, label: 'CENTRO', key: 'fontSizeSchool', min: 10, max: 800, step: 10, unit: 'PT', toggleKey: 'hideSchool', description: 'Tamaño del nombre del colegio' },
+                { icon: TypeIcon, label: 'PROMO', key: 'fontSizePromo', min: 10, max: 500, step: 5, unit: 'PT', toggleKey: 'hidePromo', description: 'Tamaño del texto de la promoción' },
+                { icon: TypeIcon, label: 'CURSO', key: 'fontSizeCourse', min: 10, max: 500, step: 5, unit: 'PT', toggleKey: 'hideCourse', description: 'Tamaño del texto del curso y grupo' },
             ]
         },
         'ALUMNOS': {
             label: 'ALUMNOS',
             icon: LayoutGrid,
             tools: [
-                { icon: LayoutGrid, label: 'ALUMNOS POR FILA', key: 'aCols', min: 1, max: 20, step: 1, unit: 'ALUMNOS' },
-                { icon: Maximize, label: 'ESCALA', key: 'aScale', min: 0.2, max: 4.0, step: 0.05, unit: 'x' },
-                { icon: TypeIcon, label: 'T. NOMBRES', key: 'fontSizeAluName', min: 10, max: 1000, step: 5, unit: 'PX' },
-                { icon: TypeIcon, label: 'T. APELLIDOS', key: 'fontSizeAluSur', min: 10, max: 800, step: 5, unit: 'PX', toggleKey: 'hideApellidosAlu' },
-                { icon: Baseline, label: 'SEP. TEXTO', key: 'aTextOffset', min: 0, max: 100, step: 1, unit: 'PT' },
-                { icon: MoveHorizontal, label: 'SEP. HORIZ', key: 'aGapX', min: safeMmToPx(0), max: safeMmToPx(300), unit: 'MM' },
-                { icon: ArrowUpDown, label: 'SEP. VERT', key: 'aGapY', min: safeMmToPx(0), max: safeMmToPx(500), unit: 'MM' },
-                { icon: MoveVertical, label: 'EJE Y', key: 'aStartY', min: safeMmToPx(0), max: safeMmToPx(350), unit: 'MM' },
+                { icon: LayoutGrid, label: 'ALUMNOS POR FILA', key: 'aCols', min: 1, max: 20, step: 1, unit: 'ALUMNOS', description: 'Número de columnas en la cuadrícula de alumnos' },
+                { icon: Maximize, label: 'ESCALA', key: 'aScale', min: 0.2, max: 4.0, step: 0.05, unit: 'x', description: 'Tamaño general de las fotos de los alumnos' },
+                { icon: TypeIcon, label: 'T. NOMBRES', key: 'fontSizeAluName', min: 10, max: 1000, step: 5, unit: 'PX', description: 'Tamaño de fuente para los nombres de alumnos' },
+                { icon: TypeIcon, label: 'T. APELLIDOS', key: 'fontSizeAluSur', min: 10, max: 800, step: 5, unit: 'PX', toggleKey: 'hideApellidosAlu', description: 'Tamaño de fuente para los apellidos (u ocultarlos)' },
+                { icon: Baseline, label: 'SEP. TEXTO', key: 'aTextOffset', min: 0, max: 100, step: 1, unit: 'PT', description: 'Distancia entre la foto y el nombre del alumno' },
+                { icon: MoveHorizontal, label: 'SEP. HORIZ', key: 'aGapX', min: safeMmToPx(0), max: safeMmToPx(300), unit: 'MM', description: 'Espacio horizontal entre fotos de alumnos' },
+                { icon: ArrowUpDown, label: 'SEP. VERT', key: 'aGapY', min: safeMmToPx(0), max: safeMmToPx(500), unit: 'MM', description: 'Espacio vertical entre filas de alumnos' },
+                { icon: MoveVertical, label: 'EJE Y', key: 'aStartY', min: safeMmToPx(0), max: safeMmToPx(350), unit: 'MM', description: 'Margen superior donde empieza el bloque de alumnos' },
             ]
         },
         'DOCENTES': {
             label: 'DOCENTES',
             icon: UserSquare2,
             tools: [
-                { icon: UserSquare2, label: 'ESCALA', key: 'dScale', min: 0.2, max: 5.0, step: 0.05, unit: 'x' },
-                { icon: TypeIcon, label: 'T. NOMBRES', key: 'fontSizeDocName', min: 10, max: 1000, step: 5, unit: 'PX', toggleKey: 'hideApellidosDoc' },
-                { icon: TypeIcon, label: 'T. CARGO', key: 'fontSizeDocRole', min: 10, max: 800, step: 5, unit: 'PX', toggleKey: 'hideCargoDoc' },
-                { icon: Baseline, label: 'SEP. TEXTO', key: 'dTextOffset', min: 0, max: 100, step: 1, unit: 'PT' },
-                { icon: MoveHorizontal, label: 'SEPARACIÓN', key: 'dGapX', min: safeMmToPx(0), max: safePxToMm(500), unit: 'MM' },
-                { icon: MoveVertical, label: 'EJE Y', key: 'dY', min: safeMmToPx(0), max: safeMmToPx(350), unit: 'MM' },
+                { icon: UserSquare2, label: 'ESCALA', key: 'dScale', min: 0.2, max: 5.0, step: 0.05, unit: 'x', description: 'Ajusta el tamaño de las fotos de los docentes' },
+                { icon: TypeIcon, label: 'T. NOMBRES', key: 'fontSizeDocName', min: 10, max: 1000, step: 5, unit: 'PX', toggleKey: 'hideApellidosDoc', description: 'Tamaño de fuente para los nombres de los docentes' },
+                { icon: TypeIcon, label: 'T. CARGO', key: 'fontSizeDocRole', min: 10, max: 800, step: 5, unit: 'PX', toggleKey: 'hideCargoDoc', description: 'Tamaño de fuente para los cargos de los docentes' },
+                { icon: Baseline, label: 'SEP. TEXTO', key: 'dTextOffset', min: 0, max: 100, step: 1, unit: 'PT', description: 'Distancia entre la foto y el texto del docente' },
+                { icon: MoveHorizontal, label: 'SEPARACIÓN', key: 'dGapX', min: safeMmToPx(0), max: safePxToMm(500), unit: 'MM', description: 'Espacio horizontal entre los docentes' },
+                { icon: MoveVertical, label: 'EJE Y', key: 'dY', min: safeMmToPx(0), max: safeMmToPx(350), unit: 'MM', description: 'Posición vertical de la fila de docentes' },
             ]
         },
     };
@@ -1427,6 +1429,8 @@ const DesignPanel = ({
                                                             setShowSizeSelector(false);
                                                             setActiveDesignParam(null); 
                                                         }}
+                                                        onMouseEnter={() => setHoveredTool({ label: 'FORMA', description: 'Cambia el estilo de recorte de las fotografías' })}
+                                                        onMouseLeave={() => setHoveredTool(null)}
                                                         className={`flex flex-col items-center justify-center gap-1.5 p-3 min-w-[85px] rounded-2xl transition-all active:scale-95 border ${
                                                             showShapeSelector
                                                                 ? 'bg-accent text-white shadow-glow-indigo border-white/20'
@@ -1449,6 +1453,8 @@ const DesignPanel = ({
                                                             setShowShapeSelector(false);
                                                             setActiveDesignParam(null); 
                                                         }}
+                                                        onMouseEnter={() => setHoveredTool({ label: 'TAMAÑO', description: 'Cambia las dimensiones físicas del lienzo de la orla' })}
+                                                        onMouseLeave={() => setHoveredTool(null)}
                                                         className={`flex flex-col items-center justify-center gap-1.5 p-3 min-w-[85px] rounded-2xl transition-all active:scale-95 border ${
                                                             showSizeSelector
                                                                 ? 'bg-accent text-white shadow-glow-indigo border-white/20'
@@ -1484,6 +1490,8 @@ const DesignPanel = ({
                                                             setActiveDesignParam(tool);
                                                         }
                                                     }}
+                                                    onMouseEnter={() => setHoveredTool({ label: tool.label, description: tool.description || `Ajustar el parámetro ${tool.label.toLowerCase()}` })}
+                                                    onMouseLeave={() => setHoveredTool(null)}
                                                     className={`flex flex-col items-center justify-center gap-1.5 p-3 min-w-[85px] rounded-2xl transition-all active:scale-95 border ${
                                                         (tool.onClick)
                                                             ? 'bg-accent/10 border-accent/30 text-accent hover:bg-accent hover:text-white'
@@ -1509,6 +1517,38 @@ const DesignPanel = ({
                                             );
                                         })
                                 })()}
+                            </div>
+
+                            <div className={`w-px h-10 mx-2 shrink-0 ${isDark ? 'bg-white/10' : 'bg-black/5'}`} />
+
+                            {/* Área de tooltips dinámicos */}
+                            <div className="flex-1 flex items-center gap-3 px-2 overflow-hidden">
+                                <div 
+                                    className={`p-2 rounded-xl border shrink-0 transition-all ${isDark ? 'bg-white/5 border-white/10 text-white/20' : 'bg-slate-100 border-black/5 text-slate-300'} hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/20 cursor-pointer`}
+                                    title="Reiniciar parámetros de esta pestaña"
+                                    onClick={() => {
+                                        // Funcionalidad de papelera: Resetear parámetros de la pestaña activa
+                                        if (confirm('¿Deseas reiniciar los ajustes de esta sección?')) {
+                                            const tabTools = TOOLBAR_CONFIG[activeTab].tools;
+                                            const updates = {};
+                                            tabTools.forEach(t => {
+                                                if (t.key && t.min !== undefined) updates[t.key] = t.min;
+                                            });
+                                            setConfigOrla(prev => ({ ...prev, ...updates }));
+                                        }
+                                    }}
+                                    onMouseEnter={() => setHoveredTool({ label: 'PAPELERA', description: 'Resetear todos los ajustes de la pestaña actual a sus valores iniciales' })}
+                                    onMouseLeave={() => setHoveredTool(null)}
+                                >
+                                    <Trash2 size={16} />
+                                </div>
+                                
+                                {hoveredTool && (
+                                    <div className="flex flex-col animate-in fade-in slide-in-from-left-2 duration-300">
+                                        <span className={`text-[8px] font-black tracking-widest uppercase ${isDark ? 'text-accent' : 'text-accent'}`}>{hoveredTool.label}</span>
+                                        <span className={`text-[10px] font-bold uppercase truncate max-w-[200px] lg:max-w-[400px] ${isDark ? 'text-white/60' : 'text-slate-500'}`}>{hoveredTool.description}</span>
+                                    </div>
+                                )}
                             </div>
 
                             <div className={`w-px h-10 mx-2 shrink-0 ${isDark ? 'bg-white/10' : 'bg-black/5'}`} />

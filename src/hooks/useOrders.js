@@ -102,17 +102,21 @@ export function useOrders(photographerId, schoolId) {
     };
 
     const updateOrder = (id, changes) => {
-        const updated = orders.map(o => o.id === id ? { ...o, ...changes } : o);
-        setOrders(updated);
-        saveToFirebase(updated);
+        setOrders(prev => {
+            const updated = prev.map(o => o.id === id ? { ...o, ...changes } : o);
+            saveToFirebase(updated);
+            return updated;
+        });
     };
 
     // Actualización en lote — un solo setOrders+saveToFirebase para evitar race conditions
-    const bulkUpdateStatus = (ids, changes) => {
-        const idSet = new Set(ids);
-        const updated = orders.map(o => idSet.has(o.id) ? { ...o, ...changes } : o);
-        setOrders(updated);
-        saveToFirebase(updated);
+    const bulkUpdateOrders = (ids, changes) => {
+        setOrders(prev => {
+            const idSet = new Set(ids);
+            const updated = prev.map(o => idSet.has(o.id) ? { ...o, ...changes } : o);
+            saveToFirebase(updated);
+            return updated;
+        });
     };
 
     const resetOrders = (ids) => {
@@ -147,5 +151,5 @@ export function useOrders(photographerId, schoolId) {
         await saveToFirebase(newOrders);
     };
 
-    return { orders, addOrder, updateStatus, deleteOrder, updatePhotoFile, updateOrder, bulkUpdateStatus, resetOrders, bulkAddOrders, updateAllOrders };
+    return { orders, addOrder, updateStatus, deleteOrder, updatePhotoFile, updateOrder, bulkUpdateOrders, resetOrders, bulkAddOrders, updateAllOrders };
 }
