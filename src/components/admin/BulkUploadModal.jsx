@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { X, Upload, CheckCircle, AlertCircle, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { storage, db } from '../../firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { doc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, updateDoc, getDoc } from 'firebase/firestore';
 
 /**
  * BulkUploadModal
@@ -73,84 +73,111 @@ const BulkUploadModal = ({ isOpen, onClose, photographerId, schools }) => {
 
         for (const file of files) {
             try {
-                // 1. Extraer identificador del nombre de archivo (ej: "123.jpg" -> "123")
-                const fileId = file.name.split('.')[0];
-                
-                // 2. Comprimir
+                const fileId = file.name.split('.')[0]; // Identificador desde el nombre del archivo (ej: 0001)
                 const compressedFile = await compressImage(file);
+                let foundMatch = false;
 
-                // 3. Buscar en 'orders' (alumnos)
-                let targetDoc = null;
-                let collectionName = 'orders';
-                
-                const ordersRef = collection(db, 'orders');
-                const qOrders = query(
-                    ordersRef, 
-                    where('photographerId', '==', photographerId),
-                    where('photo_file_number', '==', fileId)
-                );
-                
-                const ordersSnapshot = await getDocs(qOrders);
-                
-                if (!ordersSnapshot.empty) {
-                    targetDoc = { id: ordersSnapshot.docs[0].id, data: ordersSnapshot.docs[0].data(), collection: 'orders' };
-                } else {
-                    // 4. Buscar en 'staff' (docentes)
-                    const staffRef = collection(db, 'staff');
-                    const qStaff = query(
-                        staffRef,
-                        where('photographerId', '==', photographerId),
-                        where('photo_file_number', '==', fileId)
-                    );
-                    const staffSnapshot = await getDocs(qStaff);
+                // Iterar por cada colegio para buscar el registro en sus documentos de grupo
+                for (const school of schools) {
+                    if (foundMatch) break;
+
+                    // A. BUSCAR EN ALUMNOS (ORDERS)
+                    const ordersDocRef = doc(db, 'orlas2026_photographers', photographerId, 'orders', school.id);
+                    const oSnap = await getDoc(ordersDocRef);
                     
-                    if (!staffSnapshot.empty) {
-                        targetDoc = { id: staffSnapshot.docs[0].id, data: staffSnapshot.docs[0].data(), collection: 'staff' };
+                    if (oSnap.exists()) {
+                        const items = oSnap.data().items || [];
+                        // Comparación robusta (por si acaso hay mezcla de números/strings)
+                        const itemIdx = items.findIndex(item => String(item.photo_file_number) === String(fileId));
+                        
+                        if (itemIdx !== -1) {
+                            foundMatch = true;
+                            
+                            // Subir a Firebase Storage
+                            const storagePath = `photographers/${photographerId}/photos/${items[itemIdx].id}_${file.name}`;
+                            const storageRef = ref(storage, storagePath);
+                            const uploadTask = uploadBytesResumable(storageRef, compressedFile);
+
+                            await new Promise((resolve, reject) => {
+                                uploadTask.on('state_changed', 
+                                    (snapshot) => {
+                                        const p = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                                        setProgress(prev => ({ ...prev, [file.name]: p }));
+                                    }, 
+                                    (error) => reject(error), 
+                                    () => resolve()
+                                );
+                            });
+
+                            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+
+                            // Actualizar el array 'items' completo en el documento del colegio
+                            const newItems = [...items];
+                            newItems[itemIdx] = {
+                                ...newItems[itemIdx],
+                                photoFile: downloadURL,
+                                status: 'Producido', 
+                                updatedAt: new Date().toISOString()
+                            };
+
+                            await updateDoc(ordersDocRef, { items: newItems });
+                            newResults.push({ 
+                                fileName: file.name, 
+                                status: 'success', 
+                                message: `Vinculado a ${newItems[itemIdx].studentName || 'Alumno'} (${school.name})` 
+                            });
+                            continue; 
+                        }
+                    }
+
+                    // B. BUSCAR EN DOCENTES (STAFF)
+                    const staffDocRef = doc(db, 'orlas2026_photographers', photographerId, 'staff', school.id);
+                    const sSnap = await getDoc(staffDocRef);
+                    
+                    if (sSnap.exists()) {
+                        const items = sSnap.data().items || [];
+                        const itemIdx = items.findIndex(item => String(item.photo_file_number) === String(fileId));
+                        
+                        if (itemIdx !== -1) {
+                            foundMatch = true;
+                            
+                            const storagePath = `photographers/${photographerId}/photos/${items[itemIdx].id}_${file.name}`;
+                            const storageRef = ref(storage, storagePath);
+                            const uploadTask = uploadBytesResumable(storageRef, compressedFile);
+
+                            await new Promise((resolve, reject) => {
+                                uploadTask.on('state_changed', (snapshot) => {
+                                    const p = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                                    setProgress(prev => ({ ...prev, [file.name]: p }));
+                                }, reject, resolve);
+                            });
+
+                            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+
+                            const newItems = [...items];
+                            newItems[itemIdx] = {
+                                ...newItems[itemIdx],
+                                photoFile: downloadURL,
+                                updatedAt: new Date().toISOString()
+                            };
+
+                            await updateDoc(staffDocRef, { items: newItems });
+                            newResults.push({ 
+                                fileName: file.name, 
+                                status: 'success', 
+                                message: `Vinculado a ${newItems[itemIdx].firstName || 'Docente'} (${school.name})` 
+                            });
+                        }
                     }
                 }
 
-                if (!targetDoc) {
-                    newResults.push({ fileName: file.name, status: 'error', message: 'No se encontró registro con este número.' });
-                    continue;
+                if (!foundMatch) {
+                    newResults.push({ fileName: file.name, status: 'error', message: 'No se encontró registro con este número en ningún colegio.' });
                 }
-
-                // 5. Subir a Storage
-                const storagePath = `photographers/${photographerId}/photos/${targetDoc.id}_${file.name}`;
-                const storageRef = ref(storage, storagePath);
-                
-                const uploadTask = uploadBytesResumable(storageRef, compressedFile);
-
-                await new Promise((resolve, reject) => {
-                    uploadTask.on('state_changed', 
-                        (snapshot) => {
-                            const p = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                            setProgress(prev => ({ ...prev, [file.name]: p }));
-                        }, 
-                        (error) => reject(error), 
-                        () => resolve()
-                    );
-                });
-
-                const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-
-                // 6. Actualizar Firestore
-                const updateData = {
-                    photoFile: downloadURL,
-                    updatedAt: new Date().toISOString()
-                };
-
-                // Si es un alumno, también marcamos el status como production si no lo está
-                if (targetDoc.collection === 'orders') {
-                    updateData.status = 'production';
-                }
-
-                await updateDoc(doc(db, targetDoc.collection, targetDoc.id), updateData);
-
-                newResults.push({ fileName: file.name, status: 'success', message: `Vinculado a ${targetDoc.data.studentName || targetDoc.data.name || targetDoc.data.firstName}` });
 
             } catch (error) {
                 console.error("Error uploading file:", file.name, error);
-                newResults.push({ fileName: file.name, status: 'error', message: 'Error interno al subir.' });
+                newResults.push({ fileName: file.name, status: 'error', message: 'Error interno o de permisos.' });
             }
         }
 
