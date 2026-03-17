@@ -4,7 +4,8 @@ import {
     MessageSquare, Database, UserCheck, Users, Hash, ArrowRight, ArrowLeft,
     Sparkles, XCircle, RotateCcw, Tv, Camera, CheckCircle2, Zap, FolderUp,
     ChevronRight, AlertCircle, CreditCard, ChevronDown, ChevronUp, Mail, FileText,
-    Package, Plus, LayoutGrid, List, Upload, X, User, Home, Pencil
+    Package, Plus, LayoutGrid, List, Upload, X, User, Home, Pencil, Wand2,
+    Maximize, Maximize2, ZoomIn, Eye, Check
 } from 'lucide-react';
 
 import { COURSE_GROUPS, PACKS, EXTRAS, STAFF_ROLES } from '../../constants.js';
@@ -12,6 +13,7 @@ import { toTitleCase, getCourseBase, getGroup } from '../../utils/formatters.js'
 import BulkUploadModal from './BulkUploadModal.jsx';
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
+import { PHOTO_SHAPES, getShapeStyle } from '../../constants/shapes.js';
 
 
 const ShootingPanel = ({
@@ -52,10 +54,28 @@ const ShootingPanel = ({
     sortedSchools,
     schools,
     settings,
-    photographerId
+    photographerId,
+    configOrla = {},
+    setConfigOrla,
+    setAdminTab
 }) => {
 
     const [activeStudent, setActiveStudent] = useState(null);
+    const [reframingItem, setReframingItem] = useState(null); // { id, type, photoUrl, name }
+    const [viewStyle, setViewStyle] = useState('list'); // 'list' | 'grid' | 'gallery'
+
+    const handleAutoReframe = () => {
+        if (!reframingItem) return;
+        setReframingItem(prev => ({
+            ...prev,
+            photoConfig: {
+                zoom: 1.25,
+                x: 0,
+                y: -15, 
+                rotation: 0
+            }
+        }));
+    };
     const [autoAdvance, setAutoAdvance] = useState(true);
     const [photoNumber, setPhotoNumber] = useState("");
     const [photoPrefix, setPhotoPrefix] = useState("");
@@ -68,7 +88,6 @@ const ShootingPanel = ({
     const [isQuickAddExpanded, setIsQuickAddExpanded] = useState(false);
     const [isStudentListExpanded, setIsStudentListExpanded] = useState(false);
     const [isStaffListExpanded, setIsStaffListExpanded] = useState(false); // Faltaba esta declaración
-    const [viewStyle, setViewStyle] = useState('list');
     const [staffViewStyle, setStaffViewStyle] = useState('grid');
     const [showQuickExtras, setShowQuickExtras] = useState(false);
     const [showPaymentSelector, setShowPaymentSelector] = useState(false);
@@ -94,6 +113,8 @@ const ShootingPanel = ({
         role: '',
         type: ''
     });
+    const [uploadingFor, setUploadingFor] = useState(null); // { id, type: 'student' | 'staff' }
+    const fileInputRef = useRef(null);
     const [excelDefaults, setExcelDefaults] = useState({
         pack: 'esencial',
         course: '',
@@ -226,6 +247,14 @@ const ShootingPanel = ({
         const newStaffMembers = [];
         let count = 0;
 
+        // --- CÁLCULO DE SIGUIENTE NÚMERO DE FICHERO ---
+        // Buscamos el número más alto ya asignado en el sistema
+        const allExistingNums = [
+            ...orders.map(o => parseInt(o.photo_file_number)),
+            ...staff.map(s => parseInt(s.photo_file_number))
+        ].filter(n => !isNaN(n));
+        let nextFileNum = allExistingNums.length > 0 ? Math.max(...allExistingNums) + 1 : 1;
+
         try {
             for (const row of excelContent) {
                 const name = row[excelMapping.studentName] || '';
@@ -285,65 +314,91 @@ const ShootingPanel = ({
             }
 
             // --- LÓGICA INTELIGENTE DE DUPLICADOS ---
-            const existingStudentMap = new Map(orders.map(o => [o.studentName.toUpperCase().trim(), o]));
-            const existingStaffMap = new Map(staff.map(s => [`${s.firstName} ${s.lastName}`.toUpperCase().trim(), s]));
+             const existingStudentMap = new Map(orders.map(o => [o.studentName.toUpperCase().trim(), o]));
+             const existingStaffMap = new Map(staff.map(s => [`${s.firstName} ${s.lastName}`.toUpperCase().trim(), s]));
+ 
+             const studentDuplicates = newStudents.filter(s => existingStudentMap.has(s.studentName.toUpperCase().trim()));
+             const staffDuplicates = newStaffMembers.filter(s => {
+                 const fullName = `${s.firstName} ${s.lastName}`.toUpperCase().trim();
+                 return existingStaffMap.has(fullName);
+             });
+ 
+             let importStrategy = 'add'; 
+ 
+             if (studentDuplicates.length > 0 || staffDuplicates.length > 0) {
+                 const totalDupes = studentDuplicates.length + staffDuplicates.length;
+                 
+                 // IMPORTANTE: Detener el cargador para que aparezcan los botones
+                 Swal.hideLoading();
+                 
+                 const result = await Swal.fire({
+                     title: 'Registros Duplicados Detectados',
+                     html: `Se han encontrado <b>${totalDupes}</b> personas que ya están registradas.<br/><br/>¿Qué deseas hacer?`,
+                     icon: 'question',
+                     showCancelButton: true,
+                     showDenyButton: true,
+                     confirmButtonText: 'Sobreescribir Datos',
+                     denyButtonText: 'Ignorar Duplicados',
+                     cancelButtonText: 'Cancelar Importación',
+                     confirmButtonColor: '#6366f1',
+                     denyButtonColor: '#52b788',
+                     reverseButtons: true,
+                     allowOutsideClick: false,
+                     // Aseguramos que no haya input residual
+                     input: undefined 
+                 });
+ 
+                 if (result.isConfirmed) importStrategy = 'overwrite';
+                 else if (result.isDenied) importStrategy = 'skip';
+                 else {
+                     Swal.fire('Importación cancelada', '', 'info');
+                     return;
+                 }
+             }
 
-            const studentDuplicates = newStudents.filter(s => existingStudentMap.has(s.studentName.toUpperCase().trim()));
-            const staffDuplicates = newStaffMembers.filter(s => {
-                const fullName = `${s.firstName} ${s.lastName}`.toUpperCase().trim();
-                return existingStaffMap.has(fullName);
-            });
-
-            let importStrategy = 'add'; // 'add', 'overwrite', 'skip'
-
-            if (studentDuplicates.length > 0 || staffDuplicates.length > 0) {
-                const totalDupes = studentDuplicates.length + staffDuplicates.length;
-                const result = await Swal.fire({
-                    title: 'Registros Duplicados Detectados',
-                    html: `Se han encontrado <b>${totalDupes}</b> personas que ya están registradas.<br/><br/>¿Qué deseas hacer?`,
-                    icon: 'question',
-                    showCancelButton: true,
-                    showDenyButton: true,
-                    confirmButtonText: 'Sobreescribir Datos',
-                    denyButtonText: 'Ignorar Duplicados',
-                    cancelButtonText: 'Cancelar Importación',
-                    confirmButtonColor: '#6366f1',
-                    denyButtonColor: '#52b788',
-                    reverseButtons: true
-                });
-
-                if (result.isConfirmed) importStrategy = 'overwrite';
-                else if (result.isDenied) importStrategy = 'skip';
-                else {
-                    Swal.fire('Importación cancelada', '', 'info');
-                    return;
-                }
-            }
+             // Mostrar cargador de nuevo para la fase de inyección
+             Swal.fire({
+                 title: 'Inyectando datos...',
+                 text: 'Finalizando proceso de importación',
+                 allowOutsideClick: false,
+                 didOpen: () => Swal.showLoading()
+             });
 
             let finalOrders = [...orders];
             let finalStaff = [...staff];
             let addedCount = 0;
             let updatedCount = 0;
 
-            // Procesar Alumnos
+            // Procesar Alumnos (ORDEN PRIORITARIO 1)
             newStudents.forEach(newS => {
                 const key = newS.studentName.toUpperCase().trim();
                 const existing = existingStudentMap.get(key);
 
                 if (existing) {
                     if (importStrategy === 'overwrite') {
-                        // Actualizar existente manteniendo su ID y campos que no vienen en Excel
+                        const finalPhotoNum = newS.photo_file_number || existing.photo_file_number || '';
                         const index = finalOrders.findIndex(o => o.id === existing.id);
                         if (index !== -1) {
-                            finalOrders[index] = { ...existing, ...newS, id: existing.id };
+                            finalOrders[index] = { 
+                                ...existing, 
+                                ...newS, 
+                                id: existing.id,
+                                photo_file_number: finalPhotoNum
+                            };
                             updatedCount++;
                         }
                     }
-                    // Si es 'skip', no hacemos nada
                 } else {
-                    // Es nuevo
+                    // Es nuevo: Si no tiene número de foto, se lo asignamos
+                    let photoNumToAssign = newS.photo_file_number;
+                    if (!photoNumToAssign) {
+                        photoNumToAssign = nextFileNum.toString();
+                        nextFileNum++;
+                    }
+
                     finalOrders.push({
                         ...newS,
+                        photo_file_number: photoNumToAssign,
                         id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                         status: 'Pendiente',
                         timestamp: new Date().toISOString()
@@ -352,22 +407,36 @@ const ShootingPanel = ({
                 }
             });
 
-            // Procesar Personal
+            // Procesar Personal (ORDEN PRIORITARIO 2)
             newStaffMembers.forEach(newSt => {
                 const key = `${newSt.firstName} ${newSt.lastName}`.toUpperCase().trim();
                 const existing = existingStaffMap.get(key);
 
                 if (existing) {
                     if (importStrategy === 'overwrite') {
+                        const finalPhotoNum = newSt.photo_file_number || existing.photo_file_number || '';
                         const index = finalStaff.findIndex(s => s.id === existing.id);
                         if (index !== -1) {
-                            finalStaff[index] = { ...existing, ...newSt, id: existing.id };
+                            finalStaff[index] = { 
+                                ...existing, 
+                                ...newSt, 
+                                id: existing.id,
+                                photo_file_number: finalPhotoNum
+                            };
                             updatedCount++;
                         }
                     }
                 } else {
+                    // Es nuevo y no tiene número -> auto-asignar
+                    let photoNumToAssign = newSt.photo_file_number;
+                    if (!photoNumToAssign) {
+                        photoNumToAssign = nextFileNum.toString();
+                        nextFileNum++;
+                    }
+
                     finalStaff.push({
                         ...newSt,
+                        photo_file_number: photoNumToAssign,
                         id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                         name: `${newSt.firstName} ${newSt.lastName}`.trim()
                     });
@@ -379,6 +448,16 @@ const ShootingPanel = ({
             await updateAllOrders(finalOrders);
             await updateAllStaff(finalStaff);
 
+            // AUTO-ABRIR TABLA SI HAY DATOS
+            if (newStudents.length > 0) {
+                setViewStyle('list');
+                setIsStudentListExpanded(true);
+            }
+            if (newStaffMembers.length > 0) {
+                setStaffViewStyle('list');
+                setIsStaffListExpanded(true);
+            }
+
             Swal.fire({
                 title: '¡Importación Finalizada!',
                 html: `Nuevos registros: <b>${addedCount}</b><br/>Actualizados: <b>${updatedCount}</b>`,
@@ -388,6 +467,144 @@ const ShootingPanel = ({
         } catch (error) {
             console.error("Error en importación masiva:", error);
             Swal.fire('Error', 'Hubo un problema al inyectar los datos masivamente.', 'error');
+        }
+    };
+
+    const handleBulkStatusChange = async (type = 'students') => {
+        const items = type === 'students' ? filteredOrders : filteredStaff;
+        if (items.length === 0) {
+            Swal.fire({
+                title: 'No hay datos',
+                text: 'No hay registros visibles para actualizar en este momento.',
+                icon: 'info',
+                confirmButtonColor: '#6366f1'
+            });
+            return;
+        }
+
+        const { value: newStatus } = await Swal.fire({
+            title: 'Cambio de Estado General',
+            html: `Se actualizarán <b>${items.length}</b> registros visibles.<br/><br/>Selecciona el nuevo estado:`,
+            input: 'select',
+            inputOptions: {
+                'Pendiente': 'PENDIENTE PAGO',
+                'Pagado': 'HACER FOTO (PAGADO)',
+                'Producido': 'LISTO / PRODUCIDO',
+                'Entregado': 'ENTREGADO'
+            },
+            inputPlaceholder: 'Selecciona un estado...',
+            showCancelButton: true,
+            confirmButtonColor: '#6366f1',
+            cancelButtonColor: '#94a3b8',
+            confirmButtonText: 'Aplicar a Todos',
+            cancelButtonText: 'Cancelar',
+            customClass: {
+                popup: 'rounded-[30px] border-none shadow-2xl',
+                input: 'premium-select-swal',
+                confirmButton: 'btn-primary !px-10 !py-4 !rounded-[20px] !text-[12px]',
+                cancelButton: 'btn-ghost !px-10 !py-4 !rounded-[20px] !text-[12px]'
+            }
+        });
+
+        if (newStatus) {
+            Swal.fire({
+                title: 'Procesando...',
+                didOpen: () => Swal.showLoading(),
+                allowOutsideClick: false
+            });
+
+            if (type === 'students') {
+                const updated = orders.map(o => {
+                    const isVisible = filteredOrders.some(fo => fo.id === o.id);
+                    return isVisible ? { ...o, status: newStatus } : o;
+                });
+                await updateAllOrders(updated);
+            } else {
+                const updated = staff.map(s => {
+                    const isVisible = filteredStaff.some(fs => fs.id === s.id);
+                    return isVisible ? { ...s, status: newStatus, photo_file_number: s.photo_file_number || '' } : s;
+                });
+                await updateAllStaff(updated);
+            }
+
+            Swal.fire({
+                icon: 'success',
+                title: 'Estados Actualizados',
+                text: `Se ha cambiado el estado a ${items.length} registros correctamente.`,
+                timer: 2000,
+                showConfirmButton: false
+            });
+        }
+    };
+
+    const handleBulkAssign = async () => {
+        const schoolName = sortedSchools.find(s => s.id === adminSchool)?.name || "Sin Centro seleccionado";
+        const groupName = shootFilters.group || "";
+        const fullCourseString = groupName ? `${shootFilters.course} ${groupName}` : (shootFilters.course || "Sin Clase seleccionada");
+
+        if (!adminSchool && !shootFilters.course) {
+            Swal.fire('Atención', 'Selecciona al menos un Centro o una Clase en los filtros superiores para poder asignar.', 'warning');
+            return;
+        }
+
+        if (filteredOrders.length === 0 && filteredStaff.length === 0) {
+            Swal.fire('Sin resultados', 'No hay alumnos ni docentes visibles que coincidan con tu búsqueda actual.', 'info');
+            return;
+        }
+
+        const result = await Swal.fire({
+            title: 'Asignación Masiva Manual',
+            html: `Se inyectarán los siguientes datos a <b>${filteredOrders.length}</b> alumnos y <b>${filteredStaff.length}</b> docentes:<br/><br/>
+                   <div class="text-left bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <p class="text-[11px] font-black uppercase tracking-widest text-primary/60 mb-2">Datos a registrar:</p>
+                    <p class="text-[12px] font-bold">🏢 CENTRO: <span class="text-indigo-600">${schoolName.toUpperCase()}</span></p>
+                    <p class="text-[12px] font-bold">📚 CLASE: <span class="text-emerald-600">${fullCourseString.toUpperCase()}</span></p>
+                   </div><br/>
+                   <p class="text-[11px] text-primary/40 italic uppercase font-bold tracking-tighter">Esto sobreescribirá el centro y clase actual de los registros visibles.</p>`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, registrar datos',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#6366f1',
+            customClass: {
+                popup: 'rounded-[30px]',
+                confirmButton: 'rounded-[20px] px-8 py-3 text-[12px] font-black uppercase tracking-widest',
+                cancelButton: 'rounded-[20px] px-8 py-3 text-[12px] font-black uppercase tracking-widest'
+            }
+        });
+
+        if (result.isConfirmed) {
+            Swal.fire({ title: 'Sincronizando...', didOpen: () => Swal.showLoading(), allowOutsideClick: false });
+
+            try {
+                if (filteredOrders.length > 0) {
+                    const ids = filteredOrders.map(o => o.id);
+                    const updates = {};
+                    if (adminSchool) updates.schoolId = adminSchool;
+                    if (shootFilters.course) updates.course = fullCourseString;
+                    await bulkUpdateOrders(ids, updates);
+                }
+
+                if (filteredStaff.length > 0) {
+                    const updatedStaff = staff.map(member => {
+                        const isTarget = filteredStaff.some(fm => fm.id === member.id);
+                        if (isTarget) {
+                            return {
+                                ...member,
+                                schoolId: adminSchool || member.schoolId,
+                                course: shootFilters.course ? fullCourseString : member.course
+                            };
+                        }
+                        return member;
+                    });
+                    await updateAllStaff(updatedStaff);
+                }
+
+                Swal.fire('Completado', 'Los datos se han registrado correctamente.', 'success');
+            } catch (error) {
+                console.error(error);
+                Swal.fire('Error', 'Hubo un problema al realizar la asignación masiva.', 'error');
+            }
         }
     };
 
@@ -512,6 +729,44 @@ const ShootingPanel = ({
         setShowStatusSelector(false);
     };
 
+    const handleIndividualFileClick = (id, type) => {
+        setUploadingFor({ id, type });
+        fileInputRef.current?.click();
+    };
+
+    const handleIndividualFileChange = async (e) => {
+        const file = e.target.files[0];
+        if (!file || !uploadingFor) return;
+
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+            const base64 = evt.target.result;
+            // En un entorno real, aquí subiríamos a Cloud Storage y obtendríamos la URL
+            // Por ahora asociaremos el base64 como preview si el backend lo soporta, o simplemente actualizamos el registro
+            const photoData = { digitalPhotoUrl: base64, status: 'production' };
+            
+            if (uploadingFor.type === 'student') {
+                updateOrder(uploadingFor.id, photoData);
+                if (activeStudent?.id === uploadingFor.id) {
+                    setActiveStudent(prev => ({ ...prev, ...photoData }));
+                }
+            } else {
+                updateStaff(uploadingFor.id, { ...photoData, photoFile: 'Digital' });
+            }
+
+            Swal.fire({
+                icon: 'success',
+                title: 'Foto Actualizada',
+                text: 'La fotografía se ha vinculado correctamente al registro.',
+                timer: 1500,
+                showConfirmButton: false
+            });
+            setUploadingFor(null);
+        };
+        reader.readAsDataURL(file);
+        e.target.value = ''; // Reset
+    };
+
     // Función para calcular el tamaño inteligente del texto
     const getFontSize = (text, isPrefix = false) => {
         const length = text?.length || 0;
@@ -572,11 +827,14 @@ const ShootingPanel = ({
         const sq = (shootSearch || '').trim().toLowerCase();
         return staff.filter(m => {
             const matchesSearch = !sq || (m.firstName + ' ' + m.lastName + ' ' + (m.name || '')).toLowerCase().includes(sq);
-            const matchesCourse = !shootFilters.course || m.assignments?.some(a => 
+            
+            // Verificamos si tiene el curso/grupo en sus asignaciones
+            const matchesCourse = !shootFilters.course || (Array.isArray(m.assignments) && m.assignments.some(a => 
                 (!adminSchool || a.schoolId === adminSchool) && 
                 getCourseBase(a.course) === shootFilters.course && 
                 (!shootFilters.group || getGroup(a.course) === shootFilters.group)
-            );
+            ));
+            
             return matchesSearch && matchesCourse;
         });
     }, [staff, adminSchool, shootSearch, shootFilters]);
@@ -599,6 +857,24 @@ const ShootingPanel = ({
         });
         return map;
     }, [staff]);
+
+    // --- LÓGICA DE NUMERACIÓN GLOBAL CORRELATIVA ---
+    const globalSequence = useMemo(() => {
+        if (!adminSchool) return [];
+        // Filtramos todos los registros del centro actual
+        const schoolStaff = staff.filter(s => s.schoolId === adminSchool)
+            .sort((a, b) => (a.firstName + ' ' + a.lastName).localeCompare(b.firstName + ' ' + b.lastName));
+        const schoolStudents = orders.filter(o => o.schoolId === adminSchool)
+            .sort((a, b) => (a.studentName || "").localeCompare(b.studentName || ""));
+        
+        // Unimos ambos: Docentes primero, luego Alumnos (O según modo preferido)
+        return [...schoolStaff, ...schoolStudents];
+    }, [staff, orders, adminSchool]);
+
+    const getGlobalRank = (id) => {
+        const idx = globalSequence.findIndex(item => item.id === id);
+        return idx !== -1 ? (idx + 1).toString().padStart(4, '0') : '--';
+    };
 
     const findTutorForClass = (courseName, groupLetter) => {
         if (!courseName) return null;
@@ -640,29 +916,131 @@ const ShootingPanel = ({
         }
     };
 
-    // Grupos únicos para el curso seleccionado
-    const availableGroups = shootFilters.course
-        ? (COURSE_GROUPS.find(g => g.courses.some(c => c.name === shootFilters.course))
-            ?.courses.find(c => c.name === shootFilters.course)?.lines || [])
-        : [];
+    const handleGlobalAutoNumbering = async () => {
+        if (filteredOrders.length === 0 && filteredStaff.length === 0) {
+            Swal.fire('Atención', 'No hay registros visibles para numerar.', 'warning');
+            return;
+        }
+
+        const { value: orderType } = await Swal.fire({
+            title: 'Auto-Numeración Global',
+            text: 'Selecciona el orden de prelación para la numeración de los registros visibles:',
+            input: 'select',
+            inputOptions: {
+                'ALU-PRO': '1º Alumnos, 2º Profesores',
+                'PRO-ALU': '1º Profesores, 2º Alumnos'
+            },
+            inputValue: 'ALU-PRO',
+            showCancelButton: true,
+            confirmButtonColor: '#6366f1',
+            confirmButtonText: 'Aplicar Numeración',
+            cancelButtonText: 'Cancelar',
+            customClass: {
+                popup: 'rounded-[30px]',
+                confirmButton: 'rounded-[20px] px-8 py-3 text-[12px] font-black uppercase tracking-widest',
+                cancelButton: 'rounded-[18px] px-8 py-3 text-[12px] font-black uppercase tracking-widest'
+            }
+        });
+
+        if (orderType) {
+            Swal.fire({ title: 'Numerando registros...', didOpen: () => Swal.showLoading(), allowOutsideClick: false });
+
+            // Preparar listas con flag para distinguir
+            const aluList = filteredOrders.map(o => ({ ...o, _isStaff: false }));
+            const staffList = filteredStaff.map(s => ({ ...s, _isStaff: true }));
+
+            // Ordenar alfabéticamente
+            aluList.sort((a, b) => (a.studentName || "").localeCompare(b.studentName || ""));
+            staffList.sort((a, b) => {
+                const nameA = a.name || `${a.firstName} ${a.lastName}`;
+                const nameB = b.name || `${b.firstName} ${b.lastName}`;
+                return nameA.localeCompare(nameB);
+            });
+
+            let finalSequence = [];
+            if (orderType === 'ALU-PRO') {
+                finalSequence = [...aluList, ...staffList];
+            } else {
+                finalSequence = [...staffList, ...aluList];
+            }
+
+            try {
+                // Actualizaciones de Alumnos
+                const studentUpdates = finalSequence
+                    .filter(item => !item._isStaff)
+                    .map(item => {
+                        const globalIndex = finalSequence.findIndex(fs => !fs._isStaff && fs.id === item.id);
+                        const newNum = (finalSequence.indexOf(item) + 1).toString().padStart(4, '0');
+                        return updateOrder(item.id, { photo_file_number: newNum });
+                    });
+
+                // Actualizaciones de Docentes
+                const updatedStaff = staff.map(m => {
+                    const match = finalSequence.find(fs => fs._isStaff && fs.id === m.id);
+                    if (match) {
+                        const newNum = (finalSequence.indexOf(match) + 1).toString().padStart(4, '0');
+                        return { ...m, photo_file_number: newNum };
+                    }
+                    return m;
+                });
+
+                if (studentUpdates.length > 0) await Promise.all(studentUpdates);
+                if (staffList.length > 0) await updateAllStaff(updatedStaff);
+
+                Swal.fire({
+                    icon: 'success',
+                    title: '¡Operación Exitosa!',
+                    text: `Se han numerado ${finalSequence.length} registros secuencialmente.`,
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            } catch (error) {
+                console.error("Error en numeración global:", error);
+                Swal.fire('Error', 'No se pudo completar la numeración masiva.', 'error');
+            }
+        }
+    };
+
+    // Grupos únicos para el curso seleccionado (Memoizado para evitar re-calculos innecesarios y cuelgues)
+    const availableGroups = useMemo(() => {
+        if (!shootFilters?.course) return [];
+        const groupMatch = COURSE_GROUPS.find(g => g.courses && g.courses.some(c => c.name === shootFilters.course));
+        return groupMatch?.courses?.find(c => c.name === shootFilters.course)?.lines || [];
+    }, [shootFilters.course]);
 
     // Grupos únicos para el curso del formulario de alta rápida de alumnos
-    const formAvailableGroups = newStudentForm.course
-        ? (COURSE_GROUPS.find(g => g.courses.some(c => c.name === newStudentForm.course))
-            ?.courses.find(c => c.name === newStudentForm.course)?.lines || [])
-        : [];
+    const formAvailableGroups = useMemo(() => {
+        if (!newStudentForm?.course) return [];
+        const groupMatch = COURSE_GROUPS.find(g => g.courses && g.courses.some(c => c.name === newStudentForm.course));
+        return groupMatch?.courses?.find(c => c.name === newStudentForm.course)?.lines || [];
+    }, [newStudentForm.course]);
 
     // Grupos únicos para el curso del formulario de alta rápida de docentes
-    const staffFormAvailableGroups = newStaffForm.tempCourse
-        ? (COURSE_GROUPS.find(g => g.courses.some(c => c.name === newStaffForm.tempCourse))
-            ?.courses.find(c => c.name === newStaffForm.tempCourse)?.lines || [])
-        : [];
+    const staffFormAvailableGroups = useMemo(() => {
+        if (!newStaffForm?.tempCourse) return [];
+        const groupMatch = COURSE_GROUPS.find(g => g.courses && g.courses.some(c => c.name === newStaffForm.tempCourse));
+        return groupMatch?.courses?.find(c => c.name === newStaffForm.tempCourse)?.lines || [];
+    }, [newStaffForm.tempCourse]);
 
     // Cursos únicos de la escuela
     const activeCourses = useMemo(() => {
-        if (!adminSchool || !orders) return [];
-        const schoolCourses = new Set(orders.filter(o => o.schoolId === adminSchool).map(o => getCourseBase(o.course)));
-        return [...schoolCourses].sort().map(name => ({ name }));
+        if (!adminSchool) return [];
+
+        // 1. Obtener cursos del catálogo maestro (COURSE_GROUPS)
+        const masterCourses = COURSE_GROUPS.flatMap(g => g.courses.map(c => c.name));
+
+        // 2. Obtener cursos que ya existen en los pedidos del centro actual (por si hay personalizados)
+        const existingInOrders = orders 
+            ? orders
+                .filter(o => o.schoolId === adminSchool)
+                .map(o => getCourseBase(o.course))
+                .filter(c => c && c.toUpperCase() !== 'PENDIENTE')
+            : [];
+
+        // Combinar ambos y eliminar duplicados
+        const combined = new Set([...masterCourses, ...existingInOrders]);
+        
+        return [...combined].sort((a, b) => a.localeCompare(b)).map(name => ({ name }));
     }, [orders, adminSchool]);
 
     const getStaffAssignments = (member) => {
@@ -681,8 +1059,26 @@ const ShootingPanel = ({
             assignments: getStaffAssignments(member),
             tempCourse: '',
             tempGroup: '',
-            tempFile: member.photoFile || '',
+            tempFile: member.photo_file_number || '',
             schoolId: member.schoolId || adminSchool || ''
+        });
+    };
+
+    const handleStartEditOrder = (order) => {
+        const courseParts = order.course ? order.course.split(' ') : ['', ''];
+        const group = ['A', 'B', 'C', 'D'].includes(courseParts[courseParts.length - 1]) ? courseParts.pop() : '';
+        const courseBase = courseParts.join(' ').trim();
+
+        setOrderToEdit({
+            ...order,
+            studentName: order.studentName || '',
+            packId: order.pack?.id || 'manual',
+            packQuantity: order.packQuantity || 1,
+            tempStatus: order.status || 'Pendiente',
+            tempPayment: order.paymentMethod || 'Bizum',
+            tempCourse: courseBase,
+            tempGroup: group,
+            tempPhotoFile: order.photo_file_number || ''
         });
     };
 
@@ -705,100 +1101,131 @@ const ShootingPanel = ({
         <div className="flex flex-col bg-main transition-colors duration-500">
             {/* TOOLBAR SUPERIOR */}
             <div className="bg-card border-b border-primary/5 p-3 md:p-4 flex flex-col gap-3 md:gap-4 shrink-0 transition-colors text-primary relative z-50">
-                <div className="flex items-center justify-between gap-3 md:gap-4">
-                    <div className="flex items-center gap-3 md:gap-4 flex-1 text-primary">
+                <div className="max-w-[1600px] mx-auto w-full flex flex-col gap-4">
+                    {/* FILA 1: SELECTORES PRINCIPALES (Una sola línea) */}
+                    <div className="flex flex-wrap md:flex-nowrap items-end gap-3 md:gap-4 w-full">
                         {/* Selector Alumnos / Docentes */}
-                        <div className="flex p-1.5 rounded-[14px] bg-primary/[0.03] border border-primary/10 shrink-0 w-full max-w-[220px] md:max-w-[260px] gap-1">
-                            <button onClick={() => { setShootMode('students'); setShootSearch(''); }} className={`flex-1 px-3 py-2 rounded-[10px] text-[10px] md:text-[11px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${shootMode === 'students' ? 'bg-white text-indigo-600 shadow-md ring-2 ring-indigo-500/20' : 'text-primary/40 hover:text-primary hover:bg-white/50'}`} title="Modo Alumnos: Ver y gestionar listado de estudiantes">
-                                <Users size={14} /> Alumnos
-                            </button>
-                            <button onClick={() => { setShootMode('staff'); setShootSearch(''); }} className={`flex-1 px-3 py-2 rounded-[10px] text-[10px] md:text-[11px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${shootMode === 'staff' ? 'bg-white text-indigo-600 shadow-md ring-2 ring-indigo-500/20' : 'text-primary/40 hover:text-primary hover:bg-white/50'}`} title="Modo Docentes: Ver y gestionar listado de personal">
-                                <UserCheck size={14} /> Docentes
-                            </button>
+                        <div className="flex flex-col gap-1.5 shrink-0 w-full md:w-auto">
+                            <span className="text-[9px] font-black text-indigo-500/40 uppercase tracking-widest pl-1">VISTA ACTUAL</span>
+                            <div className="flex p-1 rounded-[14px] bg-primary/[0.03] border border-primary/10 md:min-w-[240px] gap-1 h-[48px] transition-all items-center">
+                                <button onClick={() => { setShootMode('students'); setShootSearch(''); setIsStudentListExpanded(true); }} className={`flex-1 h-full px-3 rounded-[10px] text-[10px] md:text-[11px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${shootMode === 'students' ? 'bg-white text-indigo-600 shadow-sm' : 'text-primary/40 hover:text-primary'}`} title="Modo Alumnos">
+                                    <Users size={14} /> Alumnos
+                                </button>
+                                <button onClick={() => { setShootMode('staff'); setShootSearch(''); setIsStudentListExpanded(true); }} className={`flex-1 h-full px-3 rounded-[10px] text-[10px] md:text-[11px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${shootMode === 'staff' ? 'bg-white text-indigo-600 shadow-sm' : 'text-primary/40 hover:text-primary'}`} title="Modo Docentes">
+                                    <UserCheck size={14} /> Docentes
+                                </button>
+                            </div>
                         </div>
 
-                        {/* Selector Centro y Clase */}
-                        <div className="flex-1 hidden md:flex items-center justify-center gap-4 max-w-5xl mx-auto">
-                            {/* SECTOR CENTRO */}
-                            <div className="flex flex-col gap-1 items-start">
-                                <span className="text-[9px] font-black text-indigo-500/50 uppercase tracking-tighter pl-1">CENTRO EDUCATIVO</span>
-                                <div className="relative min-w-[300px]">
-                                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 w-7 h-7 bg-indigo-500/10 rounded-lg flex items-center justify-center text-indigo-500 pointer-events-none">
-                                        <Home size={12} />
-                                    </div>
+                        {/* SECTOR CENTRO */}
+                        <div className="filter-item min-w-[200px] md:min-w-[0] flex-[2] md:flex-1 shrink-0 flex flex-col gap-1.5">
+                            <span className="text-[9px] font-black text-indigo-500/40 uppercase tracking-widest pl-1">CENTRO EDUCATIVO</span>
+                            <div className="relative w-full h-[48px]">
+                                <div className="absolute left-3.5 top-1/2 -translate-y-1/2 w-8 h-8 bg-indigo-500/10 rounded-lg flex items-center justify-center text-indigo-500 pointer-events-none z-10">
+                                    <Home size={14} />
+                                </div>
+                                <select 
+                                    value={adminSchool} 
+                                    onChange={e => { 
+                                        setAdminSchool(e.target.value); 
+                                        setShootFilters(p => ({ ...p, course: '', group: '' })); 
+                                    }} 
+                                    className="w-full h-full bg-white border border-primary/10 text-primary text-[11px] font-bold uppercase tracking-widest rounded-xl pl-14 pr-10 outline-none appearance-none cursor-pointer hover:border-indigo-500/30 transition-all shadow-sm py-0 flex items-center"
+                                >
+                                    <option value="">FILTRAR POR CENTRO</option>
+                                    {sortedSchools.map(s => (
+                                        <option key={s.id} value={s.id}>{s.name.toUpperCase()}</option>
+                                    ))}
+                                </select>
+                                <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-primary/40 pointer-events-none" />
+                            </div>
+                        </div>
+
+                        {/* SECTOR CLASE */}
+                        <div className="filter-item min-w-[180px] md:min-w-[0] flex-[1.5] md:flex-1 shrink-0 flex flex-col gap-1.5">
+                            <span className="text-[9px] font-black text-emerald-500/40 uppercase tracking-widest pl-1">CURSO / NIVEL</span>
+                            <div className="relative w-full h-[48px]">
+                                <div className="absolute left-3.5 top-1/2 -translate-y-1/2 w-8 h-8 bg-emerald-500/10 rounded-lg flex items-center justify-center text-emerald-500 pointer-events-none z-10">
+                                    <Hash size={14} />
+                                </div>
+                                <select 
+                                    value={shootFilters.course} 
+                                    onChange={e => setShootFilters(p => ({ ...p, course: e.target.value, group: '' }))}
+                                    className="w-full h-full bg-white border border-primary/10 text-primary text-[11px] font-bold uppercase tracking-widest rounded-xl pl-14 outline-none appearance-none cursor-pointer hover:border-emerald-500/30 transition-all shadow-sm pr-10 py-0 flex items-center"
+                                >
+                                    <option value="">TODOS LOS CURSOS</option>
+                                    {activeCourses.map(c => (
+                                        <option key={c.name} value={c.name}>{c.name}</option>
+                                    ))}
+                                </select>
+                                <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-primary/40 pointer-events-none" />
+                            </div>
+                        </div>
+
+                        {/* SECTOR GRUPO */}
+                        {shootFilters.course && (
+                            <div className="filter-item min-w-[90px] w-[90px] shrink-0 flex flex-col gap-1.5">
+                                <span className="text-[9px] font-black text-emerald-500/40 uppercase tracking-widest pl-1">GRUPO</span>
+                                <div className="relative w-full h-[48px]">
                                     <select 
-                                        value={adminSchool} 
-                                        onChange={e => { setAdminSchool(e.target.value); setShootFilters({ course: '', group: '' }); }} 
-                                        className="w-full bg-white border border-primary/10 text-primary text-[11px] font-black uppercase tracking-widest rounded-xl pl-12 pr-10 py-2.5 h-11 outline-none appearance-none cursor-pointer hover:border-indigo-500/30 transition-all shadow-sm"
+                                        value={shootFilters.group} 
+                                        onChange={e => setShootFilters(p => ({ ...p, group: e.target.value }))}
+                                        className="btn-group-selector w-full h-full outline-none appearance-none cursor-pointer transition-all shadow-sm pr-7 text-center text-[11px] font-bold uppercase rounded-xl py-0 flex items-center justify-center"
                                     >
-                                        <option value="">SELECCIONAR CENTRO</option>
-                                        {sortedSchools.map(s => (
-                                            <option key={s.id} value={s.id}>{s.name.toUpperCase()}</option>
+                                        <option value="">GRUPO</option>
+                                        {availableGroups.map(g => (
+                                            <option key={g} value={g}>{g}</option>
                                         ))}
                                     </select>
-                                    <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-primary/40 pointer-events-none" />
+                                    <ChevronDown size={11} className="absolute right-2 top-1/2 -translate-y-1/2 text-emerald-400 pointer-events-none" />
                                 </div>
                             </div>
-
-                            <div className="h-10 w-px bg-primary/10" />
-
-                            {/* SECTOR CLASE */}
-                            <div className="flex flex-col gap-1 items-start">
-                                <span className="text-[9px] font-black text-emerald-500/50 uppercase tracking-tighter pl-1">CLASE / CURSO</span>
-                                <div className="flex items-center gap-2">
-                                    <div className="relative min-w-[180px]">
-                                        <div className="absolute left-3.5 top-1/2 -translate-y-1/2 w-7 h-7 bg-emerald-500/10 rounded-lg flex items-center justify-center text-emerald-500 pointer-events-none">
-                                            <Hash size={12} />
-                                        </div>
-                                        <select 
-                                            value={shootFilters.course} 
-                                            onChange={e => setShootFilters(p => ({ ...p, course: e.target.value, group: '' }))}
-                                            className="w-full bg-white border border-primary/10 text-primary text-[11px] font-black uppercase tracking-widest rounded-xl pl-12 py-2.5 h-11 outline-none appearance-none cursor-pointer hover:border-emerald-500/30 transition-all shadow-sm pr-10"
-                                        >
-                                            <option value="">CURSO COMPLETO</option>
-                                            {activeCourses.map(c => (
-                                                <option key={c.name} value={c.name}>{c.name}</option>
-                                            ))}
-                                        </select>
-                                        <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-primary/40 pointer-events-none" />
-                                    </div>
-
-                                    {(shootFilters.course) && (
-                                        <div className="relative min-w-[90px]">
-                                            <select 
-                                                value={shootFilters.group} 
-                                                onChange={e => setShootFilters(p => ({ ...p, group: e.target.value }))}
-                                                className="w-full bg-emerald-50 border border-emerald-100 text-emerald-700 text-[11px] font-black uppercase tracking-widest rounded-xl px-4 py-2.5 h-11 outline-none appearance-none cursor-pointer hover:bg-emerald-100/50 transition-all shadow-sm pr-10 text-center"
-                                            >
-                                                <option value="">GRUPO</option>
-                                                {availableGroups.map(g => (
-                                                    <option key={g} value={g}>{g}</option>
-                                                ))}
-                                            </select>
-                                            <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-400 pointer-events-none" />
-                                        </div>
-                                    )}
-
-                                    {(shootFilters.course || shootFilters.group) && (
-                                        <button 
-                                            onClick={() => setShootFilters({ course: '', group: '' })}
-                                            className="w-11 h-11 bg-rose-50 text-rose-500 rounded-xl flex items-center justify-center hover:bg-rose-100 transition-all border border-rose-100 shadow-sm shrink-0"
-                                            title="Limpiar filtros"
-                                        >
-                                            <X size={18} />
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
+                        )}
                     </div>
 
-                    {/* Acciones Derecha - Backup SOS se mantiene aquí por ahora o se mueve a ajustes */}
-                    <div className="flex items-center gap-2 md:gap-3 shrink-0">
-                        <button onClick={downloadMasterBackup} className="px-4 py-2 h-[38px] md:h-[42px] bg-amber-500/10 border border-amber-500/20 text-amber-600 hover:bg-amber-500/20 text-[10px] md:text-[11px] font-bold uppercase tracking-wide rounded-[10px] transition-all flex items-center justify-center gap-2 shrink-0 shadow-sm" title="Backup SOS: Descargar copia de seguridad de todos los datos">
-                            <Database size={14} /> <span className="hidden sm:inline">Backup SOS</span>
-                        </button>
+                    {/* FILA 2: ACCIONES (Debajo el resto) */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-primary/5">
+                        <div className="flex items-center gap-3">
+                            {/* Botón Asignar */}
+                            {((adminSchool && adminSchool !== '') || shootFilters.course) && (
+                                <button 
+                                    onClick={handleBulkAssign}
+                                    className="h-[48px] px-8 bg-indigo-600 text-white rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 border-2 border-indigo-200/20"
+                                >
+                                    <Wand2 size={18} />
+                                    <span>Asignar</span>
+                                </button>
+                            )}
+
+                            {/* Botón Reset (X) */}
+                            {(shootFilters.course || shootFilters.group || adminSchool) && (
+                                <button 
+                                    onClick={() => {
+                                        setAdminSchool('');
+                                        setShootFilters(p => ({ ...p, course: '', group: '' }));
+                                    }}
+                                    className="w-[48px] h-[48px] flex items-center justify-center bg-white text-red-500 rounded-xl hover:bg-red-50 transition-all border border-red-100 shadow-sm"
+                                    title="Limpiar filtros"
+                                >
+                                    <X size={22} />
+                                </button>
+                            )}
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                            <button 
+                                onClick={handleGlobalAutoNumbering}
+                                className="px-6 h-[48px] bg-white border border-indigo-500/20 text-indigo-600 hover:bg-indigo-50 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm"
+                            >
+                                <Hash size={16} /> <span>Numeración Global</span>
+                            </button>
+                            <button 
+                                onClick={downloadMasterBackup} 
+                                className="px-6 h-[48px] bg-amber-500/5 border border-amber-500/20 text-amber-600 hover:bg-amber-500/10 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm"
+                            >
+                                <Database size={16} /> <span>Backup SOS</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -821,14 +1248,49 @@ const ShootingPanel = ({
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-3 w-full md:w-auto">
+                                        <div className="h-[44px] flex items-center gap-3 px-5 rounded-xl bg-indigo-50 border border-indigo-100 shadow-sm">
+                                            <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-600">
+                                                <Camera size={16} />
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-indigo-400 text-[9px] font-black uppercase leading-tight">Fotos Subidas</span>
+                                                <span className="text-indigo-700 text-[11px] font-black leading-tight">
+                                                    {filteredOrders.filter(o => o.photoFile || o.digitalPhotoUrl).length} / {filteredOrders.length}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <button 
+                                            onClick={() => {
+                                                setViewStyle('gallery');
+                                                setIsStudentListExpanded(true);
+                                            }}
+                                            className="h-[44px] flex-1 md:flex-none flex items-center justify-center gap-2 px-6 bg-indigo-600 text-white rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-md shadow-indigo-500/10 active:scale-95 border border-transparent"
+                                            title="Galería: Ver todas las fotos y reencuadrar"
+                                        >
+                                            <LayoutGrid size={16} />
+                                            <span>Galería</span>
+                                        </button>
+
                                         <button 
                                             onClick={() => setShowBulkUpload(true)} 
-                                            className="h-[44px] flex-1 md:flex-none flex items-center justify-center gap-2 px-6 bg-indigo-500 text-white rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-indigo-600 transition-all shadow-md shadow-indigo-500/20 active:scale-95 border border-transparent"
+                                            className="h-[44px] flex-1 md:flex-none flex items-center justify-center gap-2 px-6 bg-slate-800 text-white rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-slate-900 transition-all shadow-md shadow-slate-500/10 active:scale-95 border border-transparent"
                                             title="Subida Masiva: Subir fotos de alumnos o docentes por lote"
                                         >
                                             <Upload size={16} />
                                             <span>Subir Fotos</span>
                                         </button>
+
+                                        <button 
+                                            onClick={() => setAdminTab('design')}
+                                            className="h-[44px] flex-1 md:flex-none flex items-center justify-center gap-2 px-6 bg-violet-600 text-white rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-violet-700 transition-all shadow-md shadow-violet-500/10 active:scale-95 border border-transparent"
+                                            title="Ver Diseño: Previsualizar estas fotos en el diseño de la orla"
+                                        >
+                                            <Eye size={16} />
+                                            <span>Ver Orla</span>
+                                        </button>
+
+
                                         
                                         <button 
                                             onClick={() => document.getElementById('excel-import-input').click()}
@@ -1086,7 +1548,7 @@ const ShootingPanel = ({
                         {/* Isla Contenedora de Alumnos */}
                         <div className="flex-1 px-4 py-4 text-primary flex flex-col items-center">
                             <div className="w-full max-w-[1700px] bg-card rounded-[16px] border border-primary/10 border-l-4 border-l-orange-500 shadow-xl flex flex-col">
-                                <button onClick={() => setIsStudentListExpanded(!isStudentListExpanded)} className="w-full p-4 md:p-5 border-b border-primary/5 flex justify-between items-center shrink-0 hover:bg-primary/[0.02] transition-colors cursor-pointer text-left">
+                                <div onClick={() => setIsStudentListExpanded(!isStudentListExpanded)} className="w-full p-4 md:p-5 border-b border-primary/5 flex justify-between items-center shrink-0 hover:bg-primary/[0.02] transition-colors cursor-pointer text-left">
                                     <div className="flex items-center gap-3">
                                         <div className="w-10 h-10 bg-orange-500/10 rounded-xl flex items-center justify-center text-orange-500 shrink-0">
                                             <Users size={20} />
@@ -1113,21 +1575,26 @@ const ShootingPanel = ({
                                                         text: `Se asignarán números del 0001 al ${filteredOrders.length.toString().padStart(4, '0')} a los alumnos visibles.`,
                                                         icon: 'question',
                                                         showCancelButton: true,
-                                                        confirmButtonColor: '#3b82f6',
-                                                        cancelButtonColor: '#6b7280',
+                                                        confirmButtonColor: '#6366f1',
+                                                        cancelButtonColor: '#94a3b8',
                                                         confirmButtonText: 'Sí, Numerar',
-                                                        cancelButtonText: 'Cancelar'
+                                                        cancelButtonText: 'Cancelar',
+                                                        customClass: {
+                                                            popup: 'rounded-[30px] border-none shadow-2xl',
+                                                            confirmButton: 'btn-primary !px-10 !py-4 !rounded-[20px] !text-[12px]',
+                                                            cancelButton: 'btn-ghost !px-10 !py-4 !rounded-[20px] !text-[12px]'
+                                                        }
                                                     }).then((result) => {
                                                         if (result.isConfirmed) {
-                                                            const updated = orders.map(o => {
-                                                                const fIndex = filteredOrders.findIndex(fo => fo.id === o.id);
-                                                                if (fIndex !== -1) {
-                                                                    return { ...o, photo_file_number: (fIndex + 1).toString().padStart(4, '0') };
-                                                                }
-                                                                return o;
+                                                            // Mostramos un cargador porque esto va a la base de datos
+                                                            Swal.fire({ title: 'Numerando...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+                                                            
+                                                            Promise.all(filteredOrders.map((o, index) => {
+                                                                const newNum = (index + 1).toString().padStart(4, '0');
+                                                                return updateOrder(o.id, { photo_file_number: newNum });
+                                                            })).then(() => {
+                                                                Swal.fire({ icon: 'success', title: '¡Hecho!', text: 'Numeración guardada en la base de datos.', timer: 1500, showConfirmButton: false });
                                                             });
-                                                            updateAllOrders(updated);
-                                                            Swal.fire({ icon: 'success', title: 'Numeración Aplicada', text: 'Se ha asignado el Nº de foto secuencial a los alumnos.', timer: 1500, showConfirmButton: false });
                                                         }
                                                     });
                                                 }} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-md shadow-blue-500/20 active:scale-[0.98] transition-all flex items-center gap-2" title="Asignar números de foto 0001, 0002... a los alumnos filtrados">
@@ -1143,6 +1610,13 @@ const ShootingPanel = ({
                                         )}
                                         {isStudentListExpanded && (
                                             <div className="hidden md:flex items-center gap-1 p-1 rounded-xl bg-primary/[0.02] border border-primary/10 shadow-sm mr-2" onClick={e => e.stopPropagation()}>
+                                                <button 
+                                                    onClick={() => setViewStyle('gallery')}
+                                                    className={`h-8 px-3 rounded-lg transition-all flex items-center justify-center gap-2 ${viewStyle === 'gallery' ? 'bg-indigo-600 shadow-sm text-white' : 'text-primary/40 hover:text-primary hover:bg-primary/5'}`}
+                                                    title="Modo Galería"
+                                                >
+                                                    <LayoutGrid size={14} /> <span className="text-[9px] font-black uppercase">Galería</span>
+                                                </button>
                                                 <button onClick={() => setViewStyle('grid')} className={`w-8 h-8 rounded-lg transition-all flex items-center justify-center ${viewStyle === 'grid' ? 'bg-white shadow-sm text-slate-900 border border-primary/5' : 'text-primary/40 hover:text-primary hover:bg-primary/5'}`} title="Cuadrícula">
                                                     <LayoutGrid size={16} />
                                                 </button>
@@ -1155,10 +1629,70 @@ const ShootingPanel = ({
                                             {isStudentListExpanded ? <ChevronUp size={20} className="text-primary/40" /> : <ChevronDown size={20} className="text-primary/40" />}
                                         </div>
                                     </div>
-                                </button>
+                                </div>
                                 {isStudentListExpanded && (
                                     <div className="flex flex-col flex-1 animate-in slide-in-from-top-2 duration-300">
-                                        {viewStyle === 'grid' ? (
+                                        {viewStyle === 'gallery' ? (
+                                            <div className="p-4 md:p-6 w-full animate-in fade-in duration-500">
+                                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
+                                                    {filteredOrders.map(order => (
+                                                        <div 
+                                                            key={order.id} 
+                                                            onClick={() => {
+                                                                if (order.digitalPhotoUrl || order.photoFile) {
+                                                                    setReframingItem({ 
+                                                                        id: order.id, 
+                                                                        type: 'student', 
+                                                                        photoUrl: order.digitalPhotoUrl || order.photoFile, 
+                                                                        name: order.studentName 
+                                                                    });
+                                                                }
+                                                            }}
+                                                            className="relative aspect-[3/4] bg-primary/5 rounded-2xl border border-primary/10 overflow-hidden group/gallery hover:shadow-xl hover:shadow-indigo-500/10 transition-all cursor-pointer"
+                                                        >
+                                                            {order.digitalPhotoUrl || order.photoFile ? (
+                                                                <div className="w-full h-full relative p-2">
+                                                                    <div 
+                                                                        className="w-full h-full overflow-hidden shadow-sm"
+                                                                        style={getShapeStyle(configOrla.photoShape || 'rect34', 120, 160)}
+                                                                    >
+                                                                        <img 
+                                                                            src={order.digitalPhotoUrl || order.photoFile} 
+                                                                            className="w-full h-full object-cover transition-transform group-hover/gallery:scale-110" 
+                                                                            alt={order.studentName} 
+                                                                        />
+                                                                    </div>
+                                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover/gallery:opacity-100 transition-opacity flex flex-col justify-end p-3 rounded-2xl">
+                                                                        <p className="text-[10px] font-black text-white uppercase truncate">{order.studentName}</p>
+                                                                        <div className="flex gap-2 mt-2">
+                                                                            <button 
+                                                                                className="flex-1 py-1.5 bg-white text-indigo-600 rounded-lg text-[9px] font-black uppercase tracking-wider hover:bg-indigo-50 transition-colors flex items-center justify-center gap-1"
+                                                                            >
+                                                                                <Maximize2 size={12} /> Reencuadrar
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-indigo-600 text-white text-[8px] font-black rounded-md shadow-sm z-20 border border-white/20">
+                                                                        {getGlobalRank(order.id)}
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="w-full h-full flex flex-col items-center justify-center text-primary/20 gap-2 p-4">
+                                                                     <Camera size={24} />
+                                                                     <span className="text-[9px] font-black uppercase text-center">Sin Foto Registrada</span>
+                                                                     <button 
+                                                                        onClick={(e) => { e.stopPropagation(); handleIndividualFileClick(order.id, 'student'); }}
+                                                                        className="mt-2 px-3 py-1 bg-white border border-primary/10 text-primary/40 rounded-lg text-[8px] font-black uppercase hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
+                                                                     >
+                                                                        Subir Ahora
+                                                                     </button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ) : viewStyle === 'grid' ? (
                                     <div className="p-4 md:p-5 w-full">
                                         {/* Grid forzado a 8 columnas */}
                                         <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-3 md:gap-4 content-start">
@@ -1172,8 +1706,32 @@ const ShootingPanel = ({
                                                             onClick={() => selectStudent(order)} 
                                                             className={`w-full relative flex flex-col items-center p-4 rounded-[16px] border transition-all duration-300 active:scale-95 ${isPhotoSelected ? 'border-orange-500 bg-orange-50 shadow-md ring-2 ring-orange-500/20 z-10 scale-[1.02]' : isBulkSelected ? 'border-orange-300 bg-orange-50/30' : 'border-primary/10 bg-card hover:border-primary/30 hover:shadow-md'}`}
                                                         >
-                                                            <div className={`w-12 h-12 rounded-full flex flex-col items-center justify-center mb-3 overflow-hidden transition-all ${isPhotoSelected ? 'bg-orange-100 text-orange-600' : isBulkSelected ? 'bg-orange-100/50 text-orange-500' : 'bg-primary/5 text-primary/40'}`}>
-                                                                {hasPhoto ? <Camera size={20} className="text-emerald-500" /> : <Users size={20} />}
+                                                            <div 
+                                                                className={`w-14 h-14 flex flex-col items-center justify-center mb-3 overflow-hidden transition-all shadow-sm ${isPhotoSelected ? 'bg-orange-100 text-orange-600' : isBulkSelected ? 'bg-orange-100/50 text-orange-500' : 'bg-primary/5 text-primary/40'} border-2 ${order.digitalPhotoUrl || order.photoFile?.toString().startsWith('http') ? 'border-emerald-500/30' : 'border-transparent'}`}
+                                                                style={getShapeStyle(configOrla.photoShape || 'rect34', 56, 56)}
+                                                            >
+                                                                {order.digitalPhotoUrl ? (
+                                                                    <img src={order.digitalPhotoUrl} className="w-full h-full object-cover" alt="Alumno" />
+                                                                ) : order.photoFile?.toString().startsWith('http') ? (
+                                                                    <img src={order.photoFile} className="w-full h-full object-cover" alt="Alumno" />
+                                                                ) : hasPhoto ? (
+                                                                    <Camera size={20} className="text-emerald-500" />
+                                                                ) : (
+                                                                    <Users size={20} />
+                                                                )}
+                                                            </div>
+                                                            <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-indigo-600 text-white text-[8px] font-black rounded-md shadow-sm z-20 border border-white/20">
+                                                                {getGlobalRank(order.id)}
+                                                            </div>
+                                                            {/* Botón de subida rápida en Grid */}
+                                                            <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover/card:opacity-100 transition-opacity z-20">
+                                                                <button 
+                                                                    onClick={(e) => { e.stopPropagation(); handleIndividualFileClick(order.id, 'student'); }}
+                                                                    className="p-1.5 bg-white/90 hover:bg-emerald-500 hover:text-white rounded-lg text-emerald-600 transition-all border border-emerald-100 shadow-sm"
+                                                                    title="Actualizar Foto"
+                                                                >
+                                                                    <Upload size={12} />
+                                                                </button>
                                                             </div>
                                                             <p className="text-[11px] font-bold text-center text-primary leading-tight line-clamp-2 w-full uppercase">{order.studentName}</p>
                                                             <span className="text-[9px] font-medium text-primary/50 mt-1 uppercase tracking-wider">{order.course}</span>
@@ -1201,7 +1759,8 @@ const ShootingPanel = ({
                                                 <tr className="bg-white">
                                                     <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-primary/40 w-[40px] text-center bg-white">
                                                         <button 
-                                                            onClick={() => {
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
                                                                 if (selectedOrderIds.length === filteredOrders.length && filteredOrders.length > 0) {
                                                                     setSelectedOrderIds([]);
                                                                 } else {
@@ -1213,13 +1772,15 @@ const ShootingPanel = ({
                                                             {selectedOrderIds.length === filteredOrders.length && filteredOrders.length > 0 ? <CheckSquare size={18} className="text-orange-500" /> : <Square size={18} />}
                                                         </button>
                                                     </th>
-                                                    <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-primary/40 w-[50px] text-center bg-white border-r border-primary/5">Nº</th>
-                                                    <th className="py-3 px-4 text-[10px] font-black uppercase tracking-wider text-primary/40 w-[30%] bg-white">Alumno / Tutor</th>
-                                                    <th className="py-3 px-3 text-[10px] font-black uppercase tracking-wider text-primary/40 w-[200px] bg-white">
+                                                    <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-primary/40 w-[50px] text-center bg-white">Nº ORLA</th>
+                                                    <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-primary/40 w-[60px] text-center bg-white">Foto</th>
+                                                    <th className="py-3 px-4 text-[10px] font-black uppercase tracking-wider text-primary/40 w-[25%] bg-white text-left">Alumno / Tutor</th>
+                                                    <th className="py-3 px-4 text-[10px] font-black uppercase tracking-wider text-primary/40 w-[180px] bg-white">
                                                         <div className="flex items-center justify-between">
                                                             <span className="text-secondary">Pack</span>
                                                             <button 
-                                                                onClick={() => {
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
                                                                     const firstPack = filteredOrders[0]?.pack;
                                                                     if (!firstPack) {
                                                                         Swal.fire({
@@ -1243,15 +1804,27 @@ const ShootingPanel = ({
                                                                         }
                                                                     });
                                                                 }}
-                                                                className="text-[9px] bg-emerald-600 text-white px-2 py-1 rounded-lg hover:bg-emerald-700 transition-all font-black shadow-sm"
+                                                                className="bg-primary/5 hover:bg-orange-500 hover:text-white text-primary/40 p-1.5 rounded-lg transition-colors"
+                                                                title="Sincronizar packs"
                                                             >
-                                                                APLICAR A TODOS
+                                                                <Wand2 size={12} />
                                                             </button>
                                                         </div>
                                                     </th>
-                                                    <th className="py-3 px-3 text-[10px] font-black uppercase tracking-wider text-primary/40 text-center w-[160px] bg-white">Estado</th>
-                                                    <th className="py-3 px-3 text-[10px] font-black uppercase tracking-wider text-primary/40 text-center w-[120px] bg-white">Nº Foto</th>
-                                                    <th className="py-3 px-3 text-right text-[10px] font-black uppercase tracking-wider text-primary/40 w-[120px] bg-white">Acciones</th>
+                                                    <th className="py-3 px-4 text-[10px] font-black uppercase tracking-wider text-primary/40 w-[150px] text-center bg-white">
+                                                        <div className="flex items-center justify-center gap-1.5 translate-x-1.5">
+                                                            <span>Estado</span>
+                                                            <button 
+                                                                onClick={(e) => { e.stopPropagation(); handleBulkStatusChange('students'); }}
+                                                                className="bg-rose-500/10 hover:bg-rose-500 hover:text-white text-rose-500 p-1.5 rounded-lg transition-colors border border-rose-500/10"
+                                                                title="Cambio masivo de estado"
+                                                            >
+                                                                <CheckCircle size={12} />
+                                                            </button>
+                                                        </div>
+                                                    </th>
+                                                    <th className="py-3 px-4 text-[10px] font-black uppercase tracking-wider text-primary/40 w-[120px] text-center bg-white">Nº Archivo</th>
+                                                    <th className="py-3 px-4 text-[10px] font-black uppercase tracking-wider text-primary/40 w-[100px] text-right bg-white">Acciones</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -1267,17 +1840,69 @@ const ShootingPanel = ({
                                                         </td>
                                                         <td className="py-4 px-3 text-center align-middle">
                                                             <span className="text-[10px] font-mono font-black text-primary/30 group-hover:text-orange-500 transition-colors">
-                                                                {(idx + 1).toString().padStart(4, '0')}
+                                                                {getGlobalRank(order.id)}
                                                             </span>
                                                         </td>
-                                                        <td className="py-4 px-3 overflow-hidden">
-                                                            <div className="flex flex-col gap-0.5 min-w-0">
-                                                                <p className="text-[13px] font-black text-slate-800 uppercase leading-none tracking-tight truncate">{order.studentName}</p>
-                                                                <p className="text-[9px] font-bold text-slate-400 uppercase truncate">
-                                                                    {order.parentName || 'SIN TUTOR ASIGNADO'}
-                                                                </p>
+                                                        <td className="py-4 px-3 text-center align-middle">
+                                                            <div className="relative group/photo mx-auto w-12 h-12">
+                                                                <div 
+                                                                    onClick={() => handleIndividualFileClick(order.id, 'student')}
+                                                                    style={getShapeStyle(configOrla.photoShape || 'rect34', 48, 48)}
+                                                                    className={`w-full h-full overflow-hidden shadow-sm flex items-center justify-center border transition-all cursor-pointer ${(order.digitalPhotoUrl || (order.photoFile?.toString().startsWith('http'))) ? 'border-emerald-500/20 hover:border-emerald-500 scale-110' : 'border-primary/5 bg-primary/5 hover:border-indigo-300'}`}
+                                                                    title="Clic para subir/cambiar foto"
+                                                                >
+                                                                    {order.digitalPhotoUrl ? (
+                                                                        <img src={order.digitalPhotoUrl} className="w-full h-full object-cover transition-opacity group-hover/photo:opacity-40" alt="Previsualización" />
+                                                                    ) : order.photoFile?.toString().startsWith('http') ? (
+                                                                        <img src={order.photoFile} className="w-full h-full object-cover transition-opacity group-hover/photo:opacity-40" alt="Previsualización" />
+                                                                    ) : (
+                                                                        <Camera size={16} className="text-primary/10 group-hover/photo:text-indigo-500" />
+                                                                    )}
+                                                                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/photo:opacity-100 transition-opacity bg-black/20">
+                                                                        <Upload size={14} className="text-white drop-shadow-md" />
+                                                                    </div>
+                                                                </div>
+
+                                                                {(order.digitalPhotoUrl || order.photoFile) && (
+                                                                    <button 
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setReframingItem({ 
+                                                                                id: order.id, 
+                                                                                type: 'student', 
+                                                                                photoUrl: order.digitalPhotoUrl || order.photoFile, 
+                                                                                name: order.studentName 
+                                                                            });
+                                                                        }}
+                                                                        className="absolute -right-2 -bottom-2 w-7 h-7 bg-white text-orange-600 rounded-full shadow-lg border border-primary/10 flex items-center justify-center opacity-0 group-hover/photo:opacity-100 transition-all hover:scale-110 z-10"
+                                                                        title="Reencuadrar foto"
+                                                                    >
+                                                                        <Maximize2 size={12} />
+                                                                    </button>
+                                                                )}
                                                             </div>
                                                         </td>
+                                                        <td className="py-4 px-3 overflow-hidden">
+                                                            <div className="flex flex-col gap-1 min-w-0">
+                                                                <input 
+                                                                    type="text" 
+                                                                    value={order.studentName || ''} 
+                                                                    onChange={(e) => updateOrder(order.id, { studentName: e.target.value.toUpperCase() })}
+                                                                    className="bg-transparent border-none p-0 text-[12px] font-black text-slate-800 uppercase focus:ring-0 focus:bg-white/50 rounded px-1 -ml-1 w-full"
+                                                                />
+                                                                <div className="flex items-center gap-1">
+                                                                    <User size={8} className="text-slate-400 shrink-0" />
+                                                                    <input 
+                                                                        type="text" 
+                                                                        value={order.parentName || ''} 
+                                                                        onChange={(e) => updateOrder(order.id, { parentName: e.target.value.toUpperCase() })}
+                                                                        placeholder="SIN TUTOR"
+                                                                        className="bg-transparent border-none p-0 text-[9px] font-bold text-slate-400 uppercase focus:ring-0 focus:bg-white/50 rounded px-1 -ml-1 w-full"
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        </td>
+
 
                                                         <td className="py-4 px-3 align-middle">
                                                             <div className="relative group/pack w-full">
@@ -1355,7 +1980,7 @@ const ShootingPanel = ({
                                                                 <button onClick={() => selectStudent(order)} className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white rounded-lg transition-colors border border-blue-100 shadow-sm" title="Modo Disparo">
                                                                     <Camera size={14} />
                                                                 </button>
-                                                                <button onClick={(e) => { e.stopPropagation(); setOrderToEdit(order); }} className="p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-500 hover:text-white border border-indigo-100 rounded-lg transition-colors shadow-sm" title="Editar Ficha del Alumno">
+                                                                <button onClick={(e) => { e.stopPropagation(); handleStartEditOrder(order); }} className="p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-500 hover:text-white border border-indigo-100 rounded-lg transition-colors shadow-sm" title="Editar Ficha del Alumno">
                                                                     <Pencil size={14} />
                                                                 </button>
                                                             </div>
@@ -1364,11 +1989,6 @@ const ShootingPanel = ({
                                                 ))}
                                             </tbody>
                                         </table>
-                                        {filteredOrders.length === 0 && (
-                                            <div className="p-8 text-center text-primary/40">
-                                                <p className="text-xs font-black uppercase tracking-widest">No hay alumnos para mostrar</p>
-                                            </div>
-                                        )}
                                             </div>
                                         )}
                                     </div>
@@ -1378,11 +1998,81 @@ const ShootingPanel = ({
                     </div>
                 )}
 
-                {shootMode === 'staff' && (
-                    <div className="flex flex-col h-full overflow-hidden animate-fade-in text-primary">
-                        {adminSchool && (
-                            <>
-                                <div className="mb-4 shrink-0 focus-within:z-50">
+        {shootMode === 'staff' && (
+            <div className="flex flex-col h-full overflow-hidden animate-fade-in text-primary">
+                {adminSchool && (
+                    <>
+                        {/* GESTIÓN DE ARCHIVOS PARA DOCENTES */}
+                        <div className="px-4 mb-4 shrink-0">
+                            <div className="bg-card border border-primary/10 border-l-4 border-l-emerald-500 rounded-[16px] shadow-sm overflow-hidden">
+                                <div className="px-5 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-500">
+                                            <FolderUp size={20} />
+                                        </div>
+                                        <div className="text-left">
+                                            <h2 className="text-sm font-black uppercase tracking-widest text-primary">Gestión de Archivos (Docentes)</h2>
+                                            <p className="text-[10px] text-primary/40 font-bold uppercase tracking-wider italic">Subida de fotos e importación de listado docente</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3 w-full md:w-auto">
+                                        <div className="h-[44px] flex items-center gap-3 px-5 rounded-xl bg-emerald-50 border border-emerald-100 shadow-sm">
+                                            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-600">
+                                                <Camera size={16} />
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-emerald-400 text-[9px] font-black uppercase leading-tight">Fotos Subidas</span>
+                                                <span className="text-emerald-700 text-[11px] font-black leading-tight">
+                                                    {filteredStaff.filter(s => s.photoFile || s.digitalPhotoUrl).length} / {filteredStaff.length}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <button 
+                                            onClick={() => {
+                                                setViewStyle('gallery');
+                                                setIsStaffListExpanded(true);
+                                            }}
+                                            className="h-[44px] flex-1 md:flex-none flex items-center justify-center gap-2 px-6 bg-emerald-600 text-white rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-md shadow-emerald-500/10 active:scale-95 border border-transparent"
+                                            title="Galería Docentes: Ver todas las fotos y reencuadrar"
+                                        >
+                                            <LayoutGrid size={16} />
+                                            <span>Galería</span>
+                                        </button>
+
+                                        <button 
+                                            onClick={() => setShowBulkUpload(true)} 
+                                            className="h-[44px] flex-1 md:flex-none flex items-center justify-center gap-2 px-6 bg-slate-800 text-white rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-slate-900 transition-all shadow-md shadow-slate-500/10 active:scale-95 border border-transparent"
+                                        >
+                                            <Upload size={16} />
+                                            <span>Subir Fotos</span>
+                                        </button>
+
+
+                                        
+                                        <button 
+                                            onClick={() => document.getElementById('excel-import-input-staff').click()}
+                                            className="h-[44px] flex-1 md:flex-none flex items-center justify-center gap-2 px-6 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-600 rounded-xl transition-all border border-emerald-500/20 font-black text-[11px] uppercase tracking-widest active:scale-95 shadow-sm"
+                                        >
+                                            <FileText size={16} />
+                                            <span>Importar Excel</span>
+                                            <input 
+                                                id="excel-import-input-staff"
+                                                type="file" 
+                                                accept=".xlsx, .xls" 
+                                                className="hidden" 
+                                                onChange={(e) => {
+                                                    const file = e.target.files[0];
+                                                    if (file) handleExcelImport(file);
+                                                }}
+                                            />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mb-4 shrink-0 focus-within:z-50">
                                 <div className="bg-card border border-primary/10 border-l-4 border-l-emerald-500 rounded-[16px] overflow-hidden text-primary shadow-sm">
                                     <button onClick={() => setIsStaffQuickAddExpanded(!isStaffQuickAddExpanded)} className="w-full px-5 py-4 flex items-center justify-between hover:bg-primary/[0.02] transition-colors text-primary border-b border-primary/5">
                                         <div className="flex items-center gap-3">
@@ -1536,7 +2226,7 @@ const ShootingPanel = ({
 
                         <div className="flex-1 px-4 py-4 text-primary flex flex-col items-center">
                             <div className="w-full max-w-[1700px] bg-card rounded-[16px] border border-primary/10 border-l-4 border-l-indigo-500 shadow-xl flex flex-col">
-                                <button 
+                                <div 
                                     onClick={() => setIsStaffListExpanded(!isStaffListExpanded)} 
                                     className="w-full p-4 md:p-5 border-b border-primary/5 flex justify-between items-center shrink-0 hover:bg-primary/[0.02] transition-colors cursor-pointer text-left"
                                 >
@@ -1589,31 +2279,104 @@ const ShootingPanel = ({
                                                 </div>
                                                 <div className="hidden md:flex items-center gap-1 p-1 rounded-xl bg-primary/[0.02] border border-primary/10 shadow-sm mr-2" onClick={e => e.stopPropagation()}>
                                                     <button 
-                                                        onClick={() => setStaffViewStyle('grid')} 
-                                                        className={`w-8 h-8 rounded-lg transition-all flex items-center justify-center ${staffViewStyle === 'grid' ? 'bg-white shadow-sm text-slate-900 border border-primary/5' : 'text-primary/40 hover:text-primary hover:bg-primary/5'}`} 
+                                                        onClick={() => setViewStyle('gallery')}
+                                                        className={`h-8 px-3 rounded-lg transition-all flex items-center justify-center gap-2 ${viewStyle === 'gallery' ? 'bg-indigo-600 shadow-sm text-white' : 'text-primary/40 hover:text-primary hover:bg-primary/5'}`}
+                                                        title="Modo Galería"
+                                                    >
+                                                        <LayoutGrid size={14} /> <span className="text-[9px] font-black uppercase">Galería</span>
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => { setViewStyle('list'); setStaffViewStyle('grid'); }} 
+                                                        className={`w-8 h-8 rounded-lg transition-all flex items-center justify-center ${viewStyle !== 'gallery' && staffViewStyle === 'grid' ? 'bg-white shadow-sm text-slate-900 border border-primary/5' : 'text-primary/40 hover:text-primary hover:bg-primary/5'}`} 
                                                         title="Cuadrícula"
                                                     >
                                                         <LayoutGrid size={16} />
                                                     </button>
                                                     <button 
-                                                        onClick={() => setStaffViewStyle('list')} 
-                                                        className={`w-8 h-8 rounded-lg transition-all flex items-center justify-center ${staffViewStyle === 'list' ? 'bg-white shadow-sm text-slate-900 border border-primary/5' : 'text-primary/40 hover:text-primary hover:bg-primary/5'}`} 
+                                                        onClick={() => { setViewStyle('list'); setStaffViewStyle('list'); }} 
+                                                        className={`w-8 h-8 rounded-lg transition-all flex items-center justify-center ${viewStyle !== 'gallery' && staffViewStyle === 'list' ? 'bg-white shadow-sm text-slate-900 border border-primary/5' : 'text-primary/40 hover:text-primary hover:bg-primary/5'}`} 
                                                         title="Lista"
                                                     >
                                                         <List size={18} />
                                                     </button>
                                                 </div>
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); setAdminTab('design'); }}
+                                                    className="h-[36px] px-4 bg-violet-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-violet-700 transition-all shadow-md active:scale-95 flex items-center gap-2"
+                                                >
+                                                    <Eye size={14} /> Ver Orla
+                                                </button>
                                             </div>
                                         )}
                                         <div className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-primary/5 transition-colors">
                                             {isStaffListExpanded ? <ChevronUp size={20} className="text-primary/40" /> : <ChevronDown size={20} className="text-primary/40" />}
                                         </div>
                                     </div>
-                                </button>
+                                </div>
 
                                 {isStaffListExpanded && (
                                     <div className="flex-1 custom-scrollbar p-0">
-                                        {staffViewStyle === 'grid' ? (
+                                        {viewStyle === 'gallery' ? (
+                                            <div className="p-4 md:p-6 w-full animate-in fade-in duration-500">
+                                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
+                                                    {filteredStaff.map(member => (
+                                                        <div 
+                                                            key={member.id} 
+                                                            onClick={() => {
+                                                                if (member.digitalPhotoUrl || member.photoFile) {
+                                                                    setReframingItem({ 
+                                                                        id: member.id, 
+                                                                        type: 'staff', 
+                                                                        photoUrl: member.digitalPhotoUrl || member.photoFile, 
+                                                                        name: `${member.firstName} ${member.lastName}` 
+                                                                    });
+                                                                }
+                                                            }}
+                                                            className="relative aspect-[3/4] bg-emerald-50/50 rounded-2xl border border-emerald-100 overflow-hidden group/gallery hover:shadow-xl hover:shadow-emerald-500/10 transition-all cursor-pointer"
+                                                        >
+                                                            {member.digitalPhotoUrl || member.photoFile ? (
+                                                                <div className="w-full h-full relative p-2">
+                                                                    <div 
+                                                                        className="w-full h-full overflow-hidden shadow-sm"
+                                                                        style={getShapeStyle(configOrla.photoShape || 'rect34', 120, 160)}
+                                                                    >
+                                                                        <img 
+                                                                            src={member.digitalPhotoUrl || member.photoFile} 
+                                                                            className="w-full h-full object-cover transition-transform group-hover/gallery:scale-110" 
+                                                                            alt={member.name} 
+                                                                        />
+                                                                    </div>
+                                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover/gallery:opacity-100 transition-opacity flex flex-col justify-end p-3 rounded-2xl">
+                                                                        <p className="text-[10px] font-black text-white uppercase truncate">{member.firstName} {member.lastName}</p>
+                                                                        <div className="flex gap-2 mt-2">
+                                                                            <button 
+                                                                                className="flex-1 py-1.5 bg-white text-emerald-600 rounded-lg text-[9px] font-black uppercase tracking-wider hover:bg-emerald-50 transition-colors flex items-center justify-center gap-1"
+                                                                            >
+                                                                                <Maximize2 size={12} /> Reencuadrar
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-emerald-600 text-white text-[8px] font-black rounded-md shadow-sm z-20 border border-white/20">
+                                                                        {getGlobalRank(member.id)}
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="w-full h-full flex flex-col items-center justify-center text-emerald-200 gap-2 p-4">
+                                                                     <Camera size={24} />
+                                                                     <span className="text-[9px] font-black uppercase text-center">Sin Foto Registrada</span>
+                                                                     <button 
+                                                                        onClick={(e) => { e.stopPropagation(); handleIndividualFileClick(member.id, 'staff'); }}
+                                                                        className="mt-2 px-3 py-1 bg-white border border-emerald-100 text-emerald-400 rounded-lg text-[8px] font-black uppercase hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
+                                                                     >
+                                                                        Subir Ahora
+                                                                     </button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ) : staffViewStyle === 'grid' ? (
                                             <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4 content-start p-4 md:p-5 pb-20">
                                                 {filteredStaff.map(member => {
                                                     const isSelected = activeStudent?.id === member.id;
@@ -1624,26 +2387,48 @@ const ShootingPanel = ({
                                                         <div key={member.id} className="relative group/card">
                                                             <button 
                                                                 onClick={() => selectStudent({ ...member, isStaff: true, studentName: member.name || `${member.firstName} ${member.lastName}` })}
-                                                                className={`w-full relative flex flex-col items-center p-5 rounded-[20px] border transition-all duration-300 active:scale-95 ${
+                                                                className={`w-full relative flex flex-col items-center p-4 rounded-[16px] border transition-all duration-300 active:scale-95 ${
                                                                     isSelected 
                                                                         ? 'border-indigo-500 bg-indigo-50 shadow-md ring-2 ring-indigo-500/10 z-10 scale-[1.02]' 
                                                                         : isBulkSelected 
                                                                             ? 'border-indigo-300 bg-indigo-50/30' 
-                                                                            : 'border-primary/10 bg-white hover:border-indigo-500/30 hover:shadow-md'
+                                                                            : 'border-primary/10 bg-card hover:border-indigo-500/30 hover:shadow-md'
                                                                 }`}
                                                             >
-                                                                <div className={`w-14 h-14 rounded-full flex flex-col items-center justify-center mb-4 transition-all ${
-                                                                    isSelected ? 'bg-indigo-100 text-indigo-600' : isBulkSelected ? 'bg-indigo-100/50 text-indigo-500' : 'bg-primary/5 text-primary/40'
-                                                                }`}>
-                                                                    {hasPhoto ? <Camera size={24} className="text-emerald-500" /> : <User size={24} />}
+                                                                <div 
+                                                                    className={`w-14 h-14 flex flex-col items-center justify-center mb-3 overflow-hidden transition-all shadow-sm ${
+                                                                        isSelected ? 'bg-indigo-100 text-indigo-600' : isBulkSelected ? 'bg-indigo-100/50 text-indigo-500' : 'bg-primary/5 text-primary/40'
+                                                                    } border-2 ${member.digitalPhotoUrl || member.photoFile?.toString().startsWith('http') ? 'border-emerald-500/30' : 'border-transparent'}`}
+                                                                    style={getShapeStyle(configOrla.photoShape || 'rect34', 56, 56)}
+                                                                >
+                                                                    {member.digitalPhotoUrl ? (
+                                                                        <img src={member.digitalPhotoUrl} className="w-full h-full object-cover" alt="Docente" />
+                                                                    ) : member.photoFile?.toString().startsWith('http') ? (
+                                                                        <img src={member.photoFile} className="w-full h-full object-cover" alt="Docente" />
+                                                                    ) : hasPhoto ? (
+                                                                        <Camera size={20} className="text-emerald-500" />
+                                                                    ) : (
+                                                                        <User size={20} />
+                                                                    )}
+                                                                </div>
+
+                                                                <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-indigo-600 text-white text-[8px] font-black rounded-md shadow-sm z-20 border border-white/20">
+                                                                    {getGlobalRank(member.id)}
+                                                                </div>
+                                                                {/* Botón de subida rápida en Grid Docentes */}
+                                                                <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover/card:opacity-100 transition-opacity z-20">
+                                                                    <button 
+                                                                        onClick={(e) => { e.stopPropagation(); handleIndividualFileClick(member.id, 'staff'); }}
+                                                                        className="p-1.5 bg-white/90 hover:bg-emerald-500 hover:text-white rounded-lg text-emerald-600 transition-all border border-emerald-100 shadow-sm"
+                                                                        title="Actualizar Foto"
+                                                                    >
+                                                                        <Upload size={12} />
+                                                                    </button>
                                                                 </div>
                                                                 
                                                                 <div className="flex flex-col items-center w-full min-w-0">
-                                                                    <p className="text-[12px] font-black text-center text-slate-800 leading-tight uppercase truncate w-full">
-                                                                        {member.firstName}
-                                                                    </p>
-                                                                    <p className="text-[10px] font-bold text-center text-slate-500 uppercase tracking-widest truncate w-full mt-0.5">
-                                                                        {member.lastName}
+                                                                    <p className="text-[11px] font-bold text-center text-primary leading-tight line-clamp-2 w-full uppercase">
+                                                                        {member.firstName} {member.lastName}
                                                                     </p>
                                                                     <span className={`mt-2 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest ${
                                                                         hasPhoto ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'
@@ -1695,11 +2480,23 @@ const ShootingPanel = ({
                                                                     {selectedStaffIds.length === filteredStaff.length && filteredStaff.length > 0 ? <CheckSquare size={18} className="text-indigo-500" /> : <Square size={18} />}
                                                                 </button>
                                                             </th>
-                                                            <th className="py-4 px-5 text-[10px] font-black uppercase tracking-widest text-primary/40 w-[60px] text-center bg-white border-r border-primary/5">Nº</th>
-                                                            <th className="py-3 px-3 text-[10px] font-black uppercase tracking-wider text-primary/40 w-[25%] bg-white">Docente</th>
+                                                            <th className="py-4 px-5 text-[10px] font-black uppercase tracking-widest text-primary/40 w-[60px] text-center bg-white border-r border-primary/5">Nº ORLA</th>
+                                                            <th className="py-3 px-3 text-[10px] font-black uppercase tracking-widest text-primary/40 text-center w-[60px] bg-white">Foto</th>
+                                                            <th className="py-3 px-3 text-[10px] font-black uppercase tracking-wider text-primary/40 w-[20%] bg-white">Docente</th>
                                                             <th className="py-3 px-3 text-[10px] font-black uppercase tracking-wider text-primary/40 text-center w-[20%] bg-white">Cargo / Función</th>
-                                                            <th className="py-3 px-3 text-[10px] font-black uppercase tracking-wider text-primary/40 text-center w-[120px] bg-white">Estado</th>
-                                                            <th className="py-3 px-3 text-center text-[10px] font-black uppercase tracking-wider text-primary/40 w-[100px] bg-white">Nº Foto</th>
+                                                            <th className="py-3 px-3 text-[10px] font-black uppercase tracking-wider text-primary/40 text-center w-[150px] bg-white">
+                                                                <div className="flex items-center justify-center gap-1.5 translate-x-1.5">
+                                                                    <span>Estado</span>
+                                                                    <button 
+                                                                        onClick={(e) => { e.stopPropagation(); handleBulkStatusChange('staff'); }}
+                                                                        className="bg-rose-500/10 hover:bg-rose-500 hover:text-white text-rose-500 p-1.5 rounded-lg transition-colors border border-rose-500/10"
+                                                                        title="Cambio masivo de estado"
+                                                                    >
+                                                                        <CheckCircle size={12} />
+                                                                    </button>
+                                                                </div>
+                                                            </th>
+                                                            <th className="py-3 px-3 text-center text-[10px] font-black uppercase tracking-wider text-primary/40 w-[100px] bg-white">Nº Archivo</th>
                                                             <th className="py-3 px-3 text-right text-[10px] font-black uppercase tracking-wider text-primary/40 w-[100px] bg-white">Acciones</th>
                                                         </tr>
                                                     </thead>
@@ -1718,17 +2515,66 @@ const ShootingPanel = ({
                                                                         </button>
                                                                     </td>
                                                                     <td className="py-4 px-5 text-center">
-                                                                        <span className="text-[11px] font-mono font-black text-indigo-500">{(idx + 1).toString().padStart(4, '0')}</span>
+                                                                        <span className="text-[11px] font-mono font-black text-indigo-500">{getGlobalRank(member.id)}</span>
+                                                                    </td>
+                                                                    <td className="py-4 px-3 text-center align-middle">
+                                                                        <div 
+                                                                            className="relative group/photo mx-auto w-12 h-12"
+                                                                        >
+                                                                            <div 
+                                                                                onClick={() => handleIndividualFileClick(member.id, 'staff')}
+                                                                                style={getShapeStyle(configOrla.photoShape || 'rect34', 48, 48)}
+                                                                                className={`w-full h-full overflow-hidden shadow-sm flex items-center justify-center border transition-all cursor-pointer ${(member.digitalPhotoUrl || (member.photoFile?.toString().startsWith('http'))) ? 'border-emerald-500/20 hover:border-emerald-500 scale-110' : 'border-primary/5 bg-primary/5 hover:border-indigo-300'}`}
+                                                                                title="Clic para subir/cambiar foto"
+                                                                            >
+                                                                                {member.digitalPhotoUrl ? (
+                                                                                    <img src={member.digitalPhotoUrl} className="w-full h-full object-cover transition-opacity group-hover/photo:opacity-40" alt="Docente" />
+                                                                                ) : member.photoFile?.toString().startsWith('http') ? (
+                                                                                    <img src={member.photoFile} className="w-full h-full object-cover transition-opacity group-hover/photo:opacity-40" alt="Docente" />
+                                                                                ) : (
+                                                                                    <Camera size={16} className="text-primary/10 group-hover/photo:text-indigo-500" />
+                                                                                )}
+                                                                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/photo:opacity-100 transition-opacity bg-black/20">
+                                                                                    <Upload size={14} className="text-white drop-shadow-md" />
+                                                                                </div>
+                                                                            </div>
+                                                                            
+                                                                            {(member.digitalPhotoUrl || member.photoFile) && (
+                                                                                <button 
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        setReframingItem({ 
+                                                                                            id: member.id, 
+                                                                                            type: 'staff', 
+                                                                                            photoUrl: member.digitalPhotoUrl || member.photoFile, 
+                                                                                            name: member.firstName + ' ' + member.lastName 
+                                                                                        });
+                                                                                    }}
+                                                                                    className="absolute -right-2 -bottom-2 w-7 h-7 bg-white text-indigo-600 rounded-full shadow-lg border border-primary/10 flex items-center justify-center opacity-0 group-hover/photo:opacity-100 transition-all hover:scale-110 z-10"
+                                                                                    title="Reencuadrar foto"
+                                                                                >
+                                                                                    <Maximize2 size={12} />
+                                                                                </button>
+                                                                            )}
+                                                                        </div>
                                                                     </td>
                                                                     <td className="py-4 px-5">
-                                                                        <div className="flex items-center gap-3">
-                                                                            <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${hasPhoto ? 'bg-emerald-50 text-emerald-500 border border-emerald-100' : 'bg-primary/5 text-primary/30'}`}>
-                                                                                {hasPhoto ? <Camera size={16} /> : <Users size={16} />}
+                                                                        <div className="flex flex-col gap-1">
+                                                                            <div className="flex items-center gap-1.5">
+                                                                                <input 
+                                                                                    type="text" 
+                                                                                    value={member.firstName || ''} 
+                                                                                    onChange={(e) => updateStaff(member.id, { firstName: e.target.value.toUpperCase() })}
+                                                                                    className="bg-transparent border-none p-0 text-xs font-black text-primary uppercase focus:ring-0 focus:bg-primary/5 rounded px-1 -ml-1 w-full"
+                                                                                />
+                                                                                <input 
+                                                                                    type="text" 
+                                                                                    value={member.lastName || ''} 
+                                                                                    onChange={(e) => updateStaff(member.id, { lastName: e.target.value.toUpperCase() })}
+                                                                                    className="bg-transparent border-none p-0 text-xs font-black text-primary uppercase focus:ring-0 focus:bg-primary/5 rounded px-1 w-full"
+                                                                                />
                                                                             </div>
-                                                                            <div>
-                                                                                <p className="text-xs font-black text-primary uppercase leading-tight">{member.firstName} {member.lastName}</p>
-                                                                                <p className="text-[9px] font-bold text-primary/40 uppercase mt-0.5">{member.assignments?.[0]?.course || 'General'}</p>
-                                                                            </div>
+                                                                            <p className="text-[9px] font-bold text-primary/40 uppercase mt-0.5">{member.assignments?.[0]?.course || 'General'}</p>
                                                                         </div>
                                                                     </td>
                                                                     <td className="py-4 px-3 text-center">
@@ -1778,35 +2624,32 @@ const ShootingPanel = ({
                                                                                     confirmButtonColor: '#ef4444',
                                                                                     confirmButtonText: 'Sí, borrar',
                                                                                     cancelButtonText: 'Cancelar'
-                                                                                }).then(result => {
-                                                                                    if (result.isConfirmed) deleteStaff([member.id]);
-                                                                                });
-                                                                            }} className="p-2.5 bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white border border-rose-100 rounded-xl shadow-sm transition-colors" title="Eliminar Docente">
-                                                                                <Trash2 size={16} />
-                                                                            </button>
-                                                                        </div>
-                                                                    </td>
-                                                                </tr>
-                                                            );
-                                                        })}
-                                                    </tbody>
-                                                </table>
-                                                {filteredStaff.length === 0 && (
-                                                    <div className="p-12 text-center text-primary/30">
-                                                        <p className="text-xs font-black uppercase tracking-widest">No hay docentes para mostrar</p>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
+                                                                                    }).then((result) => {
+                                                                                        if (result.isConfirmed) {
+                                                                                            deleteStaff(member.id);
+                                                                                        }
+                                                                                    });
+                                                                                }} className="p-2 bg-rose-50 text-rose-600 hover:bg-rose-500 hover:text-white border border-rose-100 rounded-lg shadow-sm transition-colors" title="Eliminar Registro">
+                                                                                    <Trash2 size={14} />
+                                                                                </button>
+                                                                            </div>
+                                                                        </td>
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    </>
-                )}
-            </div>
-        )}
-    </main>
+                        </>
+                    )}
+                </div>
+            )}
+        </main>
 
             {/* MODAL DISPARO ACTIVO */}
             {
@@ -1818,9 +2661,20 @@ const ShootingPanel = ({
                                     <div className="absolute top-0 right-0 p-8 opacity-10">
                                         {settings?.logo ? <img src={settings.logo} alt="Logo" className="w-48 h-48 object-contain drop-shadow-2xl brightness-0 invert" /> : <Camera size={200} />}
                                     </div>
-                                    <div className="relative z-10 lg:mt-16">
-                                        <div className="w-16 h-16 bg-white/20 rounded-3xl flex items-center justify-center mb-6 backdrop-blur-sm">
-                                            {settings?.logo ? <img src={settings.logo} alt="Logo" className="w-10 h-10 object-contain drop-shadow-xl brightness-0 invert" /> : <Camera size={32} />}
+                                    <div className="relative z-10 lg:mt-4">
+                                        <div 
+                                            className="w-full aspect-[3/4] max-w-[200px] bg-white/10 flex items-center justify-center mb-8 backdrop-blur-md border border-white/20 shadow-2xl overflow-hidden mx-auto lg:mx-0 group transition-all duration-500 hover:scale-105 hover:border-white/40"
+                                            style={getShapeStyle(configOrla.photoShape || 'rect34', 200, 260)}
+                                        >
+                                            {activeStudent.digitalPhotoUrl ? (
+                                                <img src={activeStudent.digitalPhotoUrl} className="w-full h-full object-cover animate-fade-in" alt="Foto Alumno" />
+                                            ) : activeStudent.photoFile?.toString().startsWith('http') ? (
+                                                <img src={activeStudent.photoFile} className="w-full h-full object-cover animate-fade-in" alt="Foto Alumno" />
+                                            ) : settings?.logo ? (
+                                                <img src={settings.logo} alt="Logo" className="w-20 h-20 object-contain drop-shadow-xl brightness-0 invert opacity-40" />
+                                            ) : (
+                                                <Camera size={48} className="text-white/20" />
+                                            )}
                                         </div>
                                         <h1 className={`text-3xl lg:text-5xl font-black uppercase tracking-tight leading-none italic text-white drop-shadow-xl ${activeStudent.photoFile ? 'mb-2' : 'mb-6'}`}>
                                             {activeStudent.studentName}
@@ -1965,7 +2819,7 @@ const ShootingPanel = ({
                                         <div className="text-center flex flex-col items-center gap-12">
                                             <div className="w-full flex flex-col items-center gap-8">
                                                 <div className="w-full flex items-center justify-between w-full max-w-md">
-                                                    <p className="text-[11px] font-black text-primary/40 uppercase tracking-[0.3em]">Introduce Nº de Foto</p>
+                                                    <p className="text-[11px] font-black text-primary/40 uppercase tracking-[0.3em]">Introduce Nº de Archivo</p>
                                                     {(photoPrefix || photoNumber) && (
                                                         <button
                                                             onClick={() => { setPhotoPrefix(""); setPhotoNumber(""); }}
@@ -2059,6 +2913,7 @@ const ShootingPanel = ({
                 onClose={() => setShowBulkUpload(false)} 
                 photographerId={photographerId}
                 schools={schools}
+                currentSchoolId={adminSchool}
             />
 
             {/* MODAL DE MAPEO DINÁMICO EXCEL (NAVAJA SUIZA) - REDISEÑO ORIENTADO A USUARIO */}
@@ -2105,7 +2960,7 @@ const ShootingPanel = ({
                                         { id: 'email', label: 'Email', icon: <Mail size={12} />, color: 'blue' },
                                         { id: 'notes', label: 'Notas / Observaciones', icon: <MessageSquare size={12} />, color: 'slate' },
                                         { id: 'role', label: 'Cargo (Docentes)', icon: <UserCheck size={12} />, color: 'amber' },
-                                        { id: 'type', label: 'Tipo (Alumno/Staff)', icon: <Database size={12} />, color: 'purple' },
+                                        { id: 'type', label: 'Tipo (Alumno/Docente)', icon: <Database size={12} />, color: 'purple' },
                                         { id: 'photoNum', label: 'Nº Archivo Foto', icon: <Camera size={12} />, color: 'rose' }
                                     ];
 
@@ -2282,7 +3137,16 @@ const ShootingPanel = ({
                 </div>
             )}
 
-            {/* Modal de Confirmación de Borrado */}
+            {/* INPUT DE ARCHIVO OCULTO PARA SUBIDA INDIVIDUAL */}
+            <input 
+                type="file" 
+                ref={fileInputRef}
+                className="hidden" 
+                accept="image/*"
+                onChange={handleIndividualFileChange}
+            />
+
+            {/* MODAL ELIMINAR SELECCIONADOS */}
             {showDeleteConfirm && (
                 <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 backdrop-blur-xl bg-slate-950/60 transition-all duration-500">
                     <div className="bg-slate-900 border border-white/10 rounded-[40px] w-full max-w-sm overflow-hidden shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] animate-in zoom-in-95 duration-300">
@@ -2321,9 +3185,243 @@ const ShootingPanel = ({
                     </div>
                 </div>
             )}
-        </div >
+            
+            {/* MODAL DE REENCUADRE (REFRAMING) */}
+            {reframingItem && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8">
+                    <div 
+                        className="absolute inset-0 bg-slate-900/40 backdrop-blur-md"
+                        onClick={() => setReframingItem(null)}
+                    />
+                    
+                    <div className="relative w-full max-w-4xl bg-white rounded-[32px] shadow-2xl overflow-hidden flex flex-col md:flex-row animate-in zoom-in-95 duration-300 border border-white/20">
+                        {/* Área de Visualización (Preview) */}
+                        <div className="flex-1 bg-slate-100 relative min-h-[400px] flex items-center justify-center overflow-hidden border-b md:border-b-0 md:border-r border-slate-200">
+                            <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#000 0.5px, transparent 0.5px)', backgroundSize: '10px 10px' }}></div>
+                            
+                            {/* El "Marco" de la Foto (Segun configOrla) */}
+                            <div 
+                                className="relative shadow-2xl bg-white overflow-hidden transition-all"
+                                style={{
+                                    width: '350px',
+                                    height: '450px',
+                                    ...getShapeStyle(configOrla?.photoShape || 'circle', 350, 450)
+                                }}
+                            >
+                                <img 
+                                    src={reframingItem.photoUrl} 
+                                    alt="Reencuadre"
+                                    draggable={false}
+                                    style={{
+                                        width: '100%',
+                                        height: '100%',
+                                        objectFit: 'cover',
+                                        transform: `scale(${reframingItem.photoConfig?.zoom || 1}) translate(${reframingItem.photoConfig?.x || 0}px, ${reframingItem.photoConfig?.y || 0}px)`,
+                                        cursor: 'move'
+                                    }}
+                                    onMouseDown={(e) => {
+                                        const startX = e.clientX;
+                                        const startY = e.clientY;
+                                        const initialX = reframingItem.photoConfig?.x || 0;
+                                        const initialY = reframingItem.photoConfig?.y || 0;
+                                        const currentZoom = reframingItem.photoConfig?.zoom || 1;
+
+                                        const handleMouseMove = (mm) => {
+                                            const dx = (mm.clientX - startX) / currentZoom;
+                                            const dy = (mm.clientY - startY) / currentZoom;
+                                            setReframingItem(prev => ({
+                                                ...prev,
+                                                photoConfig: {
+                                                    ...prev.photoConfig,
+                                                    x: initialX + dx,
+                                                    y: initialY + dy,
+                                                    zoom: currentZoom
+                                                }
+                                            }));
+                                        };
+
+                                        const handleMouseUp = () => {
+                                            window.removeEventListener('mousemove', handleMouseMove);
+                                            window.removeEventListener('mouseup', handleMouseUp);
+                                        };
+
+                                        window.addEventListener('mousemove', handleMouseMove);
+                                        window.addEventListener('mouseup', handleMouseUp);
+                                    }}
+                                />
+                            </div>
+                            
+                            {/* Etiquetas Informativas */}
+                            <div className="absolute bottom-6 left-6 flex flex-col gap-1">
+                                <span className="px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full text-[10px] font-black uppercase text-slate-500 shadow-sm border border-slate-200">Vista Previa Real</span>
+                                <span className="px-3 py-1 bg-indigo-600 rounded-full text-[10px] font-black uppercase text-white shadow-md shadow-indigo-500/20">{PHOTO_SHAPES.find(s => s.id === (configOrla?.photoShape || 'circle'))?.label}</span>
+                            </div>
+                        </div>
+
+                        {/* Controles Laterales */}
+                        <div className="w-full md:w-[320px] p-8 flex flex-col gap-8">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h3 className="text-[20px] font-black text-slate-900 leading-tight uppercase">Reencuadrar</h3>
+                                    <p className="text-[12px] text-slate-500 font-bold uppercase tracking-wider mt-1">{reframingItem.name}</p>
+                                </div>
+                                <button 
+                                    onClick={() => setReframingItem(null)}
+                                    className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-slate-600"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            {/* Control de Zoom */}
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-center px-1">
+                                    <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                        <ZoomIn size={14} className="text-indigo-500" /> Zoom
+                                    </label>
+                                    <span className="text-[12px] font-black text-indigo-600">{Math.round((reframingItem.photoConfig?.zoom || 1) * 100)}%</span>
+                                </div>
+                                <input 
+                                    type="range" 
+                                    min="1" 
+                                    max="3" 
+                                    step="0.01"
+                                    value={reframingItem.photoConfig?.zoom || 1}
+                                    onChange={(e) => {
+                                        const newZoom = parseFloat(e.target.value);
+                                        setReframingItem(prev => ({
+                                            ...prev,
+                                            photoConfig: { ...prev.photoConfig, zoom: newZoom }
+                                        }));
+                                    }}
+                                    className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                                />
+                                <div className="flex justify-between px-1">
+                                    <button onClick={() => setReframingItem(prev => ({ ...prev, photoConfig: { zoom: 1, x: 0, y: 0 }}))} className="text-[10px] font-black text-slate-400 hover:text-indigo-600 transition-colors">1.0x</button>
+                                    <button onClick={() => setReframingItem(prev => ({ ...prev, photoConfig: { ...prev.photoConfig, zoom: 2 }}))} className="text-[10px] font-black text-slate-400 hover:text-indigo-600 transition-colors">2.0x</button>
+                                    <button onClick={() => setReframingItem(prev => ({ ...prev, photoConfig: { ...prev.photoConfig, zoom: 3 }}))} className="text-[10px] font-black text-slate-400 hover:text-indigo-600 transition-colors">3.0x</button>
+                                </div>
+                            </div>
+
+                            {/* Selector de Formas */}
+                            <div className="space-y-4">
+                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 px-1">
+                                    <Sparkles size={14} className="text-indigo-500" /> Forma de la Foto
+                                </label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {PHOTO_SHAPES.map(shape => (
+                                        <button
+                                            key={shape.id}
+                                            onClick={() => {
+                                                const currentShape = configOrla?.photoShape || 'circle';
+                                                if (currentShape === shape.id) return;
+
+                                                Swal.fire({
+                                                    title: '<span class="text-[22px] font-black uppercase tracking-tight text-slate-800">¿Cambiar forma de la Orla?</span>',
+                                                    html: '<p class="text-[14px] text-slate-500 font-medium leading-relaxed px-4">Esta es una acción <b>GLOBAL</b>. Todas las fotos de la orla cambiarán a esta nueva forma para mantener la uniformidad.</p>',
+                                                    icon: 'warning',
+                                                    iconColor: '#f59e0b',
+                                                    showCancelButton: true,
+                                                    confirmButtonText: 'SÍ, CAMBIAR FORMA',
+                                                    cancelButtonText: 'CANCELAR',
+                                                    customClass: {
+                                                        popup: 'rounded-[32px] border-none shadow-2xl p-8',
+                                                        confirmButton: 'bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all shadow-lg shadow-indigo-500/20 active:scale-95 border-none',
+                                                        cancelButton: 'bg-slate-100 hover:bg-slate-200 text-slate-500 px-8 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all active:scale-95 border-none'
+                                                    },
+                                                    buttonsStyling: false
+                                                }).then((result) => {
+                                                    if (result.isConfirmed) {
+                                                        setConfigOrla(prev => ({ ...prev, photoShape: shape.id }));
+                                                        Swal.fire({
+                                                            title: '<span class="text-[18px] font-black uppercase text-indigo-600">Forma Actualizada</span>',
+                                                            text: 'Se ha aplicado el cambio a toda la orla.',
+                                                            icon: 'success',
+                                                            iconColor: '#4f46e5',
+                                                            timer: 1500,
+                                                            showConfirmButton: false,
+                                                            customClass: {
+                                                                popup: 'rounded-[28px] border-none shadow-2xl p-6',
+                                                            }
+                                                        });
+                                                    }
+                                                });
+                                            }}
+                                            className={`p-2 rounded-xl border transition-all flex flex-col items-center gap-2 group ${
+                                                (configOrla?.photoShape || 'circle') === shape.id 
+                                                ? 'bg-indigo-50 border-indigo-200 text-indigo-600 shadow-sm' 
+                                                : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200 hover:text-slate-600'
+                                            }`}
+                                        >
+                                            <div className="w-8 h-8 flex items-center justify-center opacity-80 group-hover:opacity-100">
+                                                <svg viewBox="0 0 100 100" className="w-full h-full fill-current">
+                                                    <g dangerouslySetInnerHTML={{ __html: shape.preview(100, 100) }} />
+                                                </svg>
+                                            </div>
+                                            <span className="text-[8px] font-black uppercase text-center leading-tight">{shape.label.split(' ')[0]}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Atajos / Acciones rápidas */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <button 
+                                    onClick={() => setReframingItem(prev => ({ ...prev, photoConfig: { zoom: 1, x: 0, y: 0 }}))}
+                                    className="p-3 bg-slate-50 border border-slate-200 rounded-2xl text-[10px] font-black text-slate-600 hover:bg-white hover:border-indigo-200 hover:text-indigo-600 transition-all flex flex-col items-center gap-2 uppercase tracking-tight"
+                                >
+                                    <Maximize size={16} /> Resetear
+                                </button>
+                                <button 
+                                    onClick={handleAutoReframe}
+                                    className="p-3 bg-slate-50 border border-slate-200 rounded-2xl text-[10px] font-black text-slate-600 hover:bg-white hover:border-indigo-200 hover:text-indigo-600 transition-all flex flex-col items-center gap-2 uppercase tracking-tight"
+                                >
+                                    <Wand2 size={16} /> Auto
+                                </button>
+                            </div>
+
+                            <div className="mt-auto pt-6 border-t border-slate-100 flex flex-col gap-3">
+                                <p className="text-[10px] text-slate-400 font-bold italic leading-tight mb-2 text-center">Arrastra la foto directamente para posicionarla dentro del marco.</p>
+                                
+                                <button 
+                                    onClick={() => {
+                                        // Guardar cambios
+                                        if (reframingItem.type === 'student') {
+                                            updateOrder(reframingItem.id, { photoConfig: reframingItem.photoConfig });
+                                        } else {
+                                            updateStaff(reframingItem.id, { photoConfig: reframingItem.photoConfig });
+                                        }
+                                        setReframingItem(null);
+                                        Swal.fire({ 
+                                            title: '<span class="text-[18px] font-black uppercase text-indigo-600">Ajuste Guardado</span>', 
+                                            text: 'El reencuadre se aplicará a la orla.', 
+                                            icon: 'success', 
+                                            iconColor: '#4f46e5',
+                                            timer: 1500, 
+                                            showConfirmButton: false,
+                                            customClass: {
+                                                popup: 'rounded-[28px] border-none shadow-2xl p-6',
+                                            }
+                                        });
+                                    }}
+                                    className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-[13px] uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-500/20 active:scale-95 flex items-center justify-center gap-2"
+                                >
+                                    <Check size={18} /> Aplicar Ajustes
+                                </button>
+                                
+                                <button 
+                                    onClick={() => setReframingItem(null)}
+                                    className="w-full py-3 text-slate-400 hover:text-slate-600 font-black text-[11px] uppercase tracking-widest transition-colors"
+                                >
+                                    Cancelar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
     );
 };
-
 
 export default React.memo(ShootingPanel);

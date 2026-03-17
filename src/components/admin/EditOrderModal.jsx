@@ -101,13 +101,23 @@ const EditOrderModal = ({
                                     </>
                                 ) : (
                                     <>
-                                        <div className="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mb-2 border border-emerald-100 shadow-sm">
-                                            <Upload size={22} />
-                                        </div>
-                                        <p className="text-[11px] font-black text-slate-800 uppercase tracking-wide">
-                                            {orderToEdit.digitalPhotoUrl ? 'REEMPLAZAR CAPTURA' : 'SUBIR FOTO ORIGINAL'}
-                                        </p>
-                                        <p className="text-[9px] text-slate-400 mt-1 font-bold italic">3600 x 2400 (3:2) • JPG</p>
+                                        {orderToEdit.digitalPhotoUrl ? (
+                                            <div className="relative group w-full flex flex-col items-center">
+                                                <div className="w-24 h-24 rounded-2xl overflow-hidden border-2 border-emerald-500/20 mb-3 shadow-lg group-hover:scale-105 transition-transform duration-500">
+                                                    <img src={orderToEdit.digitalPhotoUrl} className="w-full h-full object-cover" alt="Vista previa" />
+                                                </div>
+                                                <p className="text-[11px] font-black text-slate-800 uppercase tracking-wide">CAMBIAR FOTOGRAFÍA</p>
+                                                <p className="text-[9px] text-slate-400 mt-1 font-bold italic">Presiona para subir una nueva</p>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <div className="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mb-2 border border-emerald-100 shadow-sm">
+                                                    <Upload size={22} />
+                                                </div>
+                                                <p className="text-[11px] font-black text-slate-800 uppercase tracking-wide">SUBIR FOTO ORIGINAL</p>
+                                                <p className="text-[9px] text-slate-400 mt-1 font-bold italic">3600 x 2400 (3:2) • JPG</p>
+                                            </>
+                                        )}
                                     </>
                                 )}
                             </label>
@@ -197,7 +207,7 @@ const EditOrderModal = ({
                     <div>
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block ml-1">Fichero Cámara (Nº)</label>
                         <input type="text" value={orderToEdit.tempPhotoFile} onChange={e => setOrderToEdit(p => ({ ...p, tempPhotoFile: e.target.value }))}
-                            placeholder="DSC_0000" className="w-full bg-emerald-50 border border-emerald-100 text-emerald-700 font-mono font-black text-lg rounded-xl px-4 py-4 outline-none shadow-inner focus:ring-2 focus:ring-emerald-500/10 transition-all" />
+                            placeholder="0001" className="w-full bg-emerald-50 border border-emerald-100 text-emerald-700 font-mono font-black text-lg rounded-xl px-4 py-4 outline-none shadow-inner focus:ring-2 focus:ring-emerald-500/10 transition-all" />
                     </div>
                 </div>
 
@@ -211,7 +221,7 @@ const EditOrderModal = ({
                                 ...orderToEdit, 
                                 course: orderToEdit.tempGroup ? `${orderToEdit.tempCourse} ${orderToEdit.tempGroup}`.trim() : orderToEdit.tempCourse,
                                 pack: selectedPackObj ? { id: selectedPackObj.id, label: selectedPackObj.name } : { id: 'manual', label: 'Personalizado' },
-                                photoFile: orderToEdit.tempPhotoFile,
+                                photo_file_number: orderToEdit.tempPhotoFile,
                                 status: orderToEdit.tempStatus,
                                 paymentMethod: orderToEdit.tempPayment,
                                 digitalPhotoUrl: orderToEdit.digitalPhotoUrl

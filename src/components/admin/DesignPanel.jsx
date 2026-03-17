@@ -186,8 +186,56 @@ const DesignPanel = ({
     };
 
     // Función para auto-ajustar la distribución de alumnos
+    const normalize = (str) => {
+        if (!str) return '';
+        return str.toString().toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/\s+/g, ' ')
+            .trim();
+    };
+
+    const splitName = (fullName) => {
+        if (!fullName) return { nombre: '', apellidos: '' };
+        const parts = fullName.trim().split(' ');
+        if (parts.length === 1) return { nombre: parts[0], apellidos: '' };
+        return { nombre: parts[0], apellidos: parts.slice(1).join(' ') };
+    };
+
+    const getStaffAssignments = (m) => {
+        if (m.assignments && m.assignments.length > 0) return m.assignments;
+        if (m.course) return [{ course: m.course, group: m.group || '' }];
+        return [];
+    };
+
+    const filteredStaff = (staff || []).filter(m => {
+        const asgs = getStaffAssignments(m);
+        if (!designFilter.course) return true;
+        return asgs.some(a => {
+            const staffCourseNormal = normalize(getCourseBase(a.course));
+            const filterCourseNormal = normalize(designFilter.course);
+            const courseMatch = staffCourseNormal === filterCourseNormal;
+            if (!designFilter.group) return courseMatch;
+            const groupNormal = normalize(a.group);
+            const filterGroupNormal = normalize(designFilter.group);
+            return courseMatch && (!groupNormal || groupNormal === filterGroupNormal);
+        });
+    });
+
+    const filteredOrders = (orders || [])
+        .filter(o =>
+            (!designFilter.course || getCourseBase(o.course) === designFilter.course) &&
+            (!designFilter.group || getGroup(o.course) === designFilter.group)
+        )
+        .sort((a, b) => {
+            const apellidosA = splitName(a.studentName).apellidos;
+            const apellidosB = splitName(b.studentName).apellidos;
+            return apellidosA.localeCompare(apellidosB);
+        });
+
     const autoAdjustLayout = (passedConfig = null) => {
-        const configToUse = (passedConfig && !passedConfig.nativeEvent) ? passedConfig : {};
+        // Si passedConfig es un evento de React, lo ignoramos
+        const configToUse = (passedConfig && passedConfig.nativeEvent) ? {} : (passedConfig || {});
         const cfg = { ...configOrla, ...configToUse };
         const numStudents = filteredOrders?.length || 0;
         const numStaff = filteredStaff?.length || 0;
@@ -195,107 +243,127 @@ const DesignPanel = ({
         if (numStudents === 0 && numStaff === 0) return;
 
         const updates = {};
-        const isA3 = (cfg.canvasW || 4961) > 4000;
-
-        // 1. ESCALA Y TAMAÑO BASE
-        updates.aScale = 1.0;
-        if (numStudents > 50) updates.aScale = 0.85;
-        if (numStudents > 80) updates.aScale = 0.7;
-        
-        updates.dScale = Math.min(1.25, updates.aScale * 1.3); // Docentes un poco más grandes pero proporcionales
-
-        // 2. Recomendación de Columnas (Ajustadas para centrado real)
-        let maxAluCols = 8;
-        if (numStudents <= 15) maxAluCols = 6;
-        else if (numStudents <= 25) maxAluCols = 8;
-        else if (numStudents <= 45) maxAluCols = 10;
-        else if (numStudents <= 70) maxAluCols = 12;
-        else maxAluCols = 15;
-        
-        // Si hay pocos alumnos, ajustamos las columnas al número de alumnos para que justify-center los centre perfectamente
-        updates.aCols = (numStudents > 0) ? Math.min(numStudents, maxAluCols) : maxAluCols;
-        updates.dCols = (numStaff > 0) ? Math.min(numStaff, 10) : 8;
-
-        // 3. FUENTES (Valores proporcionales optimizados)
-        const fontBase = (cfg.canvasW || 4961) / 4961; // Factor de escala basado en A3 (4961px)
-        
-        updates.fontSizeAluName = Math.round((isA3 ? 55 : 42) * fontBase);
-        updates.fontSizeAluSur = Math.round(updates.fontSizeAluName * 0.75);
-        updates.fontSizeDocName = Math.round(updates.fontSizeAluName * 1.2);
-        updates.fontSizeDocRole = Math.round(updates.fontSizeDocName * 0.75);
-        
-        // El pie de página DEBE ser proporcional al ancho para que no desborde en A4/40x30/30x20
-        const schoolName = schools.find(s => s.id === adminSchool)?.name || schools[0]?.name || "NOMBRE DEL COLEGIO";
-        const schoolNameLen = schoolName.length || 20;
-        // Estimación: un carácter suele ocupar ~0.7 de su altura en ancho (un poco más conservador que 0.65).
-        // El availableWidth real es el ancho del lienzo menos los márgenes izq y der.
-        const margin = cfg.margin || safeMmToPx(15);
         const canvasW = cfg.canvasW || 4961;
-        const availableWidth = canvasW - (margin * 2);
-        
-        // Calculamos el tamaño máximo permitido para que el nombre quepa en una sola línea dentro de las guías
-        const maxFontSizeByWidth = Math.floor((availableWidth * 0.95) / (schoolNameLen * 0.7));
-        
-        updates.fontSizeSchool = Math.min(Math.round(240 * fontBase), maxFontSizeByWidth);
-        updates.fontSizePromo = Math.round(Math.min(90 * fontBase, updates.fontSizeSchool * 0.4));
-        updates.fontSizeCourse = Math.round(Math.min(72 * fontBase, updates.fontSizeSchool * 0.35));
-
-        // 4. LÍMITES VERTICALES Y GAPS
         const canvasH = cfg.canvasH || 3508;
-        const heightBase = canvasH / 3508; // Factor de escala vertical
-        
-        // Gap Horizontal Docentes (Mucho más generoso para centrado perfecto)
-        updates.dGapX = Math.max(safeMmToPx(45), (availableWidth * 0.15)); 
-        updates.dGapY = safeMmToPx(30) * heightBase; 
-        
-        const docRows = Math.ceil(numStaff / updates.dCols);
-        const baseH = (cfg.aH || 450);
-        const docHWithText = (baseH * updates.dScale) + updates.fontSizeDocName + updates.fontSizeDocRole + safeMmToPx(15);
-        
-        updates.dY = canvasH * 0.12; 
-        const topLimit = updates.dY + (docRows * docHWithText) + safeMmToPx(30);
+        const margin = cfg.margin || safeMmToPx(15);
+        const availableWidth = canvasW - (margin * 2);
+        const fontBase = canvasW / 4961;
+        const heightBase = canvasH / 3508;
 
-        // Ajuste de footerY proporcional a la altura total
-        const footerYRecommended = Math.round(180 * heightBase);
-        updates.footerY = footerYRecommended;
-        
-        const currentFooterY = updates.footerY;
-        const footerSpaceTotal = currentFooterY + updates.fontSizeSchool + updates.fontSizePromo + updates.fontSizeCourse + (safeMmToPx(35) * heightBase); 
-        const bottomLimit = canvasH - footerSpaceTotal;
-
-        // 5. AJUSTE DE ALUMNOS (Centrado y Espaciado)
-        const availableHeight = bottomLimit - topLimit;
-        const aluRows = Math.ceil(numStudents / updates.aCols);
-        const aluH = baseH * updates.aScale;
-        const aluHWithText = aluH + updates.fontSizeAluName + updates.fontSizeAluSur + safeMmToPx(10);
-        
-        // Gap horizontal alumnos (Más separación para permitir nombres largos)
-        const baseAluW = (cfg.aW || 350) * updates.aScale;
-        updates.aGapX = Math.min(safeMmToPx(60), (availableWidth - (updates.aCols * baseAluW)) / Math.max(1, updates.aCols - 1));
-        updates.aGapX = Math.max(updates.aGapX, safeMmToPx(25));
-
-        // Gap vertical alumnos
-        let targetGapY = safeMmToPx(65) * updates.aScale * heightBase;
-        let totalAluHeight = (aluRows * (aluHWithText + targetGapY)) - targetGapY;
-
-        if (totalAluHeight > availableHeight) {
-            targetGapY = Math.max(safeMmToPx(20), (availableHeight - (aluRows * aluHWithText)) / Math.max(1, aluRows - 1));
-            totalAluHeight = (aluRows * (aluHWithText + targetGapY)) - targetGapY;
-        }
-
-        updates.aGapY = targetGapY;
-        updates.aStartY = topLimit + (availableHeight - totalAluHeight) / 2;
-        
-        // Reset offsets para asegurar alineación perfecta
+        // Reset de desplazamientos manuales
         updates.aOffsetX = 0;
         updates.dOffsetX = 0;
-        updates.aTextOffset = safeMmToPx(10) * updates.aScale;
-        updates.dTextOffset = safeMmToPx(12) * updates.dScale;
 
-        setConfigOrla(prev => ({
-            ...prev,
-            ...updates
-        }));
+        // 1. DOCENTES (SIEMPRE EN UNA SOLA FILA)
+        const dCols = numStaff || 8;
+        const baseDocW = 380; 
+        const baseDocH = 480; 
+        
+        // Escala de docentes: que quepan todos en una sola fila dentro del ancho disponible
+        updates.dScale = Math.min(1.2, (availableWidth / (dCols * baseDocW)) * 0.90);
+        updates.dCols = dCols;
+        updates.fontSizeDocName = Math.round(50 * updates.dScale * fontBase);
+        updates.fontSizeDocRole = Math.round(updates.fontSizeDocName * 0.80);
+        
+        const fDocW = baseDocW * updates.dScale;
+        // Separación horizontal de docentes (centrados con gap controlado)
+        if (numStaff > 1) {
+            const idealGap = safeMmToPx(15) * updates.dScale;
+            // No permitimos que el gap sea enorme para que no se dispersen
+            const maxDGap = fDocW * 0.35; 
+            updates.dGapX = Math.min(idealGap, maxDGap);
+        } else {
+            updates.dGapX = 0;
+        }
+
+        const docHWithText = (baseDocH * updates.dScale) + updates.fontSizeDocName + updates.fontSizeDocRole + safeMmToPx(12);
+        
+        updates.dY = Math.round(canvasH * 0.05); // Menos aire superior inicial
+        const topLimit = updates.dY + docHWithText + safeMmToPx(15);
+
+        // 2. FOOTER (Parte Inferior)
+        const currentSchool = schools.find(s => s.id === adminSchool) || { name: 'COLEGIO' };
+        const sName = currentSchool.name || "COLEGIO";
+        const sLen = Math.max(10, sName.length);
+        const maxF = Math.floor((availableWidth * 0.9) / (sLen * 0.55));
+        
+        updates.fontSizeSchool = Math.min(Math.round(140 * fontBase), maxF);
+        updates.fontSizePromo = Math.round(updates.fontSizeSchool * 0.45);
+        updates.fontSizeCourse = Math.round(updates.fontSizeSchool * 0.35);
+        
+        const currentMargin = updates.margin !== undefined ? updates.margin : (configOrla.margin || safeMmToPx(15));
+        updates.footerY = safeMmToPx(10); // Por defecto un poco encima del margen (10mm)
+        const footerTextHeight = updates.fontSizeSchool + updates.fontSizePromo + updates.fontSizeCourse + safeMmToPx(15);
+        const bottomLimit = canvasH - (currentMargin + updates.footerY + footerTextHeight + safeMmToPx(15));
+
+        // 3. ALUMNOS (Contenido central entre docentes y pie)
+        let availableHeight = bottomLimit - topLimit;
+        const baseAluW = 350;
+        const baseAluH = 450;
+        
+        // Escala razonable según cantidad inicial (empezamos más alto)
+        let curScale = 1.3;
+        if (numStudents > 25) curScale = 1.1;
+        if (numStudents > 50) curScale = 0.9;
+        if (numStudents > 100) curScale = 0.7;
+        
+        let aCols, aRows, aHT, totalAH, tGapY;
+
+        // Bucle de refinamiento para encajar verticalmente y equilibrar filas
+        for (let i = 0; i < 40; i++) {
+            updates.fontSizeAluName = Math.round(42 * curScale * fontBase);
+            updates.fontSizeAluSur = Math.round(updates.fontSizeAluName * 0.75);
+            
+            const aW = baseAluW * curScale;
+            const aH = baseAluH * curScale;
+            aHT = aH + updates.fontSizeAluName + updates.fontSizeAluSur + safeMmToPx(10);
+            
+            const minGX = safeMmToPx(12);
+            // Columnas máximas por ancho
+            const maxColsByWidth = Math.max(1, Math.floor((availableWidth + minGX) / (aW + minGX)));
+            
+            // Calculamos filas necesarias
+            aRows = Math.ceil(numStudents / maxColsByWidth);
+            
+            // Ajuste de "Uniformidad": Equilibrar columnas si hay varias filas
+            if (aRows > 1) {
+                aCols = Math.ceil(numStudents / aRows);
+            } else {
+                aCols = numStudents;
+            }
+
+            tGapY = Math.max(safeMmToPx(8), safeMmToPx(35) * curScale);
+            totalAH = (aRows * (aHT + tGapY)) - tGapY;
+
+            // Si cabe con un margen de seguridad, paramos. Si no, bajamos escala.
+            if (totalAH <= availableHeight * 0.98 || curScale < 0.15) {
+                break;
+            }
+            curScale *= 0.94;
+        }
+
+        updates.aScale = curScale;
+        updates.aCols = aCols;
+        const fAluW = baseAluW * updates.aScale;
+        
+        // Espaciado horizontal para alumnos (centrado con gap controlado)
+        if (aCols > 1) {
+            const idealAGap = safeMmToPx(20) * updates.aScale;
+            // Limitamos gap excesivo para que la cuadrícula quede compacta y centrada
+            const maxAGap = fAluW * 0.45;
+            updates.aGapX = Math.min(idealAGap, maxAGap);
+        } else {
+            updates.aGapX = 0;
+        }
+        
+        updates.aGapY = tGapY;
+        // Centrar el bloque de alumnos en el espacio vertical disponible
+        updates.aStartY = Math.round(topLimit + (availableHeight - totalAH) / 2);
+        updates.aTextOffset = safeMmToPx(8) * updates.aScale;
+        updates.dTextOffset = safeMmToPx(10) * updates.dScale;
+
+        // Aplicamos todos los cambios al estado global
+        setConfigOrla(prev => ({ ...prev, ...updates }));
     };
 
     // Función para escalar todo proporcionalmente
@@ -334,7 +402,7 @@ const DesignPanel = ({
                 if (key === 'fontSizeDocName') val = 120;
                 if (key === 'fontSizeDocRole') val = 84;
                 if (key === 'fontSizeCourse') val = 60;
-                if (key === 'footerY') val = configOrla.margin || 180; // Inicializar con margin o default
+                if (key === 'footerY') val = 10; // Valor inicial relativo al margen (10mm)
             }
             if (val !== undefined) {
                 updates[key] = val * scaleFactor;
@@ -413,7 +481,7 @@ const DesignPanel = ({
                 { icon: TypeIcon, label: 'T. NOMBRES', key: 'fontSizeDocName', min: 10, max: 1000, step: 5, unit: 'PX', toggleKey: 'hideApellidosDoc', description: 'Tamaño de fuente para los nombres de los docentes' },
                 { icon: TypeIcon, label: 'T. CARGO', key: 'fontSizeDocRole', min: 10, max: 800, step: 5, unit: 'PX', toggleKey: 'hideCargoDoc', description: 'Tamaño de fuente para los cargos de los docentes' },
                 { icon: Baseline, label: 'SEP. TEXTO', key: 'dTextOffset', min: 0, max: 100, step: 1, unit: 'PT', description: 'Distancia entre la foto y el texto del docente' },
-                { icon: MoveHorizontal, label: 'SEPARACIÓN', key: 'dGapX', min: safeMmToPx(0), max: safePxToMm(500), unit: 'MM', description: 'Espacio horizontal entre los docentes' },
+                { icon: MoveHorizontal, label: 'SEPARACIÓN', key: 'dGapX', min: safeMmToPx(0), max: safeMmToPx(500), unit: 'MM', description: 'Espacio horizontal entre los docentes' },
                 { icon: MoveVertical, label: 'EJE Y', key: 'dY', min: safeMmToPx(0), max: safeMmToPx(350), unit: 'MM', description: 'Posición vertical de la fila de docentes' },
             ]
         },
@@ -472,28 +540,7 @@ const DesignPanel = ({
         }
     }, [isFullScreenDesign, configOrla.canvasW, configOrla.canvasH]);
 
-    // Efecto reactivo: Si cambia el margen, reajustamos el pie de página para que quepa en las guías
-    useEffect(() => {
-        if (configOrla.margin !== undefined && isFullScreenDesign) {
-            const schoolName = schools.find(s => s.id === adminSchool)?.name || schools[0]?.name || "NOMBRE DEL COLEGIO";
-            const schoolNameLen = schoolName.length || 20;
-            const canvasW = configOrla.canvasW || 4961;
-            const availableWidth = canvasW - (configOrla.margin * 2);
-            const fontBase = canvasW / 4961;
 
-            const maxFontSizeByWidth = Math.floor((availableWidth * 0.95) / (schoolNameLen * 0.7));
-            const newFontSizeSchool = Math.min(Math.round(240 * fontBase), maxFontSizeByWidth);
-            
-            if (newFontSizeSchool !== configOrla.fontSizeSchool) {
-                setConfigOrla(prev => ({
-                    ...prev,
-                    fontSizeSchool: newFontSizeSchool,
-                    fontSizePromo: Math.round(Math.min(90 * fontBase, newFontSizeSchool * 0.4)),
-                    fontSizeCourse: Math.round(Math.min(72 * fontBase, newFontSizeSchool * 0.35))
-                }));
-            }
-        }
-    }, [configOrla.margin, adminSchool, schools]);
 
     // Calcular escala para la vista previa pequeña
     const [previewScale, setPreviewScale] = useState(0.1);
@@ -576,64 +623,6 @@ const DesignPanel = ({
     const currentSchool = schools.find(s => s.id === adminSchool) || { name: 'NOMBRE DEL CENTRO' };
 
     // Filtrado automático de docentes por centro, curso y grupo
-    const getStaffAssignments = (m) => {
-        if (m.assignments && m.assignments.length > 0) return m.assignments;
-        if (m.course) return [{ course: m.course, group: m.group || '' }];
-        return [];
-    };
-
-    const filteredStaff = (staff || []).filter(m => {
-        const asgs = getStaffAssignments(m);
-
-        // Si no hay filtro de curso en la orla, mostramos todos los del centro
-        if (!designFilter.course) return true;
-
-        // Comprobamos si el docente está asignado a ese curso (normalizado)
-        return asgs.some(a => {
-            const normalize = (str) => {
-                if (!str) return '';
-                return str.toString().toLowerCase()
-                    .normalize("NFD")
-                    .replace(/[\u0300-\u036f]/g, "")
-                    .replace(/\s+/g, ' ')
-                    .trim();
-            };
-
-            const staffCourseNormal = normalize(getCourseBase(a.course));
-            const filterCourseNormal = normalize(designFilter.course);
-
-            const courseMatch = staffCourseNormal === filterCourseNormal;
-
-            // Si el filtro de grupo está vacío (Todos los grupos), mostramos a todos los docentes de ese curso
-            if (!designFilter.group) return courseMatch;
-
-            // Si hay un grupo específico seleccionado, comprobamos si el docente es de ese grupo o de curso general
-            const groupNormal = normalize(a.group);
-            const filterGroupNormal = normalize(designFilter.group);
-            const groupMatch = !groupNormal || groupNormal === filterGroupNormal;
-
-            return courseMatch && groupMatch;
-        });
-    });
-
-    const splitName = (fullName) => {
-        if (!fullName) return { nombre: '', apellidos: '' };
-        const parts = fullName.trim().split(' ');
-        if (parts.length === 1) return { nombre: parts[0], apellidos: '' };
-        return { nombre: parts[0], apellidos: parts.slice(1).join(' ') };
-    };
-
-    const filteredOrders = orders
-        .filter(o =>
-            (!designFilter.course || getCourseBase(o.course) === designFilter.course) &&
-            (!designFilter.group || getGroup(o.course) === designFilter.group)
-        )
-        .sort((a, b) => {
-            const apellidosA = splitName(a.studentName).apellidos;
-            const apellidosB = splitName(b.studentName).apellidos;
-            return apellidosA.localeCompare(apellidosB);
-        });
-
     return (
         <div className={`animate-fade-in ${isFullScreenDesign ? 'fixed inset-0 z-[600] bg-slate-950 p-0 overflow-hidden' : 'max-w-7xl mx-auto space-y-12 pb-32'}`}>
 
@@ -735,16 +724,16 @@ const DesignPanel = ({
                                                             transform: `scale(${baseScale})`,
                                                             transformOrigin: 'top center'
                                                         }}>
-                                                            {member.digitalPhotoUrl ? (
+                                                            {member.digitalPhotoUrl || (member.photoFile?.toString().startsWith('http') ? member.photoFile : null) ? (
                                                                 <img 
-                                                                    src={member.digitalPhotoUrl} 
+                                                                    src={member.digitalPhotoUrl || member.photoFile} 
                                                                     className="w-full h-full object-cover" 
                                                                     style={{ ...getShapeStyle(currentShape, w, h) }}
                                                                     alt={member.name}
                                                                 />
                                                             ) : (
                                                                 <div className="w-full h-full bg-slate-200 flex items-center justify-center">
-                                                                    <div className="text-slate-400 font-black opacity-40" style={{ fontSize: (w * 0.15) + 'px' }}>STAFF</div>
+                                                                    <div className="text-slate-400 font-black opacity-40" style={{ fontSize: (w * 0.12) + 'px' }}>DOCENTE</div>
                                                                 </div>
                                                             )}
                                                         </div>
@@ -761,7 +750,7 @@ const DesignPanel = ({
                                                                 }}
                                                                 className="font-normal uppercase text-black leading-tight outline-none cursor-text hover:bg-accent/5 focus:bg-white focus:ring-4 focus:ring-accent/20 rounded px-1 transition-all duration-200 group-hover/member:text-accent focus:shadow-lg"
                                                                 style={{ 
-                                                                    fontSize: (configOrla.fontSizeDocName || (configOrla.fontSizeDoc ? configOrla.fontSizeDoc * 0.45 : 54)) + 'px', 
+                                                                    fontSize: (configOrla.fontSizeDocName || 54) + 'px', 
                                                                     minWidth: '40px', 
                                                                     width: 'max-content' 
                                                                 }}
@@ -791,7 +780,7 @@ const DesignPanel = ({
                                                                 }}
                                                                 className="font-normal uppercase text-black leading-tight mt-0.5 outline-none cursor-text hover:bg-accent/5 focus:bg-white focus:ring-4 focus:ring-accent/20 rounded px-1 transition-all duration-200 hover:text-accent focus:shadow-lg"
                                                                 style={{
-                                                                    fontSize: (baseSize * 0.45) + 'px',
+                                                                    fontSize: (configOrla.fontSizeDocRole || 42) + 'px',
                                                                     display: configOrla.hideCargoDoc ? 'none' : 'block'
                                                                 }}
                                                                 onBlur={(e) => {
@@ -844,9 +833,9 @@ const DesignPanel = ({
                                                                 transform: `scale(${baseScale})`,
                                                                 transformOrigin: 'top center'
                                                             }}>
-                                                                {o.digitalPhotoUrl ? (
+                                                                {o.digitalPhotoUrl || (o.photoFile?.toString().startsWith('http') ? o.photoFile : null) ? (
                                                                     <img 
-                                                                        src={o.digitalPhotoUrl} 
+                                                                        src={o.digitalPhotoUrl || o.photoFile} 
                                                                         className="w-full h-full object-cover" 
                                                                         style={{ ...getShapeStyle(currentShape, w, h) }}
                                                                         alt={o.studentName}
@@ -864,7 +853,7 @@ const DesignPanel = ({
                                                                     contentEditable={true}
                                                                     suppressContentEditableWarning={true}
                                                                     className="font-normal uppercase text-black leading-tight outline-none cursor-text hover:bg-accent/5 focus:bg-white focus:ring-2 focus:ring-accent/30 rounded px-1 transition-all duration-200"
-                                                                    style={{ fontSize: (baseSize * 0.45) + 'px' }}
+                                                                    style={{ fontSize: (configOrla.fontSizeAluName || 36) + 'px' }}
                                                                     onBlur={(e) => {
                                                                         const newName = e.target.innerText.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
                                                                         if (newName && newName !== o.studentName) {
@@ -879,7 +868,10 @@ const DesignPanel = ({
                                                                     }}
                                                                 >
                                                                     <div className="whitespace-nowrap">{nombre}</div>
-                                                                    <div className="whitespace-nowrap" style={{ display: configOrla.hideApellidosAlu ? 'none' : 'block' }}>{apellidos}</div>
+                                                                    <div className="whitespace-nowrap" style={{ 
+                                                                        display: configOrla.hideApellidosAlu ? 'none' : 'block',
+                                                                        fontSize: (configOrla.fontSizeAluSur || 28) + 'px'
+                                                                    }}>{apellidos}</div>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -890,7 +882,7 @@ const DesignPanel = ({
                                     </div>
 
                                     {/* Pie de Orla */}
-                                    <div className="absolute bottom-[20px] w-full text-center" style={{ bottom: (configOrla.footerY || 180) + 'px' }}>
+                                    <div className="absolute bottom-0 w-full text-center" style={{ bottom: ((configOrla.margin || 0) + (configOrla.footerY || 0)) + 'px' }}>
                                         {!configOrla.hideSchool && (
                                             <h2
                                                 contentEditable={true}
@@ -1039,7 +1031,7 @@ const DesignPanel = ({
                         }}
                     >
                         {/* Canvas Principal (Gris seda en modo oscuro para evitar fatiga visual) */}
-                        <div className={`relative shadow-[0_0_100px_rgba(0,0,0,0.3)] transition-colors duration-500 ${isDark ? 'bg-slate-200' : 'bg-white'}`}
+                        <div className={`relative shadow-[0_0_100px_rgba(0,0,0,0.3)] transition-colors duration-500 ${isDark ? 'bg-slate-200' : 'bg-white'} [*]:box-border`}
                             style={{
                                 width: (configOrla.canvasW || 4961) + 'px',
                                 height: (configOrla.canvasH || 3508) + 'px'
@@ -1098,9 +1090,9 @@ const DesignPanel = ({
                                                     transform: `scale(${baseScale})`,
                                                     transformOrigin: 'top center'
                                                 }}>
-                                                    {member.digitalPhotoUrl ? (
+                                                    { (member.digitalPhotoUrl || (member.photoFile?.toString().startsWith('http') ? member.photoFile : null)) ? (
                                                         <img 
-                                                            src={member.digitalPhotoUrl} 
+                                                            src={member.digitalPhotoUrl || member.photoFile} 
                                                             className="w-full h-full object-cover" 
                                                             style={{ 
                                                                 ...getShapeStyle(currentShape, w, h),
@@ -1110,12 +1102,13 @@ const DesignPanel = ({
                                                         />
                                                     ) : (
                                                         <div className="w-full h-full bg-slate-100 flex items-center justify-center">
-                                                            <div className="text-slate-300 font-black" style={{ fontSize: (w * 0.15) + 'px' }}>STAFF</div>
+                                                            <div className="text-slate-300 font-black" style={{ fontSize: (w * 0.12) + 'px' }}>DOCENTE</div>
                                                         </div>
                                                     )}
                                                 </div>
                                                 <div className="flex flex-col items-center w-full" style={{
                                                     marginTop: (h * (baseScale - 1)) + (configOrla.dTextOffset || 0) + 'px',
+                                                    padding: '0' // Eliminamos padding lateral para que el gap 0 sea real
                                                 }}>
                                                     <div
                                                         contentEditable={true}
@@ -1127,7 +1120,7 @@ const DesignPanel = ({
                                                         }}
                                                         className="font-normal uppercase text-black leading-tight outline-none cursor-text hover:bg-accent/5 focus:bg-white focus:ring-4 focus:ring-accent/20 rounded px-2 transition-all duration-200 group-hover/member:text-accent focus:shadow-lg w-full text-center"
                                                         style={{ 
-                                                            fontSize: (configOrla.fontSizeDocName || (configOrla.fontSizeDoc ? configOrla.fontSizeDoc * 0.45 : 54)) + 'px', 
+                                                            fontSize: (configOrla.fontSizeDocName || 54) + 'px', 
                                                             textAlign: 'center'
                                                         }}
                                                         onBlur={(e) => {
@@ -1143,8 +1136,8 @@ const DesignPanel = ({
                                                             }
                                                         }}
                                                     >
-                                                        <div className="whitespace-nowrap">{nombre}</div>
-                                                        <div className="whitespace-nowrap" style={{ display: configOrla.hideApellidosDoc ? 'none' : 'block' }}>{apellidos}</div>
+                                                        <div className="leading-[1.1] text-wrap">{nombre}</div>
+                                                        <div className="leading-[1.1] text-wrap" style={{ display: configOrla.hideApellidosDoc ? 'none' : 'block' }}>{apellidos}</div>
                                                     </div>
                                                     <p
                                                         contentEditable={true}
@@ -1156,9 +1149,11 @@ const DesignPanel = ({
                                                         }}
                                                         className="font-normal uppercase text-black leading-tight mt-0.5 outline-none cursor-text hover:bg-accent/5 focus:bg-white focus:ring-4 focus:ring-accent/20 rounded px-1 transition-all duration-200 hover:text-accent focus:shadow-lg"
                                                         style={{
-                                                            fontSize: (configOrla.fontSizeDocRole || (configOrla.fontSizeDoc ? configOrla.fontSizeDoc * 0.35 : 42)) + 'px',
+                                                            fontSize: (configOrla.fontSizeDocRole || 42) + 'px',
                                                             display: configOrla.hideCargoDoc ? 'none' : 'block',
-                                                            textAlign: 'center'
+                                                            textAlign: 'center',
+                                                            width: '100%',
+                                                            padding: '0 10px'
                                                         }}
                                                         onBlur={(e) => {
                                                             const newRole = e.target.innerText.trim();
@@ -1209,9 +1204,9 @@ const DesignPanel = ({
                                                         transform: `scale(${baseScale})`,
                                                         transformOrigin: 'top center'
                                                     }}>
-                                                        {o.digitalPhotoUrl ? (
+                                                        { (o.digitalPhotoUrl || (o.photoFile?.toString().startsWith('http') ? o.photoFile : null)) ? (
                                                             <img 
-                                                                src={o.digitalPhotoUrl} 
+                                                                src={o.digitalPhotoUrl || o.photoFile} 
                                                                 className="w-full h-full object-cover" 
                                                                 style={{ 
                                                                     ...getShapeStyle(currentShape, w, h),
@@ -1225,8 +1220,9 @@ const DesignPanel = ({
                                                             </div>
                                                         )}
                                                     </div>
-                                                    <div className="flex flex-col items-center w-full px-1" style={{
-                                                        marginTop: (h * (baseScale - 1)) + (configOrla.aTextOffset || 0) + 'px'
+                                                    <div className="flex flex-col items-center w-full" style={{
+                                                        marginTop: (h * (baseScale - 1)) + (configOrla.aTextOffset || 0) + 'px',
+                                                        padding: '0' // Eliminamos padding lateral para que el gap 0 sea real
                                                     }}>
                                                         <div
                                                             contentEditable={true}
@@ -1238,7 +1234,7 @@ const DesignPanel = ({
                                                             }}
                                                             className="font-normal uppercase text-black leading-tight outline-none cursor-text hover:bg-accent/5 focus:bg-white focus:ring-4 focus:ring-accent/20 rounded px-2 transition-all duration-200 group-hover/alu:text-accent focus:shadow-lg w-full text-center"
                                                             style={{ 
-                                                                fontSize: (configOrla.fontSizeAluName || (configOrla.fontSizeAlu ? configOrla.fontSizeAlu * 0.45 : 36)) + 'px', 
+                                                                fontSize: (configOrla.fontSizeAluName || 36) + 'px', 
                                                                 textAlign: 'center'
                                                             }}
                                                             onBlur={(e) => {
@@ -1254,7 +1250,7 @@ const DesignPanel = ({
                                                                 }
                                                             }}
                                                         >
-                                                            <div className="whitespace-nowrap">{nombre}</div>
+                                                            <div className="leading-[1.1] text-wrap">{nombre}</div>
                                                         </div>
                                                         <div
                                                             contentEditable={true}
@@ -1266,7 +1262,7 @@ const DesignPanel = ({
                                                             }}
                                                             className="font-normal uppercase text-black leading-tight mt-0.5 outline-none cursor-text hover:bg-accent/5 focus:bg-white focus:ring-4 focus:ring-accent/20 rounded px-1 transition-all duration-200 group-hover/alu:text-accent focus:shadow-lg"
                                                             style={{ 
-                                                                fontSize: (configOrla.fontSizeAluSur || (configOrla.fontSizeAlu ? configOrla.fontSizeAlu * 0.35 : 28)) + 'px', 
+                                                                fontSize: (configOrla.fontSizeAluSur || 28) + 'px', 
                                                                 display: configOrla.hideApellidosAlu ? 'none' : 'block',
                                                                 textAlign: 'center'
                                                             }}
@@ -1284,7 +1280,7 @@ const DesignPanel = ({
                                                                 }
                                                             }}
                                                         >
-                                                            <div className="whitespace-nowrap">{apellidos}</div>
+                                                            <div className="leading-[1.1] text-wrap">{apellidos}</div>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1294,7 +1290,7 @@ const DesignPanel = ({
                                 </div>
                             </div>
 
-                            <div className="absolute bottom-[20px] w-full text-center pointer-events-auto" style={{ bottom: (configOrla.footerY || 180) + 'px' }}>
+                            <div className="absolute bottom-0 w-full text-center pointer-events-auto" style={{ bottom: ((configOrla.margin || 0) + (configOrla.footerY || 0)) + 'px' }}>
                                 {!configOrla.hideSchool && (
                                     <h2
                                         contentEditable={true}
@@ -1589,7 +1585,11 @@ const DesignPanel = ({
                                                     key={shape.id}
                                                     shape={shape}
                                                     active={currentShape === shape.id}
-                                                    onClick={() => updateConfig('photoShape', shape.id)}
+                                                    onClick={() => {
+                                                        if (confirm('¿Deseas aplicar esta forma a todas las fotos? Este ajuste afectará a toda la orla.')) {
+                                                            updateConfig('photoShape', shape.id);
+                                                        }
+                                                    }}
                                                     isDark={isDark}
                                                 />
                                             ))}
@@ -1722,7 +1722,7 @@ const DesignPanel = ({
                                                                 min={activeDesignParam.min}
                                                                 max={activeDesignParam.max}
                                                                 step={activeDesignParam.step || 1}
-                                                                value={configOrla[activeDesignParam.key] !== undefined ? configOrla[activeDesignParam.key] : (activeDesignParam.key === 'aCols' ? 8 : activeDesignParam.key === 'fontSizeAlu' || activeDesignParam.key === 'fontSizeDoc' ? 10 : activeDesignParam.key === 'dScale' ? 1.2 : activeDesignParam.key === 'aScale' ? 1 : 0)}
+                                                                value={configOrla[activeDesignParam.key] !== undefined ? configOrla[activeDesignParam.key] : (activeDesignParam.key === 'aCols' ? 8 : activeDesignParam.key.startsWith('fontSize') ? 50 : activeDesignParam.key === 'dScale' ? 1.2 : activeDesignParam.key === 'aScale' ? 1 : 0)}
                                                                 onChange={(e) => updateConfig(activeDesignParam.key, parseFloat(e.target.value))}
                                                                 className={`relative z-10 w-full bg-transparent appearance-none cursor-pointer ${isDark ? 'accent-white' : 'accent-accent'}`}
                                                             />

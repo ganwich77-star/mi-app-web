@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Camera, Layers, Zap, Copy, Download, ArrowLeft, CheckCircle2, Binary, X, FileCode, Star, Package, Tag, Users, UserCheck, Globe, GraduationCap, Sun, Moon, Sparkles, Search } from 'lucide-react';
+import { Camera, Layers, Zap, Copy, Download, ArrowLeft, CheckCircle2, Binary, X, FileCode, Star, Package, Tag, Users, UserCheck, Globe, Sun, Moon, Clipboard, CheckCircle, Info, ExternalLink, FileJson, Cloud, Search } from 'lucide-react';
 import { PACKS, EXTRAS } from '../constants.js';
 
 const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "ORLA-GENERICA", course = "", group = "", onBack, theme, onToggleTheme, settings = {} }) => {
@@ -63,7 +63,7 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
         const cleanCenter = groupName.replace(/ORLA/gi, '').trim();
         const folderName = `ORLA ${cleanCenter} ${course} ${group}`.trim().toUpperCase();
         const timestamp = new Date().getTime();
-        const filename = `${cleanCenter}_${type}_${timestamp}.jsx`.replace(/\s+/g, '_').toUpperCase();
+        let filename = `${cleanCenter}_${type}_${timestamp}.jsx`.replace(/\s+/g, '_').toUpperCase();
         let content = '';
 
         if (type === 'CONSTRUCTOR') {
@@ -100,8 +100,9 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                     const roleY = surnameY + (roleFontSizePx * 1.5); 
 
                     const nameParts = splitName(member.name || member.studentName || 'DOCENTE');
+                    const photoId = member.photo_file_number || member.photoFile || member.id;
                     const esc = (val) => JSON.stringify(String(val || ""));
-                    return `    createItem(docentesGroup, ${esc(nameParts.nombre)}, ${esc(nameParts.apellidos)}, ${esc(member.role || 'DOCENTE')}, ${esc(member.id)}, ${phX.toFixed(2)}, ${phY.toFixed(2)}, ${dynamicW.toFixed(2)}, ${dynamicH.toFixed(2)}, ${nameY.toFixed(2)}, ${fontSizePx.toFixed(2)}, ${roleY.toFixed(2)}, ${roleFontSizePx.toFixed(2)}, true, ${surnameY.toFixed(2)});`;
+                    return `    createItem(docentesGroup, ${esc(nameParts.nombre)}, ${esc(nameParts.apellidos)}, ${esc(member.role || 'DOCENTE')}, ${esc(photoId)}, ${phX.toFixed(2)}, ${phY.toFixed(2)}, ${dynamicW.toFixed(2)}, ${dynamicH.toFixed(2)}, ${nameY.toFixed(2)}, ${fontSizePx.toFixed(2)}, ${roleY.toFixed(2)}, ${roleFontSizePx.toFixed(2)}, true, ${surnameY.toFixed(2)});`;
                 }).join('\n');
             })();
 
@@ -150,7 +151,7 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                     const surnameY = nameY + fontSizePx * 1.05;
 
                     const nameParts = splitName(g.studentName || 'ALUMNO');
-                    const containerId = g.photoFile || g.id;
+                    const containerId = g.photo_file_number || g.photoFile || g.id;
                     const esc = (val) => JSON.stringify(String(val || ""));
 
                     return `    createItem(alumnosGroup, ${esc(nameParts.nombre)}, ${esc(nameParts.apellidos)}, "", ${esc(containerId)}, ${phX.toFixed(2)}, ${phY.toFixed(2)}, ${dynamicW.toFixed(2)}, ${dynamicH.toFixed(2)}, ${nameY.toFixed(2)}, ${fontSizePx.toFixed(2)}, 0, 0, false, ${surnameY.toFixed(2)});`;
@@ -460,6 +461,88 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                 '        }',
                 '    }',
                 '    alert("Proceso finalizado.\\rby PUJALTE CREATIVE STUDIO\\r\\rFotos inyectadas AUTOMÁTICAMENTE: " + count);',
+                '}',
+                'main();',
+            ].join('\n');
+        } else if (type === 'CLOUD') {
+            filename = `03_ORLA_INYECCION_CLOUD_${timestamp}.jsx`;
+            const cloudItems = [
+                ...graduates.map(o => ({
+                    id: (o.photo_file_number || o.id).toLowerCase(),
+                    url: o.digitalPhotoUrl || o.photoFile,
+                    group: "ALUMNOS",
+                    name: o.studentName
+                })).filter(x => x.url),
+                ...staff.map(s => ({
+                    id: (s.photo_file_number || s.id).toLowerCase(),
+                    url: s.digitalPhotoUrl || s.photoFile,
+                    group: "DOCENTES",
+                    name: s.firstName || s.name
+                })).filter(x => x.url)
+            ];
+
+            content = [
+                '/* INYECCIÓN DIRECTA CLOUD - PUJALTE CREATIVE STUDIO */',
+                '#target photoshop',
+                'app.bringToFront();',
+                '',
+                'function main() {',
+                '    if (app.documents.length === 0) { alert("Abre la orla antes de ejecutar."); return; }',
+                '    var doc = app.activeDocument;',
+                '    var count = 0;',
+                '    ',
+                '    // Creamos carpeta temporal para descargas',
+                '    var tempFolder = new Folder(Folder.temp + "/orla_photos");',
+                '    if (!tempFolder.exists) tempFolder.create();',
+                '',
+                '    var items = ' + JSON.stringify(cloudItems, null, 4) + ';',
+                '',
+                '    for (var i = 0; i < items.length; i++) {',
+                '        var item = items[i];',
+                '        var tempFile = new File(tempFolder + "/" + item.id + ".jpg");',
+                '        ',
+                '        // Comando curl para descargar (Mac)',
+                '        var curlCmd = "curl -L -o \\"" + tempFile.fsName + "\\" \\"" + item.url + "\\"";',
+                '        app.system(curlCmd);',
+                '',
+                '        if (!tempFile.exists) continue;',
+                '',
+                '        var parentGroup;',
+                '        try { parentGroup = doc.layerSets.getByName(item.group); } catch(e) { continue; }',
+                '',
+                '        var layerGroup;',
+                '        try { layerGroup = parentGroup.layerSets.getByName(item.id.toUpperCase()); } catch(e) { ',
+                '            try { layerGroup = parentGroup.layerSets.getByName(item.id); } catch(e2) { continue; }',
+                '        }',
+                '',
+                '        var placeholder;',
+                '        try { placeholder = layerGroup.artLayers.getByName("PLACEHOLDER"); } catch(e) { continue; }',
+                '',
+                '        try {',
+                '            app.activeDocument = doc;',
+                '            doc.activeLayer = placeholder;',
+                '            var pBounds = placeholder.bounds;',
+                '            var targetW = pBounds[2] - pBounds[0];',
+                '            var targetH = pBounds[3] - pBounds[1];',
+                '',
+                '            app.open(tempFile);',
+                '            var photoDoc = app.activeDocument;',
+                `            photoDoc.resizeImage(targetW, targetH, ${design.dpi || 300}, ResampleMethod.BICUBICSHARPER);`,
+                '            photoDoc.selection.selectAll(); photoDoc.selection.copy();',
+                '            photoDoc.close(SaveOptions.DONOTSAVECHANGES);',
+                '',
+                '            app.activeDocument = doc;',
+                '            var pastedLayer = doc.paste();',
+                '            pastedLayer.name = "FOTO_" + item.id;',
+                '            var deltaX = pBounds[0] - pastedLayer.bounds[0];',
+                '            var deltaY = pBounds[1] - pastedLayer.bounds[1];',
+                '            pastedLayer.translate(deltaX, deltaY);',
+                '            pastedLayer.move(placeholder, ElementPlacement.PLACEBEFORE);',
+                '            pastedLayer.grouped = true;',
+                '            count++;',
+                '        } catch(e) { }',
+                '    }',
+                '    alert("Inyección Cloud finalizada.\\rFotos procesadas: " + count);',
                 '}',
                 'main();',
             ].join('\n');

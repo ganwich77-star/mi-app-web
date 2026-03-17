@@ -431,6 +431,10 @@ export default function App() {
             dScale: 1.2, dY: mmToPx(60), dGapX: mmToPx(15), dTextOffset: mmToPx(12),
             aScale: 1.0, aW: mmToPx(35), aH: mmToPx(45), aStartY: mmToPx(135), aStartX: mmToPx(20),
             aCols: 8, aGapY: mmToPx(65), aGapX: mmToPx(10), aTextOffset: mmToPx(10),
+            fontSizeSchool: 140, fontSizePromo: 70, fontSizeCourse: 60,
+            fontSizeAluName: 50, fontSizeAluSur: 40,
+            fontSizeDocName: 120, fontSizeDocRole: 80,
+            footerY: 10,
             promoText: "PROMOCIÓN 2026"
         };
         try {
@@ -1803,6 +1807,8 @@ export default function App() {
                                         setNewStaffForm={setNewStaffForm}
                                         setOrderToEdit={setOrderToEdit}
                                         setStaffAssigning={setStaffAssigning}
+                                        configOrla={configOrla}
+                                        setConfigOrla={setConfigOrla}
                                         addOrder={addOrder}
                                         deleteOrder={deleteOrder}
                                         updateStatus={updateStatus}
@@ -1814,12 +1820,14 @@ export default function App() {
                                         downloadMasterBackup={downloadMasterBackup}
                                         getSchoolName={getSchoolName}
                                         sortedSchools={sortedSchools}
+                                        schools={sortedSchools}
                                         resetOrders={resetOrders}
                                         bulkAddOrders={bulkAddOrders}
                                         bulkAddStaff={bulkAddStaff}
                                         updateAllOrders={updateAllOrders}
                                         updateAllStaff={updateAllStaff}
                                         photographerId={photographerId}
+                                        setAdminTab={setAdminTab}
                                     />
                                 )}
 

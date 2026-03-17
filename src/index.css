@@ -233,7 +233,12 @@
 
   .btn-ghost {
     background: rgba(148, 163, 184, 0.1);
-    @apply text-secondary font-bold rounded-2xl px-6 py-4 border border-transparent transition-all duration-300 active:scale-95 hover:bg-primary/5 hover:text-primary;
+    @apply text-secondary font-bold rounded-2xl px-6 py-4 border border-transparent transition-all duration-300 active:scale-95;
+  }
+
+  .btn-ghost:hover {
+    background: rgba(99, 102, 241, 0.05);
+    color: var(--text-primary);
   }
 
   /* Inputs Premium */
@@ -427,4 +432,129 @@ input[type="date"].full-clickable-date::-webkit-calendar-picker-indicator {
   height: 100%;
   opacity: 0;
   cursor: pointer;
+}
+
+/* Corrección para Selectores en Modales y SweetAlert2 Premium */
+.swal2-select.premium-select-swal,
+.swal2-popup .swal2-select,
+.modal-content select {
+    display: block !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+    max-width: 90% !important;
+    height: 54px !important;
+    margin: 25px auto 10px auto !important;
+    padding: 0 45px 0 20px !important;
+    
+    background-color: #ffffff !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%236366f1' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: calc(100% - 20px) center !important;
+    
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
+    
+    border: 2px solid rgba(99, 102, 241, 0.2) !important;
+    border-radius: 18px !important;
+    
+    color: #1e293b !important;
+    font-size: 15px !important;
+    font-weight: 600 !important;
+    font-family: 'Inter', sans-serif !important;
+    
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.05) !important;
+    cursor: pointer !important;
+}
+
+.swal2-select.premium-select-swal:hover,
+.swal2-popup .swal2-select:hover {
+    border-color: rgba(99, 102, 241, 0.4) !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 6px 15px rgba(99, 102, 241, 0.1) !important;
+}
+
+.swal2-select.premium-select-swal:focus,
+.swal2-popup .swal2-select:focus {
+    border-color: #6366f1 !important;
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1), 0 12px 24px -8px rgba(99, 102, 241, 0.2) !important;
+    outline: none !important;
+    transform: translateY(-1px) !important;
+}
+
+.swal2-popup.rounded-\[30px\] {
+    padding: 3rem 1.5rem !important;
+    overflow: visible !important;
+}
+
+.swal2-container {
+    backdrop-filter: blur(10px) !important;
+    background: rgba(15, 23, 42, 0.4) !important;
+}
+
+/* --- HEADER FILTERS & LAYOUT FIX --- */
+.header-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+    padding: 10px 0;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.filter-item {
+    display: flex;
+    flex-direction: column;
+    min-width: 120px;
+    flex: 1 1 0%;
+    gap: 4px;
+}
+
+.btn-reset {
+    height: 48px;
+    width: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #fff0f3;
+    border: 1px solid #ffd0d6;
+    border-radius: 12px;
+    color: #ff4d6d;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.2s;
+}
+
+.btn-reset:hover {
+    background-color: #ffe0e6;
+    transform: scale(1.05);
+}
+
+.btn-group-selector {
+    background-color: #f0f9f4;
+    border: 1px solid var(--accent);
+    color: #2d6a4f;
+    font-weight: bold;
+    height: 48px;
+    border-radius: 12px;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-group-selector:hover {
+    background-color: #e6f4ed;
+}
+
+/* Ajuste para inputs y selects en la cabecera */
+.header-filters select, 
+.header-filters input {
+    height: 48px !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
 }

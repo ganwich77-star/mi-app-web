@@ -9,12 +9,32 @@ import { doc, updateDoc, getDoc } from 'firebase/firestore';
  * Permite seleccionar múltiples archivos, comprimirlos en el cliente
  * y subirlos a Firebase Storage, vinculándolos automáticamente con las órdenes.
  */
-const BulkUploadModal = ({ isOpen, onClose, photographerId, schools }) => {
+const BulkUploadModal = ({ isOpen, onClose, photographerId, schools, currentSchoolId }) => {
     const [files, setFiles] = useState([]);
     const [uploading, setUploading] = useState(false);
     const [progress, setProgress] = useState({}); // { fileName: percentage }
     const [results, setResults] = useState([]); // { fileName, status, message }
     const [dragActive, setDragActive] = useState(false);
+    const [config, setConfig] = useState({ overwrite: false });
+
+    // Resetear al abrir
+    React.useEffect(() => {
+        if (isOpen) {
+            setFiles([]);
+            setResults([]);
+            setProgress({});
+            setUploading(false);
+        }
+    }, [isOpen]);
+
+    // Función para cerrar y resetear todo
+    const handleClose = () => {
+        setFiles([]);
+        setResults([]);
+        setProgress({});
+        setUploading(false);
+        onClose();
+    };
 
     // Compresión de imagen simple usando Canvas
     const compressImage = (file) => {
@@ -29,8 +49,8 @@ const BulkUploadModal = ({ isOpen, onClose, photographerId, schools }) => {
                     let width = img.width;
                     let height = img.height;
 
-                    // Redimensionar si es muy grande (max 2000px)
-                    const MAX_SIZE = 2000;
+                    // Redimensionar si es muy grande (max 1600px para equilibrio orla/digital)
+                    const MAX_SIZE = 1600;
                     if (width > height) {
                         if (width > MAX_SIZE) {
                             height *= MAX_SIZE / width;
@@ -53,7 +73,7 @@ const BulkUploadModal = ({ isOpen, onClose, photographerId, schools }) => {
                             type: 'image/jpeg',
                             lastModified: Date.now(),
                         }));
-                    }, 'image/jpeg', 0.8); // Calidad 80%
+                    }, 'image/jpeg', 0.75); // Calidad 75% (Ideal para ahorrar espacio)
                 };
             };
         });
@@ -71,113 +91,203 @@ const BulkUploadModal = ({ isOpen, onClose, photographerId, schools }) => {
         setUploading(true);
         const newResults = [];
 
+        console.log("🚀 Iniciando subida masiva...");
+        console.log("👤 photographerId:", photographerId);
+        console.log("🏫 Colegios cargados en modal:", schools?.length, schools);
+
+        if (!photographerId) {
+            setResults([{ fileName: 'General', status: 'error', message: 'ERROR: Falta ID de Fotógrafo en la sesión.' }]);
+            setUploading(false);
+            return;
+        }
+
+        const availableSchools = Array.isArray(schools) ? schools : [];
+        if (availableSchools.length === 0) {
+            console.warn("⚠️ Atencion: No hay lista de colegios disponible.");
+        }
+
+        // Creamos una lista de búsqueda. Si no hay colegios, usamos el colegio actual como fallback.
+        const searchList = availableSchools.length > 0 ? availableSchools : (currentSchoolId ? [{ id: currentSchoolId, name: 'Centro Actual (Fallback)' }] : []);
+
         for (const file of files) {
             try {
-                const fileId = file.name.split('.')[0]; // Identificador desde el nombre del archivo (ej: 0001)
+                // fileId es el nombre del archivo sin extensión (ej: 0001)
+                const fileName = file.name;
+                const fileIdRaw = fileName.split('.')[0].trim(); 
+                const fileIdNormal = fileIdRaw.replace(/^0+/, '') || '0'; // '0001' -> '1'
+                
                 const compressedFile = await compressImage(file);
                 let foundMatch = false;
 
-                // Iterar por cada colegio para buscar el registro en sus documentos de grupo
-                for (const school of schools) {
+                console.log(`--- Procesando archivo: ${fileName} (ID Raw: "${fileIdRaw}" | Normal: "${fileIdNormal}") ---`);
+
+                for (const school of searchList) {
                     if (foundMatch) break;
 
+                    console.log(`  🔍 Buscando en [${school.name}] (ID: ${school.id})`);
+                    
                     // A. BUSCAR EN ALUMNOS (ORDERS)
                     const ordersDocRef = doc(db, 'orlas2026_photographers', photographerId, 'orders', school.id);
-                    const oSnap = await getDoc(ordersDocRef);
-                    
+                    let oSnap;
+                    try {
+                        oSnap = await getDoc(ordersDocRef);
+                    } catch (e) {
+                        console.error(`    ❌ Error al leer grupo ${school.id}:`, e);
+                        continue;
+                    }
+
                     if (oSnap.exists()) {
                         const items = oSnap.data().items || [];
-                        // Comparación robusta (por si acaso hay mezcla de números/strings)
-                        const itemIdx = items.findIndex(item => String(item.photo_file_number) === String(fileId));
+                        
+                        // Calculamos el Ranking Global (igual que en ShootingPanel)
+                        // Para alumnos, necesitamos saber cuántos docentes hay en este mismo colegio
+                        let staffCount = 0;
+                        const staffDocRefForCount = doc(db, 'orlas2026_photographers', photographerId, 'staff', school.id);
+                        const sSnapForCount = await getDoc(staffDocRefForCount);
+                        if (sSnapForCount.exists()) {
+                            staffCount = (sSnapForCount.data().items || []).length;
+                        }
+
+                        // Ordenamos alumnos por nombre para determinar su Rank
+                        const sortedItems = [...items].sort((a, b) => (a.studentName || '').localeCompare(b.studentName || ''));
+                        
+                        // Comparación flexible: Exacta (0001 === 0001) o Numérica (0001 === 1)
+                        const itemIdx = items.findIndex(item => {
+                            const dbValRaw = String(item.photo_file_number || '').trim();
+                            const dbValNormal = dbValRaw.replace(/^0+/, '') || '0';
+                            
+                            // Match por Nº Archivo Foto (Base de datos)
+                            if (dbValRaw === fileIdRaw || dbValNormal === fileIdNormal) return true;
+
+                            // Match por Nº ORLA (Fallback dinámico)
+                            // El rank de este alumno es su posición en la lista ordenada + el offset de docentes
+                            const rank = sortedItems.findIndex(si => si.id === item.id) + 1 + staffCount;
+                            return rank.toString() === fileIdNormal;
+                        });
                         
                         if (itemIdx !== -1) {
                             foundMatch = true;
+                            console.log(`    ✅ ¡ENCONTRADO ALUMNO! Vinculando a: ${items[itemIdx].studentName}`);
                             
-                            // Subir a Firebase Storage
-                            const storagePath = `photographers/${photographerId}/photos/${items[itemIdx].id}_${file.name}`;
-                            const storageRef = ref(storage, storagePath);
-                            const uploadTask = uploadBytesResumable(storageRef, compressedFile);
+                            try {
+                                const storagePath = `photographers/${photographerId}/photos/${items[itemIdx].id}_${fileName}`;
+                                const storageRef = ref(storage, storagePath);
+                                const uploadTask = uploadBytesResumable(storageRef, compressedFile);
 
-                            await new Promise((resolve, reject) => {
-                                uploadTask.on('state_changed', 
-                                    (snapshot) => {
-                                        const p = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                                        setProgress(prev => ({ ...prev, [file.name]: p }));
-                                    }, 
-                                    (error) => reject(error), 
-                                    () => resolve()
-                                );
-                            });
+                                await new Promise((resolve, reject) => {
+                                    uploadTask.on('state_changed', 
+                                        (snapshot) => {
+                                            const p = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                                            setProgress(prev => ({ ...prev, [fileName]: p }));
+                                        }, 
+                                        (err) => {
+                                            console.error("    ❌ Error de Storage:", err);
+                                            reject(err);
+                                        }, 
+                                        () => resolve()
+                                    );
+                                });
 
-                            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                                const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
 
-                            // Actualizar el array 'items' completo en el documento del colegio
-                            const newItems = [...items];
-                            newItems[itemIdx] = {
-                                ...newItems[itemIdx],
-                                photoFile: downloadURL,
-                                status: 'Producido', 
-                                updatedAt: new Date().toISOString()
-                            };
+                                const newItems = [...items];
+                                newItems[itemIdx] = {
+                                    ...newItems[itemIdx],
+                                    photoFile: downloadURL,
+                                    digitalPhotoUrl: downloadURL,
+                                    status: 'Producido', 
+                                    updatedAt: new Date().toISOString()
+                                };
 
-                            await updateDoc(ordersDocRef, { items: newItems });
-                            newResults.push({ 
-                                fileName: file.name, 
-                                status: 'success', 
-                                message: `Vinculado a ${newItems[itemIdx].studentName || 'Alumno'} (${school.name})` 
-                            });
-                            continue; 
+                                await updateDoc(ordersDocRef, { items: newItems });
+                                newResults.push({ 
+                                    fileName: fileName, 
+                                    status: 'success', 
+                                    message: `Vinculado a ${newItems[itemIdx].studentName} (${school.name})` 
+                                });
+                                break; // Salir del bucle de centros para este archivo
+                            } catch (err) {
+                                console.error("    ❌ Fallo crítico en subida/update:", err);
+                                throw err;
+                            }
                         }
                     }
 
                     // B. BUSCAR EN DOCENTES (STAFF)
                     const staffDocRef = doc(db, 'orlas2026_photographers', photographerId, 'staff', school.id);
-                    const sSnap = await getDoc(staffDocRef);
+                    let sSnap;
+                    try { sSnap = await getDoc(staffDocRef); } catch (e) { continue; }
                     
                     if (sSnap.exists()) {
                         const items = sSnap.data().items || [];
-                        const itemIdx = items.findIndex(item => String(item.photo_file_number) === String(fileId));
+                        
+                        // Ordenamos docentes por nombre Completo (igual que en ShootingPanel)
+                        const sortedItems = [...items].sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
+
+                        const itemIdx = items.findIndex(item => {
+                            const dbValRaw = String(item.photo_file_number || '').trim();
+                            const dbValNormal = dbValRaw.replace(/^0+/, '') || '0';
+
+                            // Match por Nº Archivo Foto (Base de datos)
+                            if (dbValRaw === fileIdRaw || dbValNormal === fileIdNormal) return true;
+
+                            // Match por Nº ORLA (Fallback dinámico)
+                            // Los docentes van primero, su rank es su posición en la lista ordenada + 1
+                            const rank = sortedItems.findIndex(si => si.id === item.id) + 1;
+                            return rank.toString() === fileIdNormal;
+                        });
                         
                         if (itemIdx !== -1) {
                             foundMatch = true;
-                            
-                            const storagePath = `photographers/${photographerId}/photos/${items[itemIdx].id}_${file.name}`;
-                            const storageRef = ref(storage, storagePath);
-                            const uploadTask = uploadBytesResumable(storageRef, compressedFile);
+                            console.log(`    ✅ ¡ENCONTRADO DOCENTE! Vinculando a: ${items[itemIdx].firstName || items[itemIdx].name}`);
+                            try {
+                                const storagePath = `photographers/${photographerId}/photos/${items[itemIdx].id}_${fileName}`;
+                                const storageRef = ref(storage, storagePath);
+                                const uploadTask = uploadBytesResumable(storageRef, compressedFile);
 
-                            await new Promise((resolve, reject) => {
-                                uploadTask.on('state_changed', (snapshot) => {
-                                    const p = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                                    setProgress(prev => ({ ...prev, [file.name]: p }));
-                                }, reject, resolve);
-                            });
+                                await new Promise((resolve, reject) => {
+                                    uploadTask.on('state_changed', (snapshot) => {
+                                        const p = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                                        setProgress(prev => ({ ...prev, [fileName]: p }));
+                                    }, reject, resolve);
+                                });
 
-                            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                                const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
 
-                            const newItems = [...items];
-                            newItems[itemIdx] = {
-                                ...newItems[itemIdx],
-                                photoFile: downloadURL,
-                                updatedAt: new Date().toISOString()
-                            };
+                                const newItems = [...items];
+                                newItems[itemIdx] = {
+                                    ...newItems[itemIdx],
+                                    photoFile: downloadURL,
+                                    digitalPhotoUrl: downloadURL, // También para docentes por si acaso
+                                    updatedAt: new Date().toISOString()
+                                };
 
-                            await updateDoc(staffDocRef, { items: newItems });
-                            newResults.push({ 
-                                fileName: file.name, 
-                                status: 'success', 
-                                message: `Vinculado a ${newItems[itemIdx].firstName || 'Docente'} (${school.name})` 
-                            });
+                                await updateDoc(staffDocRef, { items: newItems });
+                                newResults.push({ 
+                                    fileName: fileName, 
+                                    status: 'success', 
+                                    message: `Vinculado a ${newItems[itemIdx].firstName || 'Docente'} (${school.name})` 
+                                });
+                            } catch (err) {
+                                console.error("    ❌ Fallo en Docente:", err);
+                                throw err;
+                            }
                         }
                     }
                 }
 
                 if (!foundMatch) {
-                    newResults.push({ fileName: file.name, status: 'error', message: 'No se encontró registro con este número en ningún colegio.' });
+                    console.warn(`  ⚠️ No se encontró match para "${fileIdRaw}" en ninguno de los centros consultados.`);
+                    newResults.push({ fileName: fileName, status: 'error', message: 'No se encontró registro con este número en ningún colegio.' });
                 }
 
             } catch (error) {
-                console.error("Error uploading file:", file.name, error);
-                newResults.push({ fileName: file.name, status: 'error', message: 'Error interno o de permisos.' });
+                console.error("❌ Error subida:", error);
+                newResults.push({ 
+                    fileName: file.name, 
+                    status: 'error', 
+                    message: error.code === 'permission-denied' ? 'Error de permisos (Firebase Rules).' : `Error: ${error.message}` 
+                });
             }
         }
 
@@ -188,8 +298,11 @@ const BulkUploadModal = ({ isOpen, onClose, photographerId, schools }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div 
+            onClick={(e) => { if(e.target === e.currentTarget) handleClose(); }}
+            className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm cursor-pointer"
+        >
+            <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] cursor-default">
                 {/* Header */}
                 <div className="p-6 border-b border-slate-100 dark:border-white/5 flex items-center justify-between bg-indigo-600">
                     <div className="flex items-center gap-3">
@@ -201,7 +314,7 @@ const BulkUploadModal = ({ isOpen, onClose, photographerId, schools }) => {
                             <p className="text-indigo-100 text-xs">Asocia fotos automáticamente por número de archivo</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="text-white/80 hover:text-white transition-colors">
+                    <button onClick={handleClose} className="text-white/80 hover:text-white transition-colors">
                         <X size={24} />
                     </button>
                 </div>
@@ -304,7 +417,7 @@ const BulkUploadModal = ({ isOpen, onClose, photographerId, schools }) => {
                 <div className="p-6 border-t border-slate-100 dark:border-white/5 flex gap-3">
                     {results.length > 0 ? (
                         <button 
-                            onClick={onClose}
+                            onClick={handleClose}
                             className="flex-1 py-4 bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-200 font-black rounded-2xl hover:bg-slate-200 dark:hover:bg-white/20 transition-all"
                         >
                             FINALIZAR
@@ -312,7 +425,7 @@ const BulkUploadModal = ({ isOpen, onClose, photographerId, schools }) => {
                     ) : (
                         <>
                             <button 
-                                onClick={onClose}
+                                onClick={handleClose}
                                 disabled={uploading}
                                 className="flex-1 py-4 text-slate-500 font-bold hover:text-slate-700 transition-all disabled:opacity-50"
                             >
