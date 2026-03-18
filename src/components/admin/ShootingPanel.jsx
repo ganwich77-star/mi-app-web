@@ -3,9 +3,9 @@ import {
     Search, CheckSquare, Square, Trash2, CheckCircle, Phone,
     MessageSquare, Database, UserCheck, Users, Hash, ArrowRight, ArrowLeft,
     Sparkles, XCircle, RotateCcw, Tv, Camera, CheckCircle2, Zap, FolderUp,
-    ChevronRight, AlertCircle, CreditCard, ChevronDown, ChevronUp, Mail, FileText,
-    Package, Plus, LayoutGrid, List, Upload, X, User, Home, Pencil, Wand2,
-    Maximize, Maximize2, ZoomIn, Eye, Check
+    ChevronRight, ChevronLeft, AlertCircle, CreditCard, ChevronDown, ChevronUp, Mail, FileText,
+    Package, Plus, LayoutGrid, List, Upload, X, User, Home, Pencil, Wand2, Link,
+    Maximize, Maximize2, ZoomIn, Eye, Check, Images
 } from 'lucide-react';
 
 import { COURSE_GROUPS, PACKS, EXTRAS, STAFF_ROLES } from '../../constants.js';
@@ -14,6 +14,8 @@ import BulkUploadModal from './BulkUploadModal.jsx';
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 import { PHOTO_SHAPES, getShapeStyle } from '../../constants/shapes.js';
+import { storage } from '../../firebase.js';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 
 const ShootingPanel = ({
@@ -76,6 +78,93 @@ const ShootingPanel = ({
             }
         }));
     };
+
+    const handleNavigateReframing = (direction) => {
+        // Obtenemos la lista actual según el modo de disparo activo
+        const currentList = shootMode === 'gallery' 
+            ? globalGalleryItems 
+            : (shootMode === 'staff' ? filteredStaff : filteredOrders);
+        
+        if (!reframingItem || !currentList.length) return;
+        
+        const currentIndex = currentList.findIndex(item => item.id === reframingItem.id);
+        const nextIndex = currentIndex + direction;
+        
+        if (nextIndex < 0) {
+            Swal.fire({
+                html: `
+                    <div class="p-6">
+                        <div class="relative w-20 h-20 mx-auto mb-6">
+                            <div class="absolute inset-0 bg-amber-500/20 blur-2xl rounded-full animate-pulse"></div>
+                            <div class="relative w-full h-full bg-gradient-to-br from-amber-50 to-orange-50 rounded-3xl flex items-center justify-center shadow-inner border border-amber-100/50">
+                                <span class="text-3xl">🏁</span>
+                            </div>
+                        </div>
+                        <h3 class="text-2xl font-black text-slate-800 uppercase tracking-tighter mb-2">Colección Iniciada</h3>
+                        <p class="text-sm text-slate-400 font-semibold max-w-[200px] mx-auto leading-relaxed">Estás en el primer registro de la selección actual.</p>
+                    </div>
+                `,
+                showConfirmButton: false,
+                timer: 1600,
+                background: '#ffffff',
+                backdrop: `rgba(15, 23, 42, 0.1)`,
+                customClass: {
+                    popup: 'rounded-[40px] border-none shadow-[0_30px_60px_-15px_rgba(0,0,0,0.2)]',
+                },
+                showClass: { popup: 'animate__animated animate__fadeInUp animate__faster' },
+                hideClass: { popup: 'animate__animated animate__fadeOutDown animate__faster' }
+            });
+            return;
+        }
+        
+        if (nextIndex >= currentList.length) {
+            Swal.fire({
+                html: `
+                    <div class="p-6">
+                        <div class="relative w-20 h-20 mx-auto mb-6">
+                            <div class="absolute inset-0 bg-indigo-500/20 blur-2xl rounded-full animate-pulse"></div>
+                            <div class="relative w-full h-full bg-gradient-to-br from-indigo-50 to-violet-50 rounded-3xl flex items-center justify-center shadow-inner border border-indigo-100/50">
+                                <span class="text-3xl">✨</span>
+                            </div>
+                        </div>
+                        <h3 class="text-2xl font-black text-slate-800 uppercase tracking-tighter mb-2">Colección Finalizada</h3>
+                        <p class="text-sm text-slate-400 font-semibold max-w-[200px] mx-auto leading-relaxed">Has revisado todos los registros de la lista filtrada.</p>
+                    </div>
+                `,
+                showConfirmButton: false,
+                timer: 1600,
+                background: '#ffffff',
+                backdrop: `rgba(15, 23, 42, 0.1)`,
+                customClass: {
+                    popup: 'rounded-[40px] border-none shadow-[0_30px_60px_-15px_rgba(0,0,0,0.2)]',
+                },
+                showClass: { popup: 'animate__animated animate__fadeInUp animate__faster' },
+                hideClass: { popup: 'animate__animated animate__fadeOutDown animate__faster' }
+            });
+            return;
+        }
+        
+        const nextItem = currentList[nextIndex];
+        const isStaff = nextItem._isStaff || (shootMode === 'staff');
+        
+        // AUTO-SAVE: Antes de navegar, guardamos los ajustes actuales para no perder el trabajo
+        if (reframingItem.type === 'student') {
+            updateOrder(reframingItem.id, { photoConfig: reframingItem.photoConfig });
+        } else {
+            updateStaff(reframingItem.id, { photoConfig: reframingItem.photoConfig });
+        }
+
+        // Cargar el siguiente item usando getPhotoSrc para mayor compatibilidad
+        setReframingItem({
+            id: nextItem.id,
+            type: isStaff ? 'staff' : 'student',
+            name: isStaff 
+                ? (nextItem.fullName || nextItem.name || (nextItem.firstName + ' ' + nextItem.lastName)) 
+                : (nextItem.studentName || nextItem.name || (nextItem.firstName + ' ' + nextItem.lastName)),
+            photoUrl: getPhotoSrc(nextItem),
+            photoConfig: nextItem.photoConfig || { zoom: 1, x: 0, y: 0 }
+        });
+    };
     const [autoAdvance, setAutoAdvance] = useState(true);
     const [photoNumber, setPhotoNumber] = useState("");
     const [photoPrefix, setPhotoPrefix] = useState("");
@@ -93,6 +182,62 @@ const ShootingPanel = ({
     const [showPaymentSelector, setShowPaymentSelector] = useState(false);
     const [showStatusSelector, setShowStatusSelector] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(null); // 'orders' o 'staff'
+
+    // Funciones auxiliares para visualización unificada de fotos
+    const getPhotoSrc = (item) => {
+        if (!item) return null;
+        
+        // 1. PRIORIDAD: digitalPhotoUrl (para fotos ya en el sistema final)
+        if (item.digitalPhotoUrl) return item.digitalPhotoUrl;
+
+        // 2. EXTRAER VALOR DEL CAMPO DE FOTO
+        // Buscamos en varios campos por compatibilidad
+        let src = item.photoFile || 
+                  item.photoUrl || 
+                  item.photoURL || 
+                  item.photo_file_url ||
+                  item.foto_url ||
+                  item.photo || 
+                  item.foto || 
+                  item.src ||
+                  item.photo_file_number; // ← AÑADIDO: También mirar número de fichero de excel
+        
+        // Si el valor es un objeto (ej. { base64: '...' }), extraemos el valor real
+        if (src && typeof src === 'object') {
+            src = src.base64 || src.url || src.photoUrl || src.photoURL || src.photo || src;
+        }
+
+        if (typeof src === 'string') {
+            const lowerSrc = src.trim().toLowerCase();
+            
+            // Filtrar valores basura o placeholders
+            const forbidden = ['undefined', 'null', 'digital', 'physical', 'fisico', 'físico', 'pendiente', '[object object]', ''];
+            if (forbidden.includes(lowerSrc)) return null;
+            
+            // Si ya es una URL completa o base64, la devolvemos
+            if (lowerSrc.startsWith('http') || lowerSrc.startsWith('data:') || lowerSrc.startsWith('/')) {
+                return src;
+            }
+            
+            // Si es un simple ID o número (ej. "123" o "abc-def"), construimos la URL de Firebase Storage
+            return `https://firebasestorage.googleapis.com/v0/b/foto-pujalte.appspot.com/o/orlas2026%2F${src}?alt=media`;
+        } else if (typeof src === 'number') {
+             // Si es un número (ej. 123 del Excel), también construimos la URL
+             return `https://firebasestorage.googleapis.com/v0/b/foto-pujalte.appspot.com/o/orlas2026%2F${src}?alt=media`;
+        }
+        
+        return null; // Si no hay nada válido, devolver null
+    };
+
+    const getPhotoTransform = (config) => {
+        if (!config || (config.zoom === 1 && config.x === 0 && config.y === 0)) {
+            return { transform: 'scale(1) translate(0%, 0%)', transformOrigin: 'center center' };
+        }
+        return {
+            transform: `scale(${config.zoom || 1}) translate(${config.x || 0}%, ${config.y || 0}%)`,
+            transformOrigin: 'center center'
+        };
+    };
     const [showBulkUpload, setShowBulkUpload] = useState(false);
     const [showExcelMappingModal, setShowExcelMappingModal] = useState(false);
     const [excelColumns, setExcelColumns] = useState([]);
@@ -181,8 +326,9 @@ const ShootingPanel = ({
         window.open(`https://wa.me/34${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
     };
 
-    const handleExcelImport = (e) => {
-        const file = e.target.files[0];
+    const handleExcelImport = (eOrFile) => {
+        // Acepta tanto un evento de input (onChange) como un File directo
+        const file = eOrFile instanceof File ? eOrFile : eOrFile?.target?.files?.[0];
         if (!file) return;
 
         const reader = new FileReader();
@@ -224,8 +370,8 @@ const ShootingPanel = ({
             setShowExcelMappingModal(true);
         };
         reader.readAsBinaryString(file);
-        // Reset input value to allow re-uploading the same file
-        e.target.value = '';
+        // Reset input si viene de un evento
+        if (eOrFile?.target) eOrFile.target.value = '';
     };
 
     const processExcelImport = async () => {
@@ -314,14 +460,11 @@ const ShootingPanel = ({
             }
 
             // --- LÓGICA INTELIGENTE DE DUPLICADOS ---
-             const existingStudentMap = new Map(orders.map(o => [o.studentName.toUpperCase().trim(), o]));
-             const existingStaffMap = new Map(staff.map(s => [`${s.firstName} ${s.lastName}`.toUpperCase().trim(), s]));
- 
-             const studentDuplicates = newStudents.filter(s => existingStudentMap.has(s.studentName.toUpperCase().trim()));
-             const staffDuplicates = newStaffMembers.filter(s => {
-                 const fullName = `${s.firstName} ${s.lastName}`.toUpperCase().trim();
-                 return existingStaffMap.has(fullName);
-             });
+             const existingStudentMap = new Map((orders || []).filter(o => o?.studentName).map(o => [o.studentName.toUpperCase().trim(), o]));
+             const existingStaffMap = new Map((staff || []).filter(s => s && (s.firstName || s.name)).map(s => {
+                 const fullName = s.name || `${s.firstName || ''} ${s.lastName || ''}`.trim();
+                 return [fullName.toUpperCase().trim(), s];
+             }));
  
              let importStrategy = 'add'; 
  
@@ -737,34 +880,62 @@ const ShootingPanel = ({
     const handleIndividualFileChange = async (e) => {
         const file = e.target.files[0];
         if (!file || !uploadingFor) return;
+        e.target.value = '';
 
-        const reader = new FileReader();
-        reader.onload = async (evt) => {
-            const base64 = evt.target.result;
-            // En un entorno real, aquí subiríamos a Cloud Storage y obtendríamos la URL
-            // Por ahora asociaremos el base64 como preview si el backend lo soporta, o simplemente actualizamos el registro
-            const photoData = { digitalPhotoUrl: base64, status: 'production' };
-            
-            if (uploadingFor.type === 'student') {
-                updateOrder(uploadingFor.id, photoData);
-                if (activeStudent?.id === uploadingFor.id) {
-                    setActiveStudent(prev => ({ ...prev, ...photoData }));
+        const isStaff = uploadingFor.type === 'staff';
+        const folder = isStaff ? 'fotos_staff' : 'fotos_digitales';
+        const storagePath = `${folder}/${uploadingFor.id}/${Date.now()}_${file.name}`;
+
+        // Mostrar progreso
+        Swal.fire({
+            title: 'Subiendo foto...',
+            html: '<div id="swal-progress" style="font-size:1.5rem;font-weight:bold">0%</div>',
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            didOpen: () => Swal.showLoading()
+        });
+
+        try {
+            const storageRef = ref(storage, storagePath);
+            const uploadTask = uploadBytesResumable(storageRef, file);
+
+            uploadTask.on('state_changed',
+                (snapshot) => {
+                    const pct = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+                    const el = document.getElementById('swal-progress');
+                    if (el) el.textContent = `${pct}%`;
+                },
+                (error) => {
+                    console.error('Error subiendo foto:', error);
+                    Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo subir la foto.' });
+                },
+                async () => {
+                    const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                    const photoData = { digitalPhotoUrl: downloadURL, status: 'production' };
+
+                    if (isStaff) {
+                        updateStaff(uploadingFor.id, photoData);
+                    } else {
+                        updateOrder(uploadingFor.id, photoData);
+                        if (activeStudent?.id === uploadingFor.id) {
+                            setActiveStudent(prev => ({ ...prev, ...photoData }));
+                        }
+                    }
+
+                    setUploadingFor(null);
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Foto Guardada',
+                        text: 'La fotografía se ha subido y vinculado correctamente.',
+                        timer: 1800,
+                        showConfirmButton: false
+                    });
                 }
-            } else {
-                updateStaff(uploadingFor.id, { ...photoData, photoFile: 'Digital' });
-            }
-
-            Swal.fire({
-                icon: 'success',
-                title: 'Foto Actualizada',
-                text: 'La fotografía se ha vinculado correctamente al registro.',
-                timer: 1500,
-                showConfirmButton: false
-            });
-            setUploadingFor(null);
-        };
-        reader.readAsDataURL(file);
-        e.target.value = ''; // Reset
+            );
+        } catch (err) {
+            console.error('Error:', err);
+            Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo iniciar la subida.' });
+        }
     };
 
     // Función para calcular el tamaño inteligente del texto
@@ -875,6 +1046,18 @@ const ShootingPanel = ({
         const idx = globalSequence.findIndex(item => item.id === id);
         return idx !== -1 ? (idx + 1).toString().padStart(4, '0') : '--';
     };
+
+    const globalGalleryItems = useMemo(() => {
+        const combined = [
+            ...filteredStaff.map(s => ({ ...s, _isStaff: true })),
+            ...filteredOrders.map(o => ({ ...o, _isStudent: true }))
+        ];
+        return combined.sort((a, b) => {
+            const rankA = parseInt(getGlobalRank(a.id)) || 9999;
+            const rankB = parseInt(getGlobalRank(b.id)) || 9999;
+            return rankA - rankB;
+        });
+    }, [filteredStaff, filteredOrders, globalSequence]);
 
     const findTutorForClass = (courseName, groupLetter) => {
         if (!courseName) return null;
@@ -1107,7 +1290,7 @@ const ShootingPanel = ({
                         {/* Selector Alumnos / Docentes */}
                         <div className="flex flex-col gap-1.5 shrink-0 w-full md:w-auto">
                             <span className="text-[9px] font-black text-indigo-500/40 uppercase tracking-widest pl-1">VISTA ACTUAL</span>
-                            <div className="flex p-1 rounded-[14px] bg-primary/[0.03] border border-primary/10 md:min-w-[240px] gap-1 h-[48px] transition-all items-center">
+                            <div className="flex p-1 rounded-[14px] bg-primary/[0.03] border border-primary/10 md:min-w-[180px] gap-1 h-[48px] transition-all items-center">
                                 <button onClick={() => { setShootMode('students'); setShootSearch(''); setIsStudentListExpanded(true); }} className={`flex-1 h-full px-3 rounded-[10px] text-[10px] md:text-[11px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${shootMode === 'students' ? 'bg-white text-indigo-600 shadow-sm' : 'text-primary/40 hover:text-primary'}`} title="Modo Alumnos">
                                     <Users size={14} /> Alumnos
                                 </button>
@@ -1183,47 +1366,56 @@ const ShootingPanel = ({
                         )}
                     </div>
 
-                    {/* FILA 2: ACCIONES (Debajo el resto) */}
+                    {/* FILA 2: TODAS LAS ACCIONES EN UNA LÍNEA */}
                     <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-primary/5">
-                        <div className="flex items-center gap-3">
-                            {/* Botón Asignar */}
-                            {((adminSchool && adminSchool !== '') || shootFilters.course) && (
-                                <button 
-                                    onClick={handleBulkAssign}
-                                    className="h-[48px] px-8 bg-indigo-600 text-white rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 border-2 border-indigo-200/20"
-                                >
-                                    <Wand2 size={18} />
-                                    <span>Asignar</span>
-                                </button>
-                            )}
-
-                            {/* Botón Reset (X) */}
-                            {(shootFilters.course || shootFilters.group || adminSchool) && (
-                                <button 
-                                    onClick={() => {
-                                        setAdminSchool('');
-                                        setShootFilters(p => ({ ...p, course: '', group: '' }));
-                                    }}
-                                    className="w-[48px] h-[48px] flex items-center justify-center bg-white text-red-500 rounded-xl hover:bg-red-50 transition-all border border-red-100 shadow-sm"
-                                    title="Limpiar filtros"
-                                >
-                                    <X size={22} />
-                                </button>
-                            )}
-                        </div>
-
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 overflow-x-auto">
+                            {/* Importar Excel */}
+                            <button
+                                onClick={() => {
+                                    const inputId = shootMode === 'staff' ? 'excel-import-input-staff' : 'excel-import-input';
+                                    document.getElementById(inputId)?.click();
+                                }}
+                                className="h-[48px] flex items-center justify-center gap-2 px-5 bg-blue-500/5 hover:bg-blue-500/10 text-blue-600 rounded-xl transition-all border border-blue-500/20 font-black text-[11px] uppercase tracking-widest active:scale-95 shadow-sm"
+                                title="Importar listado desde Excel (.xlsx / .xls)"
+                            >
+                                <ArrowRight size={14} />
+                                <span>Excel</span>
+                            </button>
+                            {/* Subir Fotos */}
+                            <button
+                                onClick={() => setShowBulkUpload(true)}
+                                className="h-[48px] flex items-center justify-center gap-2 px-5 bg-slate-800 text-white rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-slate-900 transition-all shadow-md shadow-slate-500/10 active:scale-95"
+                                title="Subida masiva de fotos"
+                            >
+                                <Upload size={16} />
+                                <span>Subir Fotos</span>
+                            </button>
+                            {/* Galería */}
+                            <button
+                                onClick={() => {
+                                    setViewStyle('gallery');
+                                    if (shootMode === 'staff') setIsStaffListExpanded(true);
+                                    else setIsStudentListExpanded(true);
+                                }}
+                                className="h-[48px] flex items-center justify-center gap-2 px-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-[11px] uppercase tracking-widest transition-all shadow-md shadow-indigo-500/10 active:scale-95"
+                                title="Ver galería de fotos"
+                            >
+                                <LayoutGrid size={16} />
+                                <span>Galería</span>
+                            </button>
+                            {/* Numeración Global */}
                             <button 
                                 onClick={handleGlobalAutoNumbering}
                                 className="px-6 h-[48px] bg-white border border-indigo-500/20 text-indigo-600 hover:bg-indigo-50 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm"
                             >
-                                <Hash size={16} /> <span>Numeración Global</span>
+                                <Hash size={16} /> <span>Numeración</span>
                             </button>
+                            {/* Backup SOS */}
                             <button 
                                 onClick={downloadMasterBackup} 
                                 className="px-6 h-[48px] bg-amber-500/5 border border-amber-500/20 text-amber-600 hover:bg-amber-500/10 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm"
                             >
-                                <Database size={16} /> <span>Backup SOS</span>
+                                <Database size={16} /> <span>Backup</span>
                             </button>
                         </div>
                     </div>
@@ -1255,58 +1447,18 @@ const ShootingPanel = ({
                                             <div className="flex flex-col">
                                                 <span className="text-indigo-400 text-[9px] font-black uppercase leading-tight">Fotos Subidas</span>
                                                 <span className="text-indigo-700 text-[11px] font-black leading-tight">
-                                                    {filteredOrders.filter(o => o.photoFile || o.digitalPhotoUrl).length} / {filteredOrders.length}
+                                                    {filteredOrders.filter(o => getPhotoSrc(o)).length} / {filteredOrders.length}
                                                 </span>
                                             </div>
                                         </div>
-
-                                        <button 
-                                            onClick={() => {
-                                                setViewStyle('gallery');
-                                                setIsStudentListExpanded(true);
-                                            }}
-                                            className="h-[44px] flex-1 md:flex-none flex items-center justify-center gap-2 px-6 bg-indigo-600 text-white rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-md shadow-indigo-500/10 active:scale-95 border border-transparent"
-                                            title="Galería: Ver todas las fotos y reencuadrar"
-                                        >
-                                            <LayoutGrid size={16} />
-                                            <span>Galería</span>
-                                        </button>
-
-                                        <button 
-                                            onClick={() => setShowBulkUpload(true)} 
-                                            className="h-[44px] flex-1 md:flex-none flex items-center justify-center gap-2 px-6 bg-slate-800 text-white rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-slate-900 transition-all shadow-md shadow-slate-500/10 active:scale-95 border border-transparent"
-                                            title="Subida Masiva: Subir fotos de alumnos o docentes por lote"
-                                        >
-                                            <Upload size={16} />
-                                            <span>Subir Fotos</span>
-                                        </button>
-
-                                        <button 
-                                            onClick={() => setAdminTab('design')}
-                                            className="h-[44px] flex-1 md:flex-none flex items-center justify-center gap-2 px-6 bg-violet-600 text-white rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-violet-700 transition-all shadow-md shadow-violet-500/10 active:scale-95 border border-transparent"
-                                            title="Ver Diseño: Previsualizar estas fotos en el diseño de la orla"
-                                        >
-                                            <Eye size={16} />
-                                            <span>Ver Orla</span>
-                                        </button>
-
-
-                                        
-                                        <button 
-                                            onClick={() => document.getElementById('excel-import-input').click()}
-                                            className="h-[44px] flex-1 md:flex-none flex items-center justify-center gap-2 px-6 bg-blue-500/5 hover:bg-blue-500/10 text-blue-600 rounded-xl transition-all border border-blue-500/20 font-black text-[11px] uppercase tracking-widest active:scale-95 shadow-sm"
-                                            title="Importación Excel: Cargar listado de alumnos desde un archivo .xlsx o .xls"
-                                        >
-                                            <FileText size={16} />
-                                            <span>Importar Excel</span>
-                                            <input 
-                                                id="excel-import-input"
-                                                type="file" 
-                                                accept=".xlsx, .xls" 
-                                                onChange={handleExcelImport} 
-                                                className="hidden" 
-                                            />
-                                        </button>
+                                        {/* inputs ocultos para Excel (los botones están en el header) */}
+                                        <input 
+                                            id="excel-import-input"
+                                            type="file" 
+                                            accept=".xlsx, .xls" 
+                                            onChange={handleExcelImport} 
+                                            className="hidden" 
+                                        />
                                     </div>
                                 </div>
                             </div>
@@ -1324,6 +1476,22 @@ const ShootingPanel = ({
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
+                                        {/* Limpiar Filtros — solo visible si hay algo activo */}
+                                        {(shootFilters.course || shootFilters.group || adminSchool || shootSearch) && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setAdminSchool('');
+                                                    setShootSearch('');
+                                                    setShootFilters(p => ({ ...p, course: '', group: '' }));
+                                                }}
+                                                className="h-[32px] flex items-center gap-1.5 px-3 bg-red-50 text-red-500 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-red-100 transition-all border border-red-100"
+                                                title="Limpiar todos los filtros"
+                                            >
+                                                <X size={12} />
+                                                <span>Limpiar</span>
+                                            </button>
+                                        )}
                                         {isFiltersExpanded ? <ChevronUp size={20} className="text-primary/20" /> : <ChevronDown size={20} className="text-primary/20" />}
                                     </div>
                                 </button>
@@ -1639,29 +1807,34 @@ const ShootingPanel = ({
                                                         <div 
                                                             key={order.id} 
                                                             onClick={() => {
-                                                                if (order.digitalPhotoUrl || order.photoFile) {
+                                                                const src = getPhotoSrc(order);
+                                                                if (src) {
                                                                     setReframingItem({ 
                                                                         id: order.id, 
                                                                         type: 'student', 
-                                                                        photoUrl: order.digitalPhotoUrl || order.photoFile, 
-                                                                        name: order.studentName 
+                                                                        photoUrl: src, 
+                                                                        name: order.studentName,
+                                                                        photoConfig: order.photoConfig || { zoom: 1, x: 0, y: 0 }
                                                                     });
                                                                 }
                                                             }}
-                                                            className="relative aspect-[3/4] bg-primary/5 rounded-2xl border border-primary/10 overflow-hidden group/gallery hover:shadow-xl hover:shadow-indigo-500/10 transition-all cursor-pointer"
+                                                            className={`relative border overflow-hidden group/gallery hover:shadow-xl transition-all cursor-pointer ${((configOrla?.photoShape || 'circle') === 'circle' || (configOrla?.photoShape || 'circle') === 'shield' || (configOrla?.photoShape || 'circle') === 'arch') ? 'aspect-square' : 'aspect-[3/4]'} ${getPhotoSrc(order) ? 'bg-indigo-50/50 border-indigo-100 hover:shadow-indigo-500/10' : 'bg-primary/5 border-primary/10'}`}
+                                                            style={getShapeStyle(configOrla.photoShape || 'circle')}
                                                         >
-                                                            {order.digitalPhotoUrl || order.photoFile ? (
-                                                                <div className="w-full h-full relative p-2">
-                                                                    <div 
-                                                                        className="w-full h-full overflow-hidden shadow-sm"
-                                                                        style={getShapeStyle(configOrla.photoShape || 'rect34', 120, 160)}
-                                                                    >
+                                                            {getPhotoSrc(order) ? (
+                                                                <div className="w-full h-full relative">
+                                                                    {getPhotoSrc(order) ? (
                                                                         <img 
-                                                                            src={order.digitalPhotoUrl || order.photoFile} 
+                                                                            src={getPhotoSrc(order)} 
                                                                             className="w-full h-full object-cover transition-transform group-hover/gallery:scale-110" 
+                                                                            style={getPhotoTransform(order.photoConfig)}
                                                                             alt={order.studentName} 
                                                                         />
-                                                                    </div>
+                                                                    ) : (
+                                                                        <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 text-slate-300">
+                                                                            <Camera size={32} />
+                                                                        </div>
+                                                                    )}
                                                                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover/gallery:opacity-100 transition-opacity flex flex-col justify-end p-3 rounded-2xl">
                                                                         <p className="text-[10px] font-black text-white uppercase truncate">{order.studentName}</p>
                                                                         <div className="flex gap-2 mt-2">
@@ -1699,7 +1872,7 @@ const ShootingPanel = ({
                                             {filteredOrders.map((order) => {
                                                 const isPhotoSelected = activeStudent?.id === order.id;
                                                 const isBulkSelected = selectedOrderIds.includes(order.id);
-                                                const hasPhoto = order.status === 'production' || order.photoFile;
+                                                const hasPhoto = order.status === 'production' || order.photoFile || order.digitalPhotoUrl || order.photo_file_number;
                                                 return (
                                                     <div key={order.id} className="relative group/card">
                                                         <button 
@@ -1707,17 +1880,20 @@ const ShootingPanel = ({
                                                             className={`w-full relative flex flex-col items-center p-4 rounded-[16px] border transition-all duration-300 active:scale-95 ${isPhotoSelected ? 'border-orange-500 bg-orange-50 shadow-md ring-2 ring-orange-500/20 z-10 scale-[1.02]' : isBulkSelected ? 'border-orange-300 bg-orange-50/30' : 'border-primary/10 bg-card hover:border-primary/30 hover:shadow-md'}`}
                                                         >
                                                             <div 
-                                                                className={`w-14 h-14 flex flex-col items-center justify-center mb-3 overflow-hidden transition-all shadow-sm ${isPhotoSelected ? 'bg-orange-100 text-orange-600' : isBulkSelected ? 'bg-orange-100/50 text-orange-500' : 'bg-primary/5 text-primary/40'} border-2 ${order.digitalPhotoUrl || order.photoFile?.toString().startsWith('http') ? 'border-emerald-500/30' : 'border-transparent'}`}
-                                                                style={getShapeStyle(configOrla.photoShape || 'rect34', 56, 56)}
+                                                                className={`overflow-hidden shadow-inner border border-primary/5 bg-primary/5 rounded-xl group-hover:border-orange-200 transition-colors mx-auto ${['circle', 'shield', 'arch'].includes(configOrla.photoShape || 'circle') ? 'w-14 h-14' : 'w-14 h-[74.6px]'}`}
+                                                                style={getShapeStyle(configOrla.photoShape || 'circle', 56, 56)}
                                                             >
-                                                                {order.digitalPhotoUrl ? (
-                                                                    <img src={order.digitalPhotoUrl} className="w-full h-full object-cover" alt="Alumno" />
-                                                                ) : order.photoFile?.toString().startsWith('http') ? (
-                                                                    <img src={order.photoFile} className="w-full h-full object-cover" alt="Alumno" />
-                                                                ) : hasPhoto ? (
-                                                                    <Camera size={20} className="text-emerald-500" />
+                                                                {getPhotoSrc(order) ? (
+                                                                    <img 
+                                                                        src={getPhotoSrc(order)} 
+                                                                        className="w-full h-full object-cover group-hover:scale-110 transition-transform" 
+                                                                        style={getPhotoTransform(order.photoConfig)}
+                                                                        alt="Foto" 
+                                                                    />
                                                                 ) : (
-                                                                    <Users size={20} />
+                                                                    <div className="w-full h-full flex items-center justify-center">
+                                                                        <Camera size={20} className="text-primary/10" />
+                                                                    </div>
                                                                 )}
                                                             </div>
                                                             <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-indigo-600 text-white text-[8px] font-black rounded-md shadow-sm z-20 border border-white/20">
@@ -1823,8 +1999,9 @@ const ShootingPanel = ({
                                                             </button>
                                                         </div>
                                                     </th>
-                                                    <th className="py-3 px-4 text-[10px] font-black uppercase tracking-wider text-primary/40 w-[120px] text-center bg-white">Nº Archivo</th>
-                                                    <th className="py-3 px-4 text-[10px] font-black uppercase tracking-wider text-primary/40 w-[100px] text-right bg-white">Acciones</th>
+                                                    <th className="py-3 px-4 text-[10px] font-black uppercase tracking-wider text-primary/40 w-[180px] text-center bg-white border-l border-primary/5">URL Digital</th>
+                                                     <th className="py-3 px-4 text-[10px] font-black uppercase tracking-wider text-primary/40 w-[100px] text-center bg-white">Nº Archivo</th>
+                                                    <th className="py-3 px-4 text-[10px] font-black uppercase tracking-wider text-primary/40 w-[120px] text-right bg-white">Acciones</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -1844,17 +2021,20 @@ const ShootingPanel = ({
                                                             </span>
                                                         </td>
                                                         <td className="py-4 px-3 text-center align-middle">
-                                                            <div className="relative group/photo mx-auto w-12 h-12">
-                                                                <div 
-                                                                    onClick={() => handleIndividualFileClick(order.id, 'student')}
-                                                                    style={getShapeStyle(configOrla.photoShape || 'rect34', 48, 48)}
-                                                                    className={`w-full h-full overflow-hidden shadow-sm flex items-center justify-center border transition-all cursor-pointer ${(order.digitalPhotoUrl || (order.photoFile?.toString().startsWith('http'))) ? 'border-emerald-500/20 hover:border-emerald-500 scale-110' : 'border-primary/5 bg-primary/5 hover:border-indigo-300'}`}
-                                                                    title="Clic para subir/cambiar foto"
-                                                                >
-                                                                    {order.digitalPhotoUrl ? (
-                                                                        <img src={order.digitalPhotoUrl} className="w-full h-full object-cover transition-opacity group-hover/photo:opacity-40" alt="Previsualización" />
-                                                                    ) : order.photoFile?.toString().startsWith('http') ? (
-                                                                        <img src={order.photoFile} className="w-full h-full object-cover transition-opacity group-hover/photo:opacity-40" alt="Previsualización" />
+                                                            <div className="relative group/photo mx-auto flex items-center justify-center">
+                                                                 <div 
+                                                                     onClick={() => handleIndividualFileClick(order.id, 'student')}
+                                                                     style={getShapeStyle(configOrla.photoShape || 'circle', 48, 48)}
+                                                                     className={`overflow-hidden shadow-sm flex items-center justify-center border transition-all cursor-pointer ${(order.digitalPhotoUrl || order.photoFile) ? 'border-emerald-500/20 hover:border-emerald-500 scale-110' : 'border-primary/5 bg-primary/5 hover:border-indigo-300'} ${['circle', 'shield', 'arch'].includes(configOrla.photoShape || 'circle') ? 'w-10 aspect-square' : 'w-10 aspect-[3/4]'}`}
+                                                                     title="Clic para subir/cambiar foto"
+                                                                 >
+                                                                    {getPhotoSrc(order) ? (
+                                                                        <img 
+                                                                            src={getPhotoSrc(order)} 
+                                                                            className="w-full h-full object-cover transition-opacity group-hover/photo:opacity-40" 
+                                                                            style={getPhotoTransform(order.photoConfig)}
+                                                                            alt="Foto" 
+                                                                        />
                                                                     ) : (
                                                                         <Camera size={16} className="text-primary/10 group-hover/photo:text-indigo-500" />
                                                                     )}
@@ -1870,8 +2050,9 @@ const ShootingPanel = ({
                                                                             setReframingItem({ 
                                                                                 id: order.id, 
                                                                                 type: 'student', 
-                                                                                photoUrl: order.digitalPhotoUrl || order.photoFile, 
-                                                                                name: order.studentName 
+                                                                                photoUrl: getPhotoSrc(order), 
+                                                                                name: order.studentName,
+                                                                                photoConfig: order.photoConfig || { zoom: 1, x: 0, y: 0 }
                                                                             });
                                                                         }}
                                                                         className="absolute -right-2 -bottom-2 w-7 h-7 bg-white text-orange-600 rounded-full shadow-lg border border-primary/10 flex items-center justify-center opacity-0 group-hover/photo:opacity-100 transition-all hover:scale-110 z-10"
@@ -1883,22 +2064,30 @@ const ShootingPanel = ({
                                                             </div>
                                                         </td>
                                                         <td className="py-4 px-3 overflow-hidden">
-                                                            <div className="flex flex-col gap-1 min-w-0">
+                                                            <div className="flex flex-col gap-0.5 min-w-0">
                                                                 <input 
                                                                     type="text" 
                                                                     value={order.studentName || ''} 
                                                                     onChange={(e) => updateOrder(order.id, { studentName: e.target.value.toUpperCase() })}
                                                                     className="bg-transparent border-none p-0 text-[12px] font-black text-slate-800 uppercase focus:ring-0 focus:bg-white/50 rounded px-1 -ml-1 w-full"
                                                                 />
-                                                                <div className="flex items-center gap-1">
-                                                                    <User size={8} className="text-slate-400 shrink-0" />
-                                                                    <input 
-                                                                        type="text" 
-                                                                        value={order.parentName || ''} 
-                                                                        onChange={(e) => updateOrder(order.id, { parentName: e.target.value.toUpperCase() })}
-                                                                        placeholder="SIN TUTOR"
-                                                                        className="bg-transparent border-none p-0 text-[9px] font-bold text-slate-400 uppercase focus:ring-0 focus:bg-white/50 rounded px-1 -ml-1 w-full"
-                                                                    />
+                                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                                    <div className="flex items-center gap-1 shrink-0">
+                                                                        <User size={10} className="text-indigo-500" />
+                                                                        <input 
+                                                                            type="text" 
+                                                                            value={order.parentName || ''} 
+                                                                            onChange={(e) => updateOrder(order.id, { parentName: e.target.value.toUpperCase() })}
+                                                                            placeholder="SIN TUTOR"
+                                                                            className="bg-transparent border-none p-0 text-[10px] font-black text-indigo-600 uppercase focus:ring-0 focus:bg-white/50 rounded px-1 -ml-1 min-w-[100px]"
+                                                                        />
+                                                                    </div>
+                                                                    {order.phone && (
+                                                                        <div className="flex items-center gap-1 shrink-0">
+                                                                            <Phone size={10} className="text-emerald-500" />
+                                                                            <span className="text-[9px] font-bold text-emerald-600">{order.phone}</span>
+                                                                        </div>
+                                                                    )}
                                                                 </div>
                                                             </div>
                                                         </td>
@@ -1963,15 +2152,27 @@ const ShootingPanel = ({
                                                                 </div>
                                                             </div>
                                                         </td>
+                                                        <td className="py-2 px-3 text-center align-middle border-x border-primary/5 min-w-[180px]">
+                                                            <div className="flex items-center justify-center relative group/url mx-auto w-full">
+                                                                <Link size={10} className="absolute left-2 text-indigo-500 opacity-40 group-focus-within/url:opacity-100 transition-opacity" />
+                                                                <input 
+                                                                    type="text" 
+                                                                    value={order.digitalPhotoUrl || ''} 
+                                                                    onChange={(e) => updateOrder(order.id, { digitalPhotoUrl: e.target.value })}
+                                                                    placeholder="https://..."
+                                                                    className="w-full bg-white/50 border border-primary/5 rounded-md pl-6 pr-2 py-1 text-[9px] font-mono text-primary placeholder:text-primary/10 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 outline-none transition-all truncate"
+                                                                />
+                                                            </div>
+                                                        </td>
                                                         <td className="py-2 px-3 text-center align-middle">
-                                                            <div className="flex items-center justify-center relative group/input mx-auto w-[100px]">
-                                                                <Hash size={11} className="absolute left-3 text-orange-500 opacity-40 group-focus-within/input:opacity-100 transition-opacity" />
+                                                            <div className="flex items-center justify-center relative group/input mx-auto w-[90px]">
+                                                                <Hash size={10} className="absolute left-2.5 text-orange-500 opacity-40 group-focus-within/input:opacity-100 transition-opacity" />
                                                                 <input 
                                                                     type="text" 
                                                                     value={order.photo_file_number || ''} 
                                                                     onChange={(e) => updateOrder(order.id, { photo_file_number: e.target.value })}
-                                                                    placeholder={(idx + 1).toString().padStart(4, '0')}
-                                                                    className="w-full bg-white border border-primary/10 rounded-lg pl-8 pr-2 py-1.5 text-[12px] font-black text-center text-primary placeholder:text-primary/20 focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all"
+                                                                    placeholder={(idx + 1).toString().padStart(1, '0')}
+                                                                    className="w-full bg-white border border-primary/10 rounded-lg pl-7 pr-1.5 py-1.5 text-[11px] font-black text-center text-primary placeholder:text-primary/20 focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all shadow-sm"
                                                                 />
                                                             </div>
                                                         </td>
@@ -2023,56 +2224,25 @@ const ShootingPanel = ({
                                             <div className="flex flex-col">
                                                 <span className="text-emerald-400 text-[9px] font-black uppercase leading-tight">Fotos Subidas</span>
                                                 <span className="text-emerald-700 text-[11px] font-black leading-tight">
-                                                    {filteredStaff.filter(s => s.photoFile || s.digitalPhotoUrl).length} / {filteredStaff.length}
+                                                    {filteredStaff.filter(s => getPhotoSrc(s)).length} / {filteredStaff.length}
                                                 </span>
                                             </div>
                                         </div>
-
-                                        <button 
-                                            onClick={() => {
-                                                setViewStyle('gallery');
-                                                setIsStaffListExpanded(true);
-                                            }}
-                                            className="h-[44px] flex-1 md:flex-none flex items-center justify-center gap-2 px-6 bg-emerald-600 text-white rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-md shadow-emerald-500/10 active:scale-95 border border-transparent"
-                                            title="Galería Docentes: Ver todas las fotos y reencuadrar"
-                                        >
-                                            <LayoutGrid size={16} />
-                                            <span>Galería</span>
-                                        </button>
-
-                                        <button 
-                                            onClick={() => setShowBulkUpload(true)} 
-                                            className="h-[44px] flex-1 md:flex-none flex items-center justify-center gap-2 px-6 bg-slate-800 text-white rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-slate-900 transition-all shadow-md shadow-slate-500/10 active:scale-95 border border-transparent"
-                                        >
-                                            <Upload size={16} />
-                                            <span>Subir Fotos</span>
-                                        </button>
-
-
-                                        
-                                        <button 
-                                            onClick={() => document.getElementById('excel-import-input-staff').click()}
-                                            className="h-[44px] flex-1 md:flex-none flex items-center justify-center gap-2 px-6 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-600 rounded-xl transition-all border border-emerald-500/20 font-black text-[11px] uppercase tracking-widest active:scale-95 shadow-sm"
-                                        >
-                                            <FileText size={16} />
-                                            <span>Importar Excel</span>
-                                            <input 
-                                                id="excel-import-input-staff"
-                                                type="file" 
-                                                accept=".xlsx, .xls" 
-                                                className="hidden" 
-                                                onChange={(e) => {
-                                                    const file = e.target.files[0];
-                                                    if (file) handleExcelImport(file);
-                                                }}
-                                            />
-                                        </button>
+                                        {/* inputs ocultos para Excel (los botones están en el header) */}
+                                        <input 
+                                            id="excel-import-input-staff"
+                                            type="file" 
+                                            accept=".xlsx, .xls" 
+                                            className="hidden" 
+                                            onChange={handleExcelImport}
+                                        />
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="mb-4 shrink-0 focus-within:z-50">
+                        {/* ═══ ISLA: ALTA RÁPIDA DOCENTE ═══ */}
+                        <div className="px-4 mb-4 shrink-0 focus-within:z-50">
                                 <div className="bg-card border border-primary/10 border-l-4 border-l-emerald-500 rounded-[16px] overflow-hidden text-primary shadow-sm">
                                     <button onClick={() => setIsStaffQuickAddExpanded(!isStaffQuickAddExpanded)} className="w-full px-5 py-4 flex items-center justify-between hover:bg-primary/[0.02] transition-colors text-primary border-b border-primary/5">
                                         <div className="flex items-center gap-3">
@@ -2323,29 +2493,28 @@ const ShootingPanel = ({
                                                         <div 
                                                             key={member.id} 
                                                             onClick={() => {
-                                                                if (member.digitalPhotoUrl || member.photoFile) {
+                                                                const src = getPhotoSrc(member);
+                                                                if (src) {
                                                                     setReframingItem({ 
                                                                         id: member.id, 
                                                                         type: 'staff', 
-                                                                        photoUrl: member.digitalPhotoUrl || member.photoFile, 
-                                                                        name: `${member.firstName} ${member.lastName}` 
+                                                                        photoUrl: src, 
+                                                                        name: `${member.firstName} ${member.lastName}`,
+                                                                        photoConfig: member.photoConfig || { zoom: 1, x: 0, y: 0 }
                                                                     });
                                                                 }
                                                             }}
-                                                            className="relative aspect-[3/4] bg-emerald-50/50 rounded-2xl border border-emerald-100 overflow-hidden group/gallery hover:shadow-xl hover:shadow-emerald-500/10 transition-all cursor-pointer"
+                                                            className={`relative border overflow-hidden group/gallery hover:shadow-xl transition-all cursor-pointer ${((configOrla?.photoShape || 'circle') === 'circle' || (configOrla?.photoShape || 'circle') === 'shield' || (configOrla?.photoShape || 'circle') === 'arch') ? 'aspect-square' : 'aspect-[3/4]'} ${getPhotoSrc(member) ? 'bg-emerald-50/50 border-emerald-100 hover:shadow-emerald-500/10' : 'bg-primary/5 border-primary/10'}`}
+                                                            style={getShapeStyle(configOrla.photoShape || 'circle')}
                                                         >
-                                                            {member.digitalPhotoUrl || member.photoFile ? (
-                                                                <div className="w-full h-full relative p-2">
-                                                                    <div 
-                                                                        className="w-full h-full overflow-hidden shadow-sm"
-                                                                        style={getShapeStyle(configOrla.photoShape || 'rect34', 120, 160)}
-                                                                    >
-                                                                        <img 
-                                                                            src={member.digitalPhotoUrl || member.photoFile} 
-                                                                            className="w-full h-full object-cover transition-transform group-hover/gallery:scale-110" 
-                                                                            alt={member.name} 
-                                                                        />
-                                                                    </div>
+                                                            {getPhotoSrc(member) ? (
+                                                                <div className="w-full h-full relative">
+                                                                    <img 
+                                                                        src={getPhotoSrc(member)} 
+                                                                        className="w-full h-full object-cover transition-transform group-hover/gallery:scale-110" 
+                                                                        alt={member.name} 
+                                                                        style={getPhotoTransform(member.photoConfig)}
+                                                                    />
                                                                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover/gallery:opacity-100 transition-opacity flex flex-col justify-end p-3 rounded-2xl">
                                                                         <p className="text-[10px] font-black text-white uppercase truncate">{member.firstName} {member.lastName}</p>
                                                                         <div className="flex gap-2 mt-2">
@@ -2381,7 +2550,7 @@ const ShootingPanel = ({
                                                 {filteredStaff.map(member => {
                                                     const isSelected = activeStudent?.id === member.id;
                                                     const isBulkSelected = selectedStaffIds.includes(member.id);
-                                                    const hasPhoto = member.photo_file_number;
+                                                    const hasPhoto = member.photoFile || member.digitalPhotoUrl || member.photo_file_number;
                                                     
                                                     return (
                                                         <div key={member.id} className="relative group/card">
@@ -2396,19 +2565,23 @@ const ShootingPanel = ({
                                                                 }`}
                                                             >
                                                                 <div 
-                                                                    className={`w-14 h-14 flex flex-col items-center justify-center mb-3 overflow-hidden transition-all shadow-sm ${
+                                                                    className={`${['circle', 'shield', 'arch'].includes(configOrla.photoShape || 'circle') ? 'w-14 h-14' : 'w-14 h-[74.6px]'} flex flex-col items-center justify-center mb-3 overflow-hidden transition-all shadow-sm ${
                                                                         isSelected ? 'bg-indigo-100 text-indigo-600' : isBulkSelected ? 'bg-indigo-100/50 text-indigo-500' : 'bg-primary/5 text-primary/40'
-                                                                    } border-2 ${member.digitalPhotoUrl || member.photoFile?.toString().startsWith('http') ? 'border-emerald-500/30' : 'border-transparent'}`}
-                                                                    style={getShapeStyle(configOrla.photoShape || 'rect34', 56, 56)}
+                                                                    } border-2 ${member.photoFile || member.digitalPhotoUrl || member.photo_file_url ? 'border-emerald-500/30' : 'border-transparent'}`}
+                                                                    style={getShapeStyle(configOrla.photoShape || 'circle', 56, 56)}
                                                                 >
-                                                                    {member.digitalPhotoUrl ? (
-                                                                        <img src={member.digitalPhotoUrl} className="w-full h-full object-cover" alt="Docente" />
-                                                                    ) : member.photoFile?.toString().startsWith('http') ? (
-                                                                        <img src={member.photoFile} className="w-full h-full object-cover" alt="Docente" />
-                                                                    ) : hasPhoto ? (
-                                                                        <Camera size={20} className="text-emerald-500" />
+                                                                    {getPhotoSrc(member) ? (
+                                                                        <img 
+                                                                            src={getPhotoSrc(member)} 
+                                                                            className="w-full h-full object-cover" 
+                                                                            style={getPhotoTransform(member.photoConfig)}
+                                                                            alt="Docente" 
+                                                                        />
                                                                     ) : (
-                                                                        <User size={20} />
+                                                                        <div className="flex flex-col items-center">
+                                                                            <Camera size={24} className="mb-1 opacity-20" />
+                                                                            <span className="text-[10px] font-black opacity-20 uppercase tracking-tighter leading-none">Sin foto</span>
+                                                                        </div>
                                                                     )}
                                                                 </div>
 
@@ -2462,7 +2635,7 @@ const ShootingPanel = ({
                                                 })}
                                             </div>
                                         ) : (
-                                            <div className="w-full overflow-hidden">
+                                            <div className="w-full overflow-x-auto">
                                                 <table className="w-full text-left border-collapse table-fixed">
                                                     <thead className="bg-white sticky top-0 md:top-0 z-[110] border-b-2 border-primary/10 shadow-sm">
                                                         <tr className="bg-white">
@@ -2496,14 +2669,15 @@ const ShootingPanel = ({
                                                                     </button>
                                                                 </div>
                                                             </th>
-                                                            <th className="py-3 px-3 text-center text-[10px] font-black uppercase tracking-wider text-primary/40 w-[100px] bg-white">Nº Archivo</th>
-                                                            <th className="py-3 px-3 text-right text-[10px] font-black uppercase tracking-wider text-primary/40 w-[100px] bg-white">Acciones</th>
+                                                            <th className="py-3 px-3 text-center text-[10px] font-black uppercase tracking-wider text-primary/40 w-[150px] bg-white border-x border-primary/5">URL Digital</th>
+                                                             <th className="py-3 px-3 text-center text-[10px] font-black uppercase tracking-wider text-primary/40 w-[120px] bg-white">Nº Archivo</th>
+                                                            <th className="py-3 px-3 text-right text-[10px] font-black uppercase tracking-wider text-primary/40 w-[140px] bg-white">Acciones</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-primary/5">
                                                         {filteredStaff.map((member, idx) => {
                                                             const isPhotoSelected = activeStudent?.id === member.id;
-                                                            const hasPhoto = !!member.photoFile || !!member.photo_file_number;
+                                                            const hasPhoto = !!getPhotoSrc(member);
                                                             return (
                                                                 <tr key={member.id} className={`relative z-0 hover:bg-primary/[0.01] transition-colors group ${isPhotoSelected ? 'ring-2 ring-inset ring-primary/50 bg-primary/[0.03]' : ''} ${selectedStaffIds.includes(member.id) ? 'bg-indigo-50/50' : ''}`}>
                                                                     <td className="py-4 px-5 text-center">
@@ -2518,19 +2692,20 @@ const ShootingPanel = ({
                                                                         <span className="text-[11px] font-mono font-black text-indigo-500">{getGlobalRank(member.id)}</span>
                                                                     </td>
                                                                     <td className="py-4 px-3 text-center align-middle">
-                                                                        <div 
-                                                                            className="relative group/photo mx-auto w-12 h-12"
-                                                                        >
-                                                                            <div 
-                                                                                onClick={() => handleIndividualFileClick(member.id, 'staff')}
-                                                                                style={getShapeStyle(configOrla.photoShape || 'rect34', 48, 48)}
-                                                                                className={`w-full h-full overflow-hidden shadow-sm flex items-center justify-center border transition-all cursor-pointer ${(member.digitalPhotoUrl || (member.photoFile?.toString().startsWith('http'))) ? 'border-emerald-500/20 hover:border-emerald-500 scale-110' : 'border-primary/5 bg-primary/5 hover:border-indigo-300'}`}
-                                                                                title="Clic para subir/cambiar foto"
-                                                                            >
-                                                                                {member.digitalPhotoUrl ? (
-                                                                                    <img src={member.digitalPhotoUrl} className="w-full h-full object-cover transition-opacity group-hover/photo:opacity-40" alt="Docente" />
-                                                                                ) : member.photoFile?.toString().startsWith('http') ? (
-                                                                                    <img src={member.photoFile} className="w-full h-full object-cover transition-opacity group-hover/photo:opacity-40" alt="Docente" />
+                                                                        <div className="relative group/photo mx-auto flex items-center justify-center">
+                                                                             <div 
+                                                                                 onClick={() => handleIndividualFileClick(member.id, 'staff')}
+                                                                                 style={getShapeStyle(configOrla.photoShape || 'circle', 48, 48)}
+                                                                                 className={`overflow-hidden shadow-sm flex items-center justify-center border transition-all cursor-pointer ${getPhotoSrc(member) ? 'border-emerald-500/20 hover:border-emerald-500 scale-110' : 'border-primary/5 bg-primary/5 hover:border-indigo-300'} ${['circle', 'shield', 'arch'].includes(configOrla.photoShape || 'circle') ? 'w-10 aspect-square' : 'w-10 aspect-[3/4]'}`}
+                                                                                 title="Clic para subir/cambiar foto"
+                                                                             >
+                                                                                {getPhotoSrc(member) ? (
+                                                                                    <img 
+                                                                                        src={getPhotoSrc(member)} 
+                                                                                        className="w-full h-full object-cover transition-opacity group-hover/photo:opacity-40" 
+                                                                                        style={getPhotoTransform(member.photoConfig)}
+                                                                                        alt="Foto" 
+                                                                                    />
                                                                                 ) : (
                                                                                     <Camera size={16} className="text-primary/10 group-hover/photo:text-indigo-500" />
                                                                                 )}
@@ -2539,15 +2714,16 @@ const ShootingPanel = ({
                                                                                 </div>
                                                                             </div>
                                                                             
-                                                                            {(member.digitalPhotoUrl || member.photoFile) && (
+                                                                            {getPhotoSrc(member) && (
                                                                                 <button 
                                                                                     onClick={(e) => {
                                                                                         e.stopPropagation();
                                                                                         setReframingItem({ 
                                                                                             id: member.id, 
                                                                                             type: 'staff', 
-                                                                                            photoUrl: member.digitalPhotoUrl || member.photoFile, 
-                                                                                            name: member.firstName + ' ' + member.lastName 
+                                                                                            photoUrl: getPhotoSrc(member), 
+                                                                                            name: member.firstName + ' ' + member.lastName,
+                                                                                            photoConfig: member.photoConfig || { zoom: 1, x: 0, y: 0 }
                                                                                         });
                                                                                     }}
                                                                                     className="absolute -right-2 -bottom-2 w-7 h-7 bg-white text-indigo-600 rounded-full shadow-lg border border-primary/10 flex items-center justify-center opacity-0 group-hover/photo:opacity-100 transition-all hover:scale-110 z-10"
@@ -2574,7 +2750,18 @@ const ShootingPanel = ({
                                                                                     className="bg-transparent border-none p-0 text-xs font-black text-primary uppercase focus:ring-0 focus:bg-primary/5 rounded px-1 w-full"
                                                                                 />
                                                                             </div>
-                                                                            <p className="text-[9px] font-bold text-primary/40 uppercase mt-0.5">{member.assignments?.[0]?.course || 'General'}</p>
+                                                                            <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                                                                                <Users size={8} className="text-indigo-500 shrink-0" />
+                                                                                {member.assignments && member.assignments.length > 0 ? (
+                                                                                    member.assignments.map((a, i) => (
+                                                                                        <p key={i} className="text-[9px] font-black text-indigo-600 uppercase leading-none bg-indigo-50 px-1 rounded-sm border border-indigo-100/50">
+                                                                                            {a.course}
+                                                                                        </p>
+                                                                                    ))
+                                                                                ) : (
+                                                                                    <p className="text-[10px] font-black text-indigo-600 uppercase leading-none italic opacity-40 text-center">Sin clase</p>
+                                                                                )}
+                                                                            </div>
                                                                         </div>
                                                                     </td>
                                                                     <td className="py-4 px-3 text-center">
@@ -2594,6 +2781,18 @@ const ShootingPanel = ({
                                                                             </span>
                                                                         </div>
                                                                     </td>
+                                                                    <td className="py-4 px-3 text-center align-middle border-x border-primary/5 min-w-[150px]">
+                                                                        <div className="flex items-center justify-center relative group/url mx-auto w-full">
+                                                                            <Link size={10} className="absolute left-2 text-indigo-500 opacity-40 group-focus-within/url:opacity-100 transition-opacity" />
+                                                                            <input 
+                                                                                type="text" 
+                                                                                value={member.digitalPhotoUrl || ''} 
+                                                                                onChange={(e) => updateStaff(member.id, { digitalPhotoUrl: e.target.value })}
+                                                                                placeholder="https://..."
+                                                                                className="w-full bg-white/50 border border-primary/5 rounded-md pl-6 pr-2 py-1 text-[9px] font-mono text-primary placeholder:text-primary/10 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 outline-none transition-all truncate"
+                                                                            />
+                                                                        </div>
+                                                                    </td>
                                                                     <td className="py-4 px-3 text-center align-middle">
                                                                         <div className="flex items-center justify-center relative group/input mx-auto w-[100px]">
                                                                             <Hash size={11} className="absolute left-3 text-indigo-500 opacity-40 group-focus-within/input:opacity-100 transition-opacity" />
@@ -2601,7 +2800,7 @@ const ShootingPanel = ({
                                                                                 type="text" 
                                                                                 value={member.photo_file_number || ''} 
                                                                                 onChange={(e) => updateStaff(member.id, { photo_file_number: e.target.value })}
-                                                                                placeholder={(idx + 1).toString().padStart(4, '0')}
+                                                                                placeholder={(idx + 1).toString().padStart(1, '0')}
                                                                                 className="w-full bg-white border border-primary/10 rounded-lg pl-8 pr-2 py-1.5 text-[12px] font-black text-center text-primary placeholder:text-primary/20 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
                                                                             />
                                                                         </div>
@@ -2649,41 +2848,208 @@ const ShootingPanel = ({
                     )}
                 </div>
             )}
+        {shootMode === 'gallery' && (
+            <div className="flex flex-col h-full overflow-hidden animate-fade-in text-primary">
+                {/* Cabecera de Galería Global */}
+                <div className="px-4 mb-4 shrink-0">
+                    <div className="bg-card border border-primary/10 border-l-4 border-l-violet-500 rounded-[16px] shadow-sm overflow-hidden text-primary">
+                        <div className="px-5 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
+                            <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 bg-violet-500/10 rounded-xl flex items-center justify-center text-violet-500">
+                                    <LayoutGrid size={20} />
+                                </div>
+                                <div className="text-left">
+                                    <h2 className="text-sm font-black uppercase tracking-widest text-primary">Galería Global de Orla</h2>
+                                    <p className="text-[10px] text-primary/40 font-bold uppercase tracking-wider italic">Vista unificada: Docentes y Alumnos con reencuadre inteligente</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3 w-full md:w-auto">
+                                <div className="h-[44px] flex items-center gap-3 px-5 rounded-xl bg-violet-50 border border-violet-100 shadow-sm">
+                                    <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center text-violet-600">
+                                        <Camera size={16} />
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-violet-400 text-[9px] font-black uppercase leading-tight">Total Fotos</span>
+                                        <span className="text-violet-700 text-[11px] font-black leading-tight">
+                                            {globalGalleryItems.filter(s => getPhotoSrc(s)).length} / {globalGalleryItems.length}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Grid de Galería Global */}
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-0">
+                    <div className="p-4 md:p-6 w-full animate-in fade-in duration-500">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 pb-24">
+                            {globalGalleryItems.map(item => (
+                                <div 
+                                    key={item.id} 
+                                    onClick={() => {
+                                        const photo = getPhotoSrc(item);
+                                        if (photo) {
+                                            setReframingItem({ 
+                                                id: item.id, 
+                                                type: item._isStaff ? 'staff' : 'student', 
+                                                photoUrl: photo, 
+                                                name: item._isStaff ? `${item.firstName} ${item.lastName}` : (item.studentName || `${item.firstName} ${item.lastName}`),
+                                                photoConfig: item.photoConfig || { zoom: 1, x: 0, y: 0 }
+                                            });
+                                        }
+                                    }}
+                                    className={`relative border overflow-hidden group/gallery hover:shadow-xl transition-all cursor-pointer ${((configOrla?.photoShape || 'circle') === 'circle' || (configOrla?.photoShape || 'circle') === 'shield' || (configOrla?.photoShape || 'circle') === 'arch') ? 'aspect-square' : 'aspect-[3/4]'} ${item._isStaff ? 'bg-emerald-50/50 border-emerald-100 hover:shadow-emerald-500/10' : 'bg-indigo-50/50 border-indigo-100 hover:shadow-indigo-500/10'}`}
+                                    style={getShapeStyle(configOrla.photoShape || 'circle')}
+                                >
+                                    {getPhotoSrc(item) ? (
+                                        <div className="w-full h-full relative">
+                                            <img 
+                                                src={getPhotoSrc(item)} 
+                                                className="w-full h-full object-cover transition-transform group-hover/gallery:scale-110" 
+                                                style={getPhotoTransform(item.photoConfig)}
+                                                alt={item.name || item.studentName} 
+                                            />
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover/gallery:opacity-100 transition-opacity flex flex-col justify-end p-3 rounded-2xl">
+                                                <p className="text-[10px] font-black text-white uppercase truncate">
+                                                    {item._isStaff ? `${item.firstName} ${item.lastName}` : item.studentName}
+                                                </p>
+                                                <div className="flex gap-2 mt-2">
+                                                    <button 
+                                                        className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-colors flex items-center justify-center gap-1 ${item._isStaff ? 'bg-white text-emerald-600 hover:bg-emerald-50' : 'bg-white text-indigo-600 hover:bg-indigo-50'}`}
+                                                    >
+                                                        <Maximize2 size={12} /> Reencuadrar
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div className={`absolute top-2 left-2 px-1.5 py-0.5 text-white text-[8px] font-black rounded-md shadow-sm z-20 border border-white/20 ${item._isStaff ? 'bg-emerald-600' : 'bg-indigo-600'}`}>
+                                                {getGlobalRank(item.id)}
+                                            </div>
+                                            {item._isStaff && (
+                                                <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-emerald-500/80 text-white text-[7px] font-black rounded-md uppercase tracking-tighter">
+                                                    DOCENTE
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className={`w-full h-full flex flex-col items-center justify-center gap-2 p-4 ${item._isStaff ? 'text-emerald-200' : 'text-indigo-200'}`}>
+                                             <Camera size={24} />
+                                             <span className="text-[9px] font-black uppercase text-center">Sin Foto Registrada</span>
+                                             <button 
+                                                onClick={(e) => { e.stopPropagation(); handleIndividualFileClick(item.id, item._isStaff ? 'staff' : 'student'); }}
+                                                className={`mt-2 px-3 py-1 bg-white border rounded-lg text-[8px] font-black uppercase transition-all shadow-sm ${item._isStaff ? 'border-emerald-100 text-emerald-400 hover:bg-emerald-600 hover:text-white' : 'border-indigo-100 text-indigo-400 hover:bg-indigo-600 hover:text-white'}`}
+                                             >
+                                                Subir Ahora
+                                             </button>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
         </main>
 
             {/* MODAL DISPARO ACTIVO */}
             {
                 activeStudent && (
-                    <div className="fixed inset-0 z-[100] bg-primary/95 backdrop-blur-md flex items-center justify-center p-4 lg:p-10 animate-in fade-in duration-300 cursor-pointer text-primary" onClick={(e) => e.target === e.currentTarget && selectStudent(null)}>
-                        <div className="w-full max-w-4xl bg-card rounded-[40px] shadow-2xl overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-10 duration-500 border border-white/20 cursor-default relative">
-                            <div className="flex flex-col lg:flex-row h-full">
-                                <div className="w-full lg:w-2/5 p-8 lg:p-12 bg-gradient-to-br from-emerald-500 to-teal-600 flex flex-col justify-between text-white relative overflow-hidden">
+                    <div className="fixed inset-0 z-[250] bg-primary/95 backdrop-blur-md flex items-center justify-center p-2 md:p-4 lg:p-10 animate-in fade-in duration-300 cursor-pointer text-primary" onClick={(e) => e.target === e.currentTarget && selectStudent(null)}>
+                        <div className="w-full max-w-5xl max-h-[95vh] bg-card rounded-[40px] shadow-2xl overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-10 duration-500 border border-white/20 cursor-default relative flex flex-col">
+                            {/* Botones de Navegación Rápida */}
+                            <div className="absolute top-1/2 -translate-y-1/2 left-4 z-[60] hidden xl:block">
+                                <button 
+                                    onClick={() => {
+                                        const idx = filteredOrders.findIndex(o => o.id === activeStudent.id);
+                                        if (idx > 0) selectStudent(filteredOrders[idx - 1]);
+                                    }}
+                                    disabled={filteredOrders.findIndex(o => o.id === activeStudent.id) <= 0}
+                                    className="w-16 h-16 bg-white/90 hover:bg-white text-indigo-600 rounded-full flex items-center justify-center backdrop-blur-md border-2 border-white shadow-[0_4px_24px_rgba(0,0,0,0.35)] hover:shadow-[0_6px_32px_rgba(99,102,241,0.5)] transition-all active:scale-90 disabled:opacity-20 hover:scale-105"
+                                >
+                                    <ChevronUp className="-rotate-90" size={36} strokeWidth={3} />
+                                </button>
+                            </div>
+                            <div className="absolute top-1/2 -translate-y-1/2 right-4 z-[60] hidden xl:block">
+                                <button 
+                                    onClick={() => {
+                                        const idx = filteredOrders.findIndex(o => o.id === activeStudent.id);
+                                        if (idx < filteredOrders.length - 1) selectStudent(filteredOrders[idx + 1]);
+                                    }}
+                                    disabled={filteredOrders.findIndex(o => o.id === activeStudent.id) >= filteredOrders.length - 1}
+                                    className="w-16 h-16 bg-white/90 hover:bg-white text-indigo-600 rounded-full flex items-center justify-center backdrop-blur-md border-2 border-white shadow-[0_4px_24px_rgba(0,0,0,0.35)] hover:shadow-[0_6px_32px_rgba(99,102,241,0.5)] transition-all active:scale-90 disabled:opacity-20 hover:scale-105"
+                                >
+                                    <ChevronUp className="rotate-90" size={36} strokeWidth={3} />
+                                </button>
+                            </div>
+
+                            <div className="flex flex-col lg:flex-row h-full overflow-y-auto lg:overflow-hidden">
+                                <div className="w-full lg:w-2/5 p-8 lg:p-12 bg-gradient-to-br from-indigo-500 via-indigo-600 to-indigo-700 flex flex-col justify-between text-white relative overflow-hidden shrink-0">
                                     <div className="absolute top-0 right-0 p-8 opacity-10">
                                         {settings?.logo ? <img src={settings.logo} alt="Logo" className="w-48 h-48 object-contain drop-shadow-2xl brightness-0 invert" /> : <Camera size={200} />}
                                     </div>
                                     <div className="relative z-10 lg:mt-4">
-                                        <div 
-                                            className="w-full aspect-[3/4] max-w-[200px] bg-white/10 flex items-center justify-center mb-8 backdrop-blur-md border border-white/20 shadow-2xl overflow-hidden mx-auto lg:mx-0 group transition-all duration-500 hover:scale-105 hover:border-white/40"
-                                            style={getShapeStyle(configOrla.photoShape || 'rect34', 200, 260)}
-                                        >
-                                            {activeStudent.digitalPhotoUrl ? (
-                                                <img src={activeStudent.digitalPhotoUrl} className="w-full h-full object-cover animate-fade-in" alt="Foto Alumno" />
-                                            ) : activeStudent.photoFile?.toString().startsWith('http') ? (
-                                                <img src={activeStudent.photoFile} className="w-full h-full object-cover animate-fade-in" alt="Foto Alumno" />
-                                            ) : settings?.logo ? (
-                                                <img src={settings.logo} alt="Logo" className="w-20 h-20 object-contain drop-shadow-xl brightness-0 invert opacity-40" />
-                                            ) : (
-                                                <Camera size={48} className="text-white/20" />
-                                            )}
-                                        </div>
-                                        <h1 className={`text-3xl lg:text-5xl font-black uppercase tracking-tight leading-none italic text-white drop-shadow-xl ${activeStudent.photoFile ? 'mb-2' : 'mb-6'}`}>
-                                            {activeStudent.studentName}
+                                         {(() => {
+                                             const shape = configOrla?.photoShape || 'rect34r';
+                                             const isCircle = shape === 'circle';
+                                             const isSquarish = ['circle', 'shield', 'arch'].includes(shape);
+                                             const dims = {
+                                                 circle:  { width: '180px', height: '180px' },
+                                                 oval:    { width: '150px', height: '200px' },
+                                                 rect34:  { width: '150px', height: '200px' },
+                                                 rect34r: { width: '150px', height: '200px' },
+                                                 shield:  { width: '180px', height: '180px' },
+                                                 arch:    { width: '180px', height: '180px' },
+                                                 square:  { width: '180px', height: '180px' },
+                                                 squarer: { width: '180px', height: '180px' },
+                                             }[shape] || { width: '150px', height: '200px' };
+                                             const shapeStyles = getShapeStyle(shape, dims.width, dims.height);
+                                             const { width: _w, height: _h, objectFit: _of, aspectRatio: _ar, ...clipStyles } = shapeStyles;
+                                             return (
+                                                 <div 
+                                                     className="mb-8 bg-white/10 flex items-center justify-center backdrop-blur-md border border-white/20 shadow-2xl overflow-hidden mx-auto lg:mx-0 group transition-all duration-500 hover:scale-105 hover:border-white/40"
+                                                     style={{ ...dims, ...clipStyles, flexShrink: 0 }}
+                                                 >
+                                                     {getPhotoSrc(activeStudent) ? (
+                                                         <img 
+                                                             src={getPhotoSrc(activeStudent)} 
+                                                             className="w-full h-full object-cover animate-fade-in" 
+                                                             style={getPhotoTransform(activeStudent.photoConfig)}
+                                                             alt="Foto Alumno" 
+                                                         />
+                                                     ) : settings?.logo ? (
+                                                         <img src={settings.logo} alt="Logo" className="w-20 h-20 object-contain drop-shadow-xl brightness-0 invert opacity-40" />
+                                                     ) : (
+                                                         <Camera size={48} className="text-white/20" />
+                                                     )}
+                                                 </div>
+                                             );
+                                         })()}
+                                        <h1 className="text-3xl lg:text-5xl font-black uppercase tracking-tight leading-none italic text-white drop-shadow-xl mb-4 line-clamp-3">
+                                            {(activeStudent.studentName && !activeStudent.studentName.startsWith('http'))
+                                                ? activeStudent.studentName
+                                                : (activeStudent.name || activeStudent.firstName
+                                                    ? `${activeStudent.firstName || ''} ${activeStudent.lastName || ''}`.trim()
+                                                    : 'Sin Nombre')}
                                         </h1>
-                                        {activeStudent.photoFile && (
-                                            <p className="text-3xl lg:text-4xl font-black tracking-widest mb-6 text-white drop-shadow-xl break-all">
-                                                {activeStudent.photoFile}
-                                            </p>
+                                        
+                                        {(activeStudent.parentName || activeStudent.phone) && (
+                                            <div className="flex flex-wrap gap-4 mb-6">
+                                                {activeStudent.parentName && (
+                                                    <div className="flex items-center gap-2 px-4 py-2 bg-white/10 rounded-2xl backdrop-blur-md border border-white/10">
+                                                        <User size={14} className="text-amber-300" />
+                                                        <span className="text-xs font-black uppercase tracking-widest text-white">{activeStudent.parentName}</span>
+                                                    </div>
+                                                )}
+                                                {activeStudent.phone && (
+                                                    <div className="flex items-center gap-2 px-4 py-2 bg-white/10 rounded-2xl backdrop-blur-md border border-white/10">
+                                                        <Phone size={14} className="text-emerald-300" />
+                                                        <span className="text-xs font-black tracking-widest text-white">{activeStudent.phone}</span>
+                                                    </div>
+                                                )}
+                                            </div>
                                         )}
+
                                         <div className="p-5 bg-black/20 rounded-3xl backdrop-blur-md border border-white/10 text-white mb-6 mt-2">
                                             <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-2 opacity-60">Centro y Curso</p>
                                             <p className="text-sm font-bold leading-tight mb-1">{getSchoolName(activeStudent.schoolId)}</p>
@@ -2758,12 +3124,12 @@ const ShootingPanel = ({
                                                         }}
                                                         title="Haga clic para cambiar si la foto ya ha sido realizada"
                                                     >
-                                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${activeStudent.status === 'production' || activeStudent.photoFile ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}`}>
+                                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${activeStudent.status === 'production' || activeStudent.photoFile || activeStudent.digitalPhotoUrl ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}`}>
                                                             <Camera size={16} />
                                                         </div>
                                                         <div className="flex-1">
                                                             <p className="text-[10px] font-black uppercase tracking-wider leading-none">
-                                                                {activeStudent.status === 'production' || activeStudent.photoFile ? 'Foto Realizada' : 'Foto Pendiente'}
+                                                                {activeStudent.status === 'production' || activeStudent.photoFile || activeStudent.digitalPhotoUrl ? 'Foto Realizada' : 'Foto Pendiente'}
                                                             </p>
                                                         </div>
                                                         <ChevronDown size={14} className={`transition-transform duration-300 ${showStatusSelector ? 'rotate-180 text-emerald-400' : 'opacity-40'}`} />
@@ -2783,10 +3149,10 @@ const ShootingPanel = ({
                                                                     <div className={`w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center ${opt.color}`}>
                                                                         <opt.icon size={12} />
                                                                     </div>
-                                                                    <span className={`text-[10px] font-black uppercase tracking-widest ${opt.id === (activeStudent.status === 'production' || activeStudent.photoFile ? 'production' : 'Pendiente') ? 'text-white' : 'text-white/40 group-hover:text-white'}`}>
+                                                                    <span className={`text-[10px] font-black uppercase tracking-widest ${opt.id === (activeStudent.status === 'production' || activeStudent.photoFile || activeStudent.digitalPhotoUrl ? 'production' : 'Pendiente') ? 'text-white' : 'text-white/40 group-hover:text-white'}`}>
                                                                         {opt.label}
                                                                     </span>
-                                                                    {opt.id === (activeStudent.status === 'production' || activeStudent.photoFile ? 'production' : 'Pendiente') && (
+                                                                    {opt.id === (activeStudent.status === 'production' || activeStudent.photoFile || activeStudent.digitalPhotoUrl ? 'production' : 'Pendiente') && (
                                                                         <div className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.5)]" />
                                                                     )}
                                                                 </button>
@@ -2877,7 +3243,7 @@ const ShootingPanel = ({
                                                             {orders.filter(o => {
                                                                 const matchesSchool = adminSchool ? o.schoolId === adminSchool : true;
                                                                 const matchesSearch = modalSearch.length > 0 ? o.studentName.toLowerCase().includes(modalSearch.toLowerCase()) : (o.course === activeStudent.course);
-                                                                const hasPhoto = o.status === 'production' || o.photoFile;
+                                                                const hasPhoto = o.status === 'production' || o.photoFile || o.digitalPhotoUrl;
                                                                 return matchesSchool && matchesSearch && o.id !== activeStudent.id && !hasPhoto;
                                                             }).slice(0, 10).map(student => (
                                                                 <button key={student.id} onClick={() => { selectStudent(student); setModalSearch(""); setIsFocused(false); }} className="w-full p-4 flex items-center justify-between hover:bg-primary/5 transition-colors border-b border-primary/5 last:border-0 group/item">
@@ -3188,7 +3554,7 @@ const ShootingPanel = ({
             
             {/* MODAL DE REENCUADRE (REFRAMING) */}
             {reframingItem && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8">
+                <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 md:p-8">
                     <div 
                         className="absolute inset-0 bg-slate-900/40 backdrop-blur-md"
                         onClick={() => setReframingItem(null)}
@@ -3199,56 +3565,94 @@ const ShootingPanel = ({
                         <div className="flex-1 bg-slate-100 relative min-h-[400px] flex items-center justify-center overflow-hidden border-b md:border-b-0 md:border-r border-slate-200">
                             <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#000 0.5px, transparent 0.5px)', backgroundSize: '10px 10px' }}></div>
                             
-                            {/* El "Marco" de la Foto (Segun configOrla) */}
                             <div 
-                                className="relative shadow-2xl bg-white overflow-hidden transition-all"
-                                style={{
-                                    width: '350px',
-                                    height: '450px',
-                                    ...getShapeStyle(configOrla?.photoShape || 'circle', 350, 450)
-                                }}
+                                className="relative overflow-hidden bg-slate-900 shadow-2xl transition-all flex items-center justify-center select-none"
+                                style={(() => {
+                                    const shape = configOrla?.photoShape || 'circle';
+                                    // Dimensiones explícitas por forma (width + height, NO aspectRatio)
+                                    const dims = {
+                                        circle:  { width: '400px', height: '400px' },
+                                        oval:    { width: '320px', height: '420px' },
+                                        rect34:  { width: '300px', height: '400px' },
+                                        rect34r: { width: '300px', height: '400px' },
+                                        shield:  { width: '380px', height: '380px' },
+                                        arch:    { width: '380px', height: '380px' },
+                                        square:  { width: '380px', height: '380px' },
+                                        squarer: { width: '380px', height: '380px' },
+                                    }[shape] || { width: '320px', height: '420px' };
+
+                                    // Solo propiedades de clip de getShapeStyle (excluimos width/height/objectFit)
+                                    const shapeStyles = getShapeStyle(shape);
+                                    const { width: _w, height: _h, objectFit: _of, aspectRatio: _ar, ...clipStyles } = shapeStyles;
+
+                                    return {
+                                        ...dims,
+                                        ...clipStyles,
+                                        flexShrink: 0,
+                                    };
+                                })()}
                             >
-                                <img 
-                                    src={reframingItem.photoUrl} 
-                                    alt="Reencuadre"
-                                    draggable={false}
-                                    style={{
-                                        width: '100%',
-                                        height: '100%',
-                                        objectFit: 'cover',
-                                        transform: `scale(${reframingItem.photoConfig?.zoom || 1}) translate(${reframingItem.photoConfig?.x || 0}px, ${reframingItem.photoConfig?.y || 0}px)`,
-                                        cursor: 'move'
-                                    }}
-                                    onMouseDown={(e) => {
-                                        const startX = e.clientX;
-                                        const startY = e.clientY;
-                                        const initialX = reframingItem.photoConfig?.x || 0;
-                                        const initialY = reframingItem.photoConfig?.y || 0;
-                                        const currentZoom = reframingItem.photoConfig?.zoom || 1;
+                                 <img 
+                                     src={reframingItem.photoUrl} 
+                                     alt="Reencuadre"
+                                     draggable={false}
+                                     style={{
+                                         width: '100%',
+                                         height: '100%',
+                                         objectFit: 'cover',
+                                         ...getPhotoTransform(reframingItem.photoConfig),
+                                         cursor: 'move'
+                                     }}
+                                     onMouseDown={(e) => {
+                                         const rect = e.currentTarget.parentElement.getBoundingClientRect();
+                                         const refW = rect.width;
+                                         const refH = rect.height;
+                                         const startX = e.clientX;
+                                         const startY = e.clientY;
+                                         const initialX = reframingItem.photoConfig?.x || 0;
+                                         const initialY = reframingItem.photoConfig?.y || 0;
+                                         const currentZoom = reframingItem.photoConfig?.zoom || 1;
 
-                                        const handleMouseMove = (mm) => {
-                                            const dx = (mm.clientX - startX) / currentZoom;
-                                            const dy = (mm.clientY - startY) / currentZoom;
-                                            setReframingItem(prev => ({
-                                                ...prev,
-                                                photoConfig: {
-                                                    ...prev.photoConfig,
-                                                    x: initialX + dx,
-                                                    y: initialY + dy,
-                                                    zoom: currentZoom
-                                                }
-                                            }));
-                                        };
+                                         const handleMouseMove = (mm) => {
+                                             // Calculamos el desplazamiento en porcentaje relativo al contenedor y al zoom
+                                             const dx = ((mm.clientX - startX) / currentZoom / refW) * 100;
+                                             const dy = ((mm.clientY - startY) / currentZoom / refH) * 100;
+                                             
+                                             setReframingItem(prev => ({
+                                                 ...prev,
+                                                 photoConfig: {
+                                                     ...prev.photoConfig,
+                                                     x: initialX + dx,
+                                                     y: initialY + dy,
+                                                     zoom: currentZoom
+                                                 }
+                                             }));
+                                         };
 
-                                        const handleMouseUp = () => {
-                                            window.removeEventListener('mousemove', handleMouseMove);
-                                            window.removeEventListener('mouseup', handleMouseUp);
-                                        };
+                                         const handleMouseUp = () => {
+                                             window.removeEventListener('mousemove', handleMouseMove);
+                                             window.removeEventListener('mouseup', handleMouseUp);
+                                         };
 
-                                        window.addEventListener('mousemove', handleMouseMove);
-                                        window.addEventListener('mouseup', handleMouseUp);
-                                    }}
-                                />
+                                         window.addEventListener('mousemove', handleMouseMove);
+                                         window.addEventListener('mouseup', handleMouseUp);
+                                     }}
+                                 />
+                                {/* REGLA DE ORO / GUÍAS DE REENCUADRE */}
+                                <div className="absolute inset-0 pointer-events-none z-20">
+                                    {/* Líneas horizontales */}
+                                    <div className="absolute top-[33.33%] left-0 w-full h-[1px] bg-white/40 shadow-[0_0_8px_rgba(255,255,255,0.5)]"></div>
+                                    <div className="absolute top-[66.66%] left-0 w-full h-[1px] bg-white/40 shadow-[0_0_8px_rgba(255,255,255,0.5)]"></div>
+                                    {/* Líneas verticales */}
+                                    <div className="absolute left-[33.33%] top-0 h-full w-[1px] bg-white/40 shadow-[0_0_8px_rgba(255,255,255,0.5)]"></div>
+                                    <div className="absolute left-[66.66%] top-0 h-full w-[1px] bg-white/40 shadow-[0_0_8px_rgba(255,255,255,0.5)]"></div>
+                                    
+                                    {/* Círculo central - Óvalo facial sugerido */}
+                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[62%] w-[200px] h-[240px] rounded-[100%] border border-white/30 border-dashed backdrop-brightness-110"></div>
+                                    
+                                    {/* Punto central de nariz */}
+                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-white/20"></div>
+                                </div>
                             </div>
                             
                             {/* Etiquetas Informativas */}
@@ -3411,10 +3815,25 @@ const ShootingPanel = ({
                                 
                                 <button 
                                     onClick={() => setReframingItem(null)}
-                                    className="w-full py-3 text-slate-400 hover:text-slate-600 font-black text-[11px] uppercase tracking-widest transition-colors"
+                                    className="w-full py-3 text-slate-400 hover:text-slate-600 font-black text-[11px] uppercase tracking-widest transition-colors mb-2"
                                 >
                                     Cancelar
                                 </button>
+
+                                <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-4">
+                                    <button 
+                                        onClick={() => handleNavigateReframing(-1)}
+                                        className="flex items-center justify-center gap-2 py-3 bg-slate-50 border border-slate-200 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-white hover:border-indigo-200 hover:text-indigo-600 transition-all active:scale-95 group shadow-sm"
+                                    >
+                                        <ChevronLeft size={16} className="group-hover:-translate-x-0.5 transition-transform" /> Anterior
+                                    </button>
+                                    <button 
+                                        onClick={() => handleNavigateReframing(1)}
+                                        className="flex items-center justify-center gap-2 py-3 bg-slate-50 border border-slate-200 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-white hover:border-indigo-200 hover:text-indigo-600 transition-all active:scale-95 group shadow-sm"
+                                    >
+                                        Siguiente <ChevronRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>

@@ -1,5 +1,6 @@
-// Force reload for deployment fix
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import Swal from 'sweetalert2';
+import 'sweetalert2/dist/sweetalert2.min.css';
 import { db } from './firebase.js';
 import { collection, addDoc } from 'firebase/firestore';
 import { getToken, onMessage } from 'firebase/messaging';
@@ -49,7 +50,7 @@ import DownloadPortal from './components/user/DownloadPortal.jsx';
 
 
 
-import { toTitleCase, firstSurname, getCourseBase, getGroup } from './utils/formatters.js';
+import { toTitleCase, firstSurname, getCourseBase, getGroup, normalize } from './utils/formatters.js';
 
 // --- CONFIGURACIÓN DISEÑO ORLA (ESTABLE - FUERA DE APP PR RENDIMIENTO) ---
 const DPI = 300;
@@ -174,7 +175,7 @@ class AppErrorBoundary extends React.Component {
     }
 }
 
-export default function App() {
+function App() {
     useEffect(() => {
         console.log("🚀 ORLAS 2026 - v8.3.4 - 15/03/2026 02:15");
     }, []);
@@ -589,12 +590,13 @@ export default function App() {
         { id: '2233', studentName: 'Sofía Sanz', photoFile: '2233', course: 'Guardería 2-3 años', schoolId: 'cantero', timestamp: new Date().toISOString() }
     ];
 
-    const orders = (photographerId === 'jess-photography' && realOrders.length === 0) ? simOrders : realOrders;
-    const staff = (photographerId === 'jess-photography' && realStaff.length === 0) ? simStaff : realStaff;
+    const orders = (photographerId === 'jess-photography' && (!realOrders || realOrders.length === 0)) ? simOrders : (realOrders || []);
+    const staff = (photographerId === 'jess-photography' && (!realStaff || realStaff.length === 0)) ? simStaff : (realStaff || []);
 
     // Efecto para autoseleccionar docentes correspondientes al curso/grupo seleccionado en el diseño
     useEffect(() => {
-        const groupsForCourse = designFilter.course ? [...new Set(orders.filter(o => getCourseBase(o.course) === designFilter.course).map(o => getGroup(o.course)))].filter(Boolean) : [];
+        if (!designFilter || !designFilter.course) return;
+        const groupsForCourse = [...new Set((orders || []).filter(o => o && getCourseBase(o.course) === designFilter.course).map(o => getGroup(o.course)))].filter(Boolean);
         const needsGroup = groupsForCourse.length > 0;
         const isSelectionComplete = designFilter.school && designFilter.course && (!needsGroup || designFilter.group);
 
@@ -875,111 +877,120 @@ export default function App() {
             console.error("Error cargando SweetAlert:", e);
         }
 
-        // Suplementos descripción agrupada
-        const activeSupplements = settings.supplements || [];
-        const supplementsDesc = Object.entries(selectedSupplements)
-            .map(([packId, packSups]) => {
-                const p = allPacks.find(x => x.id === packId);
-                const sups = Object.entries(packSups)
-                    .map(([sId, sQty]) => {
-                        const s = activeSupplements.find(sup => sup.id.toString() === sId.toString());
-                        return `${sQty > 1 ? `${sQty}x ` : ''}${s?.name || sId}`;
-                    })
-                    .join(', ');
-                return sups ? `${p?.name || packId}: ${sups}` : '';
-            })
-            .filter(Boolean)
-            .join(' | ');
-
-        const newOrder = {
-            studentName: formData.studentName,
-            schoolId: formData.schoolId,
-            schoolName: getSchoolName(formData.schoolId),
-            schoolCode: schools.find(s => s.id === formData.schoolId)?.code,
-            course: formData.course,
-            packs: Object.entries(selectedPacks).map(([id, qty]) => ({
-                id,
-                name: allPacks.find(p => p.id === id)?.name || id,
-                quantity: qty,
-                supplements: Object.entries(selectedSupplements[id] || {}).map(([sId, sQty]) => {
-                    const s = (settings.supplements || []).find(sup => sup.id.toString() === sId.toString());
-                    return {
-                        id: sId,
-                        name: s?.name || sId,
-                        quantity: sQty,
-                        price: s?.price || 0
-                    };
+        try {
+            // Suplementos descripción agrupada
+            const activeSupplements = settings.supplements || [];
+            const supplementsDesc = Object.entries(selectedSupplements || {})
+                .map(([packId, packSups]) => {
+                    const p = (allPacks || []).find(x => x.id === packId);
+                    const sups = Object.entries(packSups || {})
+                        .map(([sId, sQty]) => {
+                            const s = activeSupplements.find(sup => sup.id.toString() === sId.toString());
+                            return `${sQty > 1 ? `${sQty}x ` : ''}${s?.name || sId}`;
+                        })
+                        .join(', ');
+                    return sups ? `${p?.name || packId}: ${sups}` : '';
                 })
-            })),
-            pack: { id: mainPackId, label: packsDesc }, // Para compatibilidad
-            packId: mainPackId,
-            packQuantity: selectedPacks[mainPackId] || 1,
-            extras: { ...extras },
-            extrasDesc,
-            supplements: { ...selectedSupplements },
-            supplementsDesc,
-            paymentMethod: formData.paymentMethod,
-            price: orderTotals.price,
-            cost: orderTotals.cost,
-            profit: orderTotals.profit,
-        };
+                .filter(Boolean)
+                .join(' | ');
 
-        if (formData.paymentMethod === 'card' || formData.paymentMethod === 'bizum') {
-            try {
-                // Registrar pedido como pendiente
+            const newOrder = {
+                studentName: formData.studentName || '',
+                schoolId: formData.schoolId || '',
+                schoolName: getSchoolName(formData.schoolId),
+                schoolCode: schools.find(s => s.id === formData.schoolId)?.code || '',
+                course: formData.course || '',
+                packs: Object.entries(selectedPacks || {}).map(([id, qty]) => ({
+                    id,
+                    name: (allPacks || []).find(p => p.id === id)?.name || id,
+                    quantity: qty,
+                    supplements: Object.entries((selectedSupplements || {})[id] || {}).map(([sId, sQty]) => {
+                        const s = (settings?.supplements || []).find(sup => sup.id.toString() === sId.toString());
+                        return { id: sId, name: s?.name || sId, quantity: sQty, price: s?.price || 0 };
+                    })
+                })),
+                pack: { id: mainPackId, label: packsDesc },
+                packId: mainPackId,
+                packQuantity: selectedPacks[mainPackId] || 1,
+                extras: { ...extras },
+                extrasDesc,
+                supplements: { ...selectedSupplements },
+                supplementsDesc,
+                paymentMethod: formData.paymentMethod,
+                price: orderTotals.price,
+                cost: orderTotals.cost,
+                profit: orderTotals.profit,
+                timestamp: new Date().toISOString()
+            };
+
+            // 3. Procesar según método de pago
+            if (formData.paymentMethod === 'card' || formData.paymentMethod === 'bizum') {
                 newOrder.status = 'Pendiente (Pago en proceso)';
                 const createdOrder = await addOrder(newOrder);
 
-                if (Swal) {
-                    const methodLabel = formData.paymentMethod === 'bizum' ? 'Bizum' : 'Sabadell Paycomet';
-                    Swal.update({
-                        title: 'Conectando con pasarela...',
-                        text: `Redirigiendo a ${methodLabel}.`
+                try {
+                    const { httpsCallable } = await import('firebase/functions');
+                    const { functions } = await import('./firebase.js');
+                    const createPaycometIntent = httpsCallable(functions, 'createPaycometIntent');
+                    
+                    if (Swal) {
+                        const methodLabel = formData.paymentMethod === 'bizum' ? 'Bizum' : 'Sabadell Paycomet';
+                        Swal.update({
+                            title: 'Conectando con pasarela...',
+                            text: `Redirigiendo a ${methodLabel}.`
+                        });
+                    }
+
+                    const response = await createPaycometIntent({
+                        studentId: createdOrder.id,
+                        amount: orderTotals.price,
+                        photographerId: photographerId || 'default',
+                        schoolId: formData.schoolId || '',
+                        payMethod: formData.paymentMethod
                     });
+
+                    if (response.data?.success && response.data?.paycometUrl) {
+                        window.location.href = response.data.paycometUrl;
+                    } else {
+                        console.error("Respuesta Paycomet inválida:", response.data);
+                        throw new Error(response.data?.error || "No se recibió una URL de pago válida.");
+                    }
+                } catch (error) {
+                    console.error("Error en pasarela:", error);
+                    if (Swal) {
+                        Swal.fire({
+                            title: 'Error de Conexión',
+                            text: 'No se pudo conectar con la pasarela de pago. Tu pedido se ha guardado como pendiente.',
+                            icon: 'error',
+                            confirmButtonColor: '#0f172a'
+                        });
+                    }
+                    setOrderCompleted(true);
+                    setStep(4);
                 }
-
-                const { httpsCallable } = await import('firebase/functions');
-                const { functions } = await import('./firebase.js');
-                const createPaycometIntent = httpsCallable(functions, 'createPaycometIntent');
-
-                const response = await createPaycometIntent({
-                    studentId: createdOrder.id,
-                    amount: orderTotals.price,
-                    photographerId: photographerId,
-                    schoolId: formData.schoolId, // Identificador del colegio para el webhook
-                    payMethod: formData.paymentMethod
-                });
-
-                const { success, paycometUrl } = response.data;
-
-                if (success && paycometUrl) {
-                    // Redirección directa a la pasarela segura
-                    window.location.href = paycometUrl;
-                } else {
-                    throw new Error("No se recibió una URL de pago válida.");
-                }
-
-            } catch (error) {
-                console.error(`Error al iniciar pago con ${formData.paymentMethod}:`, error);
-                if (Swal) {
-                    Swal.fire('Error', 'No se pudo conectar con la pasarela de pago. Inténtalo de nuevo o selecciona otro método.', 'error');
-                } else {
-                    alert('Error: No se pudo conectar con la pasarela de pago.');
+            } else {
+                newOrder.status = 'Pendiente';
+                await addOrder(newOrder);
+                if (Swal) Swal.close();
+                setOrderCompleted(true);
+                setStep(4);
+                
+                try {
+                    sendAdminNotification('PEDIDO', {
+                        studentName: formData.studentName,
+                        schoolName: getSchoolName(formData.schoolId),
+                        course: formData.course,
+                        packName: packsDesc,
+                        total: orderTotals.price,
+                        paymentMethod: formData.paymentMethod
+                    });
+                } catch (e) {
+                    console.warn("Error en notificación:", e);
                 }
             }
-        } else {
-            await addOrder(newOrder);
-            if (Swal) Swal.close();
-            setOrderCompleted(true);
-
-            sendAdminNotification('PEDIDO', {
-                studentName: formData.studentName,
-                schoolName: getSchoolName(formData.schoolId),
-                course: formData.course,
-                packName: `${packsDesc}${supplementsDesc ? ` (+${supplementsDesc})` : ''}`,
-                total: orderTotals.price,
-                paymentMethod: formData.paymentMethod
-            });
+        } catch (error) {
+            console.error("Error general en handleFinalize:", error);
+            if (Swal) Swal.fire('Error', 'Hubo un problema al procesar tu pedido. Por favor, inténtalo de nuevo.', 'error');
         }
     };
 
@@ -1495,7 +1506,7 @@ export default function App() {
             {view !== 'master' && view !== 'command' && <BackgroundOrbs />}
 
             {/* CABECERA (Ocultar en Master/Onboarding/Suspended/Landing/Command) */}
-            {view !== 'master' && view !== 'onboarding' && view !== 'landing' && view !== 'command' && !settings.isSuspended && (
+            {view !== 'master' && view !== 'onboarding' && view !== 'landing' && view !== 'command' && !settings?.isSuspended && (
                 <>
                     <header className={`fixed top-0 inset-x-0 z-[700] backdrop-blur-xl border-b transition-all duration-500 safe-top bg-card/80 border-primary/5 md:bg-transparent md:border-none md:backdrop-blur-none ${isFullScreenDesign ? '!bg-card/95 !backdrop-blur-2xl !border-white/5' : ''}`}>
                         <div className={`${isFullScreenDesign ? 'max-w-7xl' : 'max-w-5xl'} mx-auto px-4 md:px-8 h-16 md:h-20 flex items-center justify-between relative`}>
@@ -1522,7 +1533,7 @@ export default function App() {
                 </>
             )}
 
-            {settings.isSuspended && view !== 'master' && view !== 'command' && view !== 'landing' ? (
+            {settings?.isSuspended && view !== 'master' && view !== 'command' && view !== 'landing' ? (
                 <div className="fixed inset-0 bg-[#020617] flex items-center justify-center p-6 z-[9999]">
                     <div className="fixed inset-0 overflow-hidden pointer-events-none -z-0 opacity-20">
                         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-red-500 blur-[120px] rounded-full" />
@@ -1569,46 +1580,49 @@ export default function App() {
                     {/* VISTA COMMAND CENTER (PRODUCCIÓN) */}
                     {view === 'command' && (
                         <CommandCenter
-                            graduates={orders.filter(o =>
-                                (!designFilter.course || getCourseBase(o.course) === designFilter.course) &&
-                                (!designFilter.group || getGroup(o.course) === designFilter.group)
-                            )}
-                            staff={staff.filter(m => {
+                            graduates={(orders || []).filter(o => {
+                                if (!o || !o.course) return false;
+                                const studentCourse = normalize(getCourseBase(o.course.toString()));
+                                const filterCourse = designFilter?.course ? normalize(designFilter.course.toString()) : '';
+                                const studentGroup = normalize(getGroup(o.course.toString()));
+                                const filterGroup = designFilter?.group ? normalize(designFilter.group.toString()) : '';
+
+                                const courseMatch = !filterCourse || studentCourse === filterCourse;
+                                const groupMatch = !filterGroup || studentGroup === filterGroup;
+
+                                return courseMatch && groupMatch;
+                            })}
+                            staff={(staff || []).filter(m => {
+                                if (!m) return false;
                                 const getStaffAsgs = (mem) => {
-                                    if (mem.assignments && mem.assignments.length > 0) return mem.assignments;
-                                    if (mem.course) return [{ course: mem.course, group: mem.group || '' }];
+                                    if (mem.assignments && Array.isArray(mem.assignments) && mem.assignments.length > 0) return mem.assignments;
+                                    if (mem.course) return [{ course: mem.course.toString(), group: (mem.group || '').toString() }];
                                     return [];
                                 };
                                 const asgs = getStaffAsgs(m);
-                                if (!designFilter.course) return true;
+                                if (!designFilter?.course) return true;
 
+                                const filterCourseNormal = normalize(designFilter.course.toString());
                                 return asgs.some(a => {
-                                    const normalize = (str) => {
-                                        if (!str) return '';
-                                        return str.toString().toLowerCase()
-                                            .normalize("NFD")
-                                            .replace(/[\u0300-\u036f]/g, "")
-                                            .replace(/\s+/g, ' ')
-                                            .trim();
-                                    };
-                                    const staffCourseNormal = normalize(getCourseBase(a.course));
-                                    const filterCourseNormal = normalize(designFilter.course);
+                                    if (!a || !a.course) return false;
+                                    const staffCourseNormal = normalize(getCourseBase(a.course.toString()));
                                     const courseMatch = staffCourseNormal === filterCourseNormal;
-                                    if (!designFilter.group) return courseMatch;
-                                    const groupNormal = normalize(a.group);
-                                    const filterGroupNormal = normalize(designFilter.group);
-                                    const groupMatch = !groupNormal || groupNormal === filterGroupNormal;
+                                    if (!designFilter?.group) return courseMatch;
+                                    
+                                    const groupNormal = normalize((a.group || '').toString());
+                                    const filterGroupNormal = normalize(designFilter.group.toString());
+                                    const groupMatch = groupNormal === filterGroupNormal;
                                     return courseMatch && groupMatch;
                                 });
                             })}
-                            design={configOrla}
+                            design={configOrla || {}}
                             onBack={() => setView('admin')}
-                            groupName={schools.find(s => s.id === adminSchool)?.name || 'Grupo de Orla'}
-                            course={designFilter.course}
-                            group={designFilter.group}
+                            groupName={(schools || []).find(s => s.id === adminSchool)?.name || 'Grupo de Orla'}
+                            course={designFilter?.course || ''}
+                            group={designFilter?.group || ''}
                             theme={theme}
                             onToggleTheme={toggleTheme}
-                            settings={settings}
+                            settings={settings || {}}
                         />
                     )}
 
@@ -2457,4 +2471,5 @@ const AppWithProviders = () => (
     </AppErrorBoundary>
 );
 
+export default AppWithProviders;
 export { AppWithProviders as App };

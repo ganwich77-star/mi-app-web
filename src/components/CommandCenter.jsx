@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Camera, Layers, Zap, Copy, Download, ArrowLeft, CheckCircle2, Binary, X, FileCode, Star, Package, Tag, Users, UserCheck, Globe, Sun, Moon, Clipboard, CheckCircle, Info, ExternalLink, FileJson, Cloud, Search } from 'lucide-react';
+import { Camera, Layers, Zap, Copy, Download, ArrowLeft, CheckCircle2, Binary, X, FileCode, Star, Package, Tag, Users, UserCheck, Globe, Sun, Moon, Clipboard, CheckCircle, Info, ExternalLink, FileJson, Cloud, Search, Sparkles } from 'lucide-react';
 import { PACKS, EXTRAS } from '../constants.js';
 
 const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "ORLA-GENERICA", course = "", group = "", onBack, theme, onToggleTheme, settings = {} }) => {
@@ -28,13 +28,14 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
             return g.supplements && g.supplements[id] === true;
         }
         if (type === 'extra') {
-            return g.extras && (g.extras[id] > 0 || (typeof g.extras[id] === 'object' && g.extras[id].quantity > 0));
+            const extraVal = g.extras ? g.extras[id] : null;
+            return extraVal > 0 || (typeof extraVal === 'object' && extraVal !== null && extraVal.quantity > 0);
         }
         return false;
     }).sort((a, b) => (a.studentName || '').localeCompare(b.studentName || '', 'es', { sensitivity: 'base' }));
 
     const filteredStaff = (activeFilter.type === 'role' && (activeFilter.id === 'ALL' || activeFilter.id === 'STAFF'))
-        ? staff.sort((a, b) => a.name.localeCompare(b.name))
+        ? [...(staff || [])].sort((a, b) => (a.name || a.firstName || '').localeCompare(b.name || b.firstName || ''))
         : [];
 
     const graduateIds = filteredGraduates.map(g => g.photoFile || g.id).filter(Boolean);
@@ -60,17 +61,35 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
     };
 
     const downloadScript = async (type) => {
-        const cleanCenter = groupName.replace(/ORLA/gi, '').trim();
-        const folderName = `ORLA ${cleanCenter} ${course} ${group}`.trim().toUpperCase();
-        const timestamp = new Date().getTime();
-        let filename = `${cleanCenter}_${type}_${timestamp}.jsx`.replace(/\s+/g, '_').toUpperCase();
-        let content = '';
+        try {
+            const cleanCenter = groupName.replace(/ORLA/gi, '').trim();
+            const folderName = `ORLA ${cleanCenter} ${course} ${group}`.trim().toUpperCase();
+            const timestamp = new Date().getTime();
+            let filename = `${cleanCenter}_${type}_${timestamp}.jsx`.replace(/\s+/g, '_').toUpperCase();
+            let content = '';
 
-        if (type === 'CONSTRUCTOR') {
-            const staffLines = (() => {
-                const isStaff = true;
-                const totalDocentes = filteredStaff.length;
-                if (totalDocentes === 0) return '';
+            const currentStaff = staff || [];
+            const currentGrads = graduates || [];
+
+            // Helper global para construir URLs de fotos
+            const buildUrl = (item) => {
+                if (!item) return "";
+                if (item.digitalPhotoUrl) return item.digitalPhotoUrl;
+                let src = item.photoFile || item.photoUrl || item.photoURL || item.photo_file_url || item.foto_url || item.photo || item.foto || item.src || item.photo_file_number;
+                if (src && typeof src === 'object') src = src.base64 || src.url || src.photoUrl || src.photoURL || src.photo || src;
+                if (!src || src === "undefined" || src === "null") return "";
+                if (typeof src === 'string') {
+                    const s = src.trim();
+                    if (s.toLowerCase().startsWith('http') || s.toLowerCase().startsWith('data:')) return s;
+                    return `https://firebasestorage.googleapis.com/v0/b/foto-pujalte.appspot.com/o/orlas2026%2F${s}?alt=media`;
+                }
+                return `https://firebasestorage.googleapis.com/v0/b/foto-pujalte.appspot.com/o/orlas2026%2F${src}?alt=media`;
+            };
+
+            if (type === 'CONSTRUCTOR') {
+                const staffLines = (() => {
+                    const totalDocentes = currentStaff.length;
+                    if (totalDocentes === 0) return '';
                 
                 const aW = design.aW || 350;
                 const aH = design.aH || 450;
@@ -85,29 +104,29 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                 // Usar valores reales del auto-ajuste
                 const fontSizePx = design.fontSizeDocName || (design.fontSizeDoc || 10) * 0.55 * dScale;
                 const roleFontSizePx = design.fontSizeDocRole || (design.fontSizeDoc || 10) * 0.4 * dScale;
-                const textOffset = design.dTextOffset || (20 * dScale);
+                const textOffset = 83 * dScale; // 75px adicionales (aprox 6.3mm) + base 8px
 
                 const maxStaffScaled = (totalDocentes * dynamicW) + ((totalDocentes - 1) * dGapX);
                 const startX_scaled = (canvasW / 2) - (maxStaffScaled / 2) + dOffsetX;
 
-                return filteredStaff.map((member, i) => {
+                return currentStaff.map((member, i) => {
                     const phX = startX_scaled + (i * (dynamicW + dGapX));
                     const phY = dY;
-                    
                     const nameY = phY + dynamicH + textOffset;
-                    // Los apellidos irán un poco más abajo del nombre
-                    const surnameY = nameY + fontSizePx;
-                    const roleY = surnameY + (roleFontSizePx * 1.5); 
+                    const surnameY = nameY + (fontSizePx * 1.05);
+                    const roleY = (member.lastName ? surnameY : nameY) + (roleFontSizePx * 1.5);
+                    
+                    const cfg = member.photoConfig || {};
+                    const zoom = cfg.zoom || 1;
+                    const offX_p = cfg.x || 0;
+                    const offY_p = cfg.y || 0;
 
-                    const nameParts = splitName(member.name || member.studentName || 'DOCENTE');
-                    const photoId = member.photo_file_number || member.photoFile || member.id;
-                    const esc = (val) => JSON.stringify(String(val || ""));
-                    return `    createItem(docentesGroup, ${esc(nameParts.nombre)}, ${esc(nameParts.apellidos)}, ${esc(member.role || 'DOCENTE')}, ${esc(photoId)}, ${phX.toFixed(2)}, ${phY.toFixed(2)}, ${dynamicW.toFixed(2)}, ${dynamicH.toFixed(2)}, ${nameY.toFixed(2)}, ${fontSizePx.toFixed(2)}, ${roleY.toFixed(2)}, ${roleFontSizePx.toFixed(2)}, true, ${surnameY.toFixed(2)});`;
+                    return `    createItem(docentesGroup, ${esc(nameParts.nombre)}, ${esc(nameParts.apellidos)}, ${esc(member.role || 'DOCENTE')}, ${esc(photoId)}, ${phX.toFixed(2)}, ${phY.toFixed(2)}, ${dynamicW.toFixed(2)}, ${dynamicH.toFixed(2)}, ${nameY.toFixed(2)}, ${fontSizePx.toFixed(2)}, ${roleY.toFixed(2)}, ${roleFontSizePx.toFixed(2)}, true, ${surnameY.toFixed(2)}, ${esc(url)}, ${zoom}, ${offX_p}, ${offY_p});`;
                 }).join('\n');
             })();
 
             const aluLines = (() => {
-                const totalAlus = graduates.length;
+                const totalAlus = (currentGrads || []).length;
                 if (totalAlus === 0) return '';
 
                 const aW = design.aW || 350;
@@ -117,19 +136,23 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                 const dynamicH = aH * aScale;
                 const aCols = parseInt(design.aCols) || 8;
                 const aGapX = design.aGapX ?? 40;
-                const aGapY = design.aGapY ?? 650;
+                const aGapY = design.aGapY ?? 40; // Super compacto como el editor
                 const canvasW = design.canvasW || 4961;
-                const aStartY = design.aStartY || 1350;
+                const aStartY = design.aStartY || 1100; // Alumnos nacen mucho más cerca de los docentes
                 const aOffsetX = design.aOffsetX || 0;
                 
                 const fontSizePx = design.fontSizeAluName || (design.fontSizeAlu || 10) * 0.55 * aScale;
-                const textOffset = design.aTextOffset || (15 * aScale);
+                const textOffset = 81 * aScale; // 75px adicionales (aprox 6.3mm) + base 6px
+                const rowGapExtra = (design.aGapY ?? 40) * aScale; // Ajustado a 40px por defecto, escalado
 
-                const sortedAlus = [...graduates].sort((a, b) => {
-                    const nameA = a.studentName || '';
-                    const nameB = b.studentName || '';
-                    return nameA.localeCompare(nameB, 'es', { sensitivity: 'base' });
+                // IMPORTANTE: Orden exacto del editor web
+                const sortedAlus = [...currentGrads].sort((a, b) => {
+                    const apA = splitName(a.studentName).apellidos || '';
+                    const apB = splitName(b.studentName).apellidos || '';
+                    return apA.localeCompare(apB, 'es', { sensitivity: 'base' });
                 });
+
+
 
                 return sortedAlus.map((g, i) => {
                     const row = Math.floor(i / aCols);
@@ -141,32 +164,39 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                     const rowWidthScaled = (itemsInThisRow * dynamicW) + ((itemsInThisRow - 1) * aGapX);
                     const rowStartX = (canvasW / 2) - (rowWidthScaled / 2) + aOffsetX;
 
-                    const itemHeightStep = dynamicH + textOffset + (fontSizePx * 2.5) + aGapY;
+                    const itemHeightStep = dynamicH + textOffset + (fontSizePx * 2.2) + rowGapExtra;
                     const phY = aStartY + (row * itemHeightStep);
                     const phX = rowStartX + colInRow * (dynamicW + aGapX);
                     
-                    // Espacio vertical para nombre + apellidos (aprox 2 líneas)
                     const nameY = phY + dynamicH + textOffset;
-                    const fontSizeSur = fontSizePx * 0.75;
-                    const surnameY = nameY + fontSizePx * 1.05;
+                    const surnameY = nameY + (fontSizePx * 1.15); // Espacio controlado entre nombre y apellidos
 
                     const nameParts = splitName(g.studentName || 'ALUMNO');
-                    const containerId = g.photo_file_number || g.photoFile || g.id;
+                    const photoId = String(g.photo_file_number || g.photoFile || g.id);
+                    const url = buildUrl(g);
                     const esc = (val) => JSON.stringify(String(val || ""));
+                    
+                    const cfg = g.photoConfig || {};
+                    const zoom = cfg.zoom || 1;
+                    const offX_p = cfg.x || 0;
+                    const offY_p = cfg.y || 0;
 
-                    return `    createItem(alumnosGroup, ${esc(nameParts.nombre)}, ${esc(nameParts.apellidos)}, "", ${esc(containerId)}, ${phX.toFixed(2)}, ${phY.toFixed(2)}, ${dynamicW.toFixed(2)}, ${dynamicH.toFixed(2)}, ${nameY.toFixed(2)}, ${fontSizePx.toFixed(2)}, 0, 0, false, ${surnameY.toFixed(2)});`;
+                    return `    createItem(alumnosGroup, ${esc(nameParts.nombre)}, ${esc(nameParts.apellidos)}, "", ${esc(photoId)}, ${phX.toFixed(2)}, ${phY.toFixed(2)}, ${dynamicW.toFixed(2)}, ${dynamicH.toFixed(2)}, ${nameY.toFixed(2)}, ${fontSizePx.toFixed(2)}, 0, 0, false, ${surnameY.toFixed(2)}, ${esc(url)}, ${zoom}, ${offX_p}, ${offY_p});`;
                 }).join('\n');
             })();
 
             content = [
                 '/* FINALIZAR ORLA V13.1 - CONSTRUCTOR PSD */',
-                '// 1. CONFIGURACIÓN INICIAL DE UNIDADES (CRÍTICO)',
+                '// 1. CONFIGURACIÓN INICIAL DE UNIDADES Y DIÁLOGOS (CRÍTICO)',
                 'var savedRuler = app.preferences.rulerUnits;',
                 'var savedType = app.preferences.typeUnits;',
+                'var savedDialogs = app.displayDialogs;',
                 'app.preferences.rulerUnits = Units.PIXELS;',
                 'app.preferences.typeUnits = TypeUnits.PIXELS;',
+                'app.displayDialogs = DialogModes.NO; // SILENCIAR AVISOS DE PERFIL',
                 '',
                 `var doc = app.documents.add(${design.canvasW}, ${design.canvasH}, 300, ${JSON.stringify(groupName)}, NewDocumentMode.RGB);`,
+                'try { doc.colorProfileName = "Adobe RGB (1998)"; } catch(e) {}',
                 '',
                 '// Helper para mascaras circulares en ExtendScript',
                 'function selectEllipse(top, left, bottom, right) {',
@@ -204,7 +234,12 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                 '// Ratio = 72 / 300 = 0.24',
                 'var PX_TO_PT = 0.24;',
                 '',
-                'function createItem(parentGroup, nombre, apellidos, cargo, id, phX, phY, phW, phH, nameY, nameSizePx, roleY, roleSizePx, isStaff, surnameY) {',
+                '// Preparar carpeta temporal para inyección cloud integrada',
+                'var tempFolder = new Folder(Folder.temp + "/orla_photos");',
+                'if (!tempFolder.exists) tempFolder.create();',
+                `var dpi = ${design.dpi || 300};`,
+                '',
+                'function createItem(parentGroup, nombre, apellidos, cargo, id, phX, phY, phW, phH, nameY, nameSizePx, roleY, roleSizePx, isStaff, surnameY, photoUrl, zoom, extraX, extraY) {',
                 '    var group = parentGroup.layerSets.add();',
                 '    group.name = id;',
                 '',
@@ -214,29 +249,65 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                 '',
                 '    if (currentShape === "circle") selectEllipse(sY, sX, sY + sH, sX + sW);',
                 '    else if (currentShape === "oval") selectEllipse(phY, phX, phY + phH, phX + phW);',
-                '    else if (currentShape === "shield") {',
-                '        var p = [[sX+sW*0.1, sY+sH*0.04],[sX+sW*0.9, sY+sH*0.04],[sX+sW*0.9, sY+sH*0.65]];',
-                '        for(var t=0.1;t<=1;t+=0.1){',
-                '            var mt=1-t; var bx=mt*mt*(sX+sW*0.9)+2*mt*t*(sX+sW*0.9)+t*t*(sX+sW*0.5);',
-                '            var by=mt*mt*(sY+sH*0.65)+2*mt*t*(sY+sH*0.85)+t*t*(sY+sH*0.96); p.push([bx,by]);',
-                '        }',
-                '        for(var t=0.1;t<=1;t+=0.1){',
-                '            var mt=1-t; var bx=mt*mt*(sX+sW*0.5)+2*mt*t*(sX+sW*0.1)+t*t*(sX+sW*0.1);',
-                '            var by=mt*mt*(sY+sH*0.96)+2*mt*t*(sY+sH*0.85)+t*t*(sY+sH*0.65); p.push([bx,by]);',
-                '        }',
-                '        doc.selection.select(p);',
-                '    } else if (currentShape === "rect34r") {',
-                '        var r = phW * 0.12; var p = [];',
-                '        for (var a=1.5*Math.PI; a<=2*Math.PI; a+=Math.PI/10) p.push([phX+phW-r+Math.cos(a)*r, phY+r+Math.sin(a)*r]);',
-                '        for (var a=0; a<=0.5*Math.PI; a+=Math.PI/10) p.push([phX+phW-r+Math.cos(a)*r, phY+phH-r+Math.sin(a)*r]);',
-                '        for (var a=0.5*Math.PI; a<=Math.PI; a+=Math.PI/10) p.push([phX+r+Math.cos(a)*r, phY+phH-r+Math.sin(a)*r]);',
-                '        for (var a=Math.PI; a<=1.5*Math.PI; a+=Math.PI/10) p.push([phX+r+Math.cos(a)*r, phY+r+Math.sin(a)*r]);',
-                '        doc.selection.select(p);',
-                '    } else doc.selection.select([[phX, phY], [phX + phW, phY], [phX + phW, phY + phH], [phX, phY + phH]]);',
+                '    else if (currentShape === "rect34r" || currentShape === "square") {',
+                '        doc.selection.select([[phX, phY], [phX + phW, phY], [phX + phW, phY + phH], [phX, phY + phH]]);',
+                '        try { doc.selection.smooth(35); } catch(e) {}',
+                '    } else {',
+                '        doc.selection.select([[phX, phY], [phX + phW, phY], [phX + phW, phY + phH], [phX, phY + phH]]);',
+                '    }',
                 '',
-                '    var fillLayer = group.artLayers.add(); fillLayer.name = "PLACEHOLDER";',
+                '    var placeholder = group.artLayers.add(); placeholder.name = "PLACEHOLDER";',
                 '    var fillColor = new SolidColor(); fillColor.rgb.hexValue = "F0F0F0";',
                 '    doc.selection.fill(fillColor); doc.selection.deselect();',
+                '',
+                '// 1.1 INYECCIÓN DE FOTO CLOUD (Si hay URL disponible)',
+                '    if (photoUrl && photoUrl !== "") {',
+                '        try {',
+                '            var tempFile = new File(tempFolder + "/" + id.replace(/[^a-zA-Z0-9]/g, "_") + ".jpg");',
+                '            var curlCmd = "curl -k -L -o \\"" + tempFile.fsName + "\\" \\"" + photoUrl + "\\"";',
+                '            app.system(curlCmd);',
+                '            ',
+                '            if (tempFile.exists) {',
+                '                app.open(tempFile);',
+                '                var photoDoc = app.activeDocument;',
+                '                ',
+                '                // Forzar perfil de color si es necesario',
+                '                try { photoDoc.colorProfileName = "Adobe RGB (1998)"; } catch(e) {}',
+                '',
+                '                photoDoc.selection.selectAll();',
+                '                photoDoc.selection.copy();',
+                '                photoDoc.close(SaveOptions.DONOTSAVECHANGES);',
+                '                ',
+                '                app.activeDocument = doc;',
+                '                doc.activeLayer = placeholder;',
+                '                var pastedLayer = doc.paste();',
+                '                pastedLayer.name = "FOTO_" + id;',
+                '',
+                '                // AJUSTE PRECISO AL PLACEHOLDER',
+                '                var pb = placeholder.bounds;',
+                '                var curB = pastedLayer.bounds;',
+                '                var curW = curB[2] - curB[0];',
+                '                var curH = curB[3] - curB[1];',
+                '                var targetW = pb[2] - pb[0];',
+                '                var targetH = pb[3] - pb[1];',
+                '',
+                '                var z = zoom || 1;',
+                '                var scale = Math.max(targetW / curW, targetH / curH) * 100 * z;',
+                '                pastedLayer.resize(scale, scale, AnchorPosition.MIDDLECENTER);',
+                '',
+                '                // Centrar respecto al placeholder + el offset del re-encuadre',
+                '                var newB = pastedLayer.bounds;',
+                '                var offX = pb[0] + (targetW/2) - (newB[0] + (newB[2]-newB[0])/2);',
+                '                var offY = pb[1] + (targetH/2) - (newB[1] + (newB[3]-newB[1])/2);',
+                '                offX += (extraX / 100) * targetW;',
+                '                offY += (extraY / 100) * targetH;',
+                '                pastedLayer.translate(offX, offY);',
+                '',
+                '                pastedLayer.move(placeholder, ElementPlacement.PLACEBEFORE);',
+                '                pastedLayer.grouped = true;',
+                '            }',
+                '        } catch(e) { /* Error silencioso en descarga */ }',
+                '    }',
                 '',
                 '    // 2. TEXTO NOMBRE (POINT TEXT - CENTRADO ABSOLUTO)',
                 '    var centerX = phX + (phW / 2);',
@@ -287,7 +358,7 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                 'app.activeDocument = doc;',
                 'var footerGroup = doc.layerSets.add(); footerGroup.name = "PIE DE ORLA";',
                 'var centerCanvasX = doc.width / 2;',
-                `var footerBaseY = ${design.canvasH} - ${(design.footerY || 180)};`,
+                `var footerBaseY = ${design.canvasH} - ${(design.footerY || 100)};`,
                 `var marginPx = ${design.margin || 200};`,
                 'app.refresh();',
                 '',
@@ -369,115 +440,129 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                 'app.preferences.rulerUnits = savedRuler;',
                 'app.preferences.typeUnits = savedType;',
                 '',
-                '// CUADRO DE DIÁLOGO PERSONALIZADO (TEXTO CENTRADO)',
-                'var win = new Window("dialog", "Finalización de Orla");',
-                'win.orientation = "column";',
-                'win.alignChildren = ["center","center"];',
-                'win.spacing = 15;',
-                'win.margins = 40;',
+                '// DIÁLOGO PREMIUM ESPECTACULAR',
+                'var win = new Window("dialog", "🚀 PUJALTE CREATIVE STUDIO - ORLA 2026");',
+                'win.orientation = "column"; win.alignChildren = ["fill", "top"]; win.spacing = 15; win.margins = 25;',
+                'win.graphics.backgroundColor = win.graphics.newBrush(win.graphics.BrushType.SOLID_COLOR, [0.07, 0.07, 0.07]);',
                 '',
-                'var title = win.add("statictext", undefined, "Orla Generada Correctamente - Script V15");',
-                'title.graphics.font = ScriptUI.newFont("Helvetica", "Bold", 16);',
+                'var title = win.add("statictext", undefined, "¡OBJETIVO CUMPLIDO!");',
+                'title.graphics.font = ScriptUI.newFont("Verdana", "BOLDITALIC", 22);',
+                'title.graphics.foregroundColor = win.graphics.newPen(win.graphics.PenType.SOLID_COLOR, [0.4, 0.3, 1], 1);',
                 '',
-                'var subtitle = win.add("statictext", undefined, "by PUJALTE CREATIVE STUDIO");',
-                'subtitle.graphics.font = ScriptUI.newFont("Helvetica", "Regular", 12);',
+                'var sub = win.add("statictext", undefined, "La estructura de la orla se ha generado con éxito.");',
+                'sub.graphics.foregroundColor = win.graphics.newPen(win.graphics.PenType.SOLID_COLOR, [0.7, 0.7, 0.7], 1);',
                 '',
-                'var btn = win.add("button", undefined, "Aceptar", {name: "ok"});',
-                'btn.size = [120, 40];',
-                'btn.onClick = function() { win.close(); };',
+                'var msg = win.add("statictext", undefined, "PROCESO FINALIZADO");',
+                'msg.graphics.font = ScriptUI.newFont("Verdana", "BOLD", 16);',
+                'msg.graphics.foregroundColor = win.graphics.newPen(win.graphics.PenType.SOLID_COLOR, [0.9, 0.8, 0], 1);',
                 '',
-                'win.center();',
-                'win.show();',
+                'var btn = win.add("button", undefined, "BRUTAL");',
+                'btn.size = [200, 50];',
+                'win.show();'
             ].join('\n');
 
 
         } else if (type === 'RASTER') {
             content = [
-                '/* INYECCIÓN POR CARPETA V3.0 - Pujalte Studio */',
+                '/* INYECCIÓN POR CARPETA V3.5 - Pujalte Studio */',
                 'function main() {',
+                '    var savedDialogs = app.displayDialogs;',
+                '    app.displayDialogs = DialogModes.NO;',
                 '    var doc = app.activeDocument;',
                 '    var folder = Folder.selectDialog("Selecciona la CARPETA con las fotos de los protagonistas");',
                 '    if (!folder) return;',
                 '',
-                '    // Escanear carpeta buscando formatos comunes',
                 '    var files = folder.getFiles(/\\.(jpg|jpeg|png|tif|tiff)$/i);',
                 '    var fileMap = {};',
                 '    for (var f = 0; f < files.length; f++) {',
                 '        var fileName = decodeURI(files[f].name);',
-                '        var baseName = fileName.substring(0, fileName.lastIndexOf(".")) || fileName;',
-                '        fileMap[baseName.toLowerCase()] = files[f];',
+                '        var baseName = fileName.replace(/\\.[^/.]+$/, "").toLowerCase();',
+                '        fileMap[baseName] = files[f];',
                 '    }',
                 '',
-                '    var groups = ["ALUMNOS", "DOCENTES"];',
+                '    var savedRuler = app.preferences.rulerUnits;',
+                '    app.preferences.rulerUnits = Units.PIXELS;',
+                '',
                 '    var count = 0;',
+                '    var groups = ["ALUMNOS", "DOCENTES"];',
                 '',
                 '    for (var g = 0; g < groups.length; g++) {',
-                '        var parentGroup;',
-                '        try { parentGroup = doc.layerSets.getByName(groups[g]); } catch(e) { continue; }',
+                '        var gContainer;',
+                '        try { gContainer = doc.layerSets.getByName(groups[g]); } catch(e) { continue; }',
                 '',
-                '        // Iteramos por subgrupos (cada ID de estudiante/docente)',
-                '        for (var i = 0; i < parentGroup.layerSets.length; i++) {',
-                '            var layerGroup = parentGroup.layerSets[i];',
-                '            var layerName = layerGroup.name;',
-                '            var targetId = (layerName.substring(0, layerName.lastIndexOf(".")) || layerName).toLowerCase();',
+                '        for (var i = 0; i < gContainer.layerSets.length; i++) {',
+                '            var itemGroup = gContainer.layerSets[i];',
+                '            // Limpiar nombre del grupo para el matching (quitar extensiones si las hay)',
+                '            var targetId = itemGroup.name.replace(/\\.[^/.]+$/, "").toLowerCase();',
                 '            var file = fileMap[targetId];',
                 '',
-                '            if (!file) continue;',
+                '            if (file) {',
+                '                try {',
+                '                    var placeholder;',
+                '                    try { placeholder = itemGroup.artLayers.getByName("PLACEHOLDER"); } catch(e) { continue; }',
                 '',
-                '            var placeholder;',
-                '            try { placeholder = layerGroup.artLayers.getByName("PLACEHOLDER"); } catch(e) { continue; }',
+                '                    app.activeDocument = doc;',
+                '                    doc.activeLayer = placeholder;',
+                '                    var pb = placeholder.bounds;',
+                '                    var tw = pb[2] - pb[0];',
+                '                    var th = pb[3] - pb[1];',
                 '',
-                '            try {',
-                '                app.activeDocument = doc;',
-                '                doc.activeLayer = placeholder;',
-                '                var pBounds = placeholder.bounds;',
-                '                var targetW = pBounds[2] - pBounds[0];',
-                '                var targetH = pBounds[3] - pBounds[1];',
+                '                    app.open(file);',
+                '                    var photoDoc = app.activeDocument;',
+                '                    try { photoDoc.colorProfileName = "Adobe RGB (1998)"; } catch(e) {}',
+                '                    photoDoc.selection.selectAll(); photoDoc.selection.copy();',
+                '                    photoDoc.close(SaveOptions.DONOTSAVECHANGES);',
                 '',
-                '                app.open(file);',
-                '                var photoDoc = app.activeDocument;',
-                '                // Redimensionar con la resolución del diseño',
-                `                photoDoc.resizeImage(targetW, targetH, ${design.dpi || 300}, ResampleMethod.BICUBICSHARPER);`,
-                '                photoDoc.selection.selectAll();',
-                '                photoDoc.selection.copy();',
-                '                photoDoc.close(SaveOptions.DONOTSAVECHANGES);',
+                '                    app.activeDocument = doc;',
+                '                    var pasted = doc.paste();',
+                '                    pasted.name = "FOTO_" + targetId;',
                 '',
-                '                app.activeDocument = doc;',
-                '                doc.activeLayer = placeholder;',
-                '                var pastedLayer = doc.paste();',
-                '                pastedLayer.name = "FOTO_" + targetId;',
+                '                    // AJUSTE PRECISO',
+                '                    var curB = pasted.bounds;',
+                '                    var curW = curB[2] - curB[0];',
+                '                    var curH = curB[3] - curB[1];',
+                '                    var scale = Math.max(tw / curW, th / curH) * 100;',
+                '                    pasted.resize(scale, scale, AnchorPosition.MIDDLECENTER);',
                 '',
-                '                // Alineación exacta con el placeholder',
-                '                var deltaX = pBounds[0] - pastedLayer.bounds[0];',
-                '                var deltaY = pBounds[1] - pastedLayer.bounds[1];',
-                '                pastedLayer.translate(deltaX, deltaY);',
+                '                    // CENTRADO',
+                '                    var newB = pasted.bounds;',
+                '                    var offX = pb[0] + (tw/2) - (newB[0] + (newB[2]-newB[0])/2);',
+                '                    var offY = pb[1] + (th/2) - (newB[1] + (newB[3]-newB[1])/2);',
+                '                    pasted.translate(offX, offY);',
                 '',
-                '                // Mover encima del placeholder y crear máscara de recorte',
-                '                pastedLayer.move(placeholder, ElementPlacement.PLACEBEFORE);',
-                '                pastedLayer.grouped = true;',
-                '                placeholder.visible = true;',
-                '                count++;',
-                '            } catch(e) { }',
+                '                    pasted.move(placeholder, ElementPlacement.PLACEBEFORE);',
+                '                    pasted.grouped = true;',
+                '                    count++;',
+                '                } catch(e) { }',
+                '            }',
                 '        }',
                 '    }',
-                '    alert("Proceso finalizado.\\rby PUJALTE CREATIVE STUDIO\\r\\rFotos inyectadas AUTOMÁTICAMENTE: " + count);',
+                '    app.preferences.rulerUnits = savedRuler;',
+                '    app.displayDialogs = savedDialogs;',
+                '    alert("Proceso finalizado.\\rFotos inyectadas: " + count);',
                 '}',
                 'main();',
             ].join('\n');
         } else if (type === 'CLOUD') {
             filename = `03_ORLA_INYECCION_CLOUD_${timestamp}.jsx`;
             const cloudItems = [
-                ...graduates.map(o => ({
+                ...currentGrads.map(o => ({
                     id: (o.photo_file_number || o.id).toLowerCase(),
                     url: o.digitalPhotoUrl || o.photoFile,
                     group: "ALUMNOS",
-                    name: o.studentName
+                    name: o.studentName,
+                    zoom: o.photoConfig?.zoom || 1,
+                    x: o.photoConfig?.x || 0,
+                    y: o.photoConfig?.y || 0
                 })).filter(x => x.url),
-                ...staff.map(s => ({
+                ...currentStaff.map(s => ({
                     id: (s.photo_file_number || s.id).toLowerCase(),
                     url: s.digitalPhotoUrl || s.photoFile,
                     group: "DOCENTES",
-                    name: s.firstName || s.name
+                    name: s.firstName || s.name,
+                    zoom: s.photoConfig?.zoom || 1,
+                    x: s.photoConfig?.x || 0,
+                    y: s.photoConfig?.y || 0
                 })).filter(x => x.url)
             ];
 
@@ -487,8 +572,12 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                 'app.bringToFront();',
                 '',
                 'function main() {',
+                '    var savedDialogs = app.displayDialogs;',
+                '    app.displayDialogs = DialogModes.NO;',
                 '    if (app.documents.length === 0) { alert("Abre la orla antes de ejecutar."); return; }',
                 '    var doc = app.activeDocument;',
+                '    var savedRuler = app.preferences.rulerUnits;',
+                '    app.preferences.rulerUnits = Units.PIXELS;',
                 '    var count = 0;',
                 '    ',
                 '    // Creamos carpeta temporal para descargas',
@@ -510,10 +599,14 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                 '        var parentGroup;',
                 '        try { parentGroup = doc.layerSets.getByName(item.group); } catch(e) { continue; }',
                 '',
-                '        var layerGroup;',
-                '        try { layerGroup = parentGroup.layerSets.getByName(item.id.toUpperCase()); } catch(e) { ',
-                '            try { layerGroup = parentGroup.layerSets.getByName(item.id); } catch(e2) { continue; }',
+                '        var layerGroup = null;',
+                '        for (var l = 0; l < parentGroup.layerSets.length; l++) {',
+                '            if (parentGroup.layerSets[l].name.toLowerCase() === item.id.toLowerCase()) {',
+                '                layerGroup = parentGroup.layerSets[l];',
+                '                break;',
+                '            }',
                 '        }',
+                '        if (!layerGroup) continue;',
                 '',
                 '        var placeholder;',
                 '        try { placeholder = layerGroup.artLayers.getByName("PLACEHOLDER"); } catch(e) { continue; }',
@@ -527,56 +620,62 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                 '',
                 '            app.open(tempFile);',
                 '            var photoDoc = app.activeDocument;',
-                `            photoDoc.resizeImage(targetW, targetH, ${design.dpi || 300}, ResampleMethod.BICUBICSHARPER);`,
+                '            try { photoDoc.colorProfileName = "Adobe RGB (1998)"; } catch(e) {}',
                 '            photoDoc.selection.selectAll(); photoDoc.selection.copy();',
                 '            photoDoc.close(SaveOptions.DONOTSAVECHANGES);',
                 '',
                 '            app.activeDocument = doc;',
                 '            var pastedLayer = doc.paste();',
                 '            pastedLayer.name = "FOTO_" + item.id;',
-                '            var deltaX = pBounds[0] - pastedLayer.bounds[0];',
-                '            var deltaY = pBounds[1] - pastedLayer.bounds[1];',
-                '            pastedLayer.translate(deltaX, deltaY);',
+                '',
+                '            // ESCALADO BASE CON ZOOM',
+                '            var curB = pastedLayer.bounds;',
+                '            var curW = curB[2] - curB[0];',
+                '            var curH = curB[3] - curB[1];',
+                '            var scale = Math.max(targetW / curW, targetH / curH) * 100 * (item.zoom || 1);',
+                '            pastedLayer.resize(scale, scale, AnchorPosition.MIDDLECENTER);',
+                '',
+                '            // CENTRADO Y RE-ENCUADRE (X, Y)',
+                '            var newB = pastedLayer.bounds;',
+                '            var offX = pBounds[0] + (targetW/2) - (newB[0] + (newB[2]-newB[0])/2) + (item.x || 0);',
+                '            var offY = pBounds[1] + (targetH/2) - (newB[1] + (newB[3]-newB[1])/2) + (item.y || 0);',
+                '            pastedLayer.translate(offX, offY);',
+                '',
                 '            pastedLayer.move(placeholder, ElementPlacement.PLACEBEFORE);',
                 '            pastedLayer.grouped = true;',
                 '            count++;',
                 '        } catch(e) { }',
                 '    }',
-                '    alert("Inyección Cloud finalizada.\\rFotos procesadas: " + count);',
+                '    app.preferences.rulerUnits = savedRuler;',
+                '    app.displayDialogs = savedDialogs;',
+                '    ',
+                '    // UI ESPECTACULAR',
+                '    var win = new Window("dialog", "🚀 PUJALTE CREATIVE STUDIO - ORLA 2026");',
+                '    win.orientation = "column";',
+                '    win.alignChildren = ["fill", "top"];',
+                '    win.spacing = 15; win.margins = 25;',
+                '    win.graphics.backgroundColor = win.graphics.newBrush(win.graphics.BrushType.SOLID_COLOR, [0.07, 0.07, 0.07]);',
+                '    ',
+                '    var title = win.add("statictext", undefined, "¡OBJETIVO CUMPLIDO!");',
+                '    title.graphics.font = ScriptUI.newFont("Verdana", "BOLDITALIC", 22);',
+                '    title.graphics.foregroundColor = title.graphics.newPen(win.graphics.PenType.SOLID_COLOR, [0.4, 0.3, 1], 1);',
+                '    ',
+                '    var sub = win.add("statictext", undefined, "La inyección se ha completado correctamente.");',
+                '    sub.graphics.foregroundColor = sub.graphics.newPen(win.graphics.PenType.SOLID_COLOR, [0.7, 0.7, 0.7], 1);',
+                '    ',
+                '    var stats = win.add("statictext", undefined, "Fotos Procesadas: " + count);',
+                '    stats.graphics.font = ScriptUI.newFont("Verdana", "BOLD", 16);',
+                '    stats.graphics.foregroundColor = stats.graphics.newPen(win.graphics.PenType.SOLID_COLOR, [0, 0.9, 0.5], 1);',
+                '',
+                '    var closeBtn = win.add("button", undefined, "BRUTAL");',
+                '    win.show();',
                 '}',
                 'main();',
             ].join('\n');
         }
 
-        // 0. Intentar File System Access API (showSaveFilePicker) para navegadores modernos
-        if ('showSaveFilePicker' in window) {
-            try {
-                const handle = await window.showSaveFilePicker({
-                    suggestedName: filename,
-                    types: [{
-                        description: 'Adobe ExtendScript File',
-                        accept: { 'text/javascript': ['.jsx'] },
-                    }],
-                });
-                const writable = await handle.createWritable();
-                await writable.write(content);
-                await writable.close();
-                
-                setScriptModal({ 
-                    content, 
-                    filename, 
-                    copied: false, 
-                    saved: true, 
-                    savedPath: handle.name 
-                });
-                return;
-            } catch (err) {
-                if (err.name === 'AbortError') return;
-                console.error('Error con showSaveFilePicker:', err);
-            }
-        }
-
-        // 1. Fallback: Diálogo del servidor (Solo Local / macOS)
+        let alreadySaved = false;
+        // 1. Intentar Guardado y Apertura en Local (Solo dev)
         if (!isHosting) {
             try {
                 const r = await fetch('/graduaciones2026/api/save-as', {
@@ -584,65 +683,52 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ content, filename })
                 });
-                
                 if (r.ok) {
                     const data = await r.json();
                     if (data.success) {
-                        setScriptModal({ content, filename: data.filename, copied: false, saved: true, savedPath: data.path });
+                        alreadySaved = true;
+                        // AUTO REVELAR CARPETA
                         fetch('/graduaciones2026/api/reveal-file', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ path: data.path })
-                        }).catch(() => { });
-                        return;
+                        }).catch(() => {});
+
+                        setScriptModal({ content, filename: data.filename, copied: false, saved: true, savedPath: data.path });
                     }
                 }
-            } catch (e) { }
+            } catch (e) { console.error("Error local save:", e); }
         }
 
-        // 2. Segundo Fallback: Descarga directa vía API o Browser
-        fallbackDownload(content, filename, folderName);
-    };
-
-    const fallbackDownload = (content, filename, folderName) => {
-        fetch('/graduaciones2026/api/download-script', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content, filename, folderName })
-        })
-            .then(r => {
-                if (!r.ok) throw new Error('API download-script no disponible');
-                return r.json();
-            })
-            .then(data => {
-                if (data.success) {
-                    setScriptModal({ content, filename, copied: false, saved: true, savedPath: data.path });
-                } else {
-                    triggerBrowserDownload(content, filename);
-                }
-            })
-            .catch(() => {
-                triggerBrowserDownload(content, filename);
-            });
-    };
-
-    const triggerBrowserDownload = (content, filename) => {
+        // 2. Método Universal: Descarga por bloque de datos
         try {
             const blob = new Blob([content], { type: 'text/javascript' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
+            a.style.display = 'none';
             a.href = url;
             a.download = filename;
-            document.body.appendChild(a); // Necesario en algunos navegadores
+            document.body.appendChild(a);
             a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            setScriptModal({ content, filename, copied: false, saved: true, savedPath: 'Carpeta de Descargas' });
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 100);
+            
+            if (!alreadySaved) {
+                setScriptModal({ content, filename, copied: false, saved: true, savedPath: 'Carpeta de Descargas' });
+            }
         } catch (error) {
-            navigator.clipboard.writeText(content).catch(() => { });
-            setScriptModal({ content, filename, copied: true, saved: false });
+            console.error('Fallo en descarga:', error);
+            if (!alreadySaved) setScriptModal({ content, filename, copied: true, saved: false });
+        }
+        } catch (error) {
+            console.error('Fallo crítico downloadScript:', error);
+            setScriptModal({ content: 'Error generando script', filename: 'error.jsx', copied: false, saved: false, error: true });
         }
     };
+
+
 
     return (
         <>
@@ -740,7 +826,7 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                                                     <Sparkles size={14} className="text-[#f06418]" /> SUPLEMENTOS ACTIVOS
                                                 </p>
                                                 <div className="flex flex-wrap gap-2">
-                                                    {settings.supplements.filter(s => s.active).map(s => (
+                                                    {(settings?.supplements || []).filter(s => s?.active).map(s => (
                                                         <button key={s.id} onClick={() => setActiveFilter({ type: 'supplement', id: s.id })}
                                                             className={`py-2 px-4 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${activeFilter.type === 'supplement' && activeFilter.id === s.id ? 'bg-emerald-600 border-emerald-500 text-white shadow-lg shadow-emerald-500/20' : `${theme === 'dark' ? 'bg-white/5 border-white/10 text-white/40 shadow-inner' : 'bg-slate-50 border-slate-200 text-slate-500'} hover:bg-emerald-600/10`}`}>
                                                             {s.name}
@@ -791,7 +877,7 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                                                         {activeFilter.type === 'extra' ?
                                                             (EXTRAS.find(ex => ex.id === activeFilter.id)?.name || 'Extra') :
                                                             activeFilter.type === 'supplement' ?
-                                                                (settings.supplements?.find(s => s.id === activeFilter.id)?.name || 'Suplemento') :
+                                                                ((settings?.supplements || []).find(s => s.id === activeFilter.id)?.name || 'Suplemento') :
                                                                 (g.pack && typeof g.pack === 'object' ? (g.pack.name || g.pack.label) : (PACKS.find(p => p.id === g.pack)?.name || g.pack || 'No Pack'))
                                                         }
                                                     </span>
@@ -885,10 +971,23 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                                     </div>
                                 </div>
 
-                                <button onClick={() => downloadScript('RASTER')} className="w-full flex items-center justify-between p-4 bg-amber-600/20 text-amber-400 rounded-2xl border border-amber-500/30 transition-all shadow-lg active:scale-100">
-                                    <span className="text-[10px] font-black uppercase tracking-widest">Bajar Motor de Vuelco</span>
-                                    <Download size={18} />
-                                </button>
+                                <div className="grid grid-cols-1 gap-3">
+                                    <button onClick={() => downloadScript('RASTER')} className={`w-full flex items-center justify-between p-4 ${theme === 'dark' ? 'bg-amber-600/10 border-amber-500/20 text-amber-500' : 'bg-amber-50 border-amber-200 text-amber-700'} rounded-2xl border transition-all hover:bg-amber-600 hover:text-white active:scale-[0.98]`}>
+                                        <div className="flex flex-col items-start text-left">
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-inherit">Local: Inyectar Carpeta</span>
+                                            <span className="text-[8px] opacity-60 uppercase font-bold text-inherit">Fotos en local con ID</span>
+                                        </div>
+                                        <Download size={18} />
+                                    </button>
+
+                                    <button onClick={() => downloadScript('CLOUD')} className={`w-full flex items-center justify-between p-4 ${theme === 'dark' ? 'bg-violet-600/10 border-violet-500/20 text-violet-400 font-bold' : 'bg-violet-50 border-violet-200 text-violet-700'} rounded-2xl border transition-all hover:bg-violet-600 hover:text-white shadow-xl shadow-violet-900/10 active:scale-[0.98]`}>
+                                        <div className="flex flex-col items-start text-left">
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-inherit italic">Cloud: Inyección Directa</span>
+                                            <span className="text-[8px] opacity-60 uppercase font-black text-inherit">Descarga Auto + Inyección</span>
+                                        </div>
+                                        <Cloud size={18} />
+                                    </button>
+                                </div>
                             </div>
                         </div>
 

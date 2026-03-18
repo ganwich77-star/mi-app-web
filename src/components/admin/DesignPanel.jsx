@@ -101,14 +101,106 @@ const PHOTO_SHAPES = [
             };
         },
     },
+    {
+        id: 'square',
+        label: 'Cuadrado Redondeado',
+        preview: (w, h) => {
+            const s = Math.min(w, h);
+            const ox = (w - s) / 2;
+            const oy = (h - s) / 2;
+            const rx = s * 0.12;
+            return `<rect x="${ox + s*0.06}" y="${oy + s*0.06}" width="${s*0.88}" height="${s*0.88}" rx="${rx}" />`;
+        },
+        getStyle: (w, h) => {
+            const size = Math.min(w, h);
+            return {
+                borderRadius: '12%',
+                width: size + 'px',
+                height: size + 'px',
+                margin: '0 auto',
+                objectFit: 'cover',
+            };
+        },
+    },
+    {
+        id: 'squarer',
+        label: 'Cuadrado Recto',
+        preview: (w, h) => {
+            const s = Math.min(w, h);
+            const ox = (w - s) / 2;
+            const oy = (h - s) / 2;
+            return `<rect x="${ox + s*0.06}" y="${oy + s*0.06}" width="${s*0.88}" height="${s*0.88}" rx="2" />`;
+        },
+        getStyle: (w, h) => {
+            const size = Math.min(w, h);
+            return {
+                borderRadius: '3px',
+                width: size + 'px',
+                height: size + 'px',
+                margin: '0 auto',
+                objectFit: 'cover',
+            };
+        },
+    },
 ];
 
 // Devuelve el style a aplicar al div placeholder según la forma
 const getShapeStyle = (shapeId, w, h) => {
     const s = PHOTO_SHAPES.find(x => x.id === shapeId) || PHOTO_SHAPES[2]; // default rect34
     const base = s.getStyle(w, h);
-    const extra = s.extraStyle ? s.extraStyle(w, h) : {};
-    return { ...base, ...extra };
+    return { ...base, overflow: 'hidden', position: 'relative' };
+};
+
+const getPhotoSrc = (item) => {
+    if (!item) return null;
+    
+    // 1. PRIORIDAD: digitalPhotoUrl
+    if (item.digitalPhotoUrl) return item.digitalPhotoUrl;
+
+    // 2. EXTRAER VALOR DEL CAMPO DE FOTO
+    let src = item.photoFile || 
+              item.photoUrl || 
+              item.photoURL || 
+              item.photo_file_url || 
+              item.foto_url || 
+              item.photo || 
+              item.foto || 
+              item.src || 
+              item.photo_file_number;
+
+    // Si el valor es un objeto, extraemos el valor real
+    if (src && typeof src === 'object') {
+        src = src.base64 || src.url || src.photoUrl || src.photoURL || src.photo || src;
+    }
+
+    if (typeof src === 'string') {
+        const lowerSrc = src.trim().toLowerCase();
+        
+        // Filtrar valores basura
+        const forbidden = ['undefined', 'null', 'digital', 'physical', 'fisico', 'físico', 'pendiente', '[object object]', ''];
+        if (forbidden.includes(lowerSrc)) return null;
+        
+        // Si ya es una URL completa o base64
+        if (lowerSrc.startsWith('http') || lowerSrc.startsWith('data:') || lowerSrc.startsWith('/')) {
+            return src;
+        }
+        
+        // Construir URL de Firebase Storage para IDs simples
+        return `https://firebasestorage.googleapis.com/v0/b/foto-pujalte.appspot.com/o/orlas2026%2F${src}?alt=media`;
+    } else if (typeof src === 'number') {
+        // Soporte para números del Excel
+        return `https://firebasestorage.googleapis.com/v0/b/foto-pujalte.appspot.com/o/orlas2026%2F${src}?alt=media`;
+    }
+
+    return null;
+};
+
+const getPhotoTransform = (config) => {
+    if (!config || (config.zoom === 1 && config.x === 0 && config.y === 0 && !config.rotation)) return { transform: 'scale(1) translate(0%, 0%)' };
+    return {
+        transform: `scale(${config.zoom || 1}) translate(${config.x || 0}%, ${config.y || 0}%) rotate(${config.rotation || 0}deg)`,
+        transformOrigin: 'center center'
+    };
 };
 
 // Icono SVG miniatura para cada forma
@@ -169,6 +261,7 @@ const DesignPanel = ({
     // ESTADO PARA PESTAÑAS DEL EDITOR
     const [activeTab, setActiveTab] = useState('GENERAL');
     const [hoveredTool, setHoveredTool] = useState(null); // Para mostrar descripción en el dock
+    const [confirmModal, setConfirmModal] = useState({ show: false, title: '', message: '', onConfirm: null });
     const isDark = theme === 'dark';
 
     // Conversiones Internas Robustas para Orla A3 (420mm -> 4961px)
@@ -232,6 +325,25 @@ const DesignPanel = ({
             const apellidosB = splitName(b.studentName).apellidos;
             return apellidosA.localeCompare(apellidosB);
         });
+
+    // Detectar automáticamente el curso más frecuente de los alumnos filtrados
+    const autoDetectedCourse = (() => {
+        if (designFilter.course) {
+            const base = getCourseBase(designFilter.course);
+            const group = designFilter.group || '';
+            return group ? `${base} ${group}` : base;
+        }
+        const courseCount = {};
+        filteredOrders.forEach(o => {
+            if (!o.course) return;
+            const base = getCourseBase(o.course) || '';
+            const grp = getGroup(o.course) || '';
+            const label = grp ? `${base} ${grp}` : base;
+            if (label) courseCount[label] = (courseCount[label] || 0) + 1;
+        });
+        const sorted = Object.entries(courseCount).sort((a, b) => b[1] - a[1]);
+        return sorted.length > 0 ? sorted[0][0] : '';
+    })();
 
     const autoAdjustLayout = (passedConfig = null) => {
         // Si passedConfig es un evento de React, lo ignoramos
@@ -343,7 +455,7 @@ const DesignPanel = ({
         }
 
         updates.aScale = curScale;
-        updates.aCols = aCols;
+        updates.aCols = Math.round(aCols);
         const fAluW = baseAluW * updates.aScale;
         
         // Espaciado horizontal para alumnos (centrado con gap controlado)
@@ -359,8 +471,8 @@ const DesignPanel = ({
         updates.aGapY = tGapY;
         // Centrar el bloque de alumnos en el espacio vertical disponible
         updates.aStartY = Math.round(topLimit + (availableHeight - totalAH) / 2);
-        updates.aTextOffset = safeMmToPx(8) * updates.aScale;
-        updates.dTextOffset = safeMmToPx(10) * updates.dScale;
+        updates.aTextOffset = 0; // SEP.TEXTO=0 → texto pegado al borde de la foto
+        updates.dTextOffset = 0; // SEP.TEXTO=0 → texto pegado al borde de la foto
 
         // Aplicamos todos los cambios al estado global
         setConfigOrla(prev => ({ ...prev, ...updates }));
@@ -478,7 +590,8 @@ const DesignPanel = ({
             icon: UserSquare2,
             tools: [
                 { icon: UserSquare2, label: 'ESCALA', key: 'dScale', min: 0.2, max: 5.0, step: 0.05, unit: 'x', description: 'Ajusta el tamaño de las fotos de los docentes' },
-                { icon: TypeIcon, label: 'T. NOMBRES', key: 'fontSizeDocName', min: 10, max: 1000, step: 5, unit: 'PX', toggleKey: 'hideApellidosDoc', description: 'Tamaño de fuente para los nombres de los docentes' },
+                { icon: TypeIcon, label: 'T. NOMBRES', key: 'fontSizeDocName', min: 10, max: 1000, step: 5, unit: 'PX', description: 'Tamaño de fuente para los nombres de los docentes' },
+                { icon: TypeIcon, label: 'T. APELLIDOS', key: 'fontSizeDocSur', min: 10, max: 800, step: 5, unit: 'PX', toggleKey: 'hideApellidosDoc', description: 'Tamaño de fuente para los apellidos de los docentes (u ocultarlos)' },
                 { icon: TypeIcon, label: 'T. CARGO', key: 'fontSizeDocRole', min: 10, max: 800, step: 5, unit: 'PX', toggleKey: 'hideCargoDoc', description: 'Tamaño de fuente para los cargos de los docentes' },
                 { icon: Baseline, label: 'SEP. TEXTO', key: 'dTextOffset', min: 0, max: 100, step: 1, unit: 'PT', description: 'Distancia entre la foto y el texto del docente' },
                 { icon: MoveHorizontal, label: 'SEPARACIÓN', key: 'dGapX', min: safeMmToPx(0), max: safeMmToPx(500), unit: 'MM', description: 'Espacio horizontal entre los docentes' },
@@ -556,6 +669,25 @@ const DesignPanel = ({
         }
     }, [isFullScreenDesign, configOrla.canvasW, configOrla.canvasH, orders.length, staff.length]);
 
+    // Auto-selección del curso en el selector cuando no hay filtro manual
+    useEffect(() => {
+        // Solo actúa si el usuario no ha seleccionado un curso
+        if (designFilter.course) return;
+
+        // Extrae los cursos únicos de los pedidos del centro activo
+        const uniqueCourses = [...new Set(
+            (orders || [])
+                .filter(o => o.course)
+                .map(o => getCourseBase(o.course))
+                .filter(Boolean)
+        )];
+
+        // Si solo hay un curso, lo selecciona automáticamente
+        if (uniqueCourses.length === 1) {
+            setDesignFilter(prev => ({ ...prev, course: uniqueCourses[0], group: '' }));
+        }
+    }, [orders, adminSchool]);
+
     const handleWheel = (e) => {
         if (!isFullScreenDesign) return;
         e.preventDefault();
@@ -567,6 +699,11 @@ const DesignPanel = ({
 
     const handleMouseDown = (e) => {
         if (!isFullScreenDesign) return;
+        // Ignorar si el clic viene de un elemento interactivo del dock
+        const tag = e.target.tagName.toLowerCase();
+        const interactive = ['button', 'input', 'select', 'textarea', 'label', 'a'];
+        if (interactive.includes(tag)) return;
+        if (e.target.closest('button, input, select, [role="button"]')) return;
         setIsDragging(true);
         setLastMousePos({ x: e.clientX, y: e.clientY });
     };
@@ -717,28 +854,29 @@ const DesignPanel = ({
                                                     style={{ width: (w * baseScale) + 'px' }}
                                                 >
                                                     <div className="relative group/member">
-                                                        <div className="relative overflow-hidden" style={{
-                                                            width: w + 'px',
-                                                            height: h + 'px',
-                                                            ...getShapeStyle(currentShape, w, h),
-                                                            transform: `scale(${baseScale})`,
-                                                            transformOrigin: 'top center'
+                                                        {/* Foto docente: dimensiones directas sin transform scale */}
+                                                        <div style={{
+                                                            width: Math.round(w * baseScale) + 'px',
+                                                            height: Math.round(h * baseScale) + 'px',
+                                                            ...getShapeStyle(currentShape, Math.round(w * baseScale), Math.round(h * baseScale)),
+                                                            margin: '0 auto'
                                                         }}>
-                                                            {member.digitalPhotoUrl || (member.photoFile?.toString().startsWith('http') ? member.photoFile : null) ? (
+                                                            {getPhotoSrc(member) ? (
                                                                 <img 
-                                                                    src={member.digitalPhotoUrl || member.photoFile} 
-                                                                    className="w-full h-full object-cover" 
-                                                                    style={{ ...getShapeStyle(currentShape, w, h) }}
+                                                                    src={getPhotoSrc(member)} 
+                                                                    className="w-full h-full object-cover transition-transform duration-300" 
+                                                                    style={getPhotoTransform(member.photoConfig)}
                                                                     alt={member.name}
+                                                                    onDragStart={(e) => e.preventDefault()}
                                                                 />
                                                             ) : (
                                                                 <div className="w-full h-full bg-slate-200 flex items-center justify-center">
-                                                                    <div className="text-slate-400 font-black opacity-40" style={{ fontSize: (w * 0.12) + 'px' }}>DOCENTE</div>
+                                                                    <div className="text-slate-400 font-black opacity-40" style={{ fontSize: (w * baseScale * 0.12) + 'px' }}>DOCENTE</div>
                                                                 </div>
                                                             )}
                                                         </div>
                                                         <div className="flex flex-col items-center px-1" style={{
-                                                            marginTop: (h * (baseScale - 1)) + (configOrla.dTextOffset || 0) + 'px'
+                                                            marginTop: (configOrla.dTextOffset ?? 0) + 'px'
                                                         }}>
                                                             <div
                                                                 contentEditable={true}
@@ -768,7 +906,20 @@ const DesignPanel = ({
                                                                 }}
                                                             >
                                                                 <div className="whitespace-nowrap">{nombre}</div>
-                                                                <div className="whitespace-nowrap" style={{ display: configOrla.hideApellidosDoc ? 'none' : 'block' }}>{apellidos}</div>
+                                                                <div
+                                                                    className="whitespace-nowrap cursor-pointer hover:text-accent"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setActiveTab('DOCENTES');
+                                                                        setActiveDesignParam(TOOLBAR_CONFIG['DOCENTES'].tools[2]); // T. APELLIDOS
+                                                                    }}
+                                                                    style={{ 
+                                                                        display: configOrla.hideApellidosDoc ? 'none' : 'block',
+                                                                        fontSize: (configOrla.fontSizeDocSur || 42) + 'px'
+                                                                    }}
+                                                                >
+                                                                    {apellidos}
+                                                                </div>
                                                             </div>
                                                             <p
                                                                 contentEditable={true}
@@ -776,7 +927,7 @@ const DesignPanel = ({
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
                                                                     setActiveTab('DOCENTES');
-                                                                    setActiveDesignParam(TOOLBAR_CONFIG['DOCENTES'].tools[2]); // T. CARGO
+                                                                    setActiveDesignParam(TOOLBAR_CONFIG['DOCENTES'].tools[3]); // T. CARGO
                                                                 }}
                                                                 className="font-normal uppercase text-black leading-tight mt-0.5 outline-none cursor-text hover:bg-accent/5 focus:bg-white focus:ring-4 focus:ring-accent/20 rounded px-1 transition-all duration-200 hover:text-accent focus:shadow-lg"
                                                                 style={{
@@ -810,7 +961,7 @@ const DesignPanel = ({
                                         }}>
                                         <div className="grid justify-center"
                                             style={{
-                                                gridTemplateColumns: `repeat(${configOrla.aCols || 8}, ${((configOrla.aW || 350)) * (configOrla.aScale || 1)}px)`,
+                                                gridTemplateColumns: `repeat(${Math.round(configOrla.aCols || 8)}, ${((configOrla.aW || 350)) * (configOrla.aScale || 1)}px)`,
                                                 columnGap: (configOrla.aGapX ?? 0) + 'px',
                                                 rowGap: (configOrla.aGapY ?? 650) + 'px'
                                             }}>
@@ -826,28 +977,29 @@ const DesignPanel = ({
                                                         style={{ width: (w * baseScale) + 'px' }}
                                                     >
                                                         <div className="relative">
-                                                            <div className="relative overflow-hidden" style={{
-                                                                width: w + 'px',
-                                                                height: h + 'px',
-                                                                ...getShapeStyle(currentShape, w, h),
-                                                                transform: `scale(${baseScale})`,
-                                                                transformOrigin: 'top center'
+                                                            {/* Foto alumno: dimensiones directas sin transform scale */}
+                                                            <div className="overflow-hidden" style={{
+                                                                width: Math.round(w * baseScale) + 'px',
+                                                                height: Math.round(h * baseScale) + 'px',
+                                                                ...getShapeStyle(currentShape, Math.round(w * baseScale), Math.round(h * baseScale)),
+                                                                margin: '0 auto'
                                                             }}>
-                                                                {o.digitalPhotoUrl || (o.photoFile?.toString().startsWith('http') ? o.photoFile : null) ? (
+                                                                {getPhotoSrc(o) ? (
                                                                     <img 
-                                                                        src={o.digitalPhotoUrl || o.photoFile} 
-                                                                        className="w-full h-full object-cover" 
-                                                                        style={{ ...getShapeStyle(currentShape, w, h) }}
+                                                                        src={getPhotoSrc(o)} 
+                                                                        className="w-full h-full object-cover transition-transform duration-300" 
+                                                                        style={getPhotoTransform(o.photoConfig)}
                                                                         alt={o.studentName}
+                                                                        onDragStart={(e) => e.preventDefault()}
                                                                     />
                                                                 ) : (
                                                                     <div className="w-full h-full bg-slate-100 flex items-center justify-center">
-                                                                        <div className="text-slate-300 font-black" style={{ fontSize: (w * 0.15) + 'px' }}>{o.photo_file_number || '?'}</div>
+                                                                        <div className="text-slate-300 font-black" style={{ fontSize: (w * baseScale * 0.15) + 'px' }}>{o.photo_file_number || '?'}</div>
                                                                     </div>
                                                                 )}
                                                             </div>
                                                             <div className="flex flex-col items-center px-1" style={{
-                                                                marginTop: (h * (baseScale - 1)) + (configOrla.aTextOffset || 0) + 'px'
+                                                                marginTop: (configOrla.aTextOffset ?? 0) + 'px'
                                                             }}>
                                                                 <div
                                                                     contentEditable={true}
@@ -949,8 +1101,8 @@ const DesignPanel = ({
                                             >
                                                 {(configOrla.courseText && configOrla.courseText.trim().length > 0) 
                                                     ? configOrla.courseText 
-                                                    : (designFilter.course && designFilter.course.trim().length > 0) 
-                                                        ? `${getCourseBase(designFilter.course)} ${designFilter.group || ''}` 
+                                                    : autoDetectedCourse 
+                                                        ? autoDetectedCourse 
                                                         : "AÑADIR CURSO AQUÍ"}
                                             </p>
                                         )}
@@ -1083,32 +1235,30 @@ const DesignPanel = ({
                                             style={{ width: (w * baseScale) + 'px' }}
                                         >
                                             <div className="relative flex flex-col items-center">
-                                                <div className="relative overflow-visible" style={{
-                                                    width: w + 'px',
-                                                    height: h + 'px',
-                                                    ...getShapeStyle(currentShape, w, h),
-                                                    transform: `scale(${baseScale})`,
-                                                    transformOrigin: 'top center'
+                                                {/* Foto docente: dimensiones directas sin transform scale */}
+                                                <div className="overflow-hidden" style={{
+                                                    width: Math.round(w * baseScale) + 'px',
+                                                    height: Math.round(h * baseScale) + 'px',
+                                                    ...getShapeStyle(currentShape, Math.round(w * baseScale), Math.round(h * baseScale)),
+                                                    margin: '0 auto'
                                                 }}>
-                                                    { (member.digitalPhotoUrl || (member.photoFile?.toString().startsWith('http') ? member.photoFile : null)) ? (
-                                                        <img 
-                                                            src={member.digitalPhotoUrl || member.photoFile} 
-                                                            className="w-full h-full object-cover" 
-                                                            style={{ 
-                                                                ...getShapeStyle(currentShape, w, h),
-                                                                clipPath: currentShape.toLowerCase() === 'circle' ? 'circle(50% at 50% 50%)' : currentShape.toLowerCase() === 'oval' ? 'ellipse(50% 50% at 50% 50%)' : 'none'
-                                                            }}
-                                                            alt={member.name}
-                                                        />
+                                                        {getPhotoSrc(member) ? (
+                                                            <img 
+                                                                src={getPhotoSrc(member)} 
+                                                                className="w-full h-full object-cover transition-transform duration-300" 
+                                                                style={getPhotoTransform(member.photoConfig)}
+                                                                alt={member.name}
+                                                                onDragStart={(e) => e.preventDefault()}
+                                                            />
                                                     ) : (
                                                         <div className="w-full h-full bg-slate-100 flex items-center justify-center">
-                                                            <div className="text-slate-300 font-black" style={{ fontSize: (w * 0.12) + 'px' }}>DOCENTE</div>
+                                                            <div className="text-slate-300 font-black" style={{ fontSize: (w * baseScale * 0.12) + 'px' }}>DOCENTE</div>
                                                         </div>
                                                     )}
                                                 </div>
                                                 <div className="flex flex-col items-center w-full" style={{
-                                                    marginTop: (h * (baseScale - 1)) + (configOrla.dTextOffset || 0) + 'px',
-                                                    padding: '0' // Eliminamos padding lateral para que el gap 0 sea real
+                                                    marginTop: (configOrla.dTextOffset ?? 0) + 'px',
+                                                    padding: '0'
                                                 }}>
                                                     <div
                                                         contentEditable={true}
@@ -1137,7 +1287,20 @@ const DesignPanel = ({
                                                         }}
                                                     >
                                                         <div className="leading-[1.1] text-wrap">{nombre}</div>
-                                                        <div className="leading-[1.1] text-wrap" style={{ display: configOrla.hideApellidosDoc ? 'none' : 'block' }}>{apellidos}</div>
+                                                        <div 
+                                                            className="leading-[1.1] text-wrap cursor-pointer hover:text-accent" 
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setActiveTab('DOCENTES');
+                                                                setActiveDesignParam(TOOLBAR_CONFIG['DOCENTES'].tools[2]); // T. APELLIDOS
+                                                            }}
+                                                            style={{ 
+                                                                display: configOrla.hideApellidosDoc ? 'none' : 'block',
+                                                                fontSize: (configOrla.fontSizeDocSur || 42) + 'px'
+                                                            }}
+                                                        >
+                                                            {apellidos}
+                                                        </div>
                                                     </div>
                                                     <p
                                                         contentEditable={true}
@@ -1145,7 +1308,7 @@ const DesignPanel = ({
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             setActiveTab('DOCENTES');
-                                                            setActiveDesignParam(TOOLBAR_CONFIG['DOCENTES'].tools[2]); // T. CARGO
+                                                            setActiveDesignParam(TOOLBAR_CONFIG['DOCENTES'].tools[3]); // T. CARGO
                                                         }}
                                                         className="font-normal uppercase text-black leading-tight mt-0.5 outline-none cursor-text hover:bg-accent/5 focus:bg-white focus:ring-4 focus:ring-accent/20 rounded px-1 transition-all duration-200 hover:text-accent focus:shadow-lg"
                                                         style={{
@@ -1180,8 +1343,9 @@ const DesignPanel = ({
                                     padding: `0 ${(configOrla.margin || 20)}px`,
                                     transform: `translateX(${(configOrla.aOffsetX || 0)}px)`
                                 }}>
-                                <div className="flex flex-wrap justify-center"
+                                <div className="grid justify-center"
                                     style={{
+                                        gridTemplateColumns: `repeat(${Math.round(configOrla.aCols || 8)}, ${(configOrla.aW || 350) * (configOrla.aScale || 1)}px)`,
                                         columnGap: (configOrla.aGapX ?? 0) + 'px',
                                         rowGap: (configOrla.aGapY ?? 0) + 'px'
                                     }}>
@@ -1197,32 +1361,30 @@ const DesignPanel = ({
                                                 style={{ width: (w * baseScale) + 'px' }}
                                             >
                                                 <div className="relative flex flex-col items-center">
-                                                    <div className="relative overflow-visible" style={{
-                                                        width: w + 'px',
-                                                        height: h + 'px',
-                                                        ...getShapeStyle(currentShape, w, h),
-                                                        transform: `scale(${baseScale})`,
-                                                        transformOrigin: 'top center'
+                                                    {/* Foto alumno: dimensiones directas sin transform scale */}
+                                                    <div className="overflow-hidden" style={{
+                                                        width: Math.round(w * baseScale) + 'px',
+                                                        height: Math.round(h * baseScale) + 'px',
+                                                        ...getShapeStyle(currentShape, Math.round(w * baseScale), Math.round(h * baseScale)),
+                                                        margin: '0 auto'
                                                     }}>
-                                                        { (o.digitalPhotoUrl || (o.photoFile?.toString().startsWith('http') ? o.photoFile : null)) ? (
+                                                        {getPhotoSrc(o) ? (
                                                             <img 
-                                                                src={o.digitalPhotoUrl || o.photoFile} 
-                                                                className="w-full h-full object-cover" 
-                                                                style={{ 
-                                                                    ...getShapeStyle(currentShape, w, h),
-                                                                    clipPath: currentShape.toLowerCase() === 'circle' ? 'circle(50% at 50% 50%)' : currentShape.toLowerCase() === 'oval' ? 'ellipse(50% 50% at 50% 50%)' : 'none'
-                                                                }}
+                                                                src={getPhotoSrc(o)} 
+                                                                className="w-full h-full object-cover transition-transform duration-300" 
+                                                                style={getPhotoTransform(o.photoConfig)}
                                                                 alt={o.studentName}
+                                                                onDragStart={(e) => e.preventDefault()}
                                                             />
                                                         ) : (
                                                             <div className="w-full h-full bg-slate-100 flex items-center justify-center">
-                                                                <div className="text-slate-300 font-black" style={{ fontSize: (w * 0.15) + 'px' }}>{o.photo_file_number || '?'}</div>
+                                                                <div className="text-slate-300 font-black" style={{ fontSize: (w * baseScale * 0.15) + 'px' }}>{o.photo_file_number || '?'}</div>
                                                             </div>
                                                         )}
                                                     </div>
                                                     <div className="flex flex-col items-center w-full" style={{
-                                                        marginTop: (h * (baseScale - 1)) + (configOrla.aTextOffset || 0) + 'px',
-                                                        padding: '0' // Eliminamos padding lateral para que el gap 0 sea real
+                                                        marginTop: (configOrla.aTextOffset ?? 0) + 'px',
+                                                        padding: '0'
                                                     }}>
                                                         <div
                                                             contentEditable={true}
@@ -1373,7 +1535,9 @@ const DesignPanel = ({
                                     >
                                         {configOrla.courseText && configOrla.courseText.trim().length > 0 
                                             ? configOrla.courseText 
-                                            : ((getCourseBase(designFilter?.course) + " " + getGroup(designFilter?.group)).trim() || "AÑADIR CURSO AQUÍ")}
+                                            : autoDetectedCourse 
+                                                ? autoDetectedCourse 
+                                                : "AÑADIR CURSO AQUÍ"}
                                     </p>
                                 )}
                             </div>
@@ -1393,7 +1557,7 @@ const DesignPanel = ({
                                 <button
                                     key={tab}
                                     onClick={() => setActiveTab(tab)}
-                                    className={`flex-1 py-3 text-[9px] font-black tracking-[0.2em] transition-all border-b-2 ${activeTab === tab
+                                    className={`px-8 py-3 text-[9px] font-black tracking-[0.2em] transition-all border-b-2 ${activeTab === tab
                                         ? 'border-accent text-accent bg-accent/5'
                                         : `${isDark ? 'border-transparent text-white/40 hover:text-white hover:bg-white/5' : 'border-transparent text-slate-400 hover:text-slate-900 hover:bg-black/5'}`}`}
                                 >
@@ -1524,14 +1688,19 @@ const DesignPanel = ({
                                     title="Reiniciar parámetros de esta pestaña"
                                     onClick={() => {
                                         // Funcionalidad de papelera: Resetear parámetros de la pestaña activa
-                                        if (confirm('¿Deseas reiniciar los ajustes de esta sección?')) {
-                                            const tabTools = TOOLBAR_CONFIG[activeTab].tools;
-                                            const updates = {};
-                                            tabTools.forEach(t => {
-                                                if (t.key && t.min !== undefined) updates[t.key] = t.min;
-                                            });
-                                            setConfigOrla(prev => ({ ...prev, ...updates }));
-                                        }
+                                        setConfirmModal({
+                                            show: true,
+                                            title: 'REINICIAR SECCIÓN',
+                                            message: '¿Deseas reiniciar todos los ajustes de esta sección a sus valores predeterminados?',
+                                            onConfirm: () => {
+                                                const tabTools = TOOLBAR_CONFIG[activeTab].tools;
+                                                const updates = {};
+                                                tabTools.forEach(t => {
+                                                    if (t.key && t.min !== undefined) updates[t.key] = t.min;
+                                                });
+                                                setConfigOrla(prev => ({ ...prev, ...updates }));
+                                            }
+                                        });
                                     }}
                                     onMouseEnter={() => setHoveredTool({ label: 'PAPELERA', description: 'Resetear todos los ajustes de la pestaña actual a sus valores iniciales' })}
                                     onMouseLeave={() => setHoveredTool(null)}
@@ -1586,9 +1755,14 @@ const DesignPanel = ({
                                                     shape={shape}
                                                     active={currentShape === shape.id}
                                                     onClick={() => {
-                                                        if (confirm('¿Deseas aplicar esta forma a todas las fotos? Este ajuste afectará a toda la orla.')) {
-                                                            updateConfig('photoShape', shape.id);
-                                                        }
+                                                        setConfirmModal({
+                                                            show: true,
+                                                            title: 'CAMBIAR FORMA',
+                                                            message: `¿Deseas aplicar la forma "${shape.label}" a todas las fotos de la orla?`,
+                                                            onConfirm: () => {
+                                                                updateConfig('photoShape', shape.id);
+                                                            }
+                                                        });
                                                     }}
                                                     isDark={isDark}
                                                 />
@@ -1653,7 +1827,7 @@ const DesignPanel = ({
                                                         const val = configOrla[activeDesignParam.key];
                                                         if (activeDesignParam.key.includes('Scale')) return (val || (activeDesignParam.key === 'dScale' ? 1.2 : 1)).toFixed(2);
                                                         if (activeDesignParam.key === 'aCols') return (val || 8);
-                                                        if (activeDesignParam.unit === 'PT') return (val || 10);
+                                                        if (activeDesignParam.unit === 'PT') return (val ?? 0);
                                                         if (activeDesignParam.unit === 'PX') return Math.round(val || 0);
                                                         return Math.round(safePxToMm(val || 0));
                                                     })()}
@@ -1723,7 +1897,7 @@ const DesignPanel = ({
                                                                 max={activeDesignParam.max}
                                                                 step={activeDesignParam.step || 1}
                                                                 value={configOrla[activeDesignParam.key] !== undefined ? configOrla[activeDesignParam.key] : (activeDesignParam.key === 'aCols' ? 8 : activeDesignParam.key.startsWith('fontSize') ? 50 : activeDesignParam.key === 'dScale' ? 1.2 : activeDesignParam.key === 'aScale' ? 1 : 0)}
-                                                                onChange={(e) => updateConfig(activeDesignParam.key, parseFloat(e.target.value))}
+                                                                onChange={(e) => updateConfig(activeDesignParam.key, activeDesignParam.key === 'aCols' ? parseInt(e.target.value, 10) : parseFloat(e.target.value))}
                                                                 className={`relative z-10 w-full bg-transparent appearance-none cursor-pointer ${isDark ? 'accent-white' : 'accent-accent'}`}
                                                             />
                                                         </div>
@@ -1809,6 +1983,40 @@ const DesignPanel = ({
                     </div>
                 </div>
             )}
+
+            {/* Modal de Confirmación Premium */}
+            <div className={`fixed inset-0 z-[9999] flex items-center justify-center p-4 transition-all duration-500 ${confirmModal.show ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+                <div 
+                    className={`absolute inset-0 backdrop-blur-sm transition-opacity duration-500 ${confirmModal.show ? 'bg-slate-900/60 opacity-100' : 'bg-slate-900/0 opacity-0'}`} 
+                    onClick={() => setConfirmModal(prev => ({ ...prev, show: false }))} 
+                />
+                <div className={`relative w-full max-w-[340px] rounded-[32px] overflow-hidden shadow-2xl transition-all duration-500 transform ${confirmModal.show ? 'scale-100 translate-y-0 opacity-100' : 'scale-90 translate-y-12 opacity-0'} ${isDark ? 'bg-slate-900 border border-white/10' : 'bg-white border border-black/5'}`}>
+                    <div className="p-8 flex flex-col items-center text-center">
+                        <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 shadow-2xl animate-pulse-slow ${isDark ? 'bg-accent/20 text-accent ring-8 ring-accent/5' : 'bg-accent/10 text-accent ring-8 ring-accent/5'}`}>
+                            <Wand2 size={38} className="drop-shadow-glow" />
+                        </div>
+                        <h3 className={`text-xl font-black uppercase tracking-tight mb-3 ${isDark ? 'text-white' : 'text-slate-900'}`}>{confirmModal.title}</h3>
+                        <p className={`text-[10px] font-bold uppercase tracking-wide leading-relaxed px-2 ${isDark ? 'text-white/40' : 'text-slate-500'}`}>{confirmModal.message}</p>
+                    </div>
+                    <div className={`flex p-3 gap-2 items-center justify-center ${isDark ? 'bg-white/5' : 'bg-black/5'}`}>
+                        <button 
+                            onClick={() => setConfirmModal(prev => ({ ...prev, show: false }))}
+                            className={`flex-1 py-4 px-4 rounded-2xl font-black uppercase text-[10px] tracking-[0.15em] transition-all active:scale-95 ${isDark ? 'bg-white/5 text-white/30 hover:bg-white/10' : 'bg-white/40 text-slate-400 hover:bg-white/60'}`}
+                        >
+                            CANCELAR
+                        </button>
+                        <button 
+                            onClick={() => {
+                                if (confirmModal.onConfirm) confirmModal.onConfirm();
+                                setConfirmModal(prev => ({ ...prev, show: false }));
+                            }}
+                            className="flex-1 py-4 px-4 rounded-2xl font-black uppercase text-[10px] tracking-[0.15em] bg-accent text-white shadow-lg shadow-accent/20 hover:shadow-accent/40 active:scale-95 transition-all"
+                        >
+                            ACEPTAR
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 };

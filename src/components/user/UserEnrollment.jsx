@@ -2,7 +2,8 @@ import React from 'react';
 import {
     User, ChevronRight, Package, CreditCard, CheckCircle,
     MessageSquare, Copy, Shield, Camera, Check, Sparkles,
-    Trash2, ChevronDown, Plus, Minus, ArrowRight, Clock, GraduationCap
+    Trash2, ChevronDown, Plus, Minus, ArrowRight, Clock, GraduationCap,
+    Mail, Phone
 } from 'lucide-react';
 import StepIndicator from '../StepIndicator.jsx';
 import PackCard from '../PackCard.jsx';

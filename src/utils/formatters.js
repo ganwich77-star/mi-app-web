@@ -32,3 +32,12 @@ export const getGroup = (name = '') => {
     const last = parts[parts.length - 1];
     return (last.length === 1 && last === last.toUpperCase() && isNaN(last)) ? last : '';
 };
+// 5. Normalizar para comparaciones seguras
+export const normalize = (str) => {
+    if (!str) return '';
+    return str.toString().toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s+/g, ' ')
+        .trim();
+};

@@ -436,7 +436,7 @@ input[type="date"].full-clickable-date::-webkit-calendar-picker-indicator {
 
 /* Corrección para Selectores en Modales y SweetAlert2 Premium */
 .swal2-select.premium-select-swal,
-.swal2-popup .swal2-select,
+.swal2-popup .swal2-select:not([style*="display: none"]),
 .modal-content select {
     display: block !important;
     box-sizing: border-box !important;
