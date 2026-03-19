@@ -170,7 +170,7 @@ const DownloadPortal = ({ orderId, allExtras = [] }) => {
                         </div>
                     ) : (
                         <div className="flex-1 flex flex-col items-center justify-center text-center animate-in fade-in zoom-in duration-700">
-                             {(order.digitalPhotoUrl || order.photoFile) ? (
+                             {(order.digitalPhotoUrl || order.photoFile || order.photo_file_number) && (order.pack?.isDigital !== false) ? (
                                 <>
                                     <div className="w-24 h-24 bg-emerald-500/10 rounded-[2.5rem] flex items-center justify-center border border-emerald-500/20 mb-8 shadow-2xl shadow-emerald-500/10 relative">
                                         <ImageIcon size={48} className="text-emerald-500" />

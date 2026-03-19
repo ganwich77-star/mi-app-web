@@ -35,9 +35,6 @@ export default function OrderRow({ order, onStatusChange, onDelete, onEdit, isSe
                 {/* Alumno + fichero */}
                 <div className="flex items-center gap-2 min-w-0">
                     <p className="text-xs font-black text-primary truncate">{order.studentName}</p>
-                    {order.photoFile && (
-                        <span className="text-[9px] font-mono text-emerald-500 bg-emerald-500/8 border border-emerald-500/20 px-1.5 py-0.5 rounded-md flex-shrink-0">{order.photoFile}</span>
-                    )}
                 </div>
 
                 {/* Curso */}
@@ -113,9 +110,6 @@ export default function OrderRow({ order, onStatusChange, onDelete, onEdit, isSe
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 min-w-0">
                         <p className="font-black text-[13px] text-primary truncate leading-tight">{order.studentName}</p>
-                        {order.photoFile && (
-                            <span className="text-[8px] font-mono text-emerald-500 bg-emerald-500/8 border border-emerald-500/10 px-1 py-0.5 rounded flex-shrink-0">{order.photoFile}</span>
-                        )}
                     </div>
                     <p className="text-[9px] text-secondary font-bold mt-0.5 truncate opacity-60">
                         {order.course} · <span className="opacity-50">{order.schoolName}</span>

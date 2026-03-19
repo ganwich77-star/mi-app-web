@@ -101,7 +101,7 @@ exports.createPaycometIntent = onCall(async (request) => {
                     methods: payMethod === 'bizum' ? [11] : [1], // 11 para Bizum, 1 para tarjeta
                     secure: 1, // Obligatorio para la API REST v1/form
                     userInteraction: 1, // Campo obligatorio para v1/form
-                    originalIp: "127.0.0.1",
+                    originalIp: request.rawRequest.ip || "127.0.0.1",
                     urlOk: `https://basecode.es/graduaciones2026/?payment=success&orderId=${orderId}`,
                     urlKo: `https://basecode.es/graduaciones2026/?payment=error&orderId=${orderId}`
                 }

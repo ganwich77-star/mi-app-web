@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import Swal from 'sweetalert2';
+import 'sweetalert2/dist/sweetalert2.min.css';
 import { FileText, Download, TrendingUp, CreditCard, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
 
-export default function BillingPanel({ settings, photographerId }) {
+export default function BillingPanel({ settings, photographerId, sendAdminNotification }) {
     const [invoices, setInvoices] = useState([]);
 
     React.useEffect(() => {
@@ -276,6 +278,80 @@ export default function BillingPanel({ settings, photographerId }) {
         printWindow.document.close();
     };
 
+    const handleSupportTicket = async () => {
+        const { value: formValues } = await Swal.fire({
+            title: '📩 Abrir Ticket de Ayuda',
+            html: `
+                <div style="text-align: left; margin-bottom: 5px;">
+                    <label style="font-size: 11px; font-weight: 800; color: #4F46E5; text-transform: uppercase;">¿En qué podemos ayudarte?</label>
+                    <select id="swal-subject" class="swal2-input" style="width: 100%; margin: 5px auto; font-size: 14px; border-radius: 12px;">
+                        <option value="Problema con el pago">Problema con el pago</option>
+                        <option value="Activación de Plan">Activación de Plan</option>
+                        <option value="Error en la aplicación">Error en la aplicación</option>
+                        <option value="Duda sobre Facturación">Duda sobre Facturación</option>
+                        <option value="Sugerencia / Mejora">Sugerencia / Mejora</option>
+                        <option value="Otros">Otros (Especificar en el mensaje)</option>
+                    </select>
+                </div>
+                <div style="text-align: left; margin-top: 15px;">
+                    <label style="font-size: 11px; font-weight: 800; color: #4F46E5; text-transform: uppercase;">Detalles del mensaje</label>
+                    <textarea id="swal-message" class="swal2-textarea" style="width: 100%; margin: 5px auto; font-size: 14px; border-radius: 12px; min-height: 120px;" placeholder="Describe detalladamente tu consulta o incidencia..."></textarea>
+                </div>
+                <div style="font-size: 9px; color: #94a3b8; margin-top: 15px; font-style: italic; line-height: 1.2;">
+                    Pulsando 'Enviar' aceptas que PujalteFotografía trate tus datos para gestionar esta consulta.
+                </div>
+            `,
+            focusConfirm: false,
+            preConfirm: () => {
+                const subject = document.getElementById('swal-subject').value;
+                const message = document.getElementById('swal-message').value;
+                if (!message) {
+                    Swal.showValidationMessage('¡Por favor, describe tu problema!');
+                    return false;
+                }
+                return { subject, message };
+            },
+            showCancelButton: true,
+            confirmButtonText: 'Enviar Ticket',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#4F46E5',
+        });
+
+        if (formValues) {
+            Swal.fire({
+                title: 'Enviando...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            try {
+                await sendAdminNotification('SOPORTE', {
+                    brandName: settings.fiscalName || settings.studioName || 'Estudio No Identificado',
+                    email: settings.email || 'No registrado',
+                    phone: settings.phone || settings.contactPhone || 'No registrado',
+                    subject: formValues.subject,
+                    message: formValues.message
+                });
+
+                Swal.fire({
+                    icon: 'success',
+                    title: '¡Recibido!',
+                    text: 'Hemos enviado tu consulta. Te contactaremos pronto.',
+                    confirmButtonColor: '#4F46E5'
+                });
+            } catch (error) {
+                console.error("Error enviando soporte:", error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'No se pudo enviar el ticket. Por favor, intenta de nuevo.'
+                });
+            }
+        }
+    };
+
     return (
         <div className="space-y-6 animate-fade-in">
             {/* Stats Overview */}
@@ -392,10 +468,13 @@ export default function BillingPanel({ settings, photographerId }) {
             <div className="bg-indigo-600 p-8 rounded-[40px] text-white flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden relative group">
                 <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/4 w-64 h-64 bg-white/10 rounded-full blur-3xl group-hover:bg-white/20 transition-all duration-700" />
                 <div className="relative z-10 space-y-2 text-center md:text-left">
-                    <h4 className="text-xl font-black uppercase tracking-tight">¿Necesitas soporte con tus pagos?</h4>
+                    <h4 className="text-xl font-black uppercase tracking-tight">¿Necesitas ayuda?</h4>
                     <p className="text-sm font-bold opacity-80 max-w-md">Nuestro departamento de administración está disponible de Lunes a Viernes para resolver cualquier duda.</p>
                 </div>
-                <button className="relative z-10 px-8 py-4 bg-white text-indigo-600 font-black text-[11px] uppercase tracking-[0.2em] rounded-2xl shadow-xl hover:scale-105 active:scale-95 transition-all">
+                <button 
+                    onClick={handleSupportTicket}
+                    className="relative z-10 px-8 py-4 bg-white text-indigo-600 font-black text-[11px] uppercase tracking-[0.2em] rounded-2xl shadow-xl hover:scale-105 active:scale-95 transition-all"
+                >
                     Ticket de Soporte
                 </button>
             </div>

@@ -278,13 +278,13 @@ function App() {
     const [searchTerm, setSearchTerm] = useState('');
     const [showPinModal, setShowPinModal] = useState(false);
     const [pinInput, setPinInput] = useState('');
-    const [showPin, setShowPin] = useState(false);
+    const [showPinValue, setShowPinValue] = useState(false); // New state for pin visibility
+    const [pinError, setPinError] = useState(false);
     const [showLegalModal, setShowLegalModal] = useState(false);
     const [showPrivacyModal, setShowPrivacyModal] = useState(false);
     const [showLandingAviso, setShowLandingAviso] = useState(false);
     const [showLandingPrivacidad, setShowLandingPrivacidad] = useState(false);
     const [showLandingCondiciones, setShowLandingCondiciones] = useState(false);
-    const [pinError, setPinError] = useState(false);
     const [isAdminUnlocked, setIsAdminUnlocked] = useState(() => {
         const params = new URLSearchParams(window.location.search);
         return params.get('unlock') === 'true'; // Atajo para pruebas del agente
@@ -730,6 +730,27 @@ function App() {
                         `
                     }
                 });
+            } else if (type === 'SOPORTE') {
+                subject = `🚨 SUPPORT [${data.subject || 'GENERAL'}] - ${data.brandName || 'Estudio'}`;
+                html = `
+                    <div style="font-family: sans-serif; color: #333; padding: 20px; border: 1px solid #eee; border-radius: 20px;">
+                        <h2 style="color: #ef4444;">Nueva incidencia de soporte recibida</h2>
+                        <p><strong>🚨 Asunto:</strong> <span style="color: #4f46e5; font-weight: bold;">${data.subject || 'General'}</span></p>
+                        <p><strong>Estudio:</strong> ${data.brandName || 'No identificado'}</p>
+                        <p><strong>Email registrado:</strong> ${data.email || '---'}</p>
+                        <p><strong>Teléfono registrado:</strong> ${data.phone || '---'}</p>
+                        <p><strong>Mensaje:</strong></p>
+                        <div style="background: #f8fafc; padding: 15px; border-radius: 10px; border: 1px solid #e2e8f0; font-style: italic;">
+                            ${data.message || 'Sin mensaje adicional'}
+                        </div>
+                        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+                        <div style="font-size: 10px; color: #999; line-height: 1.4;">
+                            <p><strong>INFORMACIÓN PROTECCIÓN DE DATOS:</strong></p>
+                            <p>PujalteFotografía tratará sus datos para la gestión de esta incidencia de soporte. Sus datos no serán cedidos a terceros salvo obligación legal. Puede ejercer sus derechos de acceso, rectificación y supresión en hola@pujaltefotografia.es.</p>
+                        </div>
+                        <p style="font-size: 10px; color: #999; margin-top: 10px;">Aplicación: <strong>App Orlas 2026</strong> | Enviado el ${new Date().toLocaleString('es-ES')}</p>
+                    </div>
+                `;
             }
 
             await addDoc(mailRef, {
@@ -909,7 +930,11 @@ function App() {
                         return { id: sId, name: s?.name || sId, quantity: sQty, price: s?.price || 0 };
                     })
                 })),
-                pack: { id: mainPackId, label: packsDesc },
+                pack: { 
+                    id: mainPackId, 
+                    label: packsDesc,
+                    isDigital: (allPacks || []).find(p => p.id === mainPackId)?.isDigital || false
+                },
                 packId: mainPackId,
                 packQuantity: selectedPacks[mainPackId] || 1,
                 extras: { ...extras },
@@ -1927,6 +1952,7 @@ function App() {
                                     <BillingPanel 
                                         settings={settings}
                                         photographerId={photographerId}
+                                        sendAdminNotification={sendAdminNotification}
                                     />
                                 )}
 
@@ -2410,18 +2436,24 @@ function App() {
                                         <div className="space-y-6">
                                             <div className="relative group">
                                                 <input 
-                                                    type="password"
+                                                    type={showPinValue ? "text" : "password"}
                                                     value={pinInput}
                                                     onChange={(e) => setPinInput(e.target.value)}
                                                     onKeyDown={(e) => e.key === 'Enter' && handlePinSubmit(pinInput)}
-                                                    placeholder="Introduce clave maestra"
                                                     autoFocus
                                                     className={`
                                                         w-full h-16 bg-slate-50 border-2 rounded-2xl px-6 text-center text-xl font-bold tracking-widest outline-none transition-all
                                                         ${pinError ? 'border-red-500 bg-red-50 text-red-600 animate-shake' : 'border-slate-100 focus:border-indigo-500 focus:bg-white text-slate-800'}
                                                     `}
                                                 />
-                                                <div className="absolute inset-y-0 right-4 flex items-center">
+                                                <div className="absolute inset-y-0 right-4 flex items-center gap-3">
+                                                    <button 
+                                                        type="button" 
+                                                        onClick={() => setShowPinValue(!showPinValue)}
+                                                        className="text-slate-300 hover:text-indigo-500 transition-colors"
+                                                    >
+                                                        {showPinValue ? <EyeOff size={18} /> : <Eye size={18} />}
+                                                    </button>
                                                     <Lock size={18} className={pinInput.length > 0 ? 'text-indigo-500' : 'text-slate-300'} />
                                                 </div>
                                             </div>

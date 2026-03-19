@@ -146,16 +146,16 @@ const UserEnrollment = ({
                         {/* PASO 1 */}
                         {step === 1 && (
                             <div className="card p-8 space-y-6 animate-slide-up relative overflow-hidden">
-                                <div className="absolute -top-10 -right-10 w-40 h-40 bg-accent/20 rounded-full blur-[40px] pointer-events-none" />
-                                <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-violet-400/20 rounded-full blur-[40px] pointer-events-none" />
+                                <div className="absolute -top-10 -right-10 w-40 h-40 bg-accent/10 rounded-full blur-[60px] pointer-events-none" />
+                                <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-violet-400/10 rounded-full blur-[60px] pointer-events-none" />
 
                                 <div className="flex items-center gap-4 mb-2 relative">
-                                    <div className="w-12 h-12 rounded-[16px] bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-[0_0_20px_rgba(99,102,241,0.4)] text-white">
+                                    <div className="w-12 h-12 rounded-[16px] bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 text-white">
                                         <User size={22} />
                                     </div>
                                     <div>
-                                        <h2 className="text-2xl font-black text-black tracking-tight leading-none bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">Datos del Alumno</h2>
-                                        <p className="text-[10px] font-black text-black tracking-widest uppercase mt-1">Paso 1 de 3</p>
+                                        <h2 className="text-2xl font-black text-primary tracking-tight leading-none">Datos del Alumno</h2>
+                                        <p className="text-[10px] font-black text-secondary/60 tracking-widest uppercase mt-1">Paso 1 de 3</p>
                                     </div>
                                 </div>
                                 <div className="space-y-4">

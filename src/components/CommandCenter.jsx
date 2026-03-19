@@ -38,8 +38,8 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
         ? [...(staff || [])].sort((a, b) => (a.name || a.firstName || '').localeCompare(b.name || b.firstName || ''))
         : [];
 
-    const graduateIds = filteredGraduates.map(g => g.photoFile || g.id).filter(Boolean);
-    const staffIds = filteredStaff.map(s => s.photoFile || s.id).filter(Boolean);
+    const graduateIds = filteredGraduates.map(g => (g.photo_file_number || g.photoFile || g.id || '').split('.')[0]).filter(Boolean);
+    const staffIds = filteredStaff.map(s => (s.photo_file_number || s.photoFile || s.id || '').split('.')[0]).filter(Boolean);
     const allIds = [...new Set([...graduateIds, ...staffIds])];
     const lrString = allIds.join(',');
 
@@ -64,6 +64,27 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
         try {
             const cleanCenter = groupName.replace(/ORLA/gi, '').trim();
             const folderName = `ORLA ${cleanCenter} ${course} ${group}`.trim().toUpperCase();
+            // Snippet para el diálogo de éxito profesional
+        const successDialogSnippet = (customMsg = "ORLA GENERADA CON \u00C9XITO!") => `
+    function showSuccess(msg) {
+        var win = new Window("dialog", "Pujalte Creative Studio");
+        win.orientation = "column"; win.alignChildren = "center"; win.spacing = 15; win.margins = 30;
+        
+        // Carga de Logo desde ruta estándar
+        var logoFile = new File(Folder.myDocuments + "/pujalte_studio/logo.png");
+        if (logoFile.exists) { win.add("image", undefined, logoFile); }
+
+        var t1 = win.add("statictext", undefined, msg);
+        t1.graphics.font = ScriptUI.newFont("Tahoma", "BOLD", 18);
+        
+        win.add("statictext", undefined, "--------------------------------------------------------------");
+        
+        var btn = win.add("button", undefined, "BRUTAL", {name: "ok"});
+        btn.size = [140, 45];
+        btn.onClick = function() { win.close(); };
+        win.show();
+    }
+    showSuccess("${customMsg}");`;
             const timestamp = new Date().getTime();
             let filename = `${cleanCenter}_${type}_${timestamp}.jsx`.replace(/\s+/g, '_').toUpperCase();
             let content = '';
@@ -71,15 +92,18 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
             const currentStaff = staff || [];
             const currentGrads = graduates || [];
 
+            // Helper para escapear strings para Photoshop (ExtendScript)
+            const esc = (t) => t ? JSON.stringify(t) : '""';
+
             // Helper global para construir URLs de fotos
             const buildUrl = (item) => {
                 if (!item) return "";
                 if (item.digitalPhotoUrl) return item.digitalPhotoUrl;
-                let src = item.photoFile || item.photoUrl || item.photoURL || item.photo_file_url || item.foto_url || item.photo || item.foto || item.src || item.photo_file_number;
+                let src = item.photo_file_number || item.photoFile || item.photoUrl || item.photoURL || item.photo_file_url || item.foto_url || item.photo || item.foto || item.src;
                 if (src && typeof src === 'object') src = src.base64 || src.url || src.photoUrl || src.photoURL || src.photo || src;
                 if (!src || src === "undefined" || src === "null") return "";
-                if (typeof src === 'string') {
-                    const s = src.trim();
+                if (typeof src === 'string' || typeof src === 'number') {
+                    const s = String(src).trim();
                     if (s.toLowerCase().startsWith('http') || s.toLowerCase().startsWith('data:')) return s;
                     return `https://firebasestorage.googleapis.com/v0/b/foto-pujalte.appspot.com/o/orlas2026%2F${s}?alt=media`;
                 }
@@ -87,24 +111,24 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
             };
 
             if (type === 'CONSTRUCTOR') {
+                filename = `01_ORLA_CONSTRUCTOR_V3_0_${timestamp}.jsx`;
+                console.log(">>> GENERANDO CONSTRUCTOR V3.0 - " + timestamp);
                 const staffLines = (() => {
                     const totalDocentes = currentStaff.length;
                     if (totalDocentes === 0) return '';
                 
                 const aW = design.aW || 350;
                 const aH = design.aH || 450;
-                const dScale = design.dScale || 1.2;
+                const dScale = design.dScale || 1.15; // Proporción áurea respecto a alumnos
                 const dynamicW = aW * dScale;
                 const dynamicH = aH * dScale;
-                const dGapX = design.dGapX ?? 50; // Gap horizontal
+                const dGapX = design.dGapX ?? 60; 
                 const canvasW = design.canvasW || 4961;
-                const dY = design.dY || 0;
+                const fontSizePx = 65; // EXACTAMENTE IGUAL QUE ALUMNOS
+                const roleFontSizePx = fontSizePx * 0.55; // Cargo más discreto
+                const textOffset = 47; 
+                const dY = (design.margin || 200) - 20; // Ajuste fino al borde de la guía
                 const dOffsetX = design.dOffsetX || 0;
-                
-                // Usar valores reales del auto-ajuste
-                const fontSizePx = design.fontSizeDocName || (design.fontSizeDoc || 10) * 0.55 * dScale;
-                const roleFontSizePx = design.fontSizeDocRole || (design.fontSizeDoc || 10) * 0.4 * dScale;
-                const textOffset = 83 * dScale; // 75px adicionales (aprox 6.3mm) + base 8px
 
                 const maxStaffScaled = (totalDocentes * dynamicW) + ((totalDocentes - 1) * dGapX);
                 const startX_scaled = (canvasW / 2) - (maxStaffScaled / 2) + dOffsetX;
@@ -112,38 +136,42 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                 return currentStaff.map((member, i) => {
                     const phX = startX_scaled + (i * (dynamicW + dGapX));
                     const phY = dY;
+                    const nameParts = splitName(member.firstName || member.name || member.id);
+                    const photoId = String(member.photoFile || member.photo_file_number || member.id || "").toLowerCase();
+                    const url = buildUrl(member);
+
                     const nameY = phY + dynamicH + textOffset;
-                    const surnameY = nameY + (fontSizePx * 1.05);
-                    const roleY = (member.lastName ? surnameY : nameY) + (roleFontSizePx * 1.5);
+                    const fSize = 65; // Fuerza 65px
+                    const surnameY = nameY + (fSize * 1.15); 
+                    const roleY = (nameParts.apellidos ? surnameY : nameY) + (fSize * 1.05); // Cargo debajo de apellidos
                     
                     const cfg = member.photoConfig || {};
                     const zoom = cfg.zoom || 1;
                     const offX_p = cfg.x || 0;
                     const offY_p = cfg.y || 0;
 
-                    return `    createItem(docentesGroup, ${esc(nameParts.nombre)}, ${esc(nameParts.apellidos)}, ${esc(member.role || 'DOCENTE')}, ${esc(photoId)}, ${phX.toFixed(2)}, ${phY.toFixed(2)}, ${dynamicW.toFixed(2)}, ${dynamicH.toFixed(2)}, ${nameY.toFixed(2)}, ${fontSizePx.toFixed(2)}, ${roleY.toFixed(2)}, ${roleFontSizePx.toFixed(2)}, true, ${surnameY.toFixed(2)}, ${esc(url)}, ${zoom}, ${offX_p}, ${offY_p});`;
+                    return `    createItem(docentesGroup, ${esc(nameParts.nombre)}, ${esc(nameParts.apellidos)}, ${esc(member.role || 'DOCENTE')}, ${esc(photoId)}, ${phX.toFixed(2)}, ${phY.toFixed(2)}, ${dynamicW.toFixed(2)}, ${dynamicH.toFixed(2)}, ${nameY.toFixed(2)}, ${fSize.toFixed(2)}, ${roleY.toFixed(2)}, ${roleFontSizePx.toFixed(2)}, true, ${surnameY.toFixed(2)}, ${esc(url)}, ${zoom}, ${offX_p}, ${offY_p});`;
                 }).join('\n');
             })();
 
             const aluLines = (() => {
                 const totalAlus = (currentGrads || []).length;
                 if (totalAlus === 0) return '';
-
                 const aW = design.aW || 350;
                 const aH = design.aH || 450;
                 const aScale = design.aScale || 1.0;
                 const dynamicW = aW * aScale;
                 const dynamicH = aH * aScale;
                 const aCols = parseInt(design.aCols) || 8;
-                const aGapX = design.aGapX ?? 40;
-                const aGapY = design.aGapY ?? 40; // Super compacto como el editor
+                const aGapX = design.aGapX ?? 45;
+                const aGapY = design.aGapY ?? 40; 
                 const canvasW = design.canvasW || 4961;
-                const aStartY = design.aStartY || 1100; // Alumnos nacen mucho más cerca de los docentes
+                const aStartY = (design.aStartY || 1150); // Posición exacta del editor
                 const aOffsetX = design.aOffsetX || 0;
                 
-                const fontSizePx = design.fontSizeAluName || (design.fontSizeAlu || 10) * 0.55 * aScale;
-                const textOffset = 81 * aScale; // 75px adicionales (aprox 6.3mm) + base 6px
-                const rowGapExtra = (design.aGapY ?? 40) * aScale; // Ajustado a 40px por defecto, escalado
+                const fontSizePx = 65; // Tamaño base mucho más grande (Alumnos)
+                const textOffset = 47; // 4mm exactos a 300dpi
+                const rowGapExtra = (design.aGapY ?? 40) * aScale;
 
                 // IMPORTANTE: Orden exacto del editor web
                 const sortedAlus = [...currentGrads].sort((a, b) => {
@@ -157,22 +185,21 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                 return sortedAlus.map((g, i) => {
                     const row = Math.floor(i / aCols);
                     const totalRows = Math.ceil(totalAlus / aCols);
-                    const isLastRow = row === totalRows - 1;
-                    const itemsInThisRow = isLastRow ? (totalAlus % aCols || aCols) : aCols;
-                    const colInRow = i % aCols;
-
+                    const itemsInThisRow = (row === totalRows - 1) ? (totalAlus % aCols || aCols) : aCols;
                     const rowWidthScaled = (itemsInThisRow * dynamicW) + ((itemsInThisRow - 1) * aGapX);
                     const rowStartX = (canvasW / 2) - (rowWidthScaled / 2) + aOffsetX;
 
-                    const itemHeightStep = dynamicH + textOffset + (fontSizePx * 2.2) + rowGapExtra;
-                    const phY = aStartY + (row * itemHeightStep);
-                    const phX = rowStartX + colInRow * (dynamicW + aGapX);
+                    const phX = rowStartX + ((i % aCols) * (dynamicW + aGapX));
+                    
+                    // SUBIR 5mm (59px) la segunda fila
+                    const rowOffset = row > 0 ? (row * (dynamicH + textOffset + (fontSizePx * 2.2) + rowGapExtra)) - 59 : (row * (dynamicH + textOffset + (fontSizePx * 2.2) + rowGapExtra));
+                    const phY = aStartY + rowOffset;
                     
                     const nameY = phY + dynamicH + textOffset;
                     const surnameY = nameY + (fontSizePx * 1.15); // Espacio controlado entre nombre y apellidos
 
                     const nameParts = splitName(g.studentName || 'ALUMNO');
-                    const photoId = String(g.photo_file_number || g.photoFile || g.id);
+                    const photoId = String(g.photo_file_number || g.photoFile || g.id || "").toLowerCase();
                     const url = buildUrl(g);
                     const esc = (val) => JSON.stringify(String(val || ""));
                     
@@ -186,279 +213,288 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
             })();
 
             content = [
-                '/* FINALIZAR ORLA V13.1 - CONSTRUCTOR PSD */',
-                '// 1. CONFIGURACIÓN INICIAL DE UNIDADES Y DIÁLOGOS (CRÍTICO)',
-                'var savedRuler = app.preferences.rulerUnits;',
-                'var savedType = app.preferences.typeUnits;',
-                'var savedDialogs = app.displayDialogs;',
-                'app.preferences.rulerUnits = Units.PIXELS;',
-                'app.preferences.typeUnits = TypeUnits.PIXELS;',
-                'app.displayDialogs = DialogModes.NO; // SILENCIAR AVISOS DE PERFIL',
+                '/* GENERADOR DE ORLA V3.0 - PUJALTE Studio */',
                 '',
-                `var doc = app.documents.add(${design.canvasW}, ${design.canvasH}, 300, ${JSON.stringify(groupName)}, NewDocumentMode.RGB);`,
-                'try { doc.colorProfileName = "Adobe RGB (1998)"; } catch(e) {}',
-                '',
-                '// Helper para mascaras circulares en ExtendScript',
-                'function selectEllipse(top, left, bottom, right) {',
-                '    var idsetd = charIDToTypeID( "setd" );',
-                '    var desc1 = new ActionDescriptor();',
-                '    var idnull = charIDToTypeID( "null" );',
-                '    var ref1 = new ActionReference();',
-                '    var idChnl = charIDToTypeID( "Chnl" );',
-                '    var idfsel = charIDToTypeID( "fsel" );',
-                '    ref1.putProperty( idChnl, idfsel );',
-                '    desc1.putReference( idnull, ref1 );',
-                '    var idT = charIDToTypeID( "T   " );',
-                '    var desc2 = new ActionDescriptor();',
-                '    var idTop = charIDToTypeID( "Top " );',
-                '    var idPxl = charIDToTypeID( "#Pxl" );',
-                '    desc2.putUnitDouble( idTop, idPxl, top );',
-                '    var idLeft = charIDToTypeID( "Left" );',
-                '    var idBtom = charIDToTypeID( "Btom" );',
-                '    var idRght = charIDToTypeID( "Rght" );',
-                '    desc2.putUnitDouble( idLeft, idPxl, left );',
-                '    desc2.putUnitDouble( idBtom, idPxl, bottom );',
-                '    desc2.putUnitDouble( idRght, idPxl, right );',
-                '    var idElps = charIDToTypeID( "Elps" );',
-                '    desc1.putObject( idT, idElps, desc2 );',
-                '    var idAntA = charIDToTypeID( "AntA" );',
-                '    desc1.putBoolean( idAntA, true );',
-                '    executeAction( idsetd, desc1, DialogModes.NO );',
-                '}',
-                '',
-                '// Función: crea item dentro del grupo padre dado',
-                `var currentShape = ${JSON.stringify(design.photoShape || 'circle')};`,
-                `var defaultFont = ${JSON.stringify(design.fontFamily || "MyriadPro-Bold")};`,
-                '// Factor de corrección: En documentos de 300dpi, Photoshop interpreta mal el tamaño si se da en "px".',
-                '// Usaremos Puntos (pt) calculando la equivalencia exacta: 1pt = 1/72 pulgada. 1px = 1/300 pulgada.',
-                '// Ratio = 72 / 300 = 0.24',
-                'var PX_TO_PT = 0.24;',
-                '',
-                '// Preparar carpeta temporal para inyección cloud integrada',
-                'var tempFolder = new Folder(Folder.temp + "/orla_photos");',
-                'if (!tempFolder.exists) tempFolder.create();',
-                `var dpi = ${design.dpi || 300};`,
-                '',
-                'function createItem(parentGroup, nombre, apellidos, cargo, id, phX, phY, phW, phH, nameY, nameSizePx, roleY, roleSizePx, isStaff, surnameY, photoUrl, zoom, extraX, extraY) {',
-                '    var group = parentGroup.layerSets.add();',
-                '    group.name = id;',
-                '',
-                '    // 1. PLACEHOLDER',
-                '    var sW = Math.min(phW, phH); var sH = sW;',
-                '    var sX = phX + (phW - sW) / 2; var sY = phY + (phH - sH) / 2;',
-                '',
-                '    if (currentShape === "circle") selectEllipse(sY, sX, sY + sH, sX + sW);',
-                '    else if (currentShape === "oval") selectEllipse(phY, phX, phY + phH, phX + phW);',
-                '    else if (currentShape === "rect34r" || currentShape === "square") {',
-                '        doc.selection.select([[phX, phY], [phX + phW, phY], [phX + phW, phY + phH], [phX, phY + phH]]);',
-                '        try { doc.selection.smooth(35); } catch(e) {}',
-                '    } else {',
-                '        doc.selection.select([[phX, phY], [phX + phW, phY], [phX + phW, phY + phH], [phX, phY + phH]]);',
-                '    }',
-                '',
-                '    var placeholder = group.artLayers.add(); placeholder.name = "PLACEHOLDER";',
-                '    var fillColor = new SolidColor(); fillColor.rgb.hexValue = "F0F0F0";',
-                '    doc.selection.fill(fillColor); doc.selection.deselect();',
-                '',
-                '// 1.1 INYECCIÓN DE FOTO CLOUD (Si hay URL disponible)',
-                '    if (photoUrl && photoUrl !== "") {',
-                '        try {',
-                '            var tempFile = new File(tempFolder + "/" + id.replace(/[^a-zA-Z0-9]/g, "_") + ".jpg");',
-                '            var curlCmd = "curl -k -L -o \\"" + tempFile.fsName + "\\" \\"" + photoUrl + "\\"";',
-                '            app.system(curlCmd);',
-                '            ',
-                '            if (tempFile.exists) {',
-                '                app.open(tempFile);',
-                '                var photoDoc = app.activeDocument;',
-                '                ',
-                '                // Forzar perfil de color si es necesario',
-                '                try { photoDoc.colorProfileName = "Adobe RGB (1998)"; } catch(e) {}',
-                '',
-                '                photoDoc.selection.selectAll();',
-                '                photoDoc.selection.copy();',
-                '                photoDoc.close(SaveOptions.DONOTSAVECHANGES);',
-                '                ',
-                '                app.activeDocument = doc;',
-                '                doc.activeLayer = placeholder;',
-                '                var pastedLayer = doc.paste();',
-                '                pastedLayer.name = "FOTO_" + id;',
-                '',
-                '                // AJUSTE PRECISO AL PLACEHOLDER',
-                '                var pb = placeholder.bounds;',
-                '                var curB = pastedLayer.bounds;',
-                '                var curW = curB[2] - curB[0];',
-                '                var curH = curB[3] - curB[1];',
-                '                var targetW = pb[2] - pb[0];',
-                '                var targetH = pb[3] - pb[1];',
-                '',
-                '                var z = zoom || 1;',
-                '                var scale = Math.max(targetW / curW, targetH / curH) * 100 * z;',
-                '                pastedLayer.resize(scale, scale, AnchorPosition.MIDDLECENTER);',
-                '',
-                '                // Centrar respecto al placeholder + el offset del re-encuadre',
-                '                var newB = pastedLayer.bounds;',
-                '                var offX = pb[0] + (targetW/2) - (newB[0] + (newB[2]-newB[0])/2);',
-                '                var offY = pb[1] + (targetH/2) - (newB[1] + (newB[3]-newB[1])/2);',
-                '                offX += (extraX / 100) * targetW;',
-                '                offY += (extraY / 100) * targetH;',
-                '                pastedLayer.translate(offX, offY);',
-                '',
-                '                pastedLayer.move(placeholder, ElementPlacement.PLACEBEFORE);',
-                '                pastedLayer.grouped = true;',
-                '            }',
-                '        } catch(e) { /* Error silencioso en descarga */ }',
-                '    }',
-                '',
-                '    // 2. TEXTO NOMBRE (POINT TEXT - CENTRADO ABSOLUTO)',
-                '    var centerX = phX + (phW / 2);',
+                'function main() {',
+                '    app.displayDialogs = DialogModes.NO;',
+                '    alert("MOTOR V3.0 INICIADO");',
+                '    $.writeln(">>> INICIANDO MOTOR V3.0 <<<");',
+                '    var savedRuler = app.preferences.rulerUnits;',
+                '    var savedType = app.preferences.typeUnits;',
+                '    var savedDialogs = app.displayDialogs;',
+                '    app.preferences.rulerUnits = Units.PIXELS;',
+                '    app.preferences.typeUnits = TypeUnits.PIXELS;',
+                '    app.displayDialogs = DialogModes.NO;',
                 '    ',
-                '    var nameLayer = group.artLayers.add(); nameLayer.kind = LayerKind.TEXT;',
-                '    var nameItem = nameLayer.textItem;',
-                '    nameItem.kind = TextType.POINTTEXT;',
-                '    nameItem.font = defaultFont;',
-                '    nameItem.size = nameSizePx * PX_TO_PT;',
-                '    nameItem.justification = Justification.CENTER;',
-                '    nameItem.contents = nombre.toUpperCase();',
-                '    nameItem.position = [centerX, nameY];',
+                '    var stats = { staff: 0, graduates: 0, errors: 0 };',
+                '    ',
+                '    try {',
+                `        var docW = Number(${design.canvasW || 4961});`,
+                `        var docH = Number(${design.canvasH || 3508});`,
+                `        var docName = ${JSON.stringify(groupName || "Nueva Orla")};`,
+                '        ',
+                '        $.writeln("Creando documento: " + docW + "x" + docH + " px");',
+                '        var doc = app.documents.add(docW, docH, 300, docName, NewDocumentMode.RGB, DocumentFill.WHITE);',
+                '        try { doc.colorProfileName = "Adobe RGB (1998)"; } catch(e) {}',
                 '',
-                '    // 3. APELLIDOS (CAPA SEPARADA PARA CONTROL TOTAL)',
-                '    if (apellidos && apellidos.length > 0) {',
-                '        var surLayer = group.artLayers.add(); surLayer.kind = LayerKind.TEXT;',
-                '        var surItem = surLayer.textItem;',
-                '        surItem.kind = TextType.POINTTEXT;',
-                '        surItem.font = defaultFont;',
-                '        surItem.size = (isStaff ? nameSizePx : (nameSizePx * 0.75)) * PX_TO_PT;',
-                '        surItem.justification = Justification.CENTER;',
-                '        surItem.contents = apellidos.toUpperCase();',
-                '        surItem.position = [centerX, surnameY];',
-                '    }',
+                '        // HELPER: Aplicación segura de fuentes',
+                '        function applyFontRobust(textItem, fontName) {',
+                '            try {',
+                '                textItem.font = fontName;',
+                '            } catch (e) {',
+                '                try {',
+                '                    var cleanName = fontName.replace(/\\s/g, "");',
+                '                    textItem.font = cleanName;',
+                '                } catch (e2) {',
+                '                    try { ',
+                '                        if (fontName.indexOf("Bold") !== -1) textItem.font = "Arial-BoldMT";',
+                '                        else textItem.font = "ArialMT"; ',
+                '                    } catch (e3) { $.writeln("Fallo total fuente: " + fontName); }',
+                '                }',
+                '            }',
+                '        }',
                 '',
-                '    // 4. CARGO',
-                '    if (isStaff && cargo) {',
-                '        var roleLayer = group.artLayers.add(); roleLayer.kind = LayerKind.TEXT;',
-                '        var roleItem = roleLayer.textItem;',
-                '        roleItem.kind = TextType.POINTTEXT;',
-                '        roleItem.font = defaultFont;',
-                '        roleItem.size = roleSizePx * PX_TO_PT;',
-                '        roleItem.justification = Justification.CENTER;',
-                '        roleItem.contents = cargo.toUpperCase();',
-                '        roleItem.position = [centerX, roleY];',
-                '    }',
-                '}',
+                '        function selectEllipse(top, left, bottom, right) {',
+                '            var idsetd = charIDToTypeID( "setd" );',
+                '            var desc1 = new ActionDescriptor();',
+                '            var idnull = charIDToTypeID( "null" );',
+                '            var ref1 = new ActionReference();',
+                '            var idChnl = charIDToTypeID( "Chnl" );',
+                '            var idfsel = charIDToTypeID( "fsel" );',
+                '            ref1.putProperty( idChnl, idfsel );',
+                '            desc1.putReference( idnull, ref1 );',
+                '            var idT = charIDToTypeID( "T   " );',
+                '            var desc2 = new ActionDescriptor();',
+                '            var idTop = charIDToTypeID( "Top " );',
+                '            var idPxl = charIDToTypeID( "#Pxl" );',
+                '            desc2.putUnitDouble( idTop, idPxl, top );',
+                '            var idLeft = charIDToTypeID( "Left" );',
+                '            var idBtom = charIDToTypeID( "Btom" );',
+                '            var idRght = charIDToTypeID( "Rght" );',
+                '            desc2.putUnitDouble( idLeft, idPxl, left );',
+                '            desc2.putUnitDouble( idBtom, idPxl, bottom );',
+                '            desc2.putUnitDouble( idRght, idPxl, right );',
+                '            var idElps = charIDToTypeID( "Elps" );',
+                '            desc1.putObject( idT, idElps, desc2 );',
+                '            var idAntA = charIDToTypeID( "AntA" );',
+                '            desc1.putBoolean( idAntA, true );',
+                '            executeAction( idsetd, desc1, DialogModes.NO );',
+                '        }',
                 '',
-                '// CREAR GRUPOS PRINCIPALES',
-                'var docentesGroup = doc.layerSets.add(); docentesGroup.name = "DOCENTES";',
-                'var alumnosGroup = doc.layerSets.add(); alumnosGroup.name = "ALUMNOS";',
+                '        function selectRoundedRect(top, left, bottom, right, radius) {',
+                '            var idsetd = charIDToTypeID( "setd" );',
+                '            var desc1 = new ActionDescriptor();',
+                '            var idnull = charIDToTypeID( "null" );',
+                '            var ref1 = new ActionReference();',
+                '            ref1.putProperty( charIDToTypeID( "Chnl" ), charIDToTypeID( "fsel" ) );',
+                '            desc1.putReference( idnull, ref1 );',
+                '            var idT = charIDToTypeID( "T   " );',
+                '            var desc2 = new ActionDescriptor();',
+                '            desc2.putUnitDouble( charIDToTypeID( "Top " ), charIDToTypeID( "#Pxl" ), top );',
+                '            desc2.putUnitDouble( charIDToTypeID( "Left" ), charIDToTypeID( "#Pxl" ), left );',
+                '            desc2.putUnitDouble( charIDToTypeID( "Btom" ), charIDToTypeID( "#Pxl" ), bottom );',
+                '            desc2.putUnitDouble( charIDToTypeID( "Rght" ), charIDToTypeID( "#Pxl" ), right );',
+                '            desc2.putUnitDouble( charIDToTypeID( "Rds " ), charIDToTypeID( "#Pxl" ), radius || 0 );',
+                '            desc1.putObject( idT, charIDToTypeID( "Rctn" ), desc2 );',
+                '            executeAction( idsetd, desc1, DialogModes.NO );',
+                '        }',
+                '',
+                '        function autoFitFontSize(layer, maxW) {',
+                '            try {',
+                '                if (!layer || layer.kind !== LayerKind.TEXT) return;',
+                '                var currentW = layer.bounds[2] - layer.bounds[0];',
+                '                if (currentW > maxW && currentW > 0) {',
+                '                    var ratio = maxW / currentW;',
+                '                    layer.textItem.size = Math.max(1, layer.textItem.size * ratio * 0.95);',
+                '                }',
+                '            } catch (e) {}',
+                '        }',
+                '',
+                `        var currentShape = ${JSON.stringify(design.photoShape || 'circle')};`,
+                `        var defaultFont = ${JSON.stringify(design.fontFamily || "MyriadPro-Bold")};`,
+                '        var PX_TO_PT = 0.24;',
+                '',
+                '        var tempFolder = new Folder(Folder.temp + "/pujalte_studio_orla");',
+                '        if (!tempFolder.exists) tempFolder.create();',
+                '',
+                '        function createItem(parentGroup, nombre, apellidos, cargo, id, phX, phY, phW, phH, nameY, nameSizePx, roleY, roleSizePx, isStaff, surnameY, photoUrl, zoom, extraX, extraY) {',
+                '            try {',
+                '                var group = parentGroup.layerSets.add();',
+                '                group.name = id || "ITEM";',
+                '',
+                '                // PLACEHOLDER',
+                '                var sW = Math.min(phW, phH); var sH = sW;',
+                '                var sX = phX + (phW - sW) / 2; var sY = phY + (phH - sH) / 2;',
+                '',
+                '                if (currentShape === "circle") selectEllipse(sY, sX, sY + sH, sX + sW);',
+                '                else if (currentShape === "oval") selectEllipse(phY, phX, phY + phH, phX + phW);',
+                '                else if (currentShape === "rect34r") selectRoundedRect(phY, phX, phY + phH, phX + phW, 45);',
+                '                else if (currentShape === "square") selectRoundedRect(sY, sX, sY + sH, sX + sW, 45);',
+                '                else {',
+                '                    if (currentShape === "rect") selectRoundedRect(phY, phX, phY + phH, phX + phW, 0);',
+                '                    else doc.selection.select([[phX, phY], [phX + phW, phY], [phX + phW, phY + phH], [phX, phY + phH]]);',
+                '                }',
+                '',
+                '                var placeholder = group.artLayers.add(); placeholder.name = "PLACEHOLDER";',
+                '                var fillColor = new SolidColor(); fillColor.rgb.hexValue = "F0F0F0";',
+                '                doc.selection.fill(fillColor); doc.selection.deselect();',
+                '',
+                '                // PHOTO CLOUD',
+                '                if (photoUrl && photoUrl !== "") {',
+                '                    try {',
+                '                        var safeId = id.replace(/[^a-zA-Z0-9]/g, "_");',
+                '                        var tempFile = new File(tempFolder + "/" + safeId + ".jpg");',
+                '                        var curlCmd = "curl -k -L -s -o \\"" + tempFile.fsName + "\\" \\"" + photoUrl + "\\"";',
+                '                        app.system(curlCmd);',
+                '                        ',
+                '                        if (tempFile.exists && tempFile.length > 0) {',
+                '                            var photoDoc = app.open(tempFile);',
+                '                            try { photoDoc.colorProfileName = "Adobe RGB (1998)"; } catch(e) {}',
+                '                            photoDoc.selection.selectAll(); photoDoc.selection.copy();',
+                '                            photoDoc.close(SaveOptions.DONOTSAVECHANGES);',
+                '                            ',
+                '                            app.activeDocument = doc;',
+                '                            doc.activeLayer = placeholder;',
+                '                            var pastedLayer = doc.paste();',
+                '                            pastedLayer.name = "FOTO_" + id;',
+                '',
+                '                            var pb = placeholder.bounds;',
+                '                            var curB = pastedLayer.bounds;',
+                '                            var scale = Math.max((pb[2]-pb[0])/(curB[2]-curB[0]), (pb[3]-pb[1])/(curB[3]-curB[1])) * 100 * (zoom || 1);',
+                '                            pastedLayer.resize(scale, scale, AnchorPosition.MIDDLECENTER);',
+                                '                            var newB = pastedLayer.bounds;',
+                            '                            var sW = newB[2] - newB[0]; var sH = newB[3] - newB[1];',
+                            '                            var offX = pb[0] + (pb[2]-pb[0])/2 - (newB[0] + sW/2);',
+                            '                            var offY = pb[1] + (pb[3]-pb[1])/2 - (newB[1] + sH/2);',
+                            '                            var shiftX = (extraX / 100) * sW; var shiftY = (extraY / 100) * sH;',
+                            '                            pastedLayer.translate(offX + shiftX, offY + shiftY);',
+                '                            ',
+                '                            pastedLayer.move(placeholder, ElementPlacement.PLACEBEFORE);',
+                '                            pastedLayer.grouped = true;',
+                '                        }',
+                '                    } catch(e) { $.writeln("Error photo " + id + ": " + e); }',
+                '                }',
+                '',
+                '                var centerX = phX + (phW / 2);',
+                '                ',
+                '                // NOMBRE',
+                '                var nameLayer = group.artLayers.add(); nameLayer.kind = LayerKind.TEXT;',
+                '                nameLayer.textItem.kind = TextType.POINTTEXT;',
+                '                nameLayer.textItem.justification = Justification.CENTER;',
+                '                applyFontRobust(nameLayer.textItem, defaultFont);',
+                '                nameLayer.textItem.size = nameSizePx * PX_TO_PT;',
+                '                nameLayer.textItem.contents = nombre.toUpperCase();',
+                '                nameLayer.textItem.position = [centerX, nameY + (nameSizePx * 0.8)];',
+                '                autoFitFontSize(nameLayer, phW);',
+                '',
+                '                // APELLIDOS',
+                '                if (apellidos) {',
+                '                    var surLayer = group.artLayers.add(); surLayer.kind = LayerKind.TEXT;',
+                '                    surLayer.textItem.kind = TextType.POINTTEXT;',
+                '                    surLayer.textItem.justification = Justification.CENTER;',
+                '                    applyFontRobust(surLayer.textItem, defaultFont.replace("-Bold", "-Regular"));',
+                '                    surLayer.textItem.size = (nameSizePx * 0.75) * PX_TO_PT;',
+                '                    surLayer.textItem.contents = apellidos.toUpperCase();',
+                '                    surLayer.textItem.position = [centerX, surnameY + (nameSizePx * 0.6)];',
+                '                    autoFitFontSize(surLayer, phW);',
+                '                }',
+                '',
+                '                // CARGO',
+                '                if (isStaff && cargo) {',
+                '                    var roleLayer = group.artLayers.add(); roleLayer.kind = LayerKind.TEXT;',
+                '                    roleLayer.textItem.kind = TextType.POINTTEXT;',
+                '                    roleLayer.textItem.justification = Justification.CENTER;',
+                '                    applyFontRobust(roleLayer.textItem, defaultFont);',
+                '                    roleLayer.textItem.size = roleSizePx * PX_TO_PT;',
+                '                    roleLayer.textItem.contents = cargo.toUpperCase();',
+                '                    roleLayer.textItem.position = [centerX, roleY + (roleSizePx * 0.8)];',
+                '                    autoFitFontSize(roleLayer, phW);',
+                '                }',
+                '                if (isStaff) stats.staff++; else stats.graduates++;',
+                '            } catch(e) { stats.errors++; $.writeln("Critical item error: " + e); }',
+                '        }',
+                '',
+                '        var docentesGroup = doc.layerSets.add(); docentesGroup.name = "DOCENTES";',
+                '        var alumnosGroup = doc.layerSets.add(); alumnosGroup.name = "ALUMNOS";',
                 '',
                 staffLines,
-                '',
                 aluLines,
                 '',
-                // PIE DE ORLA (BASADO EN POSICIONAMIENTO DEL EDITOR)
-                'app.activeDocument = doc;',
-                'var footerGroup = doc.layerSets.add(); footerGroup.name = "PIE DE ORLA";',
-                'var centerCanvasX = doc.width / 2;',
-                `var footerBaseY = ${design.canvasH} - ${(design.footerY || 100)};`,
-                `var marginPx = ${design.margin || 200};`,
-                'app.refresh();',
+                '        // FOOTER TEXTS',
+                '        var footerGroup = doc.layerSets.add(); footerGroup.name = "PIE DE ORLA";',
+                '        var cX = doc.width / 2;',
+                `        var fY = Number(${design.canvasH || 3508}) - Number(${design.footerY || 100});`,
                 '',
-                'function autoFitFontSize(layer, maxW) {',
-                '  try {',
-                '    if (!layer || layer.kind !== LayerKind.TEXT) return;',
-                '    app.refresh();',
-                '    var contents = layer.textItem.contents;',
-                '    if (!contents || contents.replace(/\\s/g, "") === "") return;',
+                `        if (!${!!design.hideSchool}) {`,
+                '            var sL = footerGroup.artLayers.add(); sL.kind = LayerKind.TEXT;',
+                `            sL.textItem.contents = ${JSON.stringify((groupName || "").toUpperCase())};`,
+                `            sL.textItem.size = ${design.fontSizeSchool || 120} * PX_TO_PT;`,
+                '            sL.textItem.justification = Justification.CENTER;',
+                '            applyFontRobust(sL.textItem, defaultFont);',
+                '            sL.textItem.position = [cX, fY - 180];',
+                '        }',
                 '',
-                '    var bounds = layer.bounds;',
-                '    if (!bounds || bounds.length < 4) return;',
-                '    var currentW = bounds[2] - bounds[0];',
+                `        if (!${!!design.hidePromo}) {`,
+                '            var pL = footerGroup.artLayers.add(); pL.kind = LayerKind.TEXT;',
+                `            pL.textItem.contents = ${JSON.stringify((design.promoText || "PROMOCIÓN 2026").toUpperCase())};`,
+                `            pL.textItem.size = ${design.fontSizePromo || 45} * PX_TO_PT;`,
+                '            pL.textItem.tracking = 600;',
+                '            pL.textItem.justification = Justification.CENTER;',
+                '            applyFontRobust(pL.textItem, defaultFont);',
+                '            pL.textItem.position = [cX, fY - 60];',
+                '        }',
                 '',
-                '    if (currentW > maxW && currentW > 0) {',
-                '      var ratio = maxW / currentW;',
-                '      var newSize = layer.textItem.size * ratio;',
-                '      layer.textItem.size = Math.max(1, newSize);',
-                '      app.refresh();',
+                `        if (!${!!design.hideCourse}) {`,
+                '            var cL = footerGroup.artLayers.add(); cL.kind = LayerKind.TEXT;',
+                `            cL.textItem.contents = ${JSON.stringify((design.courseText || (course + " " + group)).toUpperCase())};`,
+                `            cL.textItem.size = ${design.fontSizeCourse || 35} * PX_TO_PT;`,
+                '            cL.textItem.tracking = 150;',
+                '            cL.textItem.justification = Justification.CENTER;',
+                '            applyFontRobust(cL.textItem, defaultFont);',
+                '            cL.textItem.position = [cX, fY];',
+                '        }',
+                '',
+                '        // CONFIGURACIÓN FINAL DE GUÍAS Y RESTAURAR',
+                '        app.preferences.rulerUnits = Units.MM;',
+                `        doc.guides.add(Direction.VERTICAL,   ${(design.canvasW / (design.dpi || 300) * 25.4 / 2).toFixed(2)});`,
+                `        doc.guides.add(Direction.HORIZONTAL, ${(design.canvasH / (design.dpi || 300) * 25.4 / 2).toFixed(2)});`,
+                `        doc.guides.add(Direction.VERTICAL,   ${(design.margin / (design.dpi || 300) * 25.4).toFixed(2)});`,
+                `        doc.guides.add(Direction.VERTICAL,   ${((design.canvasW - design.margin) / (design.dpi || 300) * 25.4).toFixed(2)});`,
+                `        doc.guides.add(Direction.HORIZONTAL, ${(design.margin / (design.dpi || 300) * 25.4).toFixed(2)});`,
+                `        doc.guides.add(Direction.HORIZONTAL, ${((design.canvasH - design.margin) / (design.dpi || 300) * 25.4).toFixed(2)});`,
+                '        $.writeln("Construcción completada.");',
+                '        // DIÁLOGO FINAL PREMIUM',
+                '        var win = new Window("dialog", "Pujalte Creative Studio");',
+                '        win.orientation = "column"; win.alignChildren = "center"; win.spacing = 20; win.margins = 40;',
+                '        var logoFile = new File(Folder.myDocuments + "/pujalte_studio/logo.png");',
+                '        if (logoFile.exists) { win.add("image", undefined, logoFile); }',
+                '        var header = win.add("statictext", undefined, "¡ORLA CREADA CON \u00C9XITO!");',
+                '        header.graphics.font = ScriptUI.newFont("Tahoma", "BOLD", 24);',
+                '        var info = win.add("statictext", undefined, "Staff: " + stats.staff + " | Alumnos: " + stats.graduates + " | Errores: " + stats.errors);',
+                '        info.graphics.font = ScriptUI.newFont("Tahoma", "REGULAR", 14);',
+                '        var sep = win.add("statictext", undefined, "--------------------------------------------------------------");',
+                '        sep.graphics.foregroundColor = win.graphics.newPen(win.graphics.PenType.SOLID_COLOR, [0.8, 0.8, 0.8, 1], 1);',
+                '        var footer = win.add("statictext", undefined, "POWERED BY PUJALTE CREATIVE STUDIO");',
+                '        footer.graphics.font = ScriptUI.newFont("Tahoma", "BOLD", 11);',
+                '        var btn = win.add("button", undefined, "BRUTAL", {name: "ok"});',
+                '        btn.size = [200, 55];',
+                '        btn.onClick = function() { win.close(); };',
+                '        win.show();',
+                '',
+                '    } catch (e) {',
+                '        $.writeln("Error en la ejecución del script: " + e.message + " (Línea: " + e.line + ")");',
+                '        alert("Ha ocurrido un error: " + e.message + " (Línea: " + e.line + ")");',
+                '    } finally {',
+                '        app.preferences.rulerUnits = savedRuler;',
+                '        app.preferences.typeUnits = savedType;',
+                '        app.displayDialogs = savedDialogs;',
+                '        if (app.documents.length > 0) {',
+                '            app.activeDocument = doc;',
+                '        }',
                 '    }',
-                '  } catch (e) {',
-                '    $.writeln("AutoFit error: " + e);',
-                '  }',
                 '}',
                 '',
-                // 1. ESCUELA
-                !design.hideSchool ? [
-                    'app.activeDocument = doc;',
-                    'var schoolLayer = footerGroup.artLayers.add(); schoolLayer.kind = LayerKind.TEXT;',
-                    'var schoolText = schoolLayer.textItem;',
-                    'schoolText.kind = TextType.POINTTEXT;',
-                    `schoolText.contents = ${JSON.stringify((groupName || "").toUpperCase())};`,
-                    `schoolText.size = (${design.fontSizeSchool || 240}) * PX_TO_PT;`,
-                    'schoolText.tracking = -50;',
-                    `schoolText.font = defaultFont;`,
-                    'schoolText.justification = Justification.CENTER;',
-                    `schoolText.position = [centerCanvasX, footerBaseY - (${design.fontSizePromo || 90}) * 1.5 - (${design.fontSizeCourse || 60}) * 1.5];`,
-                    `autoFitFontSize(schoolLayer, doc.width - marginPx * 4);`
-                ].join('\n') : '',
-                '',
-                // 2. PROMOCIÓN
-                !design.hidePromo ? [
-                    'app.activeDocument = doc;',
-                    'var promoLayer = footerGroup.artLayers.add(); promoLayer.kind = LayerKind.TEXT;',
-                    'var promoText = promoLayer.textItem;',
-                    'promoText.kind = TextType.POINTTEXT;',
-                    `promoText.contents = ${JSON.stringify((design.promoText || "PROMOCIÓN 2026").toUpperCase())};`,
-                    `promoText.size = (${design.fontSizePromo || 90}) * PX_TO_PT;`,
-                    'promoText.tracking = 500;',
-                    `promoText.font = defaultFont;`,
-                    'promoText.justification = Justification.CENTER;',
-                    `promoText.position = [centerCanvasX, footerBaseY - (${design.fontSizeCourse || 60}) * 1.3];`,
-                    `autoFitFontSize(promoLayer, doc.width - marginPx * 3);`
-                ].join('\n') : '',
-                '',
-                // 3. CURSO
-                !design.hideCourse ? [
-                    'app.activeDocument = doc;',
-                    'var courseLayer = footerGroup.artLayers.add(); courseLayer.kind = LayerKind.TEXT;',
-                    'var courseText = courseLayer.textItem;',
-                    'courseText.kind = TextType.POINTTEXT;',
-                    `courseText.contents = ${JSON.stringify((design.courseText || (course + " " + group)).toUpperCase())};`,
-                    `courseText.size = (${design.fontSizeCourse || 60}) * PX_TO_PT;`,
-                    'courseText.tracking = 100;',
-                    `courseText.font = defaultFont;`,
-                    'courseText.justification = Justification.CENTER;',
-                    `courseText.position = [centerCanvasX, footerBaseY];`,
-                    `autoFitFontSize(courseLayer, doc.width - marginPx * 3);`
-                ].join('\n') : '',
-                '',
-                // CONFIGURACIÓN FINAL DE GUÍAS Y RESTAURAR
-                'app.preferences.rulerUnits = Units.MM;',
-                `doc.guides.add(Direction.VERTICAL,   ${(design.canvasW / (design.dpi || 300) * 25.4 / 2).toFixed(2)});`,
-                `doc.guides.add(Direction.HORIZONTAL, ${(design.canvasH / (design.dpi || 300) * 25.4 / 2).toFixed(2)});`,
-                `doc.guides.add(Direction.VERTICAL,   ${(design.margin / (design.dpi || 300) * 25.4).toFixed(2)});`,
-                `doc.guides.add(Direction.VERTICAL,   ${((design.canvasW - design.margin) / (design.dpi || 300) * 25.4).toFixed(2)});`,
-                `doc.guides.add(Direction.HORIZONTAL, ${(design.margin / (design.dpi || 300) * 25.4).toFixed(2)});`,
-                `doc.guides.add(Direction.HORIZONTAL, ${((design.canvasH - design.margin) / (design.dpi || 300) * 25.4).toFixed(2)});`,
-                'app.preferences.rulerUnits = savedRuler;',
-                'app.preferences.typeUnits = savedType;',
-                '',
-                '// DIÁLOGO PREMIUM ESPECTACULAR',
-                'var win = new Window("dialog", "🚀 PUJALTE CREATIVE STUDIO - ORLA 2026");',
-                'win.orientation = "column"; win.alignChildren = ["fill", "top"]; win.spacing = 15; win.margins = 25;',
-                'win.graphics.backgroundColor = win.graphics.newBrush(win.graphics.BrushType.SOLID_COLOR, [0.07, 0.07, 0.07]);',
-                '',
-                'var title = win.add("statictext", undefined, "¡OBJETIVO CUMPLIDO!");',
-                'title.graphics.font = ScriptUI.newFont("Verdana", "BOLDITALIC", 22);',
-                'title.graphics.foregroundColor = win.graphics.newPen(win.graphics.PenType.SOLID_COLOR, [0.4, 0.3, 1], 1);',
-                '',
-                'var sub = win.add("statictext", undefined, "La estructura de la orla se ha generado con éxito.");',
-                'sub.graphics.foregroundColor = win.graphics.newPen(win.graphics.PenType.SOLID_COLOR, [0.7, 0.7, 0.7], 1);',
-                '',
-                'var msg = win.add("statictext", undefined, "PROCESO FINALIZADO");',
-                'msg.graphics.font = ScriptUI.newFont("Verdana", "BOLD", 16);',
-                'msg.graphics.foregroundColor = win.graphics.newPen(win.graphics.PenType.SOLID_COLOR, [0.9, 0.8, 0], 1);',
-                '',
-                'var btn = win.add("button", undefined, "BRUTAL");',
-                'btn.size = [200, 50];',
-                'win.show();'
+                'main();',
             ].join('\n');
 
 
@@ -539,7 +575,42 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                 '    }',
                 '    app.preferences.rulerUnits = savedRuler;',
                 '    app.displayDialogs = savedDialogs;',
-                '    alert("Proceso finalizado.\\rFotos inyectadas: " + count);',
+                `    function showSuccess(message) {
+        var dialog = new Window("dialog", "Pujalte Creative Studio");
+        dialog.orientation = "column";
+        dialog.alignChildren = "center";
+
+        // Logo
+        var logoPath = new File(Folder.myDocuments + '/pujalte_studio/logo.png');
+        if (logoPath.exists) {
+            var logoPanel = dialog.add("panel", undefined, "");
+            logoPanel.graphics.backgroundColor = logoPanel.graphics.newBrush(logoPanel.graphics.BrushType.SOLID_COLOR, [0, 0, 0, 0]); // Transparent
+            var logo = logoPanel.add("image", undefined, logoPath);
+            logo.maximumSize.width = 150;
+            logo.maximumSize.height = 150;
+        }
+
+        // Main message
+        var messageText = dialog.add("statictext", undefined, message, { multiline: true });
+        messageText.graphics.font = ScriptUI.newFont("Arial", "Bold", 18);
+        messageText.justify = "center";
+
+        // Separator
+        var separator = dialog.add("statictext", undefined, "--------------------------------------------------------------");
+        separator.graphics.font = ScriptUI.newFont("Arial", "Regular", 10);
+        separator.justify = "center";
+
+
+        // Button
+        var okButton = dialog.add("button", undefined, "BRUTAL");
+        okButton.onClick = function() {
+            dialog.close();
+        };
+
+        dialog.center();
+        dialog.show();
+    }
+    showSuccess("\u00A1FOTOS INYECTADAS CON \u00C9XITO!");`,
                 '}',
                 'main();',
             ].join('\n');
@@ -547,8 +618,8 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
             filename = `03_ORLA_INYECCION_CLOUD_${timestamp}.jsx`;
             const cloudItems = [
                 ...currentGrads.map(o => ({
-                    id: (o.photo_file_number || o.id).toLowerCase(),
-                    url: o.digitalPhotoUrl || o.photoFile,
+                    id: String(o.photo_file_number || o.id).toLowerCase(),
+                    url: buildUrl(o),
                     group: "ALUMNOS",
                     name: o.studentName,
                     zoom: o.photoConfig?.zoom || 1,
@@ -556,8 +627,8 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                     y: o.photoConfig?.y || 0
                 })).filter(x => x.url),
                 ...currentStaff.map(s => ({
-                    id: (s.photo_file_number || s.id).toLowerCase(),
-                    url: s.digitalPhotoUrl || s.photoFile,
+                    id: String(s.photo_file_number || s.id).toLowerCase(),
+                    url: buildUrl(s),
                     group: "DOCENTES",
                     name: s.firstName || s.name,
                     zoom: s.photoConfig?.zoom || 1,
@@ -647,28 +718,42 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                 '        } catch(e) { }',
                 '    }',
                 '    app.preferences.rulerUnits = savedRuler;',
-                '    app.displayDialogs = savedDialogs;',
-                '    ',
-                '    // UI ESPECTACULAR',
-                '    var win = new Window("dialog", "🚀 PUJALTE CREATIVE STUDIO - ORLA 2026");',
-                '    win.orientation = "column";',
-                '    win.alignChildren = ["fill", "top"];',
-                '    win.spacing = 15; win.margins = 25;',
-                '    win.graphics.backgroundColor = win.graphics.newBrush(win.graphics.BrushType.SOLID_COLOR, [0.07, 0.07, 0.07]);',
-                '    ',
-                '    var title = win.add("statictext", undefined, "¡OBJETIVO CUMPLIDO!");',
-                '    title.graphics.font = ScriptUI.newFont("Verdana", "BOLDITALIC", 22);',
-                '    title.graphics.foregroundColor = title.graphics.newPen(win.graphics.PenType.SOLID_COLOR, [0.4, 0.3, 1], 1);',
-                '    ',
-                '    var sub = win.add("statictext", undefined, "La inyección se ha completado correctamente.");',
-                '    sub.graphics.foregroundColor = sub.graphics.newPen(win.graphics.PenType.SOLID_COLOR, [0.7, 0.7, 0.7], 1);',
-                '    ',
-                '    var stats = win.add("statictext", undefined, "Fotos Procesadas: " + count);',
-                '    stats.graphics.font = ScriptUI.newFont("Verdana", "BOLD", 16);',
-                '    stats.graphics.foregroundColor = stats.graphics.newPen(win.graphics.PenType.SOLID_COLOR, [0, 0.9, 0.5], 1);',
-                '',
-                '    var closeBtn = win.add("button", undefined, "BRUTAL");',
-                '    win.show();',
+                `    function showSuccess(message) {
+        var dialog = new Window("dialog", "Pujalte Creative Studio");
+        dialog.orientation = "column";
+        dialog.alignChildren = "center";
+
+        // Logo
+        var logoPath = new File(Folder.myDocuments + '/pujalte_studio/logo.png');
+        if (logoPath.exists) {
+            var logoPanel = dialog.add("panel", undefined, "");
+            logoPanel.graphics.backgroundColor = logoPanel.graphics.newBrush(logoPanel.graphics.BrushType.SOLID_COLOR, [0, 0, 0, 0]); // Transparent
+            var logo = logoPanel.add("image", undefined, logoPath);
+            logo.maximumSize.width = 150;
+            logo.maximumSize.height = 150;
+        }
+
+        // Main message
+        var messageText = dialog.add("statictext", undefined, message, { multiline: true });
+        messageText.graphics.font = ScriptUI.newFont("Arial", "Bold", 18);
+        messageText.justify = "center";
+
+        // Separator
+        var separator = dialog.add("statictext", undefined, "--------------------------------------------------------------");
+        separator.graphics.font = ScriptUI.newFont("Arial", "Regular", 10);
+        separator.justify = "center";
+
+
+        // Button
+        var okButton = dialog.add("button", undefined, "BRUTAL");
+        okButton.onClick = function() {
+            dialog.close();
+        };
+
+        dialog.center();
+        dialog.show();
+    }
+    showSuccess("¡INYECCIÓN CLOUD COMPLETADA!");`,
                 '}',
                 'main();',
             ].join('\n');
@@ -700,7 +785,7 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
             } catch (e) { console.error("Error local save:", e); }
         }
 
-        // 2. Método Universal: Descarga por bloque de datos
+        // 2. Método Universal: Descarga por bloque de datos (DISPONIBLE SIEMPRE O SI FALLA LOCAL)
         try {
             const blob = new Blob([content], { type: 'text/javascript' });
             const url = URL.createObjectURL(blob);
@@ -709,15 +794,19 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
             a.href = url;
             a.download = filename;
             document.body.appendChild(a);
-            a.click();
+            
+            // Solo auto-click si NO se guardó en local (para evitar doble ventana inicial)
+            // Pero el botón manual siempre funcionará
+            if (!alreadySaved) {
+                a.click();
+            }
+            
             setTimeout(() => {
-                document.body.removeChild(a);
+                if (document.body.contains(a)) document.body.removeChild(a);
                 URL.revokeObjectURL(url);
             }, 100);
             
-            if (!alreadySaved) {
-                setScriptModal({ content, filename, copied: false, saved: true, savedPath: 'Carpeta de Descargas' });
-            }
+            setScriptModal({ content, filename, copied: false, saved: true, savedPath: alreadySaved ? 'Guardado en carpeta local' : 'Carpeta de Descargas' });
         } catch (error) {
             console.error('Fallo en descarga:', error);
             if (!alreadySaved) setScriptModal({ content, filename, copied: true, saved: false });
@@ -735,14 +824,11 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
             <div className={`min-h-screen ${theme === 'dark' ? 'bg-[#050505] text-white' : 'bg-[#f8f9fa] text-slate-900'} p-4 md:p-8 animate-fade-in relative overflow-hidden transition-colors duration-500`}>
                 <div className="absolute top-0 right-0 w-[300px] md:w-[500px] h-[300px] md:h-[500px] bg-violet-600/10 rounded-full blur-[80px] md:blur-[120px] -z-1" />
 
-                <div className="max-w-5xl mx-auto space-y-6 md:space-y-12 relative z-10">
+                <div className="max-w-5xl mx-auto space-y-4 md:space-y-6 relative z-10">
                     <div className={`flex items-center justify-between border-b ${theme === 'dark' ? 'border-white/10' : 'border-slate-200'} pb-6 md:pb-8`}>
                         <div className="space-y-4 md:space-y-2 w-full">
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                                 <div className="flex items-center gap-2 md:gap-3">
-                                    <button onClick={onBack} className={`p-2 ${theme === 'dark' ? 'hover:bg-white/5 text-white/40' : 'hover:bg-black/5 text-slate-400'} rounded-xl transition-colors hover:text-violet-500`}>
-                                        <ArrowLeft size={20} />
-                                    </button>
                                     <h1 className={`text-2xl md:text-3xl font-black italic tracking-tighter uppercase flex items-center gap-2 md:gap-4 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
                                         <span className="text-violet-500">Finalizar</span> Orla
                                     </h1>
@@ -763,16 +849,72 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                         </div>
                     </div>
 
-                    <div className="space-y-6">
-                        {/* 01. PUENTE LIGHTROOM - ANCHO COMPLETO */}
+                    <div className="space-y-4">
+                        {/* 01. CONSTRUCTOR PSD - AHORA ARRIBA Y ANCHO COMPLETO */}
+                        <div className={`group ${theme === 'dark' ? 'bg-white/[0.03] border-white/10' : 'bg-white border-slate-200 shadow-sm'} border rounded-[32px] p-6 md:p-8 space-y-4 hover:border-blue-500/30 transition-all duration-500 flex flex-col`}>
+                            <div className={`flex items-center justify-between border-b ${theme === 'dark' ? 'border-white/5' : 'border-slate-100'} pb-4`}>
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 bg-blue-500/20 rounded-2xl flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
+                                        <Layers size={24} />
+                                    </div>
+                                    <div className="space-y-0.5">
+                                        <h3 className={`text-lg md:text-xl font-black italic uppercase tracking-wider ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>01. Constructor PSD</h3>
+                                        <p className={`${theme === 'dark' ? 'text-white/30' : 'text-slate-400'} text-[10px] uppercase font-bold tracking-widest`}>Generación de Lienzo Maestro en Photoshop 2026</p>
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={onBack}
+                                    className={`flex items-center gap-2 py-2.5 px-5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border shadow-sm ${theme === 'dark' ? 'bg-white/5 border-white/10 text-white/40 hover:text-white hover:bg-white/10 hover:border-white/20' : 'bg-slate-50 border-slate-200 text-slate-400 hover:text-blue-600 hover:bg-white hover:border-blue-200'} active:scale-95`}
+                                >
+                                    <ArrowLeft size={14} />
+                                    <span>Volver al Editor</span>
+                                </button>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 py-4">
+                                <div className={`${theme === 'dark' ? 'bg-blue-500/5 border-blue-500/10' : 'bg-blue-50 border-blue-100'} rounded-2xl border p-5 flex flex-col justify-center`}>
+                                    <p className={`text-[8px] uppercase font-black ${theme === 'dark' ? 'text-white/30' : 'text-blue-900/40'} tracking-widest`}>Resolución</p>
+                                    <p className={`text-sm font-black italic ${theme === 'dark' ? 'text-white' : 'text-blue-900'}`}>{design.dpi || 300} DPI</p>
+                                </div>
+                                <div className={`${theme === 'dark' ? 'bg-blue-500/5 border-blue-500/10' : 'bg-blue-50 border-blue-100'} rounded-2xl border p-5 flex flex-col justify-center`}>
+                                    <p className={`text-[8px] uppercase font-black ${theme === 'dark' ? 'text-white/30' : 'text-blue-900/40'} tracking-widest`}>Lienzo (W×H)</p>
+                                    <p className={`text-sm font-black italic ${theme === 'dark' ? 'text-white' : 'text-blue-900'}`}>{design.canvasW}×{design.canvasH}px</p>
+                                    <p className="text-[8px] font-bold opacity-50 uppercase tracking-tighter">({(design.canvasW * 25.4 / (design.dpi || 300) / 10).toFixed(1)} × {(design.canvasH * 25.4 / (design.dpi || 300) / 10).toFixed(1)} cm)</p>
+                                </div>
+                                <div className={`${theme === 'dark' ? 'bg-blue-500/5 border-blue-500/10' : 'bg-blue-50 border-blue-100'} rounded-2xl border p-5 flex flex-col justify-center`}>
+                                    <p className={`text-[8px] uppercase font-black ${theme === 'dark' ? 'text-white/30' : 'text-blue-900/40'} tracking-widest`}>Margen Global</p>
+                                    <p className={`text-sm font-black italic ${theme === 'dark' ? 'text-white' : 'text-blue-900'}`}>{(design.margin * 25.4 / (design.dpi || 300) / 10).toFixed(1)} cm</p>
+                                    <p className="text-[8px] font-bold opacity-50 uppercase tracking-tighter">({design.margin} px)</p>
+                                </div>
+                                <div className={`${theme === 'dark' ? 'bg-blue-500/5 border-blue-500/10' : 'bg-blue-50 border-blue-100'} rounded-2xl border p-5 flex flex-col justify-center`}>
+                                    <p className={`text-[8px] uppercase font-black tracking-widest ${theme === 'dark' ? 'text-blue-400' : 'text-blue-600'}`}>Ready to PSD</p>
+                                    <p className={`text-sm font-black italic ${theme === 'dark' ? 'text-white' : 'text-blue-900'}`}>Myriad Pro</p>
+                                </div>
+                            </div>
+
+                            <button onClick={() => downloadScript('CONSTRUCTOR')} className="w-full flex items-center justify-between p-6 bg-blue-600/10 hover:bg-blue-600 hover:text-white text-blue-400 rounded-3xl border border-blue-500/30 transition-all shadow-xl active:scale-95 group/btn">
+                                <div className="flex items-center gap-5">
+                                    <div className="w-14 h-14 bg-blue-500/20 rounded-2xl flex items-center justify-center group-hover/btn:bg-white/20 transition-colors">
+                                        <Zap className="w-7 h-7" />
+                                    </div>
+                                    <div className="text-left">
+                                        <div className="font-black text-xl tracking-tight">CONSTRUCTOR V3.0</div>
+                                        <div className="text-sm opacity-60 font-medium">Generar PSD desde cero</div>
+                                    </div>
+                                </div>
+                                <Download size={22} className="group-hover/btn:scale-125 transition-transform" />
+                            </button>
+                        </div>
+
+                        {/* 02. PUENTE LIGHTROOM - AHORA DEBAJO */}
                         <div className={`group ${theme === 'dark' ? 'bg-white/[0.03] border-white/10' : 'bg-white border-slate-200 shadow-sm'} border rounded-[32px] p-6 md:p-8 space-y-6 hover:border-violet-500/30 transition-all duration-500`}>
                             <div className={`flex items-center gap-4 border-b ${theme === 'dark' ? 'border-white/5' : 'border-slate-100'} pb-4`}>
                                 <div className="w-12 h-12 bg-violet-500/20 rounded-2xl flex items-center justify-center text-violet-400">
                                     <Camera size={24} />
                                 </div>
                                 <div className="space-y-0.5">
-                                    <h3 className={`text-lg md:text-xl font-black italic uppercase tracking-wider ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>01. Puente Lightroom</h3>
-                                    <p className={`${theme === 'dark' ? 'text-white/30' : 'text-slate-400'} text-[10px] uppercase font-black tracking-[0.3em]`}>Filtros Inteligentes y Control de Pedidos</p>
+                                    <h3 className={`text-lg md:text-xl font-black italic uppercase tracking-wider ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>02. Puente Lightroom</h3>
+                                    <p className={`${theme === 'dark' ? 'text-white/30' : 'text-slate-400'} text-[10px] uppercase font-black tracking-[0.3em]`}>Filtros Inteligentes de Selección</p>
                                 </div>
                             </div>
 
@@ -866,7 +1008,16 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                                                     <span className={`text-[11px] font-black uppercase italic tracking-tighter ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{s.name}</span>
                                                     <span className={`text-[8px] opacity-70 uppercase font-black text-violet-500 tracking-widest`}>{s.role}</span>
                                                 </div>
-                                                <span className="text-[11px] font-mono font-black text-amber-500 bg-amber-500/10 px-2 py-1 rounded-lg">{s.photoFile || 'S/F'}</span>
+                                                <span 
+                                                    onClick={() => {
+                                                        const id = (s.photo_file_number || s.photoFile || s.id || '').split('.')[0];
+                                                        copyToClipboard(id);
+                                                    }}
+                                                    className="text-[10px] font-mono font-black text-amber-500 bg-amber-500/10 px-2 py-1 rounded-lg cursor-pointer hover:bg-amber-500 hover:text-white transition-all active:scale-95"
+                                                    title="Clic para copiar ID"
+                                                >
+                                                    {(s.photo_file_number || s.photoFile || 'S/F').split('.')[0]}
+                                                </span>
                                             </div>
                                         ))}
                                         {filteredGraduates.length > 0 ? filteredGraduates.map(g => (
@@ -883,7 +1034,16 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                                                     </span>
                                                 </div>
                                                 <div className="flex flex-col items-end gap-1">
-                                                    <span className="text-[11px] font-mono font-black text-violet-400 bg-violet-400/10 px-2 py-1 rounded-lg">{g.photoFile || 'S/F'}</span>
+                                                    <span 
+                                                        onClick={() => {
+                                                            const id = (g.photo_file_number || g.photoFile || g.id || '').split('.')[0];
+                                                            copyToClipboard(id);
+                                                        }}
+                                                        className="text-[10px] font-mono font-black text-violet-400 bg-violet-400/10 px-2 py-1 rounded-lg cursor-pointer hover:bg-violet-400 hover:text-white transition-all active:scale-95 text-right"
+                                                        title="Clic para copiar ID"
+                                                    >
+                                                        {(g.photo_file_number || g.photoFile || 'S/F').split('.')[0]}
+                                                    </span>
                                                     {activeFilter.type !== 'extra' && g.extras && Object.keys(g.extras).length > 0 &&
                                                         <span className="text-[7px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full font-black uppercase tracking-tighter">
                                                             +{Object.keys(g.extras).length} EXTRAS
@@ -903,130 +1063,28 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                             </div>
                         </div>
 
-                        {/* FILA INFERIOR: 02 Y 03 */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* 02. CONSTRUCTOR PSD */}
-                            <div className={`group ${theme === 'dark' ? 'bg-white/[0.03] border-white/10' : 'bg-white border-slate-200 shadow-sm'} border rounded-[32px] p-6 space-y-4 hover:border-blue-500/30 transition-all duration-500 flex flex-col`}>
-                                <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
-                                        <Layers size={20} />
-                                    </div>
-                                    <div className="space-y-0.5">
-                                        <h3 className={`text-base font-black italic uppercase tracking-wider ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>02. Constructor PSD</h3>
-                                        <p className={`${theme === 'dark' ? 'text-white/30' : 'text-slate-400'} text-[9px] uppercase font-bold tracking-widest`}>Generación de Lienzo Maestro</p>
-                                    </div>
+                        <div className={`${theme === 'dark' ? 'bg-white/[0.01] border-white/5' : 'bg-white border-slate-200 shadow-sm'} border rounded-[30px] md:rounded-[40px] p-6 md:p-10 flex flex-col md:flex-row items-center justify-between gap-6 md:gap-8`}>
+                            <div className="flex items-center gap-4 md:gap-8 w-full md:w-auto">
+                                <div className="space-y-1 text-left flex-1 md:flex-none">
+                                    <p className={`text-[8px] md:text-[9px] font-black ${theme === 'dark' ? 'text-white/30' : 'text-slate-400'} uppercase tracking-[0.2em]`}>Grupo Activo</p>
+                                    <p className="text-xs md:text-sm font-black uppercase text-orange-500 truncate max-w-[150px] md:max-w-[200px]">{groupName}</p>
                                 </div>
-
-                                <div className={`${theme === 'dark' ? 'bg-blue-500/5 border-blue-500/10' : 'bg-blue-50 border-blue-100'} rounded-2xl border p-5 grid grid-cols-2 gap-4 flex-1`}>
-                                    <div className="space-y-1">
-                                        <p className={`text-[8px] uppercase font-black ${theme === 'dark' ? 'text-white/30' : 'text-blue-900/40'} tracking-widest`}>Resolución</p>
-                                        <p className={`text-sm font-black italic ${theme === 'dark' ? 'text-white' : 'text-blue-900'}`}>{design.dpi || 300} DPI</p>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <p className={`text-[8px] uppercase font-black ${theme === 'dark' ? 'text-white/30' : 'text-blue-900/40'} tracking-widest`}>Lienzo (W×H)</p>
-                                        <p className={`text-sm font-black italic ${theme === 'dark' ? 'text-white' : 'text-blue-900'}`}>{design.canvasW}×{design.canvasH}px</p>
-                                        <p className="text-[8px] font-bold opacity-50 uppercase tracking-tighter">({(design.canvasW * 25.4 / (design.dpi || 300) / 10).toFixed(1)} × {(design.canvasH * 25.4 / (design.dpi || 300) / 10).toFixed(1)} cm)</p>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <p className={`text-[8px] uppercase font-black ${theme === 'dark' ? 'text-white/30' : 'text-blue-900/40'} tracking-widest`}>Margen Global</p>
-                                        <p className={`text-sm font-black italic ${theme === 'dark' ? 'text-white' : 'text-blue-900'}`}>{(design.margin * 25.4 / (design.dpi || 300) / 10).toFixed(1)} cm</p>
-                                        <p className="text-[8px] font-bold opacity-50 uppercase tracking-tighter">({design.margin} px)</p>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <p className={`text-[8px] uppercase font-black tracking-widest ${theme === 'dark' ? 'text-blue-400' : 'text-blue-600'}`}>Ready to PSD</p>
-                                        <p className={`text-sm font-black italic ${theme === 'dark' ? 'text-white' : 'text-blue-900'}`}>Myriad Pro</p>
-                                    </div>
-                                </div>
-
-                                <button onClick={() => downloadScript('CONSTRUCTOR')} className="w-full flex items-center justify-between p-4 bg-blue-600/20 text-blue-400 rounded-2xl border border-blue-500/30 transition-all shadow-lg active:scale-100">
-                                    <span className="text-[10px] font-black uppercase tracking-widest">Descargar Script Estructura</span>
-                                    <Download size={18} />
-                                </button>
-                            </div>
-
-                            {/* 03. INYECCIÓN RÁPIDA */}
-                            <div className={`group ${theme === 'dark' ? 'bg-white/[0.03] border-white/10' : 'bg-white border-slate-200 shadow-sm'} border rounded-[32px] p-6 space-y-4 hover:border-amber-500/30 transition-all duration-500 flex flex-col`}>
-                                <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 bg-amber-500/20 rounded-xl flex items-center justify-center text-amber-400">
-                                        <Zap size={20} />
-                                    </div>
-                                    <div className="space-y-0.5">
-                                        <h3 className={`text-base font-black italic uppercase tracking-wider ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>03. Inyección Rápida</h3>
-                                        <p className={`${theme === 'dark' ? 'text-white/30' : 'text-slate-400'} text-[9px] uppercase font-bold tracking-widest`}>Motor de Vuelcado Masivo</p>
-                                    </div>
-                                </div>
-
-                                <div className={`${theme === 'dark' ? 'bg-amber-500/5 border-amber-500/10' : 'bg-amber-50 border-amber-100'} rounded-2xl border p-5 grid grid-cols-2 gap-4 flex-1`}>
-                                    <div className="space-y-1">
-                                        <p className={`text-[8px] uppercase font-black ${theme === 'dark' ? 'text-white/30' : 'text-amber-900/40'} tracking-widest`}>Alumnos</p>
-                                        <p className={`text-sm font-black italic ${theme === 'dark' ? 'text-white' : 'text-amber-900'}`}>{graduates.length}</p>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <p className={`text-[8px] uppercase font-black ${theme === 'dark' ? 'text-white/30' : 'text-amber-900/40'} tracking-widest`}>Docentes</p>
-                                        <p className={`text-sm font-black italic ${theme === 'dark' ? 'text-white' : 'text-amber-900'}`}>{staff.length}</p>
-                                    </div>
-                                    <div className={`col-span-2 pt-2 border-t ${theme === 'dark' ? 'border-amber-500/10' : 'border-amber-200'} flex items-center justify-between`}>
-                                        <span className={`text-[8px] ${theme === 'dark' ? 'text-white/30' : 'text-amber-900/40'} font-black uppercase tracking-widest`}>Estado</span>
-                                        <span className={`text-[8px] font-black uppercase text-green-500 animate-pulse tracking-widest`}>Firestore Sincronizado</span>
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 gap-3">
-                                    <button onClick={() => downloadScript('RASTER')} className={`w-full flex items-center justify-between p-4 ${theme === 'dark' ? 'bg-amber-600/10 border-amber-500/20 text-amber-500' : 'bg-amber-50 border-amber-200 text-amber-700'} rounded-2xl border transition-all hover:bg-amber-600 hover:text-white active:scale-[0.98]`}>
-                                        <div className="flex flex-col items-start text-left">
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-inherit">Local: Inyectar Carpeta</span>
-                                            <span className="text-[8px] opacity-60 uppercase font-bold text-inherit">Fotos en local con ID</span>
-                                        </div>
-                                        <Download size={18} />
-                                    </button>
-
-                                    <button onClick={() => downloadScript('CLOUD')} className={`w-full flex items-center justify-between p-4 ${theme === 'dark' ? 'bg-violet-600/10 border-violet-500/20 text-violet-400 font-bold' : 'bg-violet-50 border-violet-200 text-violet-700'} rounded-2xl border transition-all hover:bg-violet-600 hover:text-white shadow-xl shadow-violet-900/10 active:scale-[0.98]`}>
-                                        <div className="flex flex-col items-start text-left">
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-inherit italic">Cloud: Inyección Directa</span>
-                                            <span className="text-[8px] opacity-60 uppercase font-black text-inherit">Descarga Auto + Inyección</span>
-                                        </div>
-                                        <Cloud size={18} />
-                                    </button>
+                                <div className={`w-px h-10 ${theme === 'dark' ? 'bg-white/10' : 'bg-slate-200'}`} />
+                                <div className="space-y-1 text-left flex-1 md:flex-none">
+                                    <p className={`text-[8px] md:text-[9px] font-black ${theme === 'dark' ? 'text-white/30' : 'text-slate-400'} uppercase tracking-[0.2em]`}>Carga de Datos</p>
+                                    <p className={`text-xs md:text-sm font-black uppercase ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                                        {(Array.isArray(graduates) ? graduates.length : 0) + (Array.isArray(staff) ? staff.length : 0)} Protagonistas
+                                    </p>
                                 </div>
                             </div>
-                        </div>
-
-                        {/* BOTÓN VOLVER ATRÁS CENTRADO */}
-                        <div className="flex justify-center -mt-2">
-                            <button 
-                                onClick={onBack}
-                                className={`flex items-center gap-2 px-8 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 ${
-                                    theme === 'dark' 
-                                    ? 'bg-white/5 text-white/40 border border-white/10 hover:bg-white/10 hover:text-white' 
-                                    : 'bg-slate-100 text-slate-400 border border-slate-200 hover:bg-slate-200 hover:text-slate-600'
-                                }`}
-                            >
-                                <ArrowLeft size={16} />
-                                Volver Atrás
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className={`${theme === 'dark' ? 'bg-white/[0.01] border-white/5' : 'bg-white border-slate-200 shadow-sm'} border rounded-[30px] md:rounded-[40px] p-6 md:p-10 flex flex-col md:flex-row items-center justify-between gap-6 md:gap-8`}>
-                        <div className="flex items-center gap-4 md:gap-8 w-full md:w-auto">
-                            <div className="space-y-1 text-left flex-1 md:flex-none">
-                                <p className={`text-[8px] md:text-[9px] font-black ${theme === 'dark' ? 'text-white/30' : 'text-slate-400'} uppercase tracking-[0.2em]`}>Grupo Activo</p>
-                                <p className="text-xs md:text-sm font-black uppercase text-orange-500 truncate max-w-[150px] md:max-w-[200px]">{groupName}</p>
-                            </div>
-                            <div className={`w-px h-10 ${theme === 'dark' ? 'bg-white/10' : 'bg-slate-200'}`} />
-                            <div className="space-y-1 text-left flex-1 md:flex-none">
-                                <p className={`text-[8px] md:text-[9px] font-black ${theme === 'dark' ? 'text-white/30' : 'text-slate-400'} uppercase tracking-[0.2em]`}>Carga de Datos</p>
-                                <p className={`text-xs md:text-sm font-black uppercase ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                                    {(Array.isArray(graduates) ? graduates.length : 0) + (Array.isArray(staff) ? staff.length : 0)} Protagonistas
+                            <div className="w-full md:w-auto px-6 py-3 bg-green-500/10 rounded-2xl border border-green-500/20 flex justify-center">
+                                <p className="text-[9px] md:text-[10px] font-black text-green-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                                    <CheckCircle2 size={12} /> Status: Firestore Ready
                                 </p>
                             </div>
                         </div>
-                        <div className="w-full md:w-auto px-6 py-3 bg-green-500/10 rounded-2xl border border-green-500/20 flex justify-center">
-                            <p className="text-[9px] md:text-[10px] font-black text-green-400 uppercase tracking-[0.2em] flex items-center gap-2">
-                                <CheckCircle2 size={12} /> Status: Firestore Ready
-                            </p>
-                        </div>
                     </div>
+
 
                     <p className={`text-[8px] md:text-[10px] font-black ${theme === 'dark' ? 'text-white/40' : 'text-slate-400'} uppercase tracking-[0.3em] md:tracking-[0.5em] text-center px-4`}>
                         Pujalte Creative Studio &copy; 2026 — High Speed Production Flow

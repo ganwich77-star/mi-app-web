@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Package, Plus, Trash2, Minus, Tag, FileText, ChevronDown, ChevronRight, LayoutGrid, List } from 'lucide-react';
+import { Package, Plus, Trash2, Minus, Tag, FileText, ChevronDown, ChevronRight, LayoutGrid, List, Smartphone, Check } from 'lucide-react';
 import SupplementsPanel from './SupplementsPanel.jsx';
 
 const PricingPanel = ({
@@ -188,6 +188,31 @@ const PricingPanel = ({
                                                             {pack.price > 0 ? (((pack.price - pack.cost) / pack.price) * 100).toFixed(0) : 0}%
                                                         </p>
                                                     </div>
+                                                </div>
+
+                                                {/* CONFIGURACIÓN DIGITAL QR */}
+                                                <div className="p-5 bg-indigo-500/5 border border-indigo-500/10 rounded-[32px] flex items-center justify-between shadow-inner">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${pack.isDigital ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'bg-primary/10 text-secondary/40'}`}>
+                                                            <Smartphone size={20} />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-0.5">Descarga Digital</p>
+                                                            <p className="text-[9px] font-bold text-secondary/60 uppercase tracking-tighter">Habilitar descarga vía QR</p>
+                                                        </div>
+                                                    </div>
+                                                    <button 
+                                                        onClick={() => {
+                                                            const newPacks = [...allPacks];
+                                                            newPacks[originalIdx].isDigital = !newPacks[originalIdx].isDigital;
+                                                            updateSettings({ packs: newPacks });
+                                                        }}
+                                                        className={`w-14 h-7 rounded-full relative transition-all duration-500 p-1 ${pack.isDigital ? 'bg-indigo-500' : 'bg-primary/20'}`}
+                                                    >
+                                                        <div className={`w-5 h-5 bg-white rounded-full shadow-md transition-all duration-500 transform ${pack.isDigital ? 'translate-x-7' : 'translate-x-0'} flex items-center justify-center`}>
+                                                            {pack.isDigital && <Check size={10} className="text-indigo-500" />}
+                                                        </div>
+                                                    </button>
                                                 </div>
 
                                                 <button
