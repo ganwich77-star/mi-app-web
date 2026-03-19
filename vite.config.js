@@ -110,7 +110,7 @@ function downloadScriptPlugin() {
 }
 
 export default defineConfig(({ mode }) => ({
-  base: '/graduaciones2026/',
+  base: './',
   build: {
     outDir: 'dist',
     emptyOutDir: true
@@ -137,7 +137,7 @@ export default defineConfig(({ mode }) => ({
         background_color: '#0f172a',
         display: 'standalone',
         orientation: 'portrait',
-        start_url: '/graduaciones2026/?utm_source=pwa',
+        start_url: 'index.html?utm_source=pwa',
         icons: [
           { src: 'favicon.svg', sizes: '32x32', type: 'image/svg+xml' },
           { src: 'logo.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }
