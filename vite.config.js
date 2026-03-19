@@ -110,7 +110,7 @@ function downloadScriptPlugin() {
 }
 
 export default defineConfig(({ mode }) => ({
-  base: '/graduaciones2026/',
+  base: '/graduaciones2026-v2/',
   build: {
     outDir: 'dist',
     emptyOutDir: true
@@ -196,6 +196,8 @@ export default defineConfig(({ mode }) => ({
           'basecode.tech',
           'pujaltecreative.com',
           'graduaciones.pujaltecreative.com',
+          'pujaltefotografia.com',
+          'www.pujaltefotografia.com',
           'localhost', 
           '127.0.0.1'
         ] // Permitir local y dominios de producción conocidos

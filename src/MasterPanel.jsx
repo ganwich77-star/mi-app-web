@@ -349,7 +349,7 @@ export default function MasterPanel({ onBack }) {
                                                 <p class="text-xs text-slate-600 leading-tight max-w-xs">${emisor.address}</p>
                                             </div>
                                             <div class="flex-shrink-0">
-                                                <img src="/graduaciones2026/logos/logo_negro.png" alt="Logo" class="w-32 h-auto" />
+                                                <img src="${import.meta.env.BASE_URL}logos/logo_negro.png" alt="Logo" class="w-32 h-auto" />
                                             </div>
                                         </div>
                                         <div class="pt-2 flex flex-col gap-0.5 text-[10px] font-bold text-indigo-600">

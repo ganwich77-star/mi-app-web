@@ -763,7 +763,7 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
         // 1. Intentar Guardado y Apertura en Local (Solo dev)
         if (!isHosting) {
             try {
-                const r = await fetch('/graduaciones2026/api/save-as', {
+                const r = await fetch(`${import.meta.env.BASE_URL}api/save-as`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ content, filename })
@@ -773,7 +773,7 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                     if (data.success) {
                         alreadySaved = true;
                         // AUTO REVELAR CARPETA
-                        fetch('/graduaciones2026/api/reveal-file', {
+                        fetch(`${import.meta.env.BASE_URL}api/reveal-file`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ path: data.path })
@@ -1145,7 +1145,7 @@ const CommandCenter = ({ graduates = [], staff = [], design = {}, groupName = "O
                             <div className="space-y-2 pt-2">
                                 {scriptModal.saved && !isHosting && (
                                     <button
-                                        onClick={() => fetch('/graduaciones2026/api/reveal-file', {
+                                        onClick={() => fetch(`${import.meta.env.BASE_URL}api/reveal-file`, {
                                             method: 'POST',
                                             headers: { 'Content-Type': 'application/json' },
                                             body: JSON.stringify({ path: scriptModal.savedPath })

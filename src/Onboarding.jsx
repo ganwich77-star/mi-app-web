@@ -123,7 +123,7 @@ export default function Onboarding({ onComplete }) {
 
             // 3. Enviar Emails de Notificación
             const adminUrl = `${window.location.origin}${window.location.pathname}?f=${formData.id}&view=admin`;
-            const publicUrl = `https://basecode.es/graduaciones2026/?f=${formData.id}`;
+            const publicUrl = `https://basecode.es${import.meta.env.BASE_URL}?f=${formData.id}`;
 
             // Email para el Fotógrafo
             await addDoc(collection(db, 'mail'), {
@@ -327,13 +327,13 @@ export default function Onboarding({ onComplete }) {
                                                 URL:
                                             </p>
                                             <span className="text-white font-black text-sm whitespace-nowrap overflow-hidden">
-                                                basecode.es/graduaciones2026/?f=<span className="text-indigo-400">{formData.id || 'tu-identificador'}</span>
+                                                basecode.es${import.meta.env.BASE_URL}?f=<span className="text-indigo-400">{formData.id || 'tu-identificador'}</span>
                                             </span>
                                         </div>
                                         <button
                                             onClick={(e) => {
                                                 e.preventDefault();
-                                                const url = `basecode.es/graduaciones2026/?f=${formData.id || 'tu-identificador'}`;
+                                                const url = `basecode.es${import.meta.env.BASE_URL}?f=${formData.id || 'tu-identificador'}`;
                                                 navigator.clipboard.writeText(url);
                                                 setCopyStatus(true);
                                                 setTimeout(() => setCopyStatus(false), 2000);
@@ -498,11 +498,11 @@ export default function Onboarding({ onComplete }) {
                                 <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">URL de Administración:</p>
                                 <div className="flex items-center gap-3 bg-black/40 p-4 rounded-2xl border border-indigo-500/20">
                                     <code className="flex-1 text-indigo-400 font-mono text-xs whitespace-nowrap overflow-hidden">
-                                        basecode.es/graduaciones2026/?f={formData.id}&view=admin
+                                        basecode.es${import.meta.env.BASE_URL}?f={formData.id}&view=admin
                                     </code>
                                     <button
                                         onClick={() => {
-                                            const url = `basecode.es/graduaciones2026/?f=${formData.id}&view=admin`;
+                                            const url = `basecode.es${import.meta.env.BASE_URL}?f=${formData.id}&view=admin`;
                                             navigator.clipboard.writeText(url);
                                             setCopyStatus(true);
                                             setTimeout(() => setCopyStatus(false), 2000);

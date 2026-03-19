@@ -18,7 +18,9 @@ jobs:
           node-version: '20'
 
       - name: 🛠️ Instalar Dependencias
-        run: npm install
+        run: npm ci
+        env:
+          PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: 'true'
 
       - name: 🏗️ Compilar (Build)
         run: npm run build
@@ -30,7 +32,7 @@ jobs:
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./dist/
-          server-dir: graduaciones2026/
+          server-dir: public_html/graduaciones2026-v2/
           protocol: ftp
           port: 21
           dangerous-clean-slate: false
