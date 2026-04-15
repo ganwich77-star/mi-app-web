@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
     Search, CheckSquare, Square, Trash2, CheckCircle, Phone,
     MessageSquare, Database, UserCheck, Users, Hash, ArrowRight, ArrowLeft,
     Sparkles, XCircle, RotateCcw, Tv, Camera, CheckCircle2, Zap, FolderUp,
     ChevronRight, ChevronLeft, AlertCircle, CreditCard, ChevronDown, ChevronUp, Mail, FileText,
     Package, Plus, LayoutGrid, List, Upload, X, User, Home, Pencil, Wand2, Link,
-    Maximize, Maximize2, ZoomIn, Eye, Check, Images
+    Maximize, Maximize2, ZoomIn, Eye, Check, Images, Star, ArrowDownUp
 } from 'lucide-react';
 
 import { COURSE_GROUPS, PACKS, EXTRAS, STAFF_ROLES } from '../../constants.js';
@@ -15,7 +15,7 @@ import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 import { PHOTO_SHAPES, getShapeStyle } from '../../constants/shapes.js';
 import { storage } from '../../firebase.js';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytesResumable, getDownloadURL, listAll } from 'firebase/storage';
 
 
 const ShootingPanel = ({
@@ -49,6 +49,8 @@ const ShootingPanel = ({
     deleteStaff,
     bulkAddOrders,
     bulkAddStaff,
+    bulkUpdateOrdersMap, // Nueva
+    bulkUpdateStaffMap,  // Nueva
     updateAllOrders,
     updateAllStaff,
     downloadMasterBackup,
@@ -57,114 +59,17 @@ const ShootingPanel = ({
     schools,
     settings,
     photographerId,
-    configOrla = {},
+    configOrla,
     setConfigOrla,
+    moveToSchool,
     setAdminTab
 }) => {
 
     const [activeStudent, setActiveStudent] = useState(null);
     const [reframingItem, setReframingItem] = useState(null); // { id, type, photoUrl, name }
     const [viewStyle, setViewStyle] = useState('list'); // 'list' | 'grid' | 'gallery'
-
-    const handleAutoReframe = () => {
-        if (!reframingItem) return;
-        setReframingItem(prev => ({
-            ...prev,
-            photoConfig: {
-                zoom: 1.25,
-                x: 0,
-                y: -15, 
-                rotation: 0
-            }
-        }));
-    };
-
-    const handleNavigateReframing = (direction) => {
-        // Obtenemos la lista actual según el modo de disparo activo
-        const currentList = shootMode === 'gallery' 
-            ? globalGalleryItems 
-            : (shootMode === 'staff' ? filteredStaff : filteredOrders);
-        
-        if (!reframingItem || !currentList.length) return;
-        
-        const currentIndex = currentList.findIndex(item => item.id === reframingItem.id);
-        const nextIndex = currentIndex + direction;
-        
-        if (nextIndex < 0) {
-            Swal.fire({
-                html: `
-                    <div class="p-6">
-                        <div class="relative w-20 h-20 mx-auto mb-6">
-                            <div class="absolute inset-0 bg-amber-500/20 blur-2xl rounded-full animate-pulse"></div>
-                            <div class="relative w-full h-full bg-gradient-to-br from-amber-50 to-orange-50 rounded-3xl flex items-center justify-center shadow-inner border border-amber-100/50">
-                                <span class="text-3xl">🏁</span>
-                            </div>
-                        </div>
-                        <h3 class="text-2xl font-black text-slate-800 uppercase tracking-tighter mb-2">Colección Iniciada</h3>
-                        <p class="text-sm text-slate-400 font-semibold max-w-[200px] mx-auto leading-relaxed">Estás en el primer registro de la selección actual.</p>
-                    </div>
-                `,
-                showConfirmButton: false,
-                timer: 1600,
-                background: '#ffffff',
-                backdrop: `rgba(15, 23, 42, 0.1)`,
-                customClass: {
-                    popup: 'rounded-[40px] border-none shadow-[0_30px_60px_-15px_rgba(0,0,0,0.2)]',
-                },
-                showClass: { popup: 'animate__animated animate__fadeInUp animate__faster' },
-                hideClass: { popup: 'animate__animated animate__fadeOutDown animate__faster' }
-            });
-            return;
-        }
-        
-        if (nextIndex >= currentList.length) {
-            Swal.fire({
-                html: `
-                    <div class="p-6">
-                        <div class="relative w-20 h-20 mx-auto mb-6">
-                            <div class="absolute inset-0 bg-indigo-500/20 blur-2xl rounded-full animate-pulse"></div>
-                            <div class="relative w-full h-full bg-gradient-to-br from-indigo-50 to-violet-50 rounded-3xl flex items-center justify-center shadow-inner border border-indigo-100/50">
-                                <span class="text-3xl">✨</span>
-                            </div>
-                        </div>
-                        <h3 class="text-2xl font-black text-slate-800 uppercase tracking-tighter mb-2">Colección Finalizada</h3>
-                        <p class="text-sm text-slate-400 font-semibold max-w-[200px] mx-auto leading-relaxed">Has revisado todos los registros de la lista filtrada.</p>
-                    </div>
-                `,
-                showConfirmButton: false,
-                timer: 1600,
-                background: '#ffffff',
-                backdrop: `rgba(15, 23, 42, 0.1)`,
-                customClass: {
-                    popup: 'rounded-[40px] border-none shadow-[0_30px_60px_-15px_rgba(0,0,0,0.2)]',
-                },
-                showClass: { popup: 'animate__animated animate__fadeInUp animate__faster' },
-                hideClass: { popup: 'animate__animated animate__fadeOutDown animate__faster' }
-            });
-            return;
-        }
-        
-        const nextItem = currentList[nextIndex];
-        const isStaff = nextItem._isStaff || (shootMode === 'staff');
-        
-        // AUTO-SAVE: Antes de navegar, guardamos los ajustes actuales para no perder el trabajo
-        if (reframingItem.type === 'student') {
-            updateOrder(reframingItem.id, { photoConfig: reframingItem.photoConfig });
-        } else {
-            updateStaff(reframingItem.id, { photoConfig: reframingItem.photoConfig });
-        }
-
-        // Cargar el siguiente item usando getPhotoSrc para mayor compatibilidad
-        setReframingItem({
-            id: nextItem.id,
-            type: isStaff ? 'staff' : 'student',
-            name: isStaff 
-                ? (nextItem.fullName || nextItem.name || (nextItem.firstName + ' ' + nextItem.lastName)) 
-                : (nextItem.studentName || nextItem.name || (nextItem.firstName + ' ' + nextItem.lastName)),
-            photoUrl: getPhotoSrc(nextItem),
-            photoConfig: nextItem.photoConfig || { zoom: 1, x: 0, y: 0 }
-        });
-    };
+    const [showBulkUpload, setShowBulkUpload] = useState(false);
+    const [isRepairing, setIsRepairing] = useState(false);
     const [autoAdvance, setAutoAdvance] = useState(true);
     const [photoNumber, setPhotoNumber] = useState("");
     const [photoPrefix, setPhotoPrefix] = useState("");
@@ -176,57 +81,117 @@ const ShootingPanel = ({
     const [isFiltersExpanded, setIsFiltersExpanded] = useState(false);
     const [isQuickAddExpanded, setIsQuickAddExpanded] = useState(false);
     const [isStudentListExpanded, setIsStudentListExpanded] = useState(false);
-    const [isStaffListExpanded, setIsStaffListExpanded] = useState(false); // Faltaba esta declaración
+    const [isStaffListExpanded, setIsStaffListExpanded] = useState(false);
     const [staffViewStyle, setStaffViewStyle] = useState('grid');
     const [showQuickExtras, setShowQuickExtras] = useState(false);
     const [showPaymentSelector, setShowPaymentSelector] = useState(false);
+    const [shootSortMode, setShootSortMode] = useState('filename'); // 'filename' | 'alphabetical'
+
+    // REPARADOR DE FOTOS AUTOMÁTICO (AUTOCURACIÓN)
+    useEffect(() => {
+        const repairMissingPhotos = async () => {
+            if (!photographerId || !orders || !staff || isRepairing || showBulkUpload) return;
+            
+            try {
+                const photosFolderRef = ref(storage, `photographers/${photographerId}/photos/`);
+                const res = await listAll(photosFolderRef);
+                const fileList = res.items.map(item => item.name); // Lista de nombres (ID_012.jpg, 012.png, etc)
+                
+                const studentUpdates = {};
+                const staffUpdates = {};
+
+                // Mapear archivos existentes por "identificador limpio" (ej: 012 -> URL)
+                const fileMap = {};
+                for (const item of res.items) {
+                    const cleanName = item.name.replace(/\.[^/.]+$/, "").trim(); // Quitar extensión
+                    fileMap[cleanName] = item.name; // Ej: 001 -> 001.jpg o 012_001 -> 012_001.jpg
+                }
+
+                // 1. Analizar Alumnos
+                orders.filter(o => (o.photo_file_number || o.photo_file_label) && !o.digitalPhotoUrl).forEach(student => {
+                    const rawIdent = String(student.photo_file_number || student.photo_file_label || "").trim();
+                    let ident = rawIdent.replace(/\.[^/.]+$/, "").trim();
+                    if (!ident) return; if (/^\d+$/.test(ident)) ident = ident.padStart(3, '0');
+
+                    // Buscar coincidencias
+                    const matchWithPrefix = `${student.id}_${ident}`;
+                    const matchNoPrefix = ident;
+                    
+                    const fileName = fileMap[matchWithPrefix] || fileMap[matchNoPrefix];
+                    if (fileName) {
+                        const path = `photographers/${photographerId}/photos/${fileName}`;
+                        const encodedPath = encodeURIComponent(path);
+                        studentUpdates[student.id] = {
+                            digitalPhotoUrl: `https://firebasestorage.googleapis.com/v0/b/${storage.app.options.storageBucket}/o/${encodedPath}?alt=media`,
+                            status: 'Producido',
+                            photo_file_number: ident
+                        };
+                    }
+                });
+
+                // 2. Analizar Docentes
+                staff.filter(s => (s.photo_file_number || s.photo_file_label) && !s.digitalPhotoUrl).forEach(member => {
+                    const rawIdent = String(member.photo_file_number || member.photo_file_label || "").trim();
+                    let ident = rawIdent.trim();
+                    if (!ident) return; if (/^\d+$/.test(ident) && ident.length < 3) ident = ident.padStart(3, '0');
+
+                    const fileName = fileMap[ident];
+                    if (fileName) {
+                        const path = `photographers/${photographerId}/photos/${fileName}`;
+                        const encodedPath = encodeURIComponent(path);
+                        staffUpdates[member.id] = {
+                            digitalPhotoUrl: `https://firebasestorage.googleapis.com/v0/b/${storage.app.options.storageBucket}/o/${encodedPath}?alt=media`,
+                            status: 'Producido',
+                            photo_file_number: ident
+                        };
+                    }
+                });
+
+                if (Object.keys(studentUpdates).length > 0 || Object.keys(staffUpdates).length > 0) {
+                    setIsRepairing(true);
+                    if (Object.keys(studentUpdates).length > 0 && bulkUpdateOrdersMap) bulkUpdateOrdersMap(studentUpdates);
+                    if (Object.keys(staffUpdates).length > 0 && bulkUpdateStaffMap) bulkUpdateStaffMap(staffUpdates);
+                    setTimeout(() => setIsRepairing(false), 2000);
+                }
+            } catch (error) {
+                console.error("🚀 Error en Motor de AutoCuración:", error);
+            }
+        };
+
+        const timer = setTimeout(repairMissingPhotos, 3000);
+        return () => clearTimeout(timer);
+    }, [orders?.length, staff?.length, photographerId, isRepairing, showBulkUpload]);
     const [showStatusSelector, setShowStatusSelector] = useState(false);
-    const [showDeleteConfirm, setShowDeleteConfirm] = useState(null); // 'orders' o 'staff'
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(null); // 'orders'     
 
     // Funciones auxiliares para visualización unificada de fotos
     const getPhotoSrc = (item) => {
         if (!item) return null;
-        
-        // 1. PRIORIDAD: digitalPhotoUrl (para fotos ya en el sistema final)
-        if (item.digitalPhotoUrl) return item.digitalPhotoUrl;
 
-        // 2. EXTRAER VALOR DEL CAMPO DE FOTO
-        // Buscamos en varios campos por compatibilidad
-        let src = item.photoFile || 
-                  item.photoUrl || 
-                  item.photoURL || 
-                  item.photo_file_url ||
-                  item.foto_url ||
-                  item.photo || 
-                  item.foto || 
-                  item.src ||
-                  item.photo_file_number; // ← AÑADIDO: También mirar número de fichero de excel
-        
-        // Si el valor es un objeto (ej. { base64: '...' }), extraemos el valor real
-        if (src && typeof src === 'object') {
-            src = src.base64 || src.url || src.photoUrl || src.photoURL || src.photo || src;
+        // 1. PRIORIDAD: URLs directas
+        const directUrl = item.digitalPhotoUrl || item.photoFile || item.photoUrl || item.photoURL || item.photo_file_url || item.tempFile;
+        if (directUrl && typeof directUrl === 'string' && (directUrl.startsWith('http') || directUrl.startsWith('blob:'))) {
+            return directUrl;
         }
 
-        if (typeof src === 'string') {
-            const lowerSrc = src.trim().toLowerCase();
-            
-            // Filtrar valores basura o placeholders
-            const forbidden = ['undefined', 'null', 'digital', 'physical', 'fisico', 'físico', 'pendiente', '[object object]', ''];
-            if (forbidden.includes(lowerSrc)) return null;
-            
-            // Si ya es una URL completa o base64, la devolvemos
-            if (lowerSrc.startsWith('http') || lowerSrc.startsWith('data:') || lowerSrc.startsWith('/')) {
-                return src;
-            }
-            
-            // Si es un simple ID o número (ej. "123" o "abc-def"), construimos la URL de Firebase Storage
-            return `https://firebasestorage.googleapis.com/v0/b/foto-pujalte.appspot.com/o/orlas2026%2F${src}?alt=media`;
-        } else if (typeof src === 'number') {
-             // Si es un número (ej. 123 del Excel), también construimos la URL
-             return `https://firebasestorage.googleapis.com/v0/b/foto-pujalte.appspot.com/o/orlas2026%2F${src}?alt=media`;
+        // 2. FALLBACK: Reconstrucción dinámica (solo si no tenemos URL directa)
+        const rawIdent = item.photo_file_number || item.photo_file_label || item.photoFile || item.id || '';
+        let ident = String(rawIdent).replace(/\.[^/.]+$/, "").trim();
+
+        // Refuerzo preventivo: Si es puramente numérico, aplicar padding para la ruta de storage
+        if (/^\d+$/.test(ident) && ident.length < 3) {
+            ident = ident.padStart(3, '0');
         }
-        
-        return null; // Si no hay nada válido, devolver null
+
+        if (!ident || !photographerId || !item.id) return null;
+
+        // Componer URL
+        const hasExtension = /\.(jpg|jpeg|png|webp|gif|JPG|JPEG|PNG|WEBP)$/i.test(ident);
+        const fileNameForStorage = hasExtension ? ident : `${ident}.jpg`;
+        const path = `photographers/${photographerId}/photos/${item.id}_${fileNameForStorage}`;
+        const encodedPath = encodeURIComponent(path);
+
+        return `https://firebasestorage.googleapis.com/v0/b/asistente-digital-comuniones.firebasestorage.app/o/${encodedPath}?alt=media`;
     };
 
     const getPhotoTransform = (config) => {
@@ -238,7 +203,6 @@ const ShootingPanel = ({
             transformOrigin: 'center center'
         };
     };
-    const [showBulkUpload, setShowBulkUpload] = useState(false);
     const [showExcelMappingModal, setShowExcelMappingModal] = useState(false);
     const [excelColumns, setExcelColumns] = useState([]);
     const [excelContent, setExcelContent] = useState([]);
@@ -380,29 +344,33 @@ const ShootingPanel = ({
             return;
         }
 
+        // --- VALIDACIÓN DE VALORES POR DEFECTO OBLIGATORIOS ---
+        if (!excelDefaults.pack || !excelDefaults.course) {
+            Swal.fire({
+                title: 'Configuración Requerida',
+                text: 'Debes seleccionar un Pack y un Curso/Nivel por defecto para poder procesar la tabla.',
+                icon: 'info',
+                confirmButtonColor: '#6366f1'
+            });
+            return;
+        }
+
         setShowExcelMappingModal(false);
-        
-        Swal.fire({
-            title: 'Procesando...',
-            text: 'Preparando inyección de datos masiva',
-            allowOutsideClick: false,
-            didOpen: () => Swal.showLoading()
-        });
 
-        const newStudents = [];
-        const newStaffMembers = [];
-        let count = 0;
-
-        // --- CÁLCULO DE SIGUIENTE NÚMERO DE FICHERO ---
-        // Buscamos el número más alto ya asignado en el sistema
-        const allExistingNums = [
-            ...orders.map(o => parseInt(o.photo_file_number)),
-            ...staff.map(s => parseInt(s.photo_file_number))
-        ].filter(n => !isNaN(n));
-        let nextFileNum = allExistingNums.length > 0 ? Math.max(...allExistingNums) + 1 : 1;
+        // --- MAPEO DE COLEGIOS POR NOMBRE ---
+        const schoolByNameMap = new Map((schools || []).map(s => [normalize(s.name), s.id]));
 
         try {
             for (const row of excelContent) {
+                const customSchoolName = row[excelMapping.schoolName] || '';
+                const normalizedCustomName = normalize(customSchoolName);
+                
+                // Determinamos el ID del colegio destino para este alumno concreto
+                let targetSchoolId = adminSchool; // Por defecto el actual
+                if (normalizedCustomName && schoolByNameMap.has(normalizedCustomName)) {
+                    targetSchoolId = schoolByNameMap.get(normalizedCustomName);
+                }
+
                 const name = row[excelMapping.studentName] || '';
                 const lastName1 = row[excelMapping.lastName] || '';
                 const lastName2 = row[excelMapping.lastName2] || '';
@@ -413,7 +381,6 @@ const ShootingPanel = ({
                 const photoNum = row[excelMapping.photoNum] || '';
                 const role = row[excelMapping.role] || '';
                 const type = row[excelMapping.type] || '';
-                const customSchool = row[excelMapping.schoolName] || '';
                 const customPack = row[excelMapping.pack] || '';
                 const phone = row[excelMapping.phone] || '';
                 const email = row[excelMapping.email] || '';
@@ -421,17 +388,28 @@ const ShootingPanel = ({
                 const notes = row[excelMapping.notes] || '';
 
                 if (fullName || role || type) {
-                    const isStaff = role || (type && type.toString().toUpperCase().includes('DOCENTE'));
-                    
+                    const roleStr = (role || '').toString().toUpperCase().trim();
+                    const typeStr = (type || '').toString().toUpperCase().trim();
+
+                    // --- DETECCIÓN INTELIGENTE DE DOCENTES (Whitelist) ---
+                    const staffKeywords = ['DOCENTE', 'PROFESOR', 'PROFESORA', 'MAESTRO', 'MAESTRA', 'TUTOR', 'TUTORA', 'DIRECTOR', 'DIRECTORA', 'STAFF', 'PERSONAL', 'LIMPIEZA', 'ADMINISTRACION', 'ADMINISTRATIVO', 'ADMINISTRATIVA', 'RECTOR', 'RECTORA', 'COORDINADOR', 'COORDINADORA', 'AUXILIAR', 'PSICOLOGO', 'PSICOLOGA', 'CONSERJE', 'COMEDOR', 'SECRETARIA', 'SECRETARIO', 'JEFE', 'JEFA', 'CONSEJO'];
+
+                    const isStaff = (roleStr !== '' && staffKeywords.some(kw => roleStr.includes(normalize(kw)))) ||
+                        (typeStr !== '' && staffKeywords.some(kw => typeStr.includes(normalize(kw))));
+
                     if (isStaff) {
                         newStaffMembers.push({
                             firstName: name,
                             lastName: fullLastName,
                             role: role || 'DOCENTE',
-                            course: courseColumn || excelDefaults.course || shootFilters.course || 'GENERAL',
+                            assignments: [{
+                                schoolId: targetSchoolId,
+                                course: courseColumn || excelDefaults.course || shootFilters.course || 'GENERAL',
+                                group: groupColumn || excelDefaults.group || shootFilters.group || ''
+                            }],
                             photo_file_number: photoNum?.toString() || '',
-                            schoolId: adminSchool,
-                            schoolName: customSchool || excelDefaults.schoolName || getSchoolName(adminSchool),
+                            schoolId: targetSchoolId,
+                            schoolName: customSchoolName || excelDefaults.schoolName || getSchoolName(targetSchoolId),
                             phone: phone?.toString() || '',
                             email: email?.toString() || '',
                             notes: notes?.toString() || ''
@@ -442,12 +420,12 @@ const ShootingPanel = ({
                             course: courseColumn || excelDefaults.course || shootFilters.course || 'PENDIENTE',
                             group: groupColumn || excelDefaults.group || shootFilters.group || '',
                             photo_file_number: photoNum?.toString() || '',
-                            schoolId: adminSchool,
-                            schoolName: customSchool || excelDefaults.schoolName || getSchoolName(adminSchool),
+                            schoolId: targetSchoolId,
+                            schoolName: customSchoolName || excelDefaults.schoolName || getSchoolName(targetSchoolId),
                             parentName: tutorFromExcel || findTutorForClass(courseColumn || excelDefaults.course || shootFilters.course, groupColumn || excelDefaults.group || shootFilters.group) || '',
-                            pack: customPack 
-                                ? { id: 'custom', label: customPack.toString() } 
-                                : availablePacks.find(p => p.id === excelDefaults.pack) 
+                            pack: customPack
+                                ? { id: 'custom', label: customPack.toString() }
+                                : availablePacks.find(p => p.id === excelDefaults.pack)
                                     ? { id: excelDefaults.pack, label: availablePacks.find(p => p.id === excelDefaults.pack).name }
                                     : { id: availablePacks[0]?.id || 'esencial', label: availablePacks[0]?.name || 'Pack Esencial' },
                             phone: phone?.toString() || '',
@@ -460,52 +438,59 @@ const ShootingPanel = ({
             }
 
             // --- LÓGICA INTELIGENTE DE DUPLICADOS ---
-             const existingStudentMap = new Map((orders || []).filter(o => o?.studentName).map(o => [o.studentName.toUpperCase().trim(), o]));
-             const existingStaffMap = new Map((staff || []).filter(s => s && (s.firstName || s.name)).map(s => {
-                 const fullName = s.name || `${s.firstName || ''} ${s.lastName || ''}`.trim();
-                 return [fullName.toUpperCase().trim(), s];
-             }));
- 
-             let importStrategy = 'add'; 
- 
-             if (studentDuplicates.length > 0 || staffDuplicates.length > 0) {
-                 const totalDupes = studentDuplicates.length + staffDuplicates.length;
-                 
-                 // IMPORTANTE: Detener el cargador para que aparezcan los botones
-                 Swal.hideLoading();
-                 
-                 const result = await Swal.fire({
-                     title: 'Registros Duplicados Detectados',
-                     html: `Se han encontrado <b>${totalDupes}</b> personas que ya están registradas.<br/><br/>¿Qué deseas hacer?`,
-                     icon: 'question',
-                     showCancelButton: true,
-                     showDenyButton: true,
-                     confirmButtonText: 'Sobreescribir Datos',
-                     denyButtonText: 'Ignorar Duplicados',
-                     cancelButtonText: 'Cancelar Importación',
-                     confirmButtonColor: '#6366f1',
-                     denyButtonColor: '#52b788',
-                     reverseButtons: true,
-                     allowOutsideClick: false,
-                     // Aseguramos que no haya input residual
-                     input: undefined 
-                 });
- 
-                 if (result.isConfirmed) importStrategy = 'overwrite';
-                 else if (result.isDenied) importStrategy = 'skip';
-                 else {
-                     Swal.fire('Importación cancelada', '', 'info');
-                     return;
-                 }
-             }
+            const existingStudentMap = new Map((orders || []).filter(o => o?.studentName).map(o => [normalize(o.studentName), o]));
+            const existingStaffMap = new Map((staff || []).filter(s => s && (s.firstName || s.lastName || s.name)).map(s => {
+                const fullName = s.name || `${s.firstName || ''} ${s.lastName || ''}`.trim();
+                return [normalize(fullName), s];
+            }));
 
-             // Mostrar cargador de nuevo para la fase de inyección
-             Swal.fire({
-                 title: 'Inyectando datos...',
-                 text: 'Finalizando proceso de importación',
-                 allowOutsideClick: false,
-                 didOpen: () => Swal.showLoading()
-             });
+            // --- DETECCIÓN DE DUPLICADOS ---
+            const studentDuplicates = newStudents.filter(s => existingStudentMap.has(normalize(s.studentName)));
+            const staffDuplicates = newStaffMembers.filter(st => {
+                const key = `${st.firstName} ${st.lastName}`.trim();
+                return existingStaffMap.has(normalize(key));
+            });
+
+            let importStrategy = 'add';
+
+            if (studentDuplicates.length > 0 || staffDuplicates.length > 0) {
+                const totalDupes = studentDuplicates.length + staffDuplicates.length;
+
+                // IMPORTANTE: Detener el cargador para que aparezcan los botones
+                Swal.hideLoading();
+
+                const result = await Swal.fire({
+                    title: 'Registros Duplicados Detectados',
+                    html: `Se han encontrado <b>${totalDupes}</b> personas que ya están registradas.<br/><br/>¿Qué deseas hacer?`,
+                    icon: 'question',
+                    showCancelButton: true,
+                    showDenyButton: true,
+                    confirmButtonText: 'Sobreescribir Datos',
+                    denyButtonText: 'Ignorar Duplicados',
+                    cancelButtonText: 'Cancelar Importación',
+                    confirmButtonColor: '#6366f1',
+                    denyButtonColor: '#52b788',
+                    reverseButtons: true,
+                    allowOutsideClick: false,
+                    // Aseguramos que no haya input residual
+                    input: undefined
+                });
+
+                if (result.isConfirmed) importStrategy = 'overwrite';
+                else if (result.isDenied) importStrategy = 'skip';
+                else {
+                    Swal.fire('Importación cancelada', '', 'info');
+                    return;
+                }
+            }
+
+            // Mostrar cargador de nuevo para la fase de inyección
+            Swal.fire({
+                title: 'Inyectando datos...',
+                text: 'Finalizando proceso de importación',
+                allowOutsideClick: false,
+                didOpen: () => Swal.showLoading()
+            });
 
             let finalOrders = [...orders];
             let finalStaff = [...staff];
@@ -514,17 +499,21 @@ const ShootingPanel = ({
 
             // Procesar Alumnos (ORDEN PRIORITARIO 1)
             newStudents.forEach(newS => {
-                const key = newS.studentName.toUpperCase().trim();
+                const key = normalize(newS.studentName);
                 const existing = existingStudentMap.get(key);
 
                 if (existing) {
                     if (importStrategy === 'overwrite') {
-                        const finalPhotoNum = newS.photo_file_number || existing.photo_file_number || '';
+                        let finalPhotoNum = newS.photo_file_number || existing.photo_file_number || '';
+                        if (finalPhotoNum && /^\d+$/.test(finalPhotoNum)) {
+                            finalPhotoNum = String(finalPhotoNum).padStart(3, '0');
+                        }
+
                         const index = finalOrders.findIndex(o => o.id === existing.id);
                         if (index !== -1) {
-                            finalOrders[index] = { 
-                                ...existing, 
-                                ...newS, 
+                            finalOrders[index] = {
+                                ...existing,
+                                ...newS,
                                 id: existing.id,
                                 photo_file_number: finalPhotoNum
                             };
@@ -535,8 +524,10 @@ const ShootingPanel = ({
                     // Es nuevo: Si no tiene número de foto, se lo asignamos
                     let photoNumToAssign = newS.photo_file_number;
                     if (!photoNumToAssign) {
-                        photoNumToAssign = nextFileNum.toString();
+                        photoNumToAssign = nextFileNum.toString().padStart(3, '0');
                         nextFileNum++;
+                    } else if (/^\d+$/.test(photoNumToAssign)) {
+                        photoNumToAssign = String(photoNumToAssign).padStart(3, '0');
                     }
 
                     finalOrders.push({
@@ -552,17 +543,25 @@ const ShootingPanel = ({
 
             // Procesar Personal (ORDEN PRIORITARIO 2)
             newStaffMembers.forEach(newSt => {
-                const key = `${newSt.firstName} ${newSt.lastName}`.toUpperCase().trim();
-                const existing = existingStaffMap.get(key);
+                const key = `${newSt.firstName} ${newSt.lastName}`.trim();
+                const existing = existingStaffMap.get(normalize(key));
 
                 if (existing) {
                     if (importStrategy === 'overwrite') {
-                        const finalPhotoNum = newSt.photo_file_number || existing.photo_file_number || '';
                         const index = finalStaff.findIndex(s => s.id === existing.id);
                         if (index !== -1) {
-                            finalStaff[index] = { 
-                                ...existing, 
-                                ...newSt, 
+                            // SOBREESCRITURA EXPLÍCITA DE CLASES
+                            const updatedAssignments = [...(newSt.assignments || [])];
+
+                            let finalPhotoNum = newSt.photo_file_number || existing.photo_file_number || '';
+                            if (finalPhotoNum && /^\d+$/.test(finalPhotoNum)) {
+                                finalPhotoNum = String(finalPhotoNum).padStart(3, '0');
+                            }
+
+                            finalStaff[index] = {
+                                ...existing,
+                                ...newSt,
+                                assignments: updatedAssignments,
                                 id: existing.id,
                                 photo_file_number: finalPhotoNum
                             };
@@ -570,18 +569,21 @@ const ShootingPanel = ({
                         }
                     }
                 } else {
-                    // Es nuevo y no tiene número -> auto-asignar
+                    // Es nuevo: auto-asignar número si no viene
                     let photoNumToAssign = newSt.photo_file_number;
                     if (!photoNumToAssign) {
-                        photoNumToAssign = nextFileNum.toString();
+                        photoNumToAssign = nextFileNum.toString().padStart(3, '0');
                         nextFileNum++;
+                    } else if (/^\d+$/.test(photoNumToAssign)) {
+                        photoNumToAssign = String(photoNumToAssign).padStart(3, '0');
                     }
 
                     finalStaff.push({
                         ...newSt,
                         photo_file_number: photoNumToAssign,
                         id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                        name: `${newSt.firstName} ${newSt.lastName}`.trim()
+                        name: key,
+                        timestamp: new Date().toISOString()
                     });
                     addedCount++;
                 }
@@ -601,9 +603,24 @@ const ShootingPanel = ({
                 setIsStaffListExpanded(true);
             }
 
+            // FORZAR ACTUALIZACIÓN DE FILTRO AL CURSO IMPORTADO
+            // Buscamos el primer curso real que aparezca en los datos importados
+            const firstCourse = [...newStudents, ...newStaffMembers.flatMap(s => s.assignments || [])]
+                .find(item => item.course && item.course !== 'GENERAL' && item.course !== 'PENDIENTE' && item.course !== 'SIN CLASE')
+                ?.course;
+
+            if (firstCourse) {
+                console.log("Sincronizando selector superior con:", firstCourse);
+                setShootFilters(prev => ({
+                    ...prev,
+                    course: firstCourse,
+                    group: newStudents.find(s => s.course === firstCourse)?.group || prev.group || ''
+                }));
+            }
+
             Swal.fire({
                 title: '¡Importación Finalizada!',
-                html: `Nuevos registros: <b>${addedCount}</b><br/>Actualizados: <b>${updatedCount}</b>`,
+                html: `Se han sincronizado los datos de <b>${firstCourse || 'la clase'}</b>.<br/>Nuevos: <b>${addedCount}</b> | Actualizados: <b>${updatedCount}</b>`,
                 icon: 'success',
                 confirmButtonColor: '#52b788'
             });
@@ -677,6 +694,50 @@ const ShootingPanel = ({
                 timer: 2000,
                 showConfirmButton: false
             });
+        }
+    };
+
+    const handleMoveToSchoolAction = async () => {
+        const selectedIds = shootMode === 'students' ? selectedOrderIds : selectedStaffIds;
+        if (selectedIds.length === 0) {
+            Swal.fire('Atención', 'Selecciona primero los registros que deseas mover.', 'info');
+            return;
+        }
+
+        const schoolOptions = {};
+        sortedSchools.forEach(s => {
+            if (s.id !== adminSchool) {
+                schoolOptions[s.id] = s.name;
+            }
+        });
+
+        const { value: targetSchoolId } = await Swal.fire({
+            title: 'Traspasar a otro Centro',
+            html: `Vas a mover <b>${selectedIds.length}</b> registros.<br/><br/>Selecciona el centro de destino:`,
+            input: 'select',
+            inputOptions: schoolOptions,
+            inputPlaceholder: 'Seleccionar centro...',
+            showCancelButton: true,
+            confirmButtonColor: '#6366f1',
+            confirmButtonText: 'Mover Registros',
+            cancelButtonText: 'Cancelar'
+        });
+
+        if (targetSchoolId) {
+            Swal.fire({ title: 'Moviendo registros...', didOpen: () => Swal.showLoading(), allowOutsideClick: false });
+            try {
+                if (shootMode === 'students') {
+                    await moveToSchool(selectedIds, targetSchoolId);
+                    setSelectedOrderIds([]);
+                } else {
+                    // Implementar mover staff si es necesario, por ahora centrado alumnos
+                    Swal.fire('Pendiente', 'El movimiento de docentes estará disponible próximamente.', 'info');
+                    return;
+                }
+                Swal.fire('¡Éxito!', 'Los registros han sido trasladados correctamente.', 'success');
+            } catch (error) {
+                Swal.fire('Error', 'No se pudieron mover los registros.', 'error');
+            }
         }
     };
 
@@ -821,7 +882,7 @@ const ShootingPanel = ({
         if (!newStaffForm.firstName?.trim()) missingFields.push('Nombre');
         if (!newStaffForm.lastName?.trim()) missingFields.push('Apellidos');
         if (!newStaffForm.role?.trim()) missingFields.push('Cargo Principal');
-        
+
         if (missingFields.length > 0) {
             import('sweetalert2').then(({ default: Swal }) => {
                 Swal.fire({
@@ -836,9 +897,17 @@ const ShootingPanel = ({
 
         // Limpiamos campos temporales antes de guardar
         const { tempCourse, tempGroup, ...staffData } = newStaffForm;
-        
+
+        // Si no se han añadido clases, usamos la actual del filtro por defecto
+        const defaultAssignments = staffData.assignments.length > 0 ? staffData.assignments : [{
+            schoolId: adminSchool,
+            course: shootFilters.course || 'GENERAL',
+            group: shootFilters.group || ''
+        }];
+
         const finalStaffData = {
             ...staffData,
+            assignments: defaultAssignments,
             schoolId: adminSchool || staffData.schoolId
         };
 
@@ -938,6 +1007,16 @@ const ShootingPanel = ({
         }
     };
 
+    // Ayudante para ordenar por el primer apellido
+    const getSortName = useCallback((name) => {
+        if (!name) return "";
+        const parts = name.trim().split(/\s+/);
+        if (parts.length < 2) return name.toLowerCase();
+        const firstName = parts[0];
+        const rest = parts.slice(1).join(" ");
+        return (rest + " " + firstName).toLowerCase();
+    }, []);
+
     // Función para calcular el tamaño inteligente del texto
     const getFontSize = (text, isPrefix = false) => {
         const length = text?.length || 0;
@@ -975,8 +1054,8 @@ const ShootingPanel = ({
     const filteredOrders = useMemo(() => {
         if (!orders || !Array.isArray(orders)) return [];
         return orders.filter(order => {
-            // Filtro por centro
-            if (adminSchool && order.schoolId !== adminSchool) return false;
+            // El hook useOrders ya filtra por centro al cargar los datos
+            // Eliminamos el filtro interno redundante que oculta alumnos rescatados/movidos
 
             if (shootSearch) {
                 const searchLower = shootSearch.toLowerCase();
@@ -989,8 +1068,26 @@ const ShootingPanel = ({
             if (shootFilters.course && getCourseBase(order.course) !== shootFilters.course) return false;
             if (shootFilters.group && getGroup(order.course) !== shootFilters.group) return false;
             return true;
+        }).sort((a, b) => {
+            if (shootSortMode === 'filename') {
+                const numA = (a.photo_file_number || "").toString().replace(/^0+/, '');
+                const numB = (b.photo_file_number || "").toString().replace(/^0+/, '');
+                if (numA && numB && !isNaN(numA) && !isNaN(numB)) return parseInt(numA) - parseInt(numB);
+                if (numA && !isNaN(numA)) return -1;
+                if (numB && !isNaN(numB)) return 1;
+            } else {
+                const nameA = getSortName(a.studentName || "");
+                const nameB = getSortName(b.studentName || "");
+                const cmp = nameA.localeCompare(nameB, 'es', { numeric: true, sensitivity: 'base' });
+                if (cmp !== 0) return cmp;
+            }
+
+            // Orden manual como fallback
+            const idxA = a.manual_sort_index !== undefined ? a.manual_sort_index : 9999999;
+            const idxB = b.manual_sort_index !== undefined ? b.manual_sort_index : 9999999;
+            return idxA - idxB;
         });
-    }, [orders, adminSchool, shootSearch, shootFilters]);
+    }, [orders, adminSchool, shootSearch, shootFilters, getSortName, shootSortMode]);
 
     // Filtrado de docentes
     const filteredStaff = useMemo(() => {
@@ -998,17 +1095,72 @@ const ShootingPanel = ({
         const sq = (shootSearch || '').trim().toLowerCase();
         return staff.filter(m => {
             const matchesSearch = !sq || (m.firstName + ' ' + m.lastName + ' ' + (m.name || '')).toLowerCase().includes(sq);
-            
+
             // Verificamos si tiene el curso/grupo en sus asignaciones
-            const matchesCourse = !shootFilters.course || (Array.isArray(m.assignments) && m.assignments.some(a => 
-                (!adminSchool || a.schoolId === adminSchool) && 
-                getCourseBase(a.course) === shootFilters.course && 
+            const matchesCourse = !shootFilters.course || (Array.isArray(m.assignments) && m.assignments.some(a =>
+                getCourseBase(a.course) === shootFilters.course &&
+                getCourseBase(a.course) === shootFilters.course &&
                 (!shootFilters.group || getGroup(a.course) === shootFilters.group)
             ));
-            
+
             return matchesSearch && matchesCourse;
+        }).sort((a, b) => {
+            // Prioridad absoluta al orden manual
+            const idxA = a.manual_sort_index !== undefined ? a.manual_sort_index : 9999999;
+            const idxB = b.manual_sort_index !== undefined ? b.manual_sort_index : 9999999;
+            if (idxA !== idxB) return idxA - idxB;
+
+            const numA = (a.photo_file_number || "").toString().replace(/^0+/, '');
+            const numB = (b.photo_file_number || "").toString().replace(/^0+/, '');
+            
+            // Prioridad a la numeración numérica si existe
+            if (numA && numB && !isNaN(numA) && !isNaN(numB)) {
+                return parseInt(numA) - parseInt(numB);
+            }
+            if (numA && !isNaN(numA)) return -1;
+            if (numB && !isNaN(numB)) return 1;
+
+            // Fallback a nombre si no hay números
+            const nameA = (a.firstName + ' ' + (a.lastName || '')).trim().toLowerCase();
+            const nameB = (b.firstName + ' ' + (b.lastName || '')).trim().toLowerCase();
+            return nameA.localeCompare(nameB, 'es', { numeric: true, sensitivity: 'base' });
         });
     }, [staff, adminSchool, shootSearch, shootFilters]);
+
+    // --- FUNCIÓN PARA MOVER FILAS SIN CAMBIAR NOMBRE DE ARCHIVO ---
+    const handleMoveInView = async (idx, direction, type) => {
+        const list = type === 'staff' ? filteredStaff : filteredOrders;
+        const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+        
+        if (targetIdx < 0 || targetIdx >= list.length) return;
+
+        const current = list[idx];
+        const neighbor = list[targetIdx];
+
+        // Definimos los índices actuales. Si no hay manual_sort_index, 
+        // usamos su posición actual en la vista para "fijar" el orden base.
+        let currentIndex = current.manual_sort_index !== undefined ? current.manual_sort_index : idx;
+        let neighborIndex = neighbor.manual_sort_index !== undefined ? neighbor.manual_sort_index : targetIdx;
+
+        // Si son iguales (no debería pasar pero por si acaso), forzamos diferencia
+        if (currentIndex === neighborIndex) {
+            currentIndex = idx;
+            neighborIndex = targetIdx;
+        }
+
+        // Intercambiamos
+        if (type === 'staff') {
+            await Promise.all([
+                updateStaff(current.id, { manual_sort_index: neighborIndex }),
+                updateStaff(neighbor.id, { manual_sort_index: currentIndex })
+            ]);
+        } else {
+            await Promise.all([
+                updateOrder(current.id, { manual_sort_index: neighborIndex }),
+                updateOrder(neighbor.id, { manual_sort_index: currentIndex })
+            ]);
+        }
+    };
 
     // MAPA DE TUTORES PARA AUTO-ASIGNACIÓN
     const tutorMap = useMemo(() => {
@@ -1034,17 +1186,49 @@ const ShootingPanel = ({
         if (!adminSchool) return [];
         // Filtramos todos los registros del centro actual
         const schoolStaff = staff.filter(s => s.schoolId === adminSchool)
-            .sort((a, b) => (a.firstName + ' ' + a.lastName).localeCompare(b.firstName + ' ' + b.lastName));
+            .sort((a, b) => {
+                const idxA = a.manual_sort_index !== undefined ? a.manual_sort_index : 9999999;
+                const idxB = b.manual_sort_index !== undefined ? b.manual_sort_index : 9999999;
+                if (idxA !== idxB) return idxA - idxB;
+
+                const numA = (a.photo_file_number || "").toString().replace(/^0+/, '');
+                const numB = (b.photo_file_number || "").toString().replace(/^0+/, '');
+                if (numA && numB && !isNaN(numA) && !isNaN(numB)) {
+                    return parseInt(numA) - parseInt(numB);
+                }
+                if (numA && !isNaN(numA)) return -1;
+                if (numB && !isNaN(numB)) return 1;
+                const nameA = (a.firstName || '') + ' ' + (a.lastName || '');
+                const nameB = (b.firstName || '') + ' ' + (b.lastName || '');
+                return nameA.localeCompare(nameB, 'es', { sensitivity: 'base' });
+            });
         const schoolStudents = orders.filter(o => o.schoolId === adminSchool)
-            .sort((a, b) => (a.studentName || "").localeCompare(b.studentName || ""));
-        
+            .sort((a, b) => {
+                if (shootSortMode === 'filename') {
+                    const numA = (a.photo_file_number || "").toString().replace(/^0+/, '');
+                    const numB = (b.photo_file_number || "").toString().replace(/^0+/, '');
+                    if (numA && numB && !isNaN(numA) && !isNaN(numB)) return parseInt(numA) - parseInt(numB);
+                    if (numA && !isNaN(numA)) return -1;
+                    if (numB && !isNaN(numB)) return 1;
+                } else {
+                    const nameA = getSortName(a.studentName || "");
+                    const nameB = getSortName(b.studentName || "");
+                    const cmp = nameA.localeCompare(nameB, 'es', { numeric: true, sensitivity: 'base' });
+                    if (cmp !== 0) return cmp;
+                }
+
+                const idxA = a.manual_sort_index !== undefined ? a.manual_sort_index : 9999999;
+                const idxB = b.manual_sort_index !== undefined ? b.manual_sort_index : 9999999;
+                return idxA - idxB;
+            });
+
         // Unimos ambos: Docentes primero, luego Alumnos (O según modo preferido)
         return [...schoolStaff, ...schoolStudents];
-    }, [staff, orders, adminSchool]);
+    }, [staff, orders, adminSchool, getSortName, shootSortMode]);
 
     const getGlobalRank = (id) => {
         const idx = globalSequence.findIndex(item => item.id === id);
-        return idx !== -1 ? (idx + 1).toString().padStart(4, '0') : '--';
+        return idx !== -1 ? (idx + 1).toString().padStart(3, '0') : '--';
     };
 
     const globalGalleryItems = useMemo(() => {
@@ -1081,20 +1265,20 @@ const ShootingPanel = ({
 
         if (count > 0) {
             updateAllOrders(updated);
-            Swal.fire({ 
-                icon: 'success', 
-                title: 'Tutores Asignados', 
-                text: `Se ha asignado tutor a ${count} alumnos automáticamente basándose en el personal docente.`, 
-                timer: 2000, 
-                showConfirmButton: false 
+            Swal.fire({
+                icon: 'success',
+                title: 'Tutores Asignados',
+                text: `Se ha asignado tutor a ${count} alumnos automáticamente basándose en el personal docente.`,
+                timer: 2000,
+                showConfirmButton: false
             });
         } else {
-            Swal.fire({ 
-                icon: 'info', 
-                title: 'Sin cambios', 
-                text: 'No se encontraron tutores coincidentes para los alumnos sin asignar.', 
-                timer: 2000, 
-                showConfirmButton: false 
+            Swal.fire({
+                icon: 'info',
+                title: 'Sin cambios',
+                text: 'No se encontraron tutores coincidentes para los alumnos sin asignar.',
+                timer: 2000,
+                showConfirmButton: false
             });
         }
     };
@@ -1153,7 +1337,7 @@ const ShootingPanel = ({
                     .filter(item => !item._isStaff)
                     .map(item => {
                         const globalIndex = finalSequence.findIndex(fs => !fs._isStaff && fs.id === item.id);
-                        const newNum = (finalSequence.indexOf(item) + 1).toString().padStart(4, '0');
+                        const newNum = (finalSequence.indexOf(item) + 1).toString().padStart(3, '0');
                         return updateOrder(item.id, { photo_file_number: newNum });
                     });
 
@@ -1161,7 +1345,7 @@ const ShootingPanel = ({
                 const updatedStaff = staff.map(m => {
                     const match = finalSequence.find(fs => fs._isStaff && fs.id === m.id);
                     if (match) {
-                        const newNum = (finalSequence.indexOf(match) + 1).toString().padStart(4, '0');
+                        const newNum = (finalSequence.indexOf(match) + 1).toString().padStart(3, '0');
                         return { ...m, photo_file_number: newNum };
                     }
                     return m;
@@ -1205,26 +1389,50 @@ const ShootingPanel = ({
         return groupMatch?.courses?.find(c => c.name === newStaffForm.tempCourse)?.lines || [];
     }, [newStaffForm.tempCourse]);
 
-    // Cursos únicos de la escuela
+    // Cursos únicos que REALMENTE tienen datos en esta escuela
     const activeCourses = useMemo(() => {
         if (!adminSchool) return [];
 
-        // 1. Obtener cursos del catálogo maestro (COURSE_GROUPS)
-        const masterCourses = COURSE_GROUPS.flatMap(g => g.courses.map(c => c.name));
-
-        // 2. Obtener cursos que ya existen en los pedidos del centro actual (por si hay personalizados)
-        const existingInOrders = orders 
+        // 1. Obtener cursos de los alumnos
+        const studentCourses = orders
             ? orders
                 .filter(o => o.schoolId === adminSchool)
                 .map(o => getCourseBase(o.course))
-                .filter(c => c && c.toUpperCase() !== 'PENDIENTE')
             : [];
 
-        // Combinar ambos y eliminar duplicados
-        const combined = new Set([...masterCourses, ...existingInOrders]);
-        
-        return [...combined].sort((a, b) => a.localeCompare(b)).map(name => ({ name }));
-    }, [orders, adminSchool]);
+        // 2. Obtener cursos de los docentes
+        const staffCourses = staff
+            ? staff
+                .filter(s => s.schoolId === adminSchool)
+                .flatMap(s => (s.assignments || []).map(a => getCourseBase(a.course)))
+            : [];
+
+        // Combinar, filtrar nulos/pendientes y eliminar duplicados
+        const combined = new Set([...studentCourses, ...staffCourses]);
+        const filtered = [...combined].filter(c => c && !['PENDIENTE', 'SIN CLASE', 'GENERAL', 'DOCTORADO'].includes(c.toUpperCase()));
+
+        // Si no hay cursos con datos, mostrar al menos los básicos del catálogo para poder añadir gente
+        if (filtered.length === 0) {
+            const masterCourses = COURSE_GROUPS.flatMap(g => g.courses.map(c => c.name))
+                .filter(name => name.toUpperCase() !== 'DOCTORADO');
+            return masterCourses.map(name => ({ name }));
+        }
+
+        return filtered.sort((a, b) => a.localeCompare(b)).map(name => ({ name }));
+    }, [orders, staff, adminSchool]);
+
+    // AUTO-SELECCIÓN DE CURSO AL CARGAR O REFRESCAR
+    useEffect(() => {
+        if (adminSchool && !shootFilters.course && activeCourses.length > 0) {
+            // Si solo hay un curso, lo seleccionamos directamente
+            // O si hay varios, seleccionamos el primero que tenga datos reales
+            const targetCourse = activeCourses[0]?.name;
+            if (targetCourse) {
+                console.log("Auto-seleccionando curso activo:", targetCourse);
+                setShootFilters(prev => ({ ...prev, course: targetCourse }));
+            }
+        }
+    }, [adminSchool, activeCourses.length]);
 
     const getStaffAssignments = (member) => {
         if (!member.assignments) return [];
@@ -1280,6 +1488,56 @@ const ShootingPanel = ({
         setPhotoNumber("");
     };
 
+    // LÓGICA DE REENCUADRE (REFRAMING)
+    const handleAutoReframe = () => {
+        setReframingItem(prev => ({
+            ...prev,
+            photoConfig: {
+                zoom: 1.25,
+                x: 0,
+                y: -10 // Sube un poco la foto porque las caras suelen estar arriba
+            }
+        }));
+    };
+
+    const handleNavigateReframing = (direction) => {
+        if (!reframingItem) return;
+
+        // Obtenemos la secuencia según el modo actual
+        const list = shootMode === 'staff' ? staff : orders;
+        const index = list.findIndex(i => i.id === reframingItem.id);
+        if (index === -1) return;
+
+        const nextIdx = index + direction;
+        if (nextIdx >= 0 && nextIdx < list.length) {
+            const next = list[nextIdx];
+            // Aseguramos que tenga foto antes de navegar
+            if (!next.digitalPhotoUrl) {
+                // Buscamos el siguiente con foto
+                const remaining = direction > 0 ? list.slice(nextIdx) : list.slice(0, nextIdx + 1).reverse();
+                const nextWithPhoto = remaining.find(item => item.digitalPhotoUrl);
+                if (nextWithPhoto) {
+                    setReframingItem({
+                        id: nextWithPhoto.id,
+                        type: shootMode === 'staff' ? 'staff' : 'student',
+                        photoUrl: nextWithPhoto.digitalPhotoUrl,
+                        name: nextWithPhoto.studentName || `${nextWithPhoto.firstName || ''} ${nextWithPhoto.lastName || ''}`.trim(),
+                        photoConfig: nextWithPhoto.photoConfig || { zoom: 1, x: 0, y: 0 }
+                    });
+                }
+                return;
+            }
+
+            setReframingItem({
+                id: next.id,
+                type: shootMode === 'staff' ? 'staff' : 'student',
+                photoUrl: next.digitalPhotoUrl,
+                name: next.studentName || `${next.firstName || ''} ${next.lastName || ''}`.trim(),
+                photoConfig: next.photoConfig || { zoom: 1, x: 0, y: 0 }
+            });
+        }
+    };
+
     return (
         <div className="flex flex-col bg-main transition-colors duration-500">
             {/* TOOLBAR SUPERIOR */}
@@ -1294,7 +1552,7 @@ const ShootingPanel = ({
                                 <button onClick={() => { setShootMode('students'); setShootSearch(''); setIsStudentListExpanded(true); }} className={`flex-1 h-full px-3 rounded-[10px] text-[10px] md:text-[11px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${shootMode === 'students' ? 'bg-white text-indigo-600 shadow-sm' : 'text-primary/40 hover:text-primary'}`} title="Modo Alumnos">
                                     <Users size={14} /> Alumnos
                                 </button>
-                                <button onClick={() => { setShootMode('staff'); setShootSearch(''); setIsStudentListExpanded(true); }} className={`flex-1 h-full px-3 rounded-[10px] text-[10px] md:text-[11px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${shootMode === 'staff' ? 'bg-white text-indigo-600 shadow-sm' : 'text-primary/40 hover:text-primary'}`} title="Modo Docentes">
+                                <button onClick={() => { setShootMode('staff'); setShootSearch(''); setIsStudentListExpanded(true); setViewStyle('list'); setStaffViewStyle('list'); }} className={`flex-1 h-full px-3 rounded-[10px] text-[10px] md:text-[11px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${shootMode === 'staff' ? 'bg-white text-indigo-600 shadow-sm' : 'text-primary/40 hover:text-primary'}`} title="Modo Docentes">
                                     <UserCheck size={14} /> Docentes
                                 </button>
                             </div>
@@ -1307,12 +1565,12 @@ const ShootingPanel = ({
                                 <div className="absolute left-3.5 top-1/2 -translate-y-1/2 w-8 h-8 bg-indigo-500/10 rounded-lg flex items-center justify-center text-indigo-500 pointer-events-none z-10">
                                     <Home size={14} />
                                 </div>
-                                <select 
-                                    value={adminSchool} 
-                                    onChange={e => { 
-                                        setAdminSchool(e.target.value); 
-                                        setShootFilters(p => ({ ...p, course: '', group: '' })); 
-                                    }} 
+                                <select
+                                    value={adminSchool}
+                                    onChange={e => {
+                                        setAdminSchool(e.target.value);
+                                        setShootFilters(p => ({ ...p, course: '', group: '' }));
+                                    }}
                                     className="w-full h-full bg-white border border-primary/10 text-primary text-[11px] font-bold uppercase tracking-widest rounded-xl pl-14 pr-10 outline-none appearance-none cursor-pointer hover:border-indigo-500/30 transition-all shadow-sm py-0 flex items-center"
                                 >
                                     <option value="">FILTRAR POR CENTRO</option>
@@ -1331,12 +1589,15 @@ const ShootingPanel = ({
                                 <div className="absolute left-3.5 top-1/2 -translate-y-1/2 w-8 h-8 bg-emerald-500/10 rounded-lg flex items-center justify-center text-emerald-500 pointer-events-none z-10">
                                     <Hash size={14} />
                                 </div>
-                                <select 
-                                    value={shootFilters.course} 
+                                <select
+                                    value={shootFilters.course}
                                     onChange={e => setShootFilters(p => ({ ...p, course: e.target.value, group: '' }))}
                                     className="w-full h-full bg-white border border-primary/10 text-primary text-[11px] font-bold uppercase tracking-widest rounded-xl pl-14 outline-none appearance-none cursor-pointer hover:border-emerald-500/30 transition-all shadow-sm pr-10 py-0 flex items-center"
                                 >
                                     <option value="">TODOS LOS CURSOS</option>
+                                    {shootFilters.course === 'DOCTORADO' && (
+                                        <option value="DOCTORADO">🎓 DOCTORADO</option>
+                                    )}
                                     {activeCourses.map(c => (
                                         <option key={c.name} value={c.name}>{c.name}</option>
                                     ))}
@@ -1350,8 +1611,8 @@ const ShootingPanel = ({
                             <div className="filter-item min-w-[90px] w-[90px] shrink-0 flex flex-col gap-1.5">
                                 <span className="text-[9px] font-black text-emerald-500/40 uppercase tracking-widest pl-1">GRUPO</span>
                                 <div className="relative w-full h-[48px]">
-                                    <select 
-                                        value={shootFilters.group} 
+                                    <select
+                                        value={shootFilters.group}
                                         onChange={e => setShootFilters(p => ({ ...p, group: e.target.value }))}
                                         className="btn-group-selector w-full h-full outline-none appearance-none cursor-pointer transition-all shadow-sm pr-7 text-center text-[11px] font-bold uppercase rounded-xl py-0 flex items-center justify-center"
                                     >
@@ -1375,7 +1636,7 @@ const ShootingPanel = ({
                                     const inputId = shootMode === 'staff' ? 'excel-import-input-staff' : 'excel-import-input';
                                     document.getElementById(inputId)?.click();
                                 }}
-                                className="h-[48px] flex items-center justify-center gap-2 px-5 bg-blue-500/5 hover:bg-blue-500/10 text-blue-600 rounded-xl transition-all border border-blue-500/20 font-black text-[11px] uppercase tracking-widest active:scale-95 shadow-sm"
+                                className="h-[48px] flex items-center justify-center gap-2 px-5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all border border-emerald-500/20 font-black text-[11px] uppercase tracking-widest active:scale-95 shadow-md shadow-emerald-500/20"
                                 title="Importar listado desde Excel (.xlsx / .xls)"
                             >
                                 <ArrowRight size={14} />
@@ -1403,21 +1664,15 @@ const ShootingPanel = ({
                                 <LayoutGrid size={16} />
                                 <span>Galería</span>
                             </button>
-                            {/* Numeración Global */}
-                            <button 
-                                onClick={handleGlobalAutoNumbering}
-                                className="px-6 h-[48px] bg-white border border-indigo-500/20 text-indigo-600 hover:bg-indigo-50 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm"
-                            >
-                                <Hash size={16} /> <span>Numeración</span>
-                            </button>
-                            {/* Backup SOS */}
-                            <button 
-                                onClick={downloadMasterBackup} 
-                                className="px-6 h-[48px] bg-amber-500/5 border border-amber-500/20 text-amber-600 hover:bg-amber-500/10 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm"
-                            >
-                                <Database size={16} /> <span>Backup</span>
-                            </button>
                         </div>
+
+                        {/* Backup SOS (Lado derecho) */}
+                        <button
+                            onClick={downloadMasterBackup}
+                            className="px-6 h-[48px] bg-amber-500/5 border border-amber-500/20 text-amber-600 hover:bg-amber-500/10 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm whitespace-nowrap"
+                        >
+                            <Database size={16} /> <span>Backup</span>
+                        </button>
                     </div>
                 </div>
 
@@ -1452,12 +1707,12 @@ const ShootingPanel = ({
                                             </div>
                                         </div>
                                         {/* inputs ocultos para Excel (los botones están en el header) */}
-                                        <input 
+                                        <input
                                             id="excel-import-input"
-                                            type="file" 
-                                            accept=".xlsx, .xls" 
-                                            onChange={handleExcelImport} 
-                                            className="hidden" 
+                                            type="file"
+                                            accept=".xlsx, .xls"
+                                            onChange={handleExcelImport}
+                                            className="hidden"
                                         />
                                     </div>
                                 </div>
@@ -1477,7 +1732,7 @@ const ShootingPanel = ({
                                     </div>
                                     <div className="flex items-center gap-2">
                                         {/* Limpiar Filtros — solo visible si hay algo activo */}
-                                        {(shootFilters.course || shootFilters.group || adminSchool || shootSearch) && (
+                                        {isFiltersExpanded && (shootFilters.course || shootFilters.group || adminSchool || shootSearch) && (
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
@@ -1723,62 +1978,33 @@ const ShootingPanel = ({
                                         </div>
                                         <div className="text-left">
                                             <h2 className="text-sm font-black uppercase tracking-widest text-primary flex items-center gap-2">
-                                                Listado de Alumnos 
-                                                {shootFilters.course && (
-                                                    <span className="text-orange-500 bg-orange-500/10 px-2 py-0.5 rounded-md text-[10px] border border-orange-500/10">
-                                                        {shootFilters.course} {shootFilters.group && `- GRUPO ${shootFilters.group}`}
-                                                    </span>
-                                                )}
+                                                Listado de Alumnos
                                             </h2>
                                             <p className="text-[10px] text-primary/40 font-bold uppercase tracking-wider">{filteredOrders?.length || 0} alumnos encontrados</p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-3">
                                         {isStudentListExpanded && filteredOrders.length > 0 && (
-                                            <div className="hidden md:flex items-center gap-3 mr-3" onClick={e => e.stopPropagation()}>
-                                                <button onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    Swal.fire({
-                                                        title: '¿Auto-Numerar Alumnos?',
-                                                        text: `Se asignarán números del 0001 al ${filteredOrders.length.toString().padStart(4, '0')} a los alumnos visibles.`,
-                                                        icon: 'question',
-                                                        showCancelButton: true,
-                                                        confirmButtonColor: '#6366f1',
-                                                        cancelButtonColor: '#94a3b8',
-                                                        confirmButtonText: 'Sí, Numerar',
-                                                        cancelButtonText: 'Cancelar',
-                                                        customClass: {
-                                                            popup: 'rounded-[30px] border-none shadow-2xl',
-                                                            confirmButton: 'btn-primary !px-10 !py-4 !rounded-[20px] !text-[12px]',
-                                                            cancelButton: 'btn-ghost !px-10 !py-4 !rounded-[20px] !text-[12px]'
-                                                        }
-                                                    }).then((result) => {
-                                                        if (result.isConfirmed) {
-                                                            // Mostramos un cargador porque esto va a la base de datos
-                                                            Swal.fire({ title: 'Numerando...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-                                                            
-                                                            Promise.all(filteredOrders.map((o, index) => {
-                                                                const newNum = (index + 1).toString().padStart(4, '0');
-                                                                return updateOrder(o.id, { photo_file_number: newNum });
-                                                            })).then(() => {
-                                                                Swal.fire({ icon: 'success', title: '¡Hecho!', text: 'Numeración guardada en la base de datos.', timer: 1500, showConfirmButton: false });
-                                                            });
-                                                        }
-                                                    });
-                                                }} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-md shadow-blue-500/20 active:scale-[0.98] transition-all flex items-center gap-2" title="Asignar números de foto 0001, 0002... a los alumnos filtrados">
-                                                    <Hash size={15} /> Auto-Numerar
-                                                </button>
-                                                <button onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleAutoAssignTutors();
-                                                }} className="px-3 py-2 bg-orange-500/10 border border-orange-500/20 rounded-xl text-[10px] font-black tracking-wider flex items-center gap-2 hover:bg-orange-500/20 transition-colors text-orange-600 shadow-sm" title="Asignar Tutores automáticamente según personal docente">
-                                                    <UserCheck size={14} /> Auto-Tutor
-                                                </button>
+                                            <div className="flex items-center gap-3 mr-3" onClick={e => e.stopPropagation()}>
+                                                <div className={`px-4 py-2 rounded-xl flex items-center gap-2 shadow-sm border transition-all ${shootFilters.course && shootFilters.course.toUpperCase() === 'DOCTORADO'
+                                                    ? 'bg-rose-500 text-white border-rose-400 animate-pulse'
+                                                    : 'bg-primary/5 text-primary border-primary/10'
+                                                    }`}>
+                                                    <div className={`w-1.5 h-1.5 rounded-full ${shootFilters.course && shootFilters.course.toUpperCase() === 'DOCTORADO' ? 'bg-white' : 'bg-indigo-500'} animate-pulse`}></div>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[10px] font-black uppercase tracking-tighter leading-tight">
+                                                            {(shootFilters.course && shootFilters.course.toUpperCase() === 'DOCTORADO') ? '🎓 MODO DOCTORADO' : (shootFilters.course || 'GENERAL')}
+                                                        </span>
+                                                        <span className={`text-[8px] font-bold uppercase tracking-widest opacity-80 ${shootFilters.course && shootFilters.course.toUpperCase() === 'DOCTORADO' ? 'text-white' : 'text-primary/40'}`}>
+                                                            {shootFilters.group ? `GRUPO ${shootFilters.group}` : 'VISTA GLOBAL'}
+                                                        </span>
+                                                    </div>
+                                                </div>
                                             </div>
                                         )}
                                         {isStudentListExpanded && (
                                             <div className="hidden md:flex items-center gap-1 p-1 rounded-xl bg-primary/[0.02] border border-primary/10 shadow-sm mr-2" onClick={e => e.stopPropagation()}>
-                                                <button 
+                                                <button
                                                     onClick={() => setViewStyle('gallery')}
                                                     className={`h-8 px-3 rounded-lg transition-all flex items-center justify-center gap-2 ${viewStyle === 'gallery' ? 'bg-indigo-600 shadow-sm text-white' : 'text-primary/40 hover:text-primary hover:bg-primary/5'}`}
                                                     title="Modo Galería"
@@ -1804,15 +2030,15 @@ const ShootingPanel = ({
                                             <div className="p-4 md:p-6 w-full animate-in fade-in duration-500">
                                                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
                                                     {filteredOrders.map(order => (
-                                                        <div 
-                                                            key={order.id} 
+                                                        <div
+                                                            key={order.id}
                                                             onClick={() => {
                                                                 const src = getPhotoSrc(order);
                                                                 if (src) {
-                                                                    setReframingItem({ 
-                                                                        id: order.id, 
-                                                                        type: 'student', 
-                                                                        photoUrl: src, 
+                                                                    setReframingItem({
+                                                                        id: order.id,
+                                                                        type: 'student',
+                                                                        photoUrl: src,
                                                                         name: order.studentName,
                                                                         photoConfig: order.photoConfig || { zoom: 1, x: 0, y: 0 }
                                                                     });
@@ -1824,11 +2050,11 @@ const ShootingPanel = ({
                                                             {getPhotoSrc(order) ? (
                                                                 <div className="w-full h-full relative">
                                                                     {getPhotoSrc(order) ? (
-                                                                        <img 
-                                                                            src={getPhotoSrc(order)} 
-                                                                            className="w-full h-full object-cover transition-transform group-hover/gallery:scale-110" 
+                                                                        <img
+                                                                            src={getPhotoSrc(order)}
+                                                                            className="w-full h-full object-cover transition-transform group-hover/gallery:scale-110"
                                                                             style={getPhotoTransform(order.photoConfig)}
-                                                                            alt={order.studentName} 
+                                                                            alt={order.studentName}
                                                                         />
                                                                     ) : (
                                                                         <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 text-slate-300">
@@ -1836,9 +2062,14 @@ const ShootingPanel = ({
                                                                         </div>
                                                                     )}
                                                                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover/gallery:opacity-100 transition-opacity flex flex-col justify-end p-3 rounded-2xl">
-                                                                        <p className="text-[10px] font-black text-white uppercase truncate">{order.studentName}</p>
+                                                                        <div className="flex flex-col items-center gap-1">
+                                                                            {order.role?.toUpperCase().includes('TUTOR') && (
+                                                                                <Star size={12} className="text-amber-500 fill-amber-500 shadow-sm" />
+                                                                            )}
+                                                                            <p className="text-[10px] font-black text-white uppercase truncate text-center w-full">{order.studentName}</p>
+                                                                        </div>
                                                                         <div className="flex gap-2 mt-2">
-                                                                            <button 
+                                                                            <button
                                                                                 className="flex-1 py-1.5 bg-white text-indigo-600 rounded-lg text-[9px] font-black uppercase tracking-wider hover:bg-indigo-50 transition-colors flex items-center justify-center gap-1"
                                                                             >
                                                                                 <Maximize2 size={12} /> Reencuadrar
@@ -1851,14 +2082,14 @@ const ShootingPanel = ({
                                                                 </div>
                                                             ) : (
                                                                 <div className="w-full h-full flex flex-col items-center justify-center text-primary/20 gap-2 p-4">
-                                                                     <Camera size={24} />
-                                                                     <span className="text-[9px] font-black uppercase text-center">Sin Foto Registrada</span>
-                                                                     <button 
+                                                                    <Camera size={24} />
+                                                                    <span className="text-[9px] font-black uppercase text-center">Sin Foto Registrada</span>
+                                                                    <button
                                                                         onClick={(e) => { e.stopPropagation(); handleIndividualFileClick(order.id, 'student'); }}
                                                                         className="mt-2 px-3 py-1 bg-white border border-primary/10 text-primary/40 rounded-lg text-[8px] font-black uppercase hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
-                                                                     >
+                                                                    >
                                                                         Subir Ahora
-                                                                     </button>
+                                                                    </button>
                                                                 </div>
                                                             )}
                                                         </div>
@@ -1866,330 +2097,364 @@ const ShootingPanel = ({
                                                 </div>
                                             </div>
                                         ) : viewStyle === 'grid' ? (
-                                    <div className="p-4 md:p-5 w-full">
-                                        {/* Grid forzado a 8 columnas */}
-                                        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-3 md:gap-4 content-start">
-                                            {filteredOrders.map((order) => {
-                                                const isPhotoSelected = activeStudent?.id === order.id;
-                                                const isBulkSelected = selectedOrderIds.includes(order.id);
-                                                const hasPhoto = order.status === 'production' || order.photoFile || order.digitalPhotoUrl || order.photo_file_number;
-                                                return (
-                                                    <div key={order.id} className="relative group/card">
-                                                        <button 
-                                                            onClick={() => selectStudent(order)} 
-                                                            className={`w-full relative flex flex-col items-center p-4 rounded-[16px] border transition-all duration-300 active:scale-95 ${isPhotoSelected ? 'border-orange-500 bg-orange-50 shadow-md ring-2 ring-orange-500/20 z-10 scale-[1.02]' : isBulkSelected ? 'border-orange-300 bg-orange-50/30' : 'border-primary/10 bg-card hover:border-primary/30 hover:shadow-md'}`}
-                                                        >
-                                                            <div 
-                                                                className={`overflow-hidden shadow-inner border border-primary/5 bg-primary/5 rounded-xl group-hover:border-orange-200 transition-colors mx-auto ${['circle', 'shield', 'arch'].includes(configOrla.photoShape || 'circle') ? 'w-14 h-14' : 'w-14 h-[74.6px]'}`}
-                                                                style={getShapeStyle(configOrla.photoShape || 'circle', 56, 56)}
-                                                            >
-                                                                {getPhotoSrc(order) ? (
-                                                                    <img 
-                                                                        src={getPhotoSrc(order)} 
-                                                                        className="w-full h-full object-cover group-hover:scale-110 transition-transform" 
-                                                                        style={getPhotoTransform(order.photoConfig)}
-                                                                        alt="Foto" 
-                                                                    />
-                                                                ) : (
-                                                                    <div className="w-full h-full flex items-center justify-center">
-                                                                        <Camera size={20} className="text-primary/10" />
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                            <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-indigo-600 text-white text-[8px] font-black rounded-md shadow-sm z-20 border border-white/20">
-                                                                {getGlobalRank(order.id)}
-                                                            </div>
-                                                            {/* Botón de subida rápida en Grid */}
-                                                            <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover/card:opacity-100 transition-opacity z-20">
-                                                                <button 
-                                                                    onClick={(e) => { e.stopPropagation(); handleIndividualFileClick(order.id, 'student'); }}
-                                                                    className="p-1.5 bg-white/90 hover:bg-emerald-500 hover:text-white rounded-lg text-emerald-600 transition-all border border-emerald-100 shadow-sm"
-                                                                    title="Actualizar Foto"
+                                            <div className="p-4 md:p-5 w-full">
+                                                {/* Grid forzado a 8 columnas */}
+                                                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-3 md:gap-4 content-start">
+                                                    {filteredOrders.map((order) => {
+                                                        const isPhotoSelected = activeStudent?.id === order.id;
+                                                        const isBulkSelected = selectedOrderIds.includes(order.id);
+                                                        const hasPhoto = order.status === 'production' || order.photoFile || order.digitalPhotoUrl || order.photo_file_number;
+                                                        return (
+                                                            <div key={order.id} className="relative group/card">
+                                                                <button
+                                                                    onClick={() => selectStudent(order)}
+                                                                    className={`w-full relative flex flex-col items-center p-4 rounded-[16px] border transition-all duration-300 active:scale-95 ${isPhotoSelected ? 'border-orange-500 bg-orange-50 shadow-md ring-2 ring-orange-500/20 z-10 scale-[1.02]' : isBulkSelected ? 'border-orange-300 bg-orange-50/30' : 'border-primary/10 bg-card hover:border-primary/30 hover:shadow-md'}`}
                                                                 >
-                                                                    <Upload size={12} />
+                                                                    <div
+                                                                        className={`overflow-hidden shadow-inner border border-primary/5 bg-primary/5 rounded-xl group-hover:border-orange-200 transition-colors mx-auto ${['circle', 'shield', 'arch'].includes(configOrla.photoShape || 'circle') ? 'w-14 h-14' : 'w-14 h-[74.6px]'}`}
+                                                                        style={getShapeStyle(configOrla.photoShape || 'circle', 56, 56)}
+                                                                    >
+                                                                        {getPhotoSrc(order) ? (
+                                                                            <img
+                                                                                src={getPhotoSrc(order)}
+                                                                                className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                                                                                style={getPhotoTransform(order.photoConfig)}
+                                                                                alt="Foto"
+                                                                            />
+                                                                        ) : (
+                                                                            <div className="w-full h-full flex items-center justify-center">
+                                                                                <Camera size={20} className="text-primary/10" />
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-indigo-600 text-white text-[8px] font-black rounded-md shadow-sm z-20 border border-white/20">
+                                                                        {getGlobalRank(order.id)}
+                                                                    </div>
+                                                                    {/* Botón de subida rápida en Grid */}
+                                                                    <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover/card:opacity-100 transition-opacity z-20">
+                                                                        <button
+                                                                            onClick={(e) => { e.stopPropagation(); handleIndividualFileClick(order.id, 'student'); }}
+                                                                            className="p-1.5 bg-white/90 hover:bg-emerald-500 hover:text-white rounded-lg text-emerald-600 transition-all border border-emerald-100 shadow-sm"
+                                                                            title="Actualizar Foto"
+                                                                        >
+                                                                            <Upload size={12} />
+                                                                        </button>
+                                                                    </div>
+                                                                    <div className="flex flex-col items-center gap-1 w-full mt-2">
+                                                                        {order.role?.toUpperCase().includes('TUTOR') && (
+                                                                            <div className="flex justify-center mb-[-4px]">
+                                                                                <Star size={12} className="text-amber-500 fill-amber-500 shadow-sm" />
+                                                                            </div>
+                                                                        )}
+                                                                        <p className="text-[11px] font-bold text-center text-primary leading-tight line-clamp-2 w-full uppercase">{order.studentName}</p>
+                                                                    </div>
+                                                                    <span className="text-[9px] font-medium text-primary/50 mt-1 uppercase tracking-wider">{order.course}</span>
+                                                                </button>
+
+                                                                {/* Checkbox para selección masiva en Grid */}
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setSelectedOrderIds(prev => prev.includes(order.id) ? prev.filter(id => id !== order.id) : [...prev, order.id]);
+                                                                    }}
+                                                                    className={`absolute top-2 left-2 w-6 h-6 rounded-lg border transition-all flex items-center justify-center z-20 ${isBulkSelected ? 'bg-orange-500 border-orange-500 text-white shadow-lg' : 'bg-white/80 border-primary/10 text-primary/10 hover:border-orange-300 opacity-0 group-hover/card:opacity-100 backdrop-blur-sm'}`}
+                                                                >
+                                                                    <CheckSquare size={14} />
                                                                 </button>
                                                             </div>
-                                                            <p className="text-[11px] font-bold text-center text-primary leading-tight line-clamp-2 w-full uppercase">{order.studentName}</p>
-                                                            <span className="text-[9px] font-medium text-primary/50 mt-1 uppercase tracking-wider">{order.course}</span>
-                                                        </button>
-                                                        
-                                                        {/* Checkbox para selección masiva en Grid */}
-                                                        <button 
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setSelectedOrderIds(prev => prev.includes(order.id) ? prev.filter(id => id !== order.id) : [...prev, order.id]);
-                                                            }}
-                                                            className={`absolute top-2 left-2 w-6 h-6 rounded-lg border transition-all flex items-center justify-center z-20 ${isBulkSelected ? 'bg-orange-500 border-orange-500 text-white shadow-lg' : 'bg-white/80 border-primary/10 text-primary/10 hover:border-orange-300 opacity-0 group-hover/card:opacity-100 backdrop-blur-sm'}`}
-                                                        >
-                                                            <CheckSquare size={14} />
-                                                        </button>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="w-full overflow-hidden">
-                                        <table className="w-full text-left border-collapse table-fixed">
-                                            <thead className="bg-white sticky top-0 md:top-0 z-[110] border-b-2 border-primary/10 shadow-sm">
-                                                <tr className="bg-white">
-                                                    <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-primary/40 w-[40px] text-center bg-white">
-                                                        <button 
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                if (selectedOrderIds.length === filteredOrders.length && filteredOrders.length > 0) {
-                                                                    setSelectedOrderIds([]);
-                                                                } else {
-                                                                    setSelectedOrderIds(filteredOrders.map(o => o.id));
-                                                                }
-                                                            }}
-                                                            className="flex items-center justify-center w-full h-full text-primary/20 hover:text-orange-500 transition-colors"
-                                                        >
-                                                            {selectedOrderIds.length === filteredOrders.length && filteredOrders.length > 0 ? <CheckSquare size={18} className="text-orange-500" /> : <Square size={18} />}
-                                                        </button>
-                                                    </th>
-                                                    <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-primary/40 w-[50px] text-center bg-white">Nº ORLA</th>
-                                                    <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-primary/40 w-[60px] text-center bg-white">Foto</th>
-                                                    <th className="py-3 px-4 text-[10px] font-black uppercase tracking-wider text-primary/40 w-[25%] bg-white text-left">Alumno / Tutor</th>
-                                                    <th className="py-3 px-4 text-[10px] font-black uppercase tracking-wider text-primary/40 w-[180px] bg-white">
-                                                        <div className="flex items-center justify-between">
-                                                            <span className="text-secondary">Pack</span>
-                                                            <button 
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    const firstPack = filteredOrders[0]?.pack;
-                                                                    if (!firstPack) {
-                                                                        Swal.fire({
-                                                                            title: 'Atención',
-                                                                            text: 'Selecciona primero un pack para el primer alumno para poder replicarlo.',
-                                                                            icon: 'warning'
-                                                                        });
-                                                                        return;
-                                                                    }
-                                                                    Swal.fire({
-                                                                        title: '¿Sincronizar Packs?',
-                                                                        text: `Se aplicará "${firstPack.label || firstPack}" a todos los alumnos mostrados.`,
-                                                                        icon: 'question',
-                                                                        showCancelButton: true,
-                                                                        confirmButtonColor: '#10b981',
-                                                                        confirmButtonText: 'Sí, aplicar a todos'
-                                                                    }).then((result) => {
-                                                                        if (result.isConfirmed) {
-                                                                            const ids = filteredOrders.map(o => o.id);
-                                                                            bulkUpdateOrders(ids, { pack: firstPack });
-                                                                        }
-                                                                    });
-                                                                }}
-                                                                className="bg-primary/5 hover:bg-orange-500 hover:text-white text-primary/40 p-1.5 rounded-lg transition-colors"
-                                                                title="Sincronizar packs"
-                                                            >
-                                                                <Wand2 size={12} />
-                                                            </button>
-                                                        </div>
-                                                    </th>
-                                                    <th className="py-3 px-4 text-[10px] font-black uppercase tracking-wider text-primary/40 w-[150px] text-center bg-white">
-                                                        <div className="flex items-center justify-center gap-1.5 translate-x-1.5">
-                                                            <span>Estado</span>
-                                                            <button 
-                                                                onClick={(e) => { e.stopPropagation(); handleBulkStatusChange('students'); }}
-                                                                className="bg-rose-500/10 hover:bg-rose-500 hover:text-white text-rose-500 p-1.5 rounded-lg transition-colors border border-rose-500/10"
-                                                                title="Cambio masivo de estado"
-                                                            >
-                                                                <CheckCircle size={12} />
-                                                            </button>
-                                                        </div>
-                                                    </th>
-                                                    <th className="py-3 px-4 text-[10px] font-black uppercase tracking-wider text-primary/40 w-[180px] text-center bg-white border-l border-primary/5">URL Digital</th>
-                                                     <th className="py-3 px-4 text-[10px] font-black uppercase tracking-wider text-primary/40 w-[100px] text-center bg-white">Nº Archivo</th>
-                                                    <th className="py-3 px-4 text-[10px] font-black uppercase tracking-wider text-primary/40 w-[120px] text-right bg-white">Acciones</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {filteredOrders.map((order, idx) => (
-                                                    <tr key={order.id} className={`relative z-0 border-b border-primary/5 hover:bg-primary/[0.01] transition-colors group ${selectedOrderIds.includes(order.id) ? 'bg-orange-50/70' : ''} ${activeStudent?.id === order.id ? 'ring-2 ring-inset ring-orange-500/50 bg-orange-50' : ''}`}>
-                                                        <td className="py-4 px-3 text-center align-middle">
-                                                            <button onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setSelectedOrderIds(prev => prev.includes(order.id) ? prev.filter(id => id !== order.id) : [...prev, order.id]);
-                                                            }} className="text-primary/20 hover:text-orange-500 transition-colors">
-                                                                {selectedOrderIds.includes(order.id) ? <CheckSquare size={18} className="text-orange-500" /> : <Square size={18} />}
-                                                            </button>
-                                                        </td>
-                                                        <td className="py-4 px-3 text-center align-middle">
-                                                            <span className="text-[10px] font-mono font-black text-primary/30 group-hover:text-orange-500 transition-colors">
-                                                                {getGlobalRank(order.id)}
-                                                            </span>
-                                                        </td>
-                                                        <td className="py-4 px-3 text-center align-middle">
-                                                            <div className="relative group/photo mx-auto flex items-center justify-center">
-                                                                 <div 
-                                                                     onClick={() => handleIndividualFileClick(order.id, 'student')}
-                                                                     style={getShapeStyle(configOrla.photoShape || 'circle', 48, 48)}
-                                                                     className={`overflow-hidden shadow-sm flex items-center justify-center border transition-all cursor-pointer ${(order.digitalPhotoUrl || order.photoFile) ? 'border-emerald-500/20 hover:border-emerald-500 scale-110' : 'border-primary/5 bg-primary/5 hover:border-indigo-300'} ${['circle', 'shield', 'arch'].includes(configOrla.photoShape || 'circle') ? 'w-10 aspect-square' : 'w-10 aspect-[3/4]'}`}
-                                                                     title="Clic para subir/cambiar foto"
-                                                                 >
-                                                                    {getPhotoSrc(order) ? (
-                                                                        <img 
-                                                                            src={getPhotoSrc(order)} 
-                                                                            className="w-full h-full object-cover transition-opacity group-hover/photo:opacity-40" 
-                                                                            style={getPhotoTransform(order.photoConfig)}
-                                                                            alt="Foto" 
-                                                                        />
-                                                                    ) : (
-                                                                        <Camera size={16} className="text-primary/10 group-hover/photo:text-indigo-500" />
-                                                                    )}
-                                                                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/photo:opacity-100 transition-opacity bg-black/20">
-                                                                        <Upload size={14} className="text-white drop-shadow-md" />
-                                                                    </div>
-                                                                </div>
-
-                                                                {(order.digitalPhotoUrl || order.photoFile) && (
-                                                                    <button 
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            setReframingItem({ 
-                                                                                id: order.id, 
-                                                                                type: 'student', 
-                                                                                photoUrl: getPhotoSrc(order), 
-                                                                                name: order.studentName,
-                                                                                photoConfig: order.photoConfig || { zoom: 1, x: 0, y: 0 }
-                                                                            });
-                                                                        }}
-                                                                        className="absolute -right-2 -bottom-2 w-7 h-7 bg-white text-orange-600 rounded-full shadow-lg border border-primary/10 flex items-center justify-center opacity-0 group-hover/photo:opacity-100 transition-all hover:scale-110 z-10"
-                                                                        title="Reencuadrar foto"
-                                                                    >
-                                                                        <Maximize2 size={12} />
-                                                                    </button>
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                        <td className="py-4 px-3 overflow-hidden">
-                                                            <div className="flex flex-col gap-0.5 min-w-0">
-                                                                <input 
-                                                                    type="text" 
-                                                                    value={order.studentName || ''} 
-                                                                    onChange={(e) => updateOrder(order.id, { studentName: e.target.value.toUpperCase() })}
-                                                                    className="bg-transparent border-none p-0 text-[12px] font-black text-slate-800 uppercase focus:ring-0 focus:bg-white/50 rounded px-1 -ml-1 w-full"
-                                                                />
-                                                                <div className="flex items-center gap-1.5 flex-wrap">
-                                                                    <div className="flex items-center gap-1 shrink-0">
-                                                                        <User size={10} className="text-indigo-500" />
-                                                                        <input 
-                                                                            type="text" 
-                                                                            value={order.parentName || ''} 
-                                                                            onChange={(e) => updateOrder(order.id, { parentName: e.target.value.toUpperCase() })}
-                                                                            placeholder="SIN TUTOR"
-                                                                            className="bg-transparent border-none p-0 text-[10px] font-black text-indigo-600 uppercase focus:ring-0 focus:bg-white/50 rounded px-1 -ml-1 min-w-[100px]"
-                                                                        />
-                                                                    </div>
-                                                                    {order.phone && (
-                                                                        <div className="flex items-center gap-1 shrink-0">
-                                                                            <Phone size={10} className="text-emerald-500" />
-                                                                            <span className="text-[9px] font-bold text-emerald-600">{order.phone}</span>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        </td>
-
-
-                                                        <td className="py-4 px-3 align-middle">
-                                                            <div className="relative group/pack w-full">
-                                                                <select 
-                                                                    value={order.pack?.id || order.pack || ''} 
-                                                                    onChange={(e) => {
-                                                                        const selectedPack = availablePacks.find(p => p.id === e.target.value);
-                                                                        if (selectedPack) {
-                                                                            updateOrder(order.id, { pack: { id: selectedPack.id, label: selectedPack.name } });
-                                                                        } else if (e.target.value === 'manual') {
-                                                                            updateOrder(order.id, { pack: { id: 'manual', label: 'Personalizado' } });
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="w-full overflow-hidden">
+                                                <table className="w-full text-left border-collapse table-fixed">
+                                                    <thead className="bg-white sticky top-0 md:top-0 z-[110] border-b-2 border-primary/10 shadow-sm">
+                                                        <tr className="bg-white">
+                                                            <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-primary/40 w-[40px] text-center bg-white">
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        if (selectedOrderIds.length === filteredOrders.length && filteredOrders.length > 0) {
+                                                                            setSelectedOrderIds([]);
+                                                                        } else {
+                                                                            setSelectedOrderIds(filteredOrders.map(o => o.id));
                                                                         }
                                                                     }}
-                                                                    className={`w-full appearance-none bg-emerald-50 text-emerald-700 text-[9px] font-black uppercase tracking-tight px-3 py-2 rounded-lg border transition-all cursor-pointer outline-none ${
-                                                                        (order.pack?.id || order.pack) ? 'border-emerald-500/20 hover:border-emerald-500' : 'border-rose-200 bg-rose-50 text-rose-600 animate-pulse'
-                                                                    }`}
+                                                                    className="flex items-center justify-center w-full h-full text-primary/20 hover:text-orange-500 transition-colors"
                                                                 >
-                                                                    <option value="" disabled>PACK?</option>
-                                                                    {availablePacks.map(p => (
-                                                                        <option key={p.id} value={p.id}>{p.name}</option>
-                                                                    ))}
-                                                                    <option value="manual">PERSONALIZADO</option>
-                                                                </select>
-                                                                <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-emerald-500/40 pointer-events-none group-hover/pack:text-emerald-500" />
-                                                            </div>
-                                                        </td>
-                                                        <td className="py-4 px-3 text-center align-middle">
-                                                            <div className="relative inline-flex items-center">
-                                                                <select 
-                                                                    value={order.status || 'Pendiente'} 
-                                                                    onChange={(e) => updateOrder(order.id, { status: e.target.value })}
-                                                                    className="absolute inset-0 opacity-0 cursor-pointer z-10 w-full"
-                                                                >
-                                                                    <option value="Pendiente">PENDIENTE PAGO</option>
-                                                                    <option value="Pagado">HACER FOTO (PAGADO)</option>
-                                                                    <option value="Producido">LISTO / PRODUCIDO</option>
-                                                                    <option value="Entregado">ENTREGADO</option>
-                                                                </select>
-                                                                <div className={`px-2.5 py-1.5 rounded-lg flex items-center gap-2 min-w-[130px] transition-all shadow-sm border border-black/5 ${
-                                                                    order.status === 'Entregado' ? 'bg-emerald-500 text-white shadow-emerald-500/20' : 
-                                                                    order.status === 'Producido' ? 'bg-indigo-600 text-white shadow-indigo-600/20' : 
-                                                                    order.status === 'Pagado' || order.paymentMethod ? 'bg-amber-500 text-white shadow-amber-500/20' : 
-                                                                    'bg-rose-500 text-white shadow-rose-500/20'
-                                                                }`}>
-                                                                    <div className="bg-white/20 p-1 rounded-md shrink-0">
-                                                                        {order.status === 'Entregado' ? <CheckCircle2 size={12} /> : 
-                                                                         order.status === 'Producido' ? <Package size={12} /> : 
-                                                                         order.status === 'Pagado' || order.paymentMethod ? <Camera size={12} /> : 
-                                                                         <AlertCircle size={12} />}
-                                                                    </div>
-                                                                    <span className="text-[9px] font-black uppercase tracking-tight whitespace-nowrap">
-                                                                        {order.status === 'Entregado' ? 'ENTREGADO' : 
-                                                                         order.status === 'Producido' ? 'PRODUCIDO' : 
-                                                                         order.status === 'Pagado' || order.paymentMethod ? 'HACER FOTO' : 
-                                                                         'PENDIENTE'}
-                                                                    </span>
-                                                                    <ChevronDown size={10} className="ml-auto opacity-60" />
+                                                                    {selectedOrderIds.length === filteredOrders.length && filteredOrders.length > 0 ? <CheckSquare size={18} className="text-orange-500" /> : <Square size={18} />}
+                                                                </button>
+                                                            </th>
+                                                            <th 
+                                                                onClick={() => setShootSortMode('filename')}
+                                                                className={`py-4 px-3 text-[10px] font-black uppercase tracking-widest w-[50px] text-center bg-white cursor-pointer transition-all hover:bg-indigo-50/30 group/sort ${shootSortMode === 'filename' ? 'text-indigo-600' : 'text-primary/40 hover:text-primary'}`}
+                                                                title="Ordenar por Nº de Archivo"
+                                                            >
+                                                                <div className="flex flex-col items-center gap-0.5">
+                                                                    <span>Nº ORLA</span>
+                                                                    <ArrowDownUp size={10} className={`transition-opacity ${shootSortMode === 'filename' ? 'opacity-100' : 'opacity-0 group-hover/sort:opacity-100'}`} />
                                                                 </div>
-                                                            </div>
-                                                        </td>
-                                                        <td className="py-2 px-3 text-center align-middle border-x border-primary/5 min-w-[180px]">
-                                                            <div className="flex items-center justify-center relative group/url mx-auto w-full">
-                                                                <Link size={10} className="absolute left-2 text-indigo-500 opacity-40 group-focus-within/url:opacity-100 transition-opacity" />
-                                                                <input 
-                                                                    type="text" 
-                                                                    value={order.digitalPhotoUrl || ''} 
-                                                                    onChange={(e) => updateOrder(order.id, { digitalPhotoUrl: e.target.value })}
-                                                                    placeholder="https://..."
-                                                                    className="w-full bg-white/50 border border-primary/5 rounded-md pl-6 pr-2 py-1 text-[9px] font-mono text-primary placeholder:text-primary/10 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 outline-none transition-all truncate"
-                                                                />
-                                                            </div>
-                                                        </td>
-                                                        <td className="py-2 px-3 text-center align-middle">
-                                                            <div className="flex items-center justify-center relative group/input mx-auto w-[90px]">
-                                                                <Hash size={10} className="absolute left-2.5 text-orange-500 opacity-40 group-focus-within/input:opacity-100 transition-opacity" />
-                                                                <input 
-                                                                    type="text" 
-                                                                    value={order.photo_file_number || ''} 
-                                                                    onChange={(e) => updateOrder(order.id, { photo_file_number: e.target.value })}
-                                                                    placeholder={(idx + 1).toString().padStart(1, '0')}
-                                                                    className="w-full bg-white border border-primary/10 rounded-lg pl-7 pr-1.5 py-1.5 text-[11px] font-black text-center text-primary placeholder:text-primary/20 focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all shadow-sm"
-                                                                />
-                                                            </div>
-                                                        </td>
-                                                        <td className="py-2 px-3 text-right align-middle">
-                                                            <div className="flex items-center justify-end gap-1.5">
-                                                                <button onClick={() => selectStudent(order)} className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white rounded-lg transition-colors border border-blue-100 shadow-sm" title="Modo Disparo">
-                                                                    <Camera size={14} />
-                                                                </button>
-                                                                <button onClick={(e) => { e.stopPropagation(); handleStartEditOrder(order); }} className="p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-500 hover:text-white border border-indigo-100 rounded-lg transition-colors shadow-sm" title="Editar Ficha del Alumno">
-                                                                    <Pencil size={14} />
-                                                                </button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
+                                                            </th>
+                                                            <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-primary/40 w-[60px] text-center bg-white">Foto</th>
+                                                            <th 
+                                                                onClick={() => setShootSortMode('alphabetical')}
+                                                                className={`py-3 px-4 text-[10px] font-black uppercase tracking-wider w-[35%] bg-white text-center cursor-pointer transition-all hover:bg-indigo-50/30 group/sort ${shootSortMode === 'alphabetical' ? 'text-indigo-600' : 'text-primary/40 hover:text-primary'}`}
+                                                                title="Ordenar por Apellidos"
+                                                            >
+                                                                <div className="flex items-center justify-center gap-2">
+                                                                    <span>Alumno</span>
+                                                                    <ArrowDownUp size={12} className={`transition-opacity ${shootSortMode === 'alphabetical' ? 'opacity-100' : 'opacity-0 group-hover/sort:opacity-100'}`} />
+                                                                </div>
+                                                            </th>
+                                                            <th className="py-3 px-4 text-[10px] font-black uppercase tracking-wider text-primary/40 w-[180px] bg-white">
+                                                                <div className="flex items-center justify-center gap-2">
+                                                                    <span className="text-secondary">Pack</span>
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            const firstPack = filteredOrders[0]?.pack;
+                                                                            if (!firstPack) {
+                                                                                Swal.fire({
+                                                                                    title: 'Atención',
+                                                                                    text: 'Selecciona primero un pack para el primer alumno para poder replicarlo.',
+                                                                                    icon: 'warning'
+                                                                                });
+                                                                                return;
+                                                                            }
+                                                                            Swal.fire({
+                                                                                title: '¿Sincronizar Packs?',
+                                                                                text: `Se aplicará "${firstPack.label || firstPack}" a todos los alumnos mostrados.`,
+                                                                                icon: 'question',
+                                                                                showCancelButton: true,
+                                                                                confirmButtonColor: '#10b981',
+                                                                                confirmButtonText: 'Sí, aplicar a todos'
+                                                                            }).then((result) => {
+                                                                                if (result.isConfirmed) {
+                                                                                    const ids = filteredOrders.map(o => o.id);
+                                                                                    bulkUpdateOrders(ids, { pack: firstPack });
+                                                                                }
+                                                                            });
+                                                                        }}
+                                                                        className="bg-primary/5 hover:bg-orange-500 hover:text-white text-primary/40 p-1.5 rounded-lg transition-colors"
+                                                                        title="Sincronizar packs"
+                                                                    >
+                                                                        <Wand2 size={12} />
+                                                                    </button>
+                                                                </div>
+                                                            </th>
+                                                            <th className="py-3 px-4 text-[10px] font-black uppercase tracking-wider text-primary/40 w-[150px] text-center bg-white">
+                                                                    <div className="flex items-center justify-center gap-1.5">
+                                                                        <span>Estado</span>
+                                                                        <button
+                                                                            onClick={(e) => { e.stopPropagation(); handleBulkStatusChange('students'); }}
+                                                                            className="bg-rose-500/10 hover:bg-rose-500 hover:text-white text-rose-500 p-1.5 rounded-lg transition-colors border border-rose-500/10"
+                                                                            title="Cambio masivo de estado"
+                                                                        >
+                                                                            <CheckCircle size={12} />
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={(e) => { e.stopPropagation(); handleMoveToSchoolAction(); }}
+                                                                            className="bg-indigo-500/10 hover:bg-indigo-500 hover:text-white text-indigo-500 p-1.5 rounded-lg transition-colors border border-indigo-500/10"
+                                                                            title="Traspasar alumnos a otro centro"
+                                                                        >
+                                                                            <ArrowRight size={12} />
+                                                                        </button>
+                                                                    </div>
+                                                            </th>
+
+                                                            <th className="py-3 px-4 text-[10px] font-black uppercase tracking-wider text-primary/40 w-[100px] text-center bg-white">Nº Archivo</th>
+                                                            <th className="py-3 px-4 text-[10px] font-black uppercase tracking-wider text-primary/40 w-[120px] text-center bg-white">Acciones</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {filteredOrders.map((order, idx) => (
+                                                            <tr key={order.id} className={`relative z-0 border-b border-primary/5 hover:bg-primary/[0.01] transition-colors group ${selectedOrderIds.includes(order.id) ? 'bg-orange-50/70' : ''} ${activeStudent?.id === order.id ? 'ring-2 ring-inset ring-orange-500/50 bg-orange-50' : ''}`}>
+                                                                <td className="py-4 px-3 text-center align-middle">
+                                                                    <button onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setSelectedOrderIds(prev => prev.includes(order.id) ? prev.filter(id => id !== order.id) : [...prev, order.id]);
+                                                                    }} className="text-primary/20 hover:text-orange-500 transition-colors">
+                                                                        {selectedOrderIds.includes(order.id) ? <CheckSquare size={18} className="text-orange-500" /> : <Square size={18} />}
+                                                                    </button>
+                                                                </td>
+                                                                <td className="py-4 px-3 text-center align-middle">
+                                                                    <span className="text-[10px] font-mono font-black text-primary/30 group-hover:text-orange-500 transition-colors">
+                                                                        {getGlobalRank(order.id)}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="py-4 px-3 text-center align-middle">
+                                                                    <div className="relative group/photo mx-auto flex items-center justify-center">
+                                                                        <div
+                                                                            onClick={() => handleIndividualFileClick(order.id, 'student')}
+                                                                            style={getShapeStyle(configOrla.photoShape || 'circle', 48, 48)}
+                                                                            className={`overflow-hidden shadow-sm flex items-center justify-center border transition-all cursor-pointer ${(order.digitalPhotoUrl || order.photoFile) ? 'border-emerald-500/20 hover:border-emerald-500 scale-110' : 'border-primary/5 bg-primary/5 hover:border-indigo-300'} ${['circle', 'shield', 'arch'].includes(configOrla.photoShape || 'circle') ? 'w-10 aspect-square' : 'w-10 aspect-[3/4]'}`}
+                                                                            title="Clic para subir/cambiar foto"
+                                                                        >
+                                                                            {getPhotoSrc(order) ? (
+                                                                                <img
+                                                                                    src={getPhotoSrc(order)}
+                                                                                    className="w-full h-full object-cover transition-opacity group-hover/photo:opacity-40"
+                                                                                    style={getPhotoTransform(order.photoConfig)}
+                                                                                    alt="Foto"
+                                                                                />
+                                                                            ) : (
+                                                                                <Camera size={16} className="text-primary/10 group-hover/photo:text-indigo-500" />
+                                                                            )}
+                                                                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/photo:opacity-100 transition-opacity bg-black/20">
+                                                                                <Upload size={14} className="text-white drop-shadow-md" />
+                                                                            </div>
+                                                                        </div>
+
+                                                                        {(order.digitalPhotoUrl || order.photoFile) && (
+                                                                            <button
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    setReframingItem({
+                                                                                        id: order.id,
+                                                                                        type: 'student',
+                                                                                        photoUrl: getPhotoSrc(order),
+                                                                                        name: order.studentName,
+                                                                                        photoConfig: order.photoConfig || { zoom: 1, x: 0, y: 0 }
+                                                                                    });
+                                                                                }}
+                                                                                className="absolute -right-2 -bottom-2 w-7 h-7 bg-white text-orange-600 rounded-full shadow-lg border border-primary/10 flex items-center justify-center opacity-0 group-hover/photo:opacity-100 transition-all hover:scale-110 z-10"
+                                                                                title="Reencuadrar foto"
+                                                                            >
+                                                                                <Maximize2 size={12} />
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                </td>
+                                                                <td className="py-4 px-3 overflow-hidden">
+                                                                    <div className="flex flex-col gap-0.5 min-w-0">
+                                                                        <div className="flex items-center gap-2">
+                                                                            {order.role?.toUpperCase().includes('TUTOR') && (
+                                                                                <Star size={12} className="text-amber-500 fill-amber-500 shrink-0 shadow-sm" />
+                                                                            )}
+                                                                            <input
+                                                                                type="text"
+                                                                                value={order.studentName || ''}
+                                                                                onChange={(e) => updateOrder(order.id, { studentName: e.target.value.toUpperCase() })}
+                                                                                className="bg-transparent border-none p-0 text-[12px] font-black text-slate-800 uppercase focus:ring-0 focus:bg-white/50 rounded px-1 -ml-1 w-full"
+                                                                            />
+                                                                        </div>
+                                                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                                                            {order.phone && (
+                                                                                <div className="flex items-center gap-1 shrink-0">
+                                                                                    <Phone size={10} className="text-emerald-500" />
+                                                                                    <span className="text-[9px] font-bold text-emerald-600">{order.phone}</span>
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+
+
+                                                                <td className="py-4 px-3 align-middle">
+                                                                    <div className="relative group/pack w-full">
+                                                                        <select
+                                                                            value={order.pack?.id || order.pack || ''}
+                                                                            onChange={(e) => {
+                                                                                const selectedPack = availablePacks.find(p => p.id === e.target.value);
+                                                                                if (selectedPack) {
+                                                                                    updateOrder(order.id, { pack: { id: selectedPack.id, label: selectedPack.name } });
+                                                                                } else if (e.target.value === 'manual') {
+                                                                                    updateOrder(order.id, { pack: { id: 'manual', label: 'Personalizado' } });
+                                                                                }
+                                                                            }}
+                                                                            className={`w-full appearance-none bg-emerald-50 text-emerald-700 text-[9px] font-black uppercase tracking-tight px-3 py-2 rounded-lg border transition-all cursor-pointer outline-none ${(order.pack?.id || order.pack) ? 'border-emerald-500/20 hover:border-emerald-500' : 'border-rose-200 bg-rose-50 text-rose-600 animate-pulse'
+                                                                                }`}
+                                                                        >
+                                                                            <option value="" disabled>PACK?</option>
+                                                                            {availablePacks.map(p => (
+                                                                                <option key={p.id} value={p.id}>{p.name}</option>
+                                                                            ))}
+                                                                            <option value="manual">PERSONALIZADO</option>
+                                                                        </select>
+                                                                        <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-emerald-500/40 pointer-events-none group-hover/pack:text-emerald-500" />
+                                                                    </div>
+                                                                </td>
+                                                                <td className="py-4 px-3 text-center align-middle">
+                                                                    <div className="relative inline-flex items-center">
+                                                                        <select
+                                                                            value={order.status || 'Pendiente'}
+                                                                            onChange={(e) => updateOrder(order.id, { status: e.target.value })}
+                                                                            className="absolute inset-0 opacity-0 cursor-pointer z-10 w-full"
+                                                                        >
+                                                                            <option value="Pendiente">PENDIENTE PAGO</option>
+                                                                            <option value="Pagado">HACER FOTO (PAGADO)</option>
+                                                                            <option value="Producido">LISTO / PRODUCIDO</option>
+                                                                            <option value="Entregado">ENTREGADO</option>
+                                                                        </select>
+                                                                        <div className={`px-2.5 py-1.5 rounded-lg flex items-center gap-2 min-w-[130px] transition-all shadow-sm border border-black/5 ${order.status === 'Entregado' ? 'bg-emerald-500 text-white shadow-emerald-500/20' :
+                                                                            order.status === 'Producido' ? 'bg-indigo-600 text-white shadow-indigo-600/20' :
+                                                                                order.status === 'Pagado' || order.paymentMethod ? 'bg-amber-500 text-white shadow-amber-500/20' :
+                                                                                    'bg-rose-500 text-white shadow-rose-500/20'
+                                                                            }`}>
+                                                                            <div className="bg-white/20 p-1 rounded-md shrink-0">
+                                                                                {order.status === 'Entregado' ? <CheckCircle2 size={12} /> :
+                                                                                    order.status === 'Producido' ? <Package size={12} /> :
+                                                                                        order.status === 'Pagado' || order.paymentMethod ? <Camera size={12} /> :
+                                                                                            <AlertCircle size={12} />}
+                                                                            </div>
+                                                                            <span className="text-[9px] font-black uppercase tracking-tight whitespace-nowrap">
+                                                                                {order.status === 'Entregado' ? 'ENTREGADO' :
+                                                                                    order.status === 'Producido' ? 'PRODUCIDO' :
+                                                                                        order.status === 'Pagado' || order.paymentMethod ? 'HACER FOTO' :
+                                                                                            'PENDIENTE'}
+                                                                            </span>
+                                                                            <ChevronDown size={10} className="ml-auto opacity-60" />
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+
+                                                                <td className="py-2 px-3 text-center align-middle">
+                                                                    <div className="flex items-center justify-center relative group/input mx-auto w-[90px]">
+                                                                        <Hash size={10} className="absolute left-2.5 text-orange-500 opacity-40 group-focus-within/input:opacity-100 transition-opacity" />
+                                                                        <input
+                                                                            type="text"
+                                                                            value={order.photo_file_number || ''}
+                                                                            onChange={(e) => updateOrder(order.id, { photo_file_number: e.target.value })}
+                                                                            placeholder={(idx + 1).toString().padStart(1, '0')}
+                                                                            className="w-full bg-white border border-primary/10 rounded-lg pl-7 pr-1.5 py-1.5 text-[11px] font-black text-center text-primary placeholder:text-primary/20 focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all shadow-sm"
+                                                                        />
+                                                                    </div>
+                                                                </td>
+                                                                <td className="py-2 px-3 text-right align-middle">
+                                                                    <div className="flex items-center justify-end gap-1.5 font-black">
+                                                                        {/* BOTONES DE MOVIMIENTO */}
+                                                                        <div className="flex flex-col gap-0.5 mr-1">
+                                                                            <button 
+                                                                                onClick={(e) => { e.stopPropagation(); handleMoveInView(idx, 'up', 'student'); }}
+                                                                                disabled={idx === 0}
+                                                                                className="p-1 text-primary/30 hover:text-indigo-600 disabled:opacity-0 transition-colors"
+                                                                                title="Subir Alumno"
+                                                                            >
+                                                                                <ChevronUp size={14} />
+                                                                            </button>
+                                                                            <button 
+                                                                                onClick={(e) => { e.stopPropagation(); handleMoveInView(idx, 'down', 'student'); }}
+                                                                                disabled={idx === filteredOrders.length - 1}
+                                                                                className="p-1 text-primary/30 hover:text-indigo-600 disabled:opacity-0 transition-colors"
+                                                                                title="Bajar Alumno"
+                                                                            >
+                                                                                <ChevronDown size={14} />
+                                                                            </button>
+                                                                        </div>
+
+                                                                        <button onClick={() => selectStudent(order)} className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white rounded-lg transition-colors border border-blue-100 shadow-sm" title="Modo Disparo">
+                                                                            <Camera size={14} />
+                                                                        </button>
+                                                                        <button onClick={(e) => { e.stopPropagation(); handleStartEditOrder(order); }} className="p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-500 hover:text-white border border-indigo-100 rounded-lg transition-colors shadow-sm" title="Editar Ficha del Alumno">
+                                                                            <Pencil size={14} />
+                                                                        </button>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
                                             </div>
                                         )}
                                     </div>
@@ -2199,758 +2464,788 @@ const ShootingPanel = ({
                     </div>
                 )}
 
-        {shootMode === 'staff' && (
-            <div className="flex flex-col h-full overflow-hidden animate-fade-in text-primary">
-                {adminSchool && (
-                    <>
-                        {/* GESTIÓN DE ARCHIVOS PARA DOCENTES */}
-                        <div className="px-4 mb-4 shrink-0">
-                            <div className="bg-card border border-primary/10 border-l-4 border-l-emerald-500 rounded-[16px] shadow-sm overflow-hidden">
-                                <div className="px-5 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-500">
-                                            <FolderUp size={20} />
-                                        </div>
-                                        <div className="text-left">
-                                            <h2 className="text-sm font-black uppercase tracking-widest text-primary">Gestión de Archivos (Docentes)</h2>
-                                            <p className="text-[10px] text-primary/40 font-bold uppercase tracking-wider italic">Subida de fotos e importación de listado docente</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-3 w-full md:w-auto">
-                                        <div className="h-[44px] flex items-center gap-3 px-5 rounded-xl bg-emerald-50 border border-emerald-100 shadow-sm">
-                                            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-600">
-                                                <Camera size={16} />
+                {shootMode === 'staff' && (
+                    <div className="flex flex-col h-full overflow-hidden animate-fade-in text-primary">
+                        {adminSchool && (
+                            <>
+                                {/* GESTIÓN DE ARCHIVOS PARA DOCENTES */}
+                                <div className="px-4 mb-4 shrink-0">
+                                    <div className="bg-card border border-primary/10 border-l-4 border-l-emerald-500 rounded-[16px] shadow-sm overflow-hidden">
+                                        <div className="px-5 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-500">
+                                                    <FolderUp size={20} />
+                                                </div>
+                                                <div className="text-left">
+                                                    <h2 className="text-sm font-black uppercase tracking-widest text-primary">Gestión de Archivos (Docentes)</h2>
+                                                    <p className="text-[10px] text-primary/40 font-bold uppercase tracking-wider italic">Subida de fotos e importación de listado docente</p>
+                                                </div>
                                             </div>
-                                            <div className="flex flex-col">
-                                                <span className="text-emerald-400 text-[9px] font-black uppercase leading-tight">Fotos Subidas</span>
-                                                <span className="text-emerald-700 text-[11px] font-black leading-tight">
-                                                    {filteredStaff.filter(s => getPhotoSrc(s)).length} / {filteredStaff.length}
-                                                </span>
+                                            <div className="flex items-center gap-3 w-full md:w-auto">
+                                                <div className="h-[44px] flex items-center gap-3 px-5 rounded-xl bg-emerald-50 border border-emerald-100 shadow-sm">
+                                                    <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-600">
+                                                        <Camera size={16} />
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-emerald-400 text-[9px] font-black uppercase leading-tight">Fotos Subidas</span>
+                                                        <span className="text-emerald-700 text-[11px] font-black leading-tight">
+                                                            {filteredStaff.filter(s => getPhotoSrc(s)).length} / {filteredStaff.length}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                {/* inputs ocultos para Excel (los botones están en el header) */}
+                                                <input
+                                                    id="excel-import-input-staff"
+                                                    type="file"
+                                                    accept=".xlsx, .xls"
+                                                    className="hidden"
+                                                    onChange={handleExcelImport}
+                                                />
                                             </div>
                                         </div>
-                                        {/* inputs ocultos para Excel (los botones están en el header) */}
-                                        <input 
-                                            id="excel-import-input-staff"
-                                            type="file" 
-                                            accept=".xlsx, .xls" 
-                                            className="hidden" 
-                                            onChange={handleExcelImport}
-                                        />
                                     </div>
                                 </div>
-                            </div>
-                        </div>
 
-                        {/* ═══ ISLA: ALTA RÁPIDA DOCENTE ═══ */}
-                        <div className="px-4 mb-4 shrink-0 focus-within:z-50">
-                                <div className="bg-card border border-primary/10 border-l-4 border-l-emerald-500 rounded-[16px] overflow-hidden text-primary shadow-sm">
-                                    <button onClick={() => setIsStaffQuickAddExpanded(!isStaffQuickAddExpanded)} className="w-full px-5 py-4 flex items-center justify-between hover:bg-primary/[0.02] transition-colors text-primary border-b border-primary/5">
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-emerald-400/10 rounded-xl text-emerald-500"><Zap size={18} /></div>
-                                            <div className="text-left">
-                                                <h3 className="text-xs font-black text-primary uppercase tracking-wider">Alta Rápida Docente</h3>
-                                                <p className="text-[10px] text-secondary font-bold opacity-60 uppercase">Nombre, apellidos y cargo instantáneo</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <div className="flex items-center gap-4 mr-4">
-                                                {newStaffForm.firstName && (
-                                                    <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 rounded-full border border-emerald-500/20">
-                                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                                        <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">En curso</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                            {isStaffQuickAddExpanded ? <ChevronUp size={20} className="text-primary/20" /> : <ChevronDown size={20} className="text-primary/20" />}
-                                        </div>
-                                    </button>
-
-                                    {isStaffQuickAddExpanded && (
-                                        <div className="px-5 pb-5 border-t border-primary/5 animate-in slide-in-from-top-2 duration-300">
-                                            {/* FILA 1: NOMBRE, APELLIDOS Y CARGO */}
-                                            <div className="grid grid-cols-1 md:grid-cols-12 gap-5 pt-5 pb-5 border-b border-dashed border-primary/20 align-end">
-                                                <div className="md:col-span-3 space-y-2">
-                                                    <p className="text-[10px] font-bold uppercase tracking-widest text-primary/40 pl-1">Nombre</p>
-                                                    <div className="flex items-center bg-transparent border border-primary/10 rounded-xl overflow-hidden focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/50 transition-all group/field">
-                                                        <div className="px-4 py-3 border-r border-primary/10 text-primary/30 group-focus-within/field:text-emerald-500 transition-colors">
-                                                            <Users size={18} />
-                                                        </div>
-                                                        <input type="text" value={newStaffForm.firstName} onChange={e => setNewStaffForm(p => ({ ...p, firstName: e.target.value }))} placeholder="Nombre..." className="flex-1 bg-transparent px-4 py-3 text-[13px] text-primary placeholder:text-primary/20 outline-none" />
-                                                    </div>
-                                                </div>
-
-                                                <div className="md:col-span-5 space-y-2">
-                                                    <p className="text-[10px] font-bold uppercase tracking-widest text-primary/40 pl-1">Apellidos</p>
-                                                    <div className="flex items-center bg-transparent border border-primary/10 rounded-xl overflow-hidden focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/50 transition-all group/field">
-                                                        <div className="px-4 py-3 border-r border-primary/10 text-primary/30 group-focus-within/field:text-emerald-500 transition-colors">
-                                                            <Users size={18} />
-                                                        </div>
-                                                        <input type="text" value={newStaffForm.lastName} onChange={e => setNewStaffForm(p => ({ ...p, lastName: e.target.value }))} placeholder="Apellidos..." className="flex-1 bg-transparent px-4 py-3 text-[13px] text-primary placeholder:text-primary/20 outline-none" />
-                                                    </div>
-                                                </div>
-
-                                                <div className="md:col-span-4 space-y-2">
-                                                    <p className="text-[10px] font-bold uppercase tracking-widest text-primary/40 pl-1">Cargo / Función</p>
-                                                    <div className="flex items-center bg-transparent border border-primary/20 rounded-[14px] overflow-hidden focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/50 transition-all group/select relative">
-                                                        <div className="px-4 py-3 border-r border-primary/20 text-primary/30 group-focus-within/select:text-emerald-500 transition-colors">
-                                                            <UserCheck size={18} />
-                                                        </div>
-                                                        <select value={newStaffForm.role} onChange={e => setNewStaffForm(p => ({ ...p, role: e.target.value }))} className="flex-1 bg-transparent px-4 py-3 text-[13px] font-bold uppercase outline-none appearance-none cursor-pointer text-primary pr-10 min-w-0">
-                                                            <option value="">Seleccionar Cargo</option>
-                                                            {Object.entries(STAFF_ROLES).map(([key, value]) => (
-                                                                <option key={key} value={value}>{key}</option>
-                                                            ))}
-                                                        </select>
-                                                        <div className="absolute right-4 pointer-events-none text-primary/30 group-focus-within/select:text-emerald-500 transition-colors">
-                                                            <ChevronDown size={16} />
-                                                        </div>
-                                                    </div>
+                                {/* ═══ ISLA: ALTA RÁPIDA DOCENTE ═══ */}
+                                <div className="px-4 mb-4 shrink-0 focus-within:z-50">
+                                    <div className="bg-card border border-primary/10 border-l-4 border-l-emerald-500 rounded-[16px] overflow-hidden text-primary shadow-sm">
+                                        <button onClick={() => setIsStaffQuickAddExpanded(!isStaffQuickAddExpanded)} className="w-full px-5 py-4 flex items-center justify-between hover:bg-primary/[0.02] transition-colors text-primary border-b border-primary/5">
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-2 bg-emerald-400/10 rounded-xl text-emerald-500"><Zap size={18} /></div>
+                                                <div className="text-left">
+                                                    <h3 className="text-xs font-black text-primary uppercase tracking-wider">Alta Rápida Docente</h3>
+                                                    <p className="text-[10px] text-secondary font-bold opacity-60 uppercase">Nombre, apellidos y cargo instantáneo</p>
                                                 </div>
                                             </div>
-
-                                            {/* FILA 2: ASIGNACIÓN DE CLASES (DINÁMICA) */}
-                                            <div className="pt-5 border-b border-dashed border-primary/20 pb-5">
-                                                <p className="text-[10px] font-bold uppercase tracking-widest text-primary/40 pl-1 mb-3 flex items-center gap-2">
-                                                    <Users size={12} /> Asignación de Clases y Grupos
-                                                </p>
-                                                
-                                                <div className="flex flex-wrap gap-2 mb-4">
-                                                    {newStaffForm.assignments.map((asg, idx) => (
-                                                        <div key={idx} className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-xl group/asg">
-                                                            <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">
-                                                                {asg.course} {asg.group && `· ${asg.group}`}
-                                                            </span>
-                                                            <button 
-                                                                onClick={() => setNewStaffForm(p => ({ ...p, assignments: p.assignments.filter((_, i) => i !== idx) }))}
-                                                                className="text-indigo-400 hover:text-rose-500 transition-colors"
-                                                                title="Eliminar esta asignación de clase"
-                                                            >
-                                                                <XCircle size={14} />
-                                                            </button>
+                                            <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-4 mr-4">
+                                                    {newStaffForm.firstName && (
+                                                        <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 rounded-full border border-emerald-500/20">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                            <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">En curso</span>
                                                         </div>
-                                                    ))}
-                                                    {newStaffForm.assignments.length === 0 && (
-                                                        <p className="text-[10px] font-bold text-primary/20 uppercase tracking-wider italic py-1">Sin clases asignadas aún</p>
                                                     )}
                                                 </div>
+                                                {isStaffQuickAddExpanded ? <ChevronUp size={20} className="text-primary/20" /> : <ChevronDown size={20} className="text-primary/20" />}
+                                            </div>
+                                        </button>
 
-                                                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end bg-primary/[0.02] p-4 rounded-2xl border border-primary/5">
-                                                    <div className="md:col-span-5 space-y-2">
-                                                        <p className="text-[9px] font-bold uppercase tracking-widest text-primary/40 pl-1">Elegir Curso</p>
-                                                        <div className="flex items-center bg-transparent border border-primary/10 rounded-xl overflow-hidden focus-within:border-emerald-500/50 transition-all group/sel relative">
-                                                            <div className="px-3 py-2 border-r border-primary/10 text-primary/30 group-focus-within/sel:text-emerald-500 transition-colors">
-                                                                <LayoutGrid size={16} />
-                                                            </div>
-                                                            <select value={newStaffForm.tempCourse} onChange={e => setNewStaffForm(p => ({ ...p, tempCourse: e.target.value, tempGroup: '' }))} className="flex-1 bg-transparent px-3 py-2 text-[12px] font-bold uppercase outline-none appearance-none cursor-pointer text-primary pr-8 min-w-0">
-                                                                <option value="">Curso...</option>
-                                                                {COURSE_GROUPS.flatMap(g => g.courses).map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
-                                                            </select>
-                                                            <div className="absolute right-3 pointer-events-none text-primary/30"><ChevronDown size={14} /></div>
-                                                        </div>
-                                                    </div>
+                                        {isStaffQuickAddExpanded && (
+                                            <div className="px-5 pb-5 border-t border-primary/5 animate-in slide-in-from-top-2 duration-300">
+                                                {/* FILA 1: NOMBRE, APELLIDOS Y CARGO */}
+                                                <div className="grid grid-cols-1 md:grid-cols-12 gap-5 pt-5 pb-5 border-b border-dashed border-primary/20 align-end">
                                                     <div className="md:col-span-3 space-y-2">
-                                                        <p className="text-[9px] font-bold uppercase tracking-widest text-primary/40 pl-1">Grupo</p>
-                                                        <div className="flex items-center bg-transparent border border-primary/10 rounded-xl overflow-hidden focus-within:border-emerald-500/50 transition-all group/sel relative">
-                                                            <div className="px-3 py-2 border-r border-primary/10 text-primary/30 group-focus-within/sel:text-emerald-500 transition-colors">
-                                                                <Hash size={16} />
+                                                        <p className="text-[10px] font-bold uppercase tracking-widest text-primary/40 pl-1">Nombre</p>
+                                                        <div className="flex items-center bg-transparent border border-primary/10 rounded-xl overflow-hidden focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/50 transition-all group/field">
+                                                            <div className="px-4 py-3 border-r border-primary/10 text-primary/30 group-focus-within/field:text-emerald-500 transition-colors">
+                                                                <Users size={18} />
                                                             </div>
-                                                            <select value={newStaffForm.tempGroup} onChange={e => setNewStaffForm(p => ({ ...p, tempGroup: e.target.value }))} className="flex-1 bg-transparent px-3 py-2 text-[12px] font-bold uppercase outline-none appearance-none cursor-pointer text-primary pr-8 min-w-0 text-center">
-                                                                <option value="">-</option>
-                                                                {staffFormAvailableGroups.map(g => <option key={g} value={g}>{g}</option>)}
-                                                            </select>
-                                                            <div className="absolute right-3 pointer-events-none text-primary/30"><ChevronDown size={14} /></div>
+                                                            <input type="text" value={newStaffForm.firstName} onChange={e => setNewStaffForm(p => ({ ...p, firstName: e.target.value }))} placeholder="Nombre..." className="flex-1 bg-transparent px-4 py-3 text-[13px] text-primary placeholder:text-primary/20 outline-none" />
                                                         </div>
                                                     </div>
-                                                    <div className="md:col-span-4">
-                                                        <button 
-                                                            onClick={() => {
-                                                                if (!newStaffForm.tempCourse) return;
-                                                                const newAsg = { schoolId: adminSchool, course: newStaffForm.tempCourse, group: newStaffForm.tempGroup };
-                                                                setNewStaffForm(p => ({
-                                                                    ...p,
-                                                                    assignments: [...p.assignments.filter(a => !(a.course === newAsg.course && a.group === newAsg.group)), newAsg],
-                                                                    tempCourse: '',
-                                                                    tempGroup: ''
-                                                                }));
-                                                            }}
-                                                            disabled={!newStaffForm.tempCourse}
-                                                            className="w-full h-[40px] bg-emerald-500/10 hover:bg-emerald-500 text-emerald-600 hover:text-white border border-emerald-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 disabled:opacity-30 shadow-sm"
-                                                            title="Vincular este curso al docente seleccionado"
-                                                        >
-                                                            <Plus size={14} /> Añadir Clase
-                                                        </button>
+
+                                                    <div className="md:col-span-5 space-y-2">
+                                                        <p className="text-[10px] font-bold uppercase tracking-widest text-primary/40 pl-1">Apellidos</p>
+                                                        <div className="flex items-center bg-transparent border border-primary/10 rounded-xl overflow-hidden focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/50 transition-all group/field">
+                                                            <div className="px-4 py-3 border-r border-primary/10 text-primary/30 group-focus-within/field:text-emerald-500 transition-colors">
+                                                                <Users size={18} />
+                                                            </div>
+                                                            <input type="text" value={newStaffForm.lastName} onChange={e => setNewStaffForm(p => ({ ...p, lastName: e.target.value }))} placeholder="Apellidos..." className="flex-1 bg-transparent px-4 py-3 text-[13px] text-primary placeholder:text-primary/20 outline-none" />
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="md:col-span-4 space-y-2">
+                                                        <p className="text-[10px] font-bold uppercase tracking-widest text-primary/40 pl-1">Cargo / Función</p>
+                                                        <div className="flex items-center bg-transparent border border-primary/20 rounded-[14px] overflow-hidden focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/50 transition-all group/select relative">
+                                                            <div className="px-4 py-3 border-r border-primary/20 text-primary/30 group-focus-within/select:text-emerald-500 transition-colors">
+                                                                <UserCheck size={18} />
+                                                            </div>
+                                                            <select value={newStaffForm.role} onChange={e => setNewStaffForm(p => ({ ...p, role: e.target.value }))} className="flex-1 bg-transparent px-4 py-3 text-[13px] font-bold uppercase outline-none appearance-none cursor-pointer text-primary pr-10 min-w-0">
+                                                                <option value="">Seleccionar Cargo</option>
+                                                                {Object.entries(STAFF_ROLES).map(([key, value]) => (
+                                                                    <option key={key} value={value}>{key}</option>
+                                                                ))}
+                                                            </select>
+                                                            <div className="absolute right-4 pointer-events-none text-primary/30 group-focus-within/select:text-emerald-500 transition-colors">
+                                                                <ChevronDown size={16} />
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
 
-                                            {/* FILA 3: GUARDAR */}
-                                            <div className="pt-5 flex justify-end">
-                                                <button onClick={handleSaveStaffQuickAdd} disabled={!newStaffForm.firstName || !newStaffForm.lastName || !newStaffForm.role} className="w-full md:w-auto px-10 h-[46px] bg-[#52b788] hover:bg-[#40a075] disabled:bg-primary/5 disabled:border disabled:border-primary/10 disabled:text-primary/20 text-white text-[14px] font-bold rounded-xl shadow-md shadow-emerald-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2" title="Crear y guardar nuevo perfil docente en este centro">
-                                                    <CheckCircle2 size={18} /> Guardar Docente
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
+                                                {/* FILA 2: ASIGNACIÓN DE CLASES (DINÁMICA) */}
+                                                <div className="pt-5 border-b border-dashed border-primary/20 pb-5">
+                                                    <p className="text-[10px] font-bold uppercase tracking-widest text-primary/40 pl-1 mb-3 flex items-center gap-2">
+                                                        <Users size={12} /> Asignación de Clases y Grupos
+                                                    </p>
 
-                        <div className="flex-1 px-4 py-4 text-primary flex flex-col items-center">
-                            <div className="w-full max-w-[1700px] bg-card rounded-[16px] border border-primary/10 border-l-4 border-l-indigo-500 shadow-xl flex flex-col">
-                                <div 
-                                    onClick={() => setIsStaffListExpanded(!isStaffListExpanded)} 
-                                    className="w-full p-4 md:p-5 border-b border-primary/5 flex justify-between items-center shrink-0 hover:bg-primary/[0.02] transition-colors cursor-pointer text-left"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-500 shrink-0">
-                                            <UserCheck size={20} />
-                                        </div>
-                                        <div className="text-left">
-                                            <h2 className="text-sm font-black uppercase tracking-widest text-primary">Listado de Docentes</h2>
-                                            <p className="text-[10px] text-primary/40 font-bold uppercase tracking-wider">
-                                                {filteredStaff.length} docentes encontrados
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        {isStaffListExpanded && (
-                                            <div className="flex items-center gap-3">
-                                                <div className="hidden md:flex items-center gap-3 mr-3" onClick={e => e.stopPropagation()}>
-                                                    <button 
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            Swal.fire({
-                                                                title: '¿Auto-Numerar Docentes?',
-                                                                text: `Se asignarán números del 0001 al ${filteredStaff.length.toString().padStart(4, '0')} a los docentes visibles.`,
-                                                                icon: 'question',
-                                                                showCancelButton: true,
-                                                                confirmButtonColor: '#6366f1',
-                                                                cancelButtonColor: '#6b7280',
-                                                                confirmButtonText: 'Sí, Numerar',
-                                                                cancelButtonText: 'Cancelar'
-                                                            }).then((result) => {
-                                                                if (result.isConfirmed) {
-                                                                    const updated = staff.map(m => {
-                                                                        const fIndex = filteredStaff.findIndex(fm => fm.id === m.id);
-                                                                        if (fIndex !== -1) {
-                                                                            return { ...m, photo_file_number: (fIndex + 1).toString().padStart(4, '0') };
-                                                                        }
-                                                                        return m;
-                                                                    });
-                                                                    updateAllStaff(updated);
-                                                                    Swal.fire({ icon: 'success', title: 'Numeración Aplicada', text: 'Se ha asignado el Nº de foto secuencial a los docentes.', timer: 1500, showConfirmButton: false });
-                                                                }
-                                                            });
-                                                        }} 
-                                                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-md shadow-indigo-500/20 active:scale-[0.98] transition-all flex items-center gap-2" 
-                                                        title="Asignar números de foto 0001, 0002... a los docentes filtrados"
-                                                    >
-                                                        <Hash size={15} /> Auto-Numerar
+                                                    <div className="flex flex-wrap gap-2 mb-4">
+                                                        {newStaffForm.assignments.map((asg, idx) => (
+                                                            <div key={idx} className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-xl group/asg">
+                                                                <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">
+                                                                    {asg.course} {asg.group && `· ${asg.group}`}
+                                                                </span>
+                                                                <button
+                                                                    onClick={() => setNewStaffForm(p => ({ ...p, assignments: p.assignments.filter((_, i) => i !== idx) }))}
+                                                                    className="text-indigo-400 hover:text-rose-500 transition-colors"
+                                                                    title="Eliminar esta asignación de clase"
+                                                                >
+                                                                    <XCircle size={14} />
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                        {newStaffForm.assignments.length === 0 && (
+                                                            <p className="text-[10px] font-bold text-primary/20 uppercase tracking-wider italic py-1">Sin clases asignadas aún</p>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end bg-primary/[0.02] p-4 rounded-2xl border border-primary/5">
+                                                        <div className="md:col-span-5 space-y-2">
+                                                            <p className="text-[9px] font-bold uppercase tracking-widest text-primary/40 pl-1">Elegir Curso</p>
+                                                            <div className="flex items-center bg-transparent border border-primary/10 rounded-xl overflow-hidden focus-within:border-emerald-500/50 transition-all group/sel relative">
+                                                                <div className="px-3 py-2 border-r border-primary/10 text-primary/30 group-focus-within/sel:text-emerald-500 transition-colors">
+                                                                    <LayoutGrid size={16} />
+                                                                </div>
+                                                                <select value={newStaffForm.tempCourse} onChange={e => setNewStaffForm(p => ({ ...p, tempCourse: e.target.value, tempGroup: '' }))} className="flex-1 bg-transparent px-3 py-2 text-[12px] font-bold uppercase outline-none appearance-none cursor-pointer text-primary pr-8 min-w-0">
+                                                                    <option value="">Curso...</option>
+                                                                    {COURSE_GROUPS.flatMap(g => g.courses).map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                                                                </select>
+                                                                <div className="absolute right-3 pointer-events-none text-primary/30"><ChevronDown size={14} /></div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="md:col-span-3 space-y-2">
+                                                            <p className="text-[9px] font-bold uppercase tracking-widest text-primary/40 pl-1">Grupo</p>
+                                                            <div className="flex items-center bg-transparent border border-primary/10 rounded-xl overflow-hidden focus-within:border-emerald-500/50 transition-all group/sel relative">
+                                                                <div className="px-3 py-2 border-r border-primary/10 text-primary/30 group-focus-within/sel:text-emerald-500 transition-colors">
+                                                                    <Hash size={16} />
+                                                                </div>
+                                                                <select value={newStaffForm.tempGroup} onChange={e => setNewStaffForm(p => ({ ...p, tempGroup: e.target.value }))} className="flex-1 bg-transparent px-3 py-2 text-[12px] font-bold uppercase outline-none appearance-none cursor-pointer text-primary pr-8 min-w-0 text-center">
+                                                                    <option value="">-</option>
+                                                                    {staffFormAvailableGroups.map(g => <option key={g} value={g}>{g}</option>)}
+                                                                </select>
+                                                                <div className="absolute right-3 pointer-events-none text-primary/30"><ChevronDown size={14} /></div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="md:col-span-4">
+                                                            <button
+                                                                onClick={() => {
+                                                                    if (!newStaffForm.tempCourse) return;
+                                                                    const newAsg = { schoolId: adminSchool, course: newStaffForm.tempCourse, group: newStaffForm.tempGroup };
+                                                                    setNewStaffForm(p => ({
+                                                                        ...p,
+                                                                        assignments: [...p.assignments.filter(a => !(a.course === newAsg.course && a.group === newAsg.group)), newAsg],
+                                                                        tempCourse: '',
+                                                                        tempGroup: ''
+                                                                    }));
+                                                                }}
+                                                                disabled={!newStaffForm.tempCourse}
+                                                                className="w-full h-[40px] bg-emerald-500/10 hover:bg-emerald-500 text-emerald-600 hover:text-white border border-emerald-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 disabled:opacity-30 shadow-sm"
+                                                                title="Vincular este curso al docente seleccionado"
+                                                            >
+                                                                <Plus size={14} /> Añadir Clase
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* FILA 3: GUARDAR */}
+                                                <div className="pt-5 flex justify-end">
+                                                    <button onClick={handleSaveStaffQuickAdd} disabled={!newStaffForm.firstName || !newStaffForm.lastName || !newStaffForm.role} className="w-full md:w-auto px-10 h-[46px] bg-[#52b788] hover:bg-[#40a075] disabled:bg-primary/5 disabled:border disabled:border-primary/10 disabled:text-primary/20 text-white text-[14px] font-bold rounded-xl shadow-md shadow-emerald-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2" title="Crear y guardar nuevo perfil docente en este centro">
+                                                        <CheckCircle2 size={18} /> Guardar Docente
                                                     </button>
                                                 </div>
-                                                <div className="hidden md:flex items-center gap-1 p-1 rounded-xl bg-primary/[0.02] border border-primary/10 shadow-sm mr-2" onClick={e => e.stopPropagation()}>
-                                                    <button 
-                                                        onClick={() => setViewStyle('gallery')}
-                                                        className={`h-8 px-3 rounded-lg transition-all flex items-center justify-center gap-2 ${viewStyle === 'gallery' ? 'bg-indigo-600 shadow-sm text-white' : 'text-primary/40 hover:text-primary hover:bg-primary/5'}`}
-                                                        title="Modo Galería"
-                                                    >
-                                                        <LayoutGrid size={14} /> <span className="text-[9px] font-black uppercase">Galería</span>
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => { setViewStyle('list'); setStaffViewStyle('grid'); }} 
-                                                        className={`w-8 h-8 rounded-lg transition-all flex items-center justify-center ${viewStyle !== 'gallery' && staffViewStyle === 'grid' ? 'bg-white shadow-sm text-slate-900 border border-primary/5' : 'text-primary/40 hover:text-primary hover:bg-primary/5'}`} 
-                                                        title="Cuadrícula"
-                                                    >
-                                                        <LayoutGrid size={16} />
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => { setViewStyle('list'); setStaffViewStyle('list'); }} 
-                                                        className={`w-8 h-8 rounded-lg transition-all flex items-center justify-center ${viewStyle !== 'gallery' && staffViewStyle === 'list' ? 'bg-white shadow-sm text-slate-900 border border-primary/5' : 'text-primary/40 hover:text-primary hover:bg-primary/5'}`} 
-                                                        title="Lista"
-                                                    >
-                                                        <List size={18} />
-                                                    </button>
-                                                </div>
-                                                <button 
-                                                    onClick={(e) => { e.stopPropagation(); setAdminTab('design'); }}
-                                                    className="h-[36px] px-4 bg-violet-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-violet-700 transition-all shadow-md active:scale-95 flex items-center gap-2"
-                                                >
-                                                    <Eye size={14} /> Ver Orla
-                                                </button>
                                             </div>
                                         )}
-                                        <div className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-primary/5 transition-colors">
-                                            {isStaffListExpanded ? <ChevronUp size={20} className="text-primary/40" /> : <ChevronDown size={20} className="text-primary/40" />}
-                                        </div>
                                     </div>
                                 </div>
 
-                                {isStaffListExpanded && (
-                                    <div className="flex-1 custom-scrollbar p-0">
-                                        {viewStyle === 'gallery' ? (
-                                            <div className="p-4 md:p-6 w-full animate-in fade-in duration-500">
-                                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
-                                                    {filteredStaff.map(member => (
-                                                        <div 
-                                                            key={member.id} 
-                                                            onClick={() => {
-                                                                const src = getPhotoSrc(member);
-                                                                if (src) {
-                                                                    setReframingItem({ 
-                                                                        id: member.id, 
-                                                                        type: 'staff', 
-                                                                        photoUrl: src, 
-                                                                        name: `${member.firstName} ${member.lastName}`,
-                                                                        photoConfig: member.photoConfig || { zoom: 1, x: 0, y: 0 }
-                                                                    });
-                                                                }
-                                                            }}
-                                                            className={`relative border overflow-hidden group/gallery hover:shadow-xl transition-all cursor-pointer ${((configOrla?.photoShape || 'circle') === 'circle' || (configOrla?.photoShape || 'circle') === 'shield' || (configOrla?.photoShape || 'circle') === 'arch') ? 'aspect-square' : 'aspect-[3/4]'} ${getPhotoSrc(member) ? 'bg-emerald-50/50 border-emerald-100 hover:shadow-emerald-500/10' : 'bg-primary/5 border-primary/10'}`}
-                                                            style={getShapeStyle(configOrla.photoShape || 'circle')}
-                                                        >
-                                                            {getPhotoSrc(member) ? (
-                                                                <div className="w-full h-full relative">
-                                                                    <img 
-                                                                        src={getPhotoSrc(member)} 
-                                                                        className="w-full h-full object-cover transition-transform group-hover/gallery:scale-110" 
-                                                                        alt={member.name} 
-                                                                        style={getPhotoTransform(member.photoConfig)}
-                                                                    />
-                                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover/gallery:opacity-100 transition-opacity flex flex-col justify-end p-3 rounded-2xl">
-                                                                        <p className="text-[10px] font-black text-white uppercase truncate">{member.firstName} {member.lastName}</p>
-                                                                        <div className="flex gap-2 mt-2">
-                                                                            <button 
-                                                                                className="flex-1 py-1.5 bg-white text-emerald-600 rounded-lg text-[9px] font-black uppercase tracking-wider hover:bg-emerald-50 transition-colors flex items-center justify-center gap-1"
-                                                                            >
-                                                                                <Maximize2 size={12} /> Reencuadrar
-                                                                            </button>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-emerald-600 text-white text-[8px] font-black rounded-md shadow-sm z-20 border border-white/20">
-                                                                        {getGlobalRank(member.id)}
-                                                                    </div>
-                                                                </div>
-                                                            ) : (
-                                                                <div className="w-full h-full flex flex-col items-center justify-center text-emerald-200 gap-2 p-4">
-                                                                     <Camera size={24} />
-                                                                     <span className="text-[9px] font-black uppercase text-center">Sin Foto Registrada</span>
-                                                                     <button 
-                                                                        onClick={(e) => { e.stopPropagation(); handleIndividualFileClick(member.id, 'staff'); }}
-                                                                        className="mt-2 px-3 py-1 bg-white border border-emerald-100 text-emerald-400 rounded-lg text-[8px] font-black uppercase hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
-                                                                     >
-                                                                        Subir Ahora
-                                                                     </button>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    ))}
+                                <div className="flex-1 px-4 py-4 text-primary flex flex-col items-center">
+                                    <div className="w-full max-w-[1700px] bg-card rounded-[16px] border border-primary/10 border-l-4 border-l-indigo-500 shadow-xl flex flex-col">
+                                        <div
+                                            onClick={() => setIsStaffListExpanded(!isStaffListExpanded)}
+                                            className="w-full p-4 md:p-5 border-b border-primary/5 flex justify-between items-center shrink-0 hover:bg-primary/[0.02] transition-colors cursor-pointer text-left"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-500 shrink-0">
+                                                    <UserCheck size={20} />
+                                                </div>
+                                                <div className="text-left">
+                                                    <h2 className="text-sm font-black uppercase tracking-widest text-primary">Listado de Docentes</h2>
+                                                    <p className="text-[10px] text-primary/40 font-bold uppercase tracking-wider">
+                                                        {filteredStaff.length} docentes encontrados
+                                                    </p>
                                                 </div>
                                             </div>
-                                        ) : staffViewStyle === 'grid' ? (
-                                            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4 content-start p-4 md:p-5 pb-20">
-                                                {filteredStaff.map(member => {
-                                                    const isSelected = activeStudent?.id === member.id;
-                                                    const isBulkSelected = selectedStaffIds.includes(member.id);
-                                                    const hasPhoto = member.photoFile || member.digitalPhotoUrl || member.photo_file_number;
-                                                    
-                                                    return (
-                                                        <div key={member.id} className="relative group/card">
-                                                            <button 
-                                                                onClick={() => selectStudent({ ...member, isStaff: true, studentName: member.name || `${member.firstName} ${member.lastName}` })}
-                                                                className={`w-full relative flex flex-col items-center p-4 rounded-[16px] border transition-all duration-300 active:scale-95 ${
-                                                                    isSelected 
-                                                                        ? 'border-indigo-500 bg-indigo-50 shadow-md ring-2 ring-indigo-500/10 z-10 scale-[1.02]' 
-                                                                        : isBulkSelected 
-                                                                            ? 'border-indigo-300 bg-indigo-50/30' 
-                                                                            : 'border-primary/10 bg-card hover:border-indigo-500/30 hover:shadow-md'
-                                                                }`}
+                                            <div className="flex items-center gap-3">
+                                                {isStaffListExpanded && (
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="flex items-center gap-3 mr-3" onClick={e => e.stopPropagation()}>
+                                                            <div className={`px-4 py-2 rounded-xl flex items-center gap-2 shadow-sm border transition-all ${shootFilters.course && shootFilters.course.toUpperCase() === 'DOCTORADO'
+                                                                ? 'bg-rose-500 text-white border-rose-400 animate-pulse'
+                                                                : 'bg-primary/5 text-primary border-primary/10'
+                                                                }`}>
+                                                                <div className={`w-1.5 h-1.5 rounded-full ${shootFilters.course && shootFilters.course.toUpperCase() === 'DOCTORADO' ? 'bg-white' : 'bg-indigo-500'} animate-pulse`}></div>
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-[10px] font-black uppercase tracking-tighter leading-tight">
+                                                                        {(shootFilters.course && shootFilters.course.toUpperCase() === 'DOCTORADO') ? '🎓 MODO DOCTORADO' : (shootFilters.course || 'GENERAL')}
+                                                                    </span>
+                                                                    <span className={`text-[8px] font-bold uppercase tracking-widest opacity-80 ${shootFilters.course && shootFilters.course.toUpperCase() === 'DOCTORADO' ? 'text-white' : 'text-primary/40'}`}>
+                                                                        {shootFilters.group ? `GRUPO ${shootFilters.group}` : 'VISTA GLOBAL'}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="hidden md:flex items-center gap-1 p-1 rounded-xl bg-primary/[0.02] border border-primary/10 shadow-sm mr-2" onClick={e => e.stopPropagation()}>
+                                                            <button
+                                                                onClick={() => setViewStyle('gallery')}
+                                                                className={`h-8 px-3 rounded-lg transition-all flex items-center justify-center gap-2 ${viewStyle === 'gallery' ? 'bg-indigo-600 shadow-sm text-white' : 'text-primary/40 hover:text-primary hover:bg-primary/5'}`}
+                                                                title="Modo Galería"
                                                             >
-                                                                <div 
-                                                                    className={`${['circle', 'shield', 'arch'].includes(configOrla.photoShape || 'circle') ? 'w-14 h-14' : 'w-14 h-[74.6px]'} flex flex-col items-center justify-center mb-3 overflow-hidden transition-all shadow-sm ${
-                                                                        isSelected ? 'bg-indigo-100 text-indigo-600' : isBulkSelected ? 'bg-indigo-100/50 text-indigo-500' : 'bg-primary/5 text-primary/40'
-                                                                    } border-2 ${member.photoFile || member.digitalPhotoUrl || member.photo_file_url ? 'border-emerald-500/30' : 'border-transparent'}`}
-                                                                    style={getShapeStyle(configOrla.photoShape || 'circle', 56, 56)}
+                                                                <LayoutGrid size={14} /> <span className="text-[9px] font-black uppercase">Galería</span>
+                                                            </button>
+                                                            <button
+                                                                onClick={() => { setViewStyle('list'); setStaffViewStyle('grid'); }}
+                                                                className={`w-8 h-8 rounded-lg transition-all flex items-center justify-center ${viewStyle !== 'gallery' && staffViewStyle === 'grid' ? 'bg-white shadow-sm text-slate-900 border border-primary/5' : 'text-primary/40 hover:text-primary hover:bg-primary/5'}`}
+                                                                title="Cuadrícula"
+                                                            >
+                                                                <LayoutGrid size={16} />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => { setViewStyle('list'); setStaffViewStyle('list'); }}
+                                                                className={`w-8 h-8 rounded-lg transition-all flex items-center justify-center ${viewStyle !== 'gallery' && staffViewStyle === 'list' ? 'bg-white shadow-sm text-slate-900 border border-primary/5' : 'text-primary/40 hover:text-primary hover:bg-primary/5'}`}
+                                                                title="Lista"
+                                                            >
+                                                                <List size={18} />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                <div className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-primary/5 transition-colors">
+                                                    {isStaffListExpanded ? <ChevronUp size={20} className="text-primary/40" /> : <ChevronDown size={20} className="text-primary/40" />}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {isStaffListExpanded && (
+                                            <div className="flex-1 custom-scrollbar p-0">
+                                                {viewStyle === 'gallery' ? (
+                                                    <div className="p-4 md:p-6 w-full animate-in fade-in duration-500">
+                                                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
+                                                            {filteredStaff.map(member => (
+                                                                <div
+                                                                    key={member.id}
+                                                                    onClick={() => {
+                                                                        const src = getPhotoSrc(member);
+                                                                        if (src) {
+                                                                            setReframingItem({
+                                                                                id: member.id,
+                                                                                type: 'staff',
+                                                                                photoUrl: src,
+                                                                                name: `${member.firstName} ${member.lastName}`,
+                                                                                photoConfig: member.photoConfig || { zoom: 1, x: 0, y: 0 }
+                                                                            });
+                                                                        }
+                                                                    }}
+                                                                    className={`relative border overflow-hidden group/gallery hover:shadow-xl transition-all cursor-pointer ${((configOrla?.photoShape || 'circle') === 'circle' || (configOrla?.photoShape || 'circle') === 'shield' || (configOrla?.photoShape || 'circle') === 'arch') ? 'aspect-square' : 'aspect-[3/4]'} ${getPhotoSrc(member) ? 'bg-emerald-50/50 border-emerald-100 hover:shadow-emerald-500/10' : 'bg-primary/5 border-primary/10'}`}
+                                                                    style={getShapeStyle(configOrla.photoShape || 'circle')}
                                                                 >
                                                                     {getPhotoSrc(member) ? (
-                                                                        <img 
-                                                                            src={getPhotoSrc(member)} 
-                                                                            className="w-full h-full object-cover" 
-                                                                            style={getPhotoTransform(member.photoConfig)}
-                                                                            alt="Docente" 
-                                                                        />
+                                                                        <div className="w-full h-full relative">
+                                                                            <img
+                                                                                src={getPhotoSrc(member)}
+                                                                                className="w-full h-full object-cover transition-transform group-hover/gallery:scale-110"
+                                                                                alt={member.name}
+                                                                                style={getPhotoTransform(member.photoConfig)}
+                                                                            />
+                                                                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover/gallery:opacity-100 transition-opacity flex flex-col justify-end p-3 rounded-2xl">
+                                                                                <div className="flex flex-col items-center gap-1">
+                                                                                    {(member.role || '').toUpperCase().includes('TUTOR') && (
+                                                                                        <Star size={10} className="text-amber-500 fill-amber-500 shadow-sm" />
+                                                                                    )}
+                                                                                    <p className="text-[10px] font-black text-white uppercase truncate text-center w-full">{member.firstName} {member.lastName}</p>
+                                                                                </div>
+                                                                                <div className="flex gap-2 mt-2">
+                                                                                    <button
+                                                                                        onClick={(e) => {
+                                                                                            e.stopPropagation();
+                                                                                            const src = getPhotoSrc(member);
+                                                                                            if (src) {
+                                                                                                setReframingItem({
+                                                                                                    id: member.id,
+                                                                                                    type: 'staff',
+                                                                                                    photoUrl: src,
+                                                                                                    name: `${member.firstName} ${member.lastName}`,
+                                                                                                    photoConfig: member.photoConfig || { zoom: 1, x: 0, y: 0 }
+                                                                                                });
+                                                                                            }
+                                                                                        }}
+                                                                                        className="flex-1 py-1.5 bg-white text-emerald-600 rounded-lg text-[9px] font-black uppercase tracking-wider hover:bg-emerald-50 transition-colors flex items-center justify-center gap-1"
+                                                                                    >
+                                                                                        <Maximize2 size={12} /> Reencuadrar
+                                                                                    </button>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-emerald-600 text-white text-[8px] font-black rounded-md shadow-sm z-20 border border-white/20">
+                                                                                {getGlobalRank(member.id)}
+                                                                            </div>
+                                                                        </div>
                                                                     ) : (
-                                                                        <div className="flex flex-col items-center">
-                                                                            <Camera size={24} className="mb-1 opacity-20" />
-                                                                            <span className="text-[10px] font-black opacity-20 uppercase tracking-tighter leading-none">Sin foto</span>
+                                                                        <div className="w-full h-full flex flex-col items-center justify-center text-emerald-200 gap-2 p-4">
+                                                                            <Camera size={24} />
+                                                                            <span className="text-[9px] font-black uppercase text-center">Sin Foto Registrada</span>
+                                                                            <button
+                                                                                onClick={(e) => { e.stopPropagation(); handleIndividualFileClick(member.id, 'staff'); }}
+                                                                                className="mt-2 px-3 py-1 bg-white border border-emerald-100 text-emerald-400 rounded-lg text-[8px] font-black uppercase hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
+                                                                            >
+                                                                                Subir Ahora
+                                                                            </button>
                                                                         </div>
                                                                     )}
                                                                 </div>
-
-                                                                <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-indigo-600 text-white text-[8px] font-black rounded-md shadow-sm z-20 border border-white/20">
-                                                                    {getGlobalRank(member.id)}
-                                                                </div>
-                                                                {/* Botón de subida rápida en Grid Docentes */}
-                                                                <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover/card:opacity-100 transition-opacity z-20">
-                                                                    <button 
-                                                                        onClick={(e) => { e.stopPropagation(); handleIndividualFileClick(member.id, 'staff'); }}
-                                                                        className="p-1.5 bg-white/90 hover:bg-emerald-500 hover:text-white rounded-lg text-emerald-600 transition-all border border-emerald-100 shadow-sm"
-                                                                        title="Actualizar Foto"
-                                                                    >
-                                                                        <Upload size={12} />
-                                                                    </button>
-                                                                </div>
-                                                                
-                                                                <div className="flex flex-col items-center w-full min-w-0">
-                                                                    <p className="text-[11px] font-bold text-center text-primary leading-tight line-clamp-2 w-full uppercase">
-                                                                        {member.firstName} {member.lastName}
-                                                                    </p>
-                                                                    <span className={`mt-2 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest ${
-                                                                        hasPhoto ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'
-                                                                    }`}>
-                                                                        {hasPhoto ? member.photo_file_number : 'PENDIENTE'}
-                                                                    </span>
-                                                                </div>
-                                                            </button>
-
-                                                            {/* Checkbox para selección masiva */}
-                                                            <button 
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setSelectedStaffIds(prev => prev.includes(member.id) ? prev.filter(id => id !== member.id) : [...prev, member.id]);
-                                                                }}
-                                                                className={`absolute top-2 left-2 w-7 h-7 rounded-lg border transition-all flex items-center justify-center z-20 ${
-                                                                    isBulkSelected ? 'bg-indigo-500 border-indigo-500 text-white shadow-lg' : 'bg-white/90 border-primary/10 text-primary/10 hover:border-indigo-300 opacity-0 group-hover/card:opacity-100 backdrop-blur-sm'
-                                                                }`}
-                                                            >
-                                                                <CheckSquare size={16} />
-                                                            </button>
-
-                                                            {/* Icono de Editar rápido */}
-                                                            <div className="absolute top-2 right-2 opacity-0 group-hover/card:opacity-100 transition-opacity z-20">
-                                                                <div className="p-1.5 bg-primary/5 hover:bg-indigo-500 hover:text-white rounded-lg text-primary/30 transition-all cursor-pointer border border-primary/5">
-                                                                    <Pencil size={14} />
-                                                                </div>
-                                                            </div>
+                                                            ))}
                                                         </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        ) : (
-                                            <div className="w-full overflow-x-auto">
-                                                <table className="w-full text-left border-collapse table-fixed">
-                                                    <thead className="bg-white sticky top-0 md:top-0 z-[110] border-b-2 border-primary/10 shadow-sm">
-                                                        <tr className="bg-white">
-                                                            <th className="py-4 px-5 text-[10px] font-black uppercase tracking-widest text-primary/40 w-[60px] text-center bg-white">
-                                                                <button 
-                                                                    onClick={() => {
-                                                                        if (selectedStaffIds.length === filteredStaff.length && filteredStaff.length > 0) {
-                                                                            setSelectedStaffIds([]);
-                                                                        } else {
-                                                                            setSelectedStaffIds(filteredStaff.map(m => m.id));
-                                                                        }
-                                                                    }}
-                                                                    className="flex items-center justify-center w-full h-full text-primary/20 hover:text-indigo-500 transition-colors"
-                                                                >
-                                                                    {selectedStaffIds.length === filteredStaff.length && filteredStaff.length > 0 ? <CheckSquare size={18} className="text-indigo-500" /> : <Square size={18} />}
-                                                                </button>
-                                                            </th>
-                                                            <th className="py-4 px-5 text-[10px] font-black uppercase tracking-widest text-primary/40 w-[60px] text-center bg-white border-r border-primary/5">Nº ORLA</th>
-                                                            <th className="py-3 px-3 text-[10px] font-black uppercase tracking-widest text-primary/40 text-center w-[60px] bg-white">Foto</th>
-                                                            <th className="py-3 px-3 text-[10px] font-black uppercase tracking-wider text-primary/40 w-[20%] bg-white">Docente</th>
-                                                            <th className="py-3 px-3 text-[10px] font-black uppercase tracking-wider text-primary/40 text-center w-[20%] bg-white">Cargo / Función</th>
-                                                            <th className="py-3 px-3 text-[10px] font-black uppercase tracking-wider text-primary/40 text-center w-[150px] bg-white">
-                                                                <div className="flex items-center justify-center gap-1.5 translate-x-1.5">
-                                                                    <span>Estado</span>
-                                                                    <button 
-                                                                        onClick={(e) => { e.stopPropagation(); handleBulkStatusChange('staff'); }}
-                                                                        className="bg-rose-500/10 hover:bg-rose-500 hover:text-white text-rose-500 p-1.5 rounded-lg transition-colors border border-rose-500/10"
-                                                                        title="Cambio masivo de estado"
-                                                                    >
-                                                                        <CheckCircle size={12} />
-                                                                    </button>
-                                                                </div>
-                                                            </th>
-                                                            <th className="py-3 px-3 text-center text-[10px] font-black uppercase tracking-wider text-primary/40 w-[150px] bg-white border-x border-primary/5">URL Digital</th>
-                                                             <th className="py-3 px-3 text-center text-[10px] font-black uppercase tracking-wider text-primary/40 w-[120px] bg-white">Nº Archivo</th>
-                                                            <th className="py-3 px-3 text-right text-[10px] font-black uppercase tracking-wider text-primary/40 w-[140px] bg-white">Acciones</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-primary/5">
-                                                        {filteredStaff.map((member, idx) => {
-                                                            const isPhotoSelected = activeStudent?.id === member.id;
-                                                            const hasPhoto = !!getPhotoSrc(member);
+                                                    </div>
+                                                ) : staffViewStyle === 'grid' ? (
+                                                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4 content-start p-4 md:p-5 pb-20">
+                                                        {filteredStaff.map(member => {
+                                                            const isSelected = activeStudent?.id === member.id;
+                                                            const isBulkSelected = selectedStaffIds.includes(member.id);
+                                                            const hasPhoto = member.photoFile || member.digitalPhotoUrl || member.photo_file_number;
+
                                                             return (
-                                                                <tr key={member.id} className={`relative z-0 hover:bg-primary/[0.01] transition-colors group ${isPhotoSelected ? 'ring-2 ring-inset ring-primary/50 bg-primary/[0.03]' : ''} ${selectedStaffIds.includes(member.id) ? 'bg-indigo-50/50' : ''}`}>
-                                                                    <td className="py-4 px-5 text-center">
-                                                                        <button onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            setSelectedStaffIds(prev => prev.includes(member.id) ? prev.filter(id => id !== member.id) : [...prev, member.id]);
-                                                                        }} className="text-primary/40 hover:text-indigo-500 transition-colors">
-                                                                            {selectedStaffIds.includes(member.id) ? <CheckSquare size={18} className="text-indigo-500" /> : <Square size={18} />}
-                                                                        </button>
-                                                                    </td>
-                                                                    <td className="py-4 px-5 text-center">
-                                                                        <span className="text-[11px] font-mono font-black text-indigo-500">{getGlobalRank(member.id)}</span>
-                                                                    </td>
-                                                                    <td className="py-4 px-3 text-center align-middle">
-                                                                        <div className="relative group/photo mx-auto flex items-center justify-center">
-                                                                             <div 
-                                                                                 onClick={() => handleIndividualFileClick(member.id, 'staff')}
-                                                                                 style={getShapeStyle(configOrla.photoShape || 'circle', 48, 48)}
-                                                                                 className={`overflow-hidden shadow-sm flex items-center justify-center border transition-all cursor-pointer ${getPhotoSrc(member) ? 'border-emerald-500/20 hover:border-emerald-500 scale-110' : 'border-primary/5 bg-primary/5 hover:border-indigo-300'} ${['circle', 'shield', 'arch'].includes(configOrla.photoShape || 'circle') ? 'w-10 aspect-square' : 'w-10 aspect-[3/4]'}`}
-                                                                                 title="Clic para subir/cambiar foto"
-                                                                             >
-                                                                                {getPhotoSrc(member) ? (
-                                                                                    <img 
-                                                                                        src={getPhotoSrc(member)} 
-                                                                                        className="w-full h-full object-cover transition-opacity group-hover/photo:opacity-40" 
-                                                                                        style={getPhotoTransform(member.photoConfig)}
-                                                                                        alt="Foto" 
-                                                                                    />
-                                                                                ) : (
-                                                                                    <Camera size={16} className="text-primary/10 group-hover/photo:text-indigo-500" />
-                                                                                )}
-                                                                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/photo:opacity-100 transition-opacity bg-black/20">
-                                                                                    <Upload size={14} className="text-white drop-shadow-md" />
+                                                                <div key={member.id} className="relative group/card">
+                                                                    <button
+                                                                        onClick={() => selectStudent({ ...member, isStaff: true, studentName: member.name || `${member.firstName} ${member.lastName}` })}
+                                                                        className={`w-full relative flex flex-col items-center p-4 rounded-[16px] border transition-all duration-300 active:scale-95 ${isSelected
+                                                                            ? 'border-indigo-500 bg-indigo-50 shadow-md ring-2 ring-indigo-500/10 z-10 scale-[1.02]'
+                                                                            : isBulkSelected
+                                                                                ? 'border-indigo-300 bg-indigo-50/30'
+                                                                                : 'border-primary/10 bg-card hover:border-indigo-500/30 hover:shadow-md'
+                                                                            }`}
+                                                                    >
+                                                                        <div
+                                                                            className={`${['circle', 'shield', 'arch'].includes(configOrla.photoShape || 'circle') ? 'w-14 h-14' : 'w-14 h-[74.6px]'} flex flex-col items-center justify-center mb-3 overflow-hidden transition-all shadow-sm ${isSelected ? 'bg-indigo-100 text-indigo-600' : isBulkSelected ? 'bg-indigo-100/50 text-indigo-500' : 'bg-primary/5 text-primary/40'
+                                                                                } border-2 ${member.photoFile || member.digitalPhotoUrl || member.photo_file_url ? 'border-emerald-500/30' : 'border-transparent'}`}
+                                                                            style={getShapeStyle(configOrla.photoShape || 'circle', 56, 56)}
+                                                                        >
+                                                                            {getPhotoSrc(member) ? (
+                                                                                <img
+                                                                                    src={getPhotoSrc(member)}
+                                                                                    className="w-full h-full object-cover"
+                                                                                    style={getPhotoTransform(member.photoConfig)}
+                                                                                    alt="Docente"
+                                                                                />
+                                                                            ) : (
+                                                                                <div className="flex flex-col items-center">
+                                                                                    <Camera size={24} className="mb-1 opacity-20" />
+                                                                                    <span className="text-[10px] font-black opacity-20 uppercase tracking-tighter leading-none">Sin foto</span>
                                                                                 </div>
-                                                                            </div>
-                                                                            
+                                                                            )}
+                                                                        </div>
+
+                                                                        <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-indigo-600 text-white text-[8px] font-black rounded-md shadow-sm z-20 border border-white/20">
+                                                                            {getGlobalRank(member.id)}
+                                                                        </div>
+                                                                        {/* Botón de subida rápida en Grid Docentes */}
+                                                                        <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover/card:opacity-100 transition-opacity z-20">
                                                                             {getPhotoSrc(member) && (
-                                                                                <button 
+                                                                                <button
                                                                                     onClick={(e) => {
                                                                                         e.stopPropagation();
-                                                                                        setReframingItem({ 
-                                                                                            id: member.id, 
-                                                                                            type: 'staff', 
-                                                                                            photoUrl: getPhotoSrc(member), 
-                                                                                            name: member.firstName + ' ' + member.lastName,
+                                                                                        setReframingItem({
+                                                                                            id: member.id,
+                                                                                            type: 'staff',
+                                                                                            photoUrl: getPhotoSrc(member),
+                                                                                            name: `${member.firstName} ${member.lastName}`,
                                                                                             photoConfig: member.photoConfig || { zoom: 1, x: 0, y: 0 }
                                                                                         });
                                                                                     }}
-                                                                                    className="absolute -right-2 -bottom-2 w-7 h-7 bg-white text-indigo-600 rounded-full shadow-lg border border-primary/10 flex items-center justify-center opacity-0 group-hover/photo:opacity-100 transition-all hover:scale-110 z-10"
-                                                                                    title="Reencuadrar foto"
+                                                                                    className="p-1.5 bg-white/90 hover:bg-indigo-600 hover:text-white rounded-lg text-indigo-600 transition-all border border-indigo-100 shadow-sm"
+                                                                                    title="Vista Previa / Reencuadrar"
                                                                                 >
                                                                                     <Maximize2 size={12} />
                                                                                 </button>
                                                                             )}
+                                                                            <button
+                                                                                onClick={(e) => { e.stopPropagation(); handleIndividualFileClick(member.id, 'staff'); }}
+                                                                                className="p-1.5 bg-white/90 hover:bg-emerald-500 hover:text-white rounded-lg text-emerald-600 transition-all border border-emerald-100 shadow-sm"
+                                                                                title="Actualizar Foto"
+                                                                            >
+                                                                                <Upload size={12} />
+                                                                            </button>
                                                                         </div>
-                                                                    </td>
-                                                                    <td className="py-4 px-5">
-                                                                        <div className="flex flex-col gap-1">
-                                                                            <div className="flex items-center gap-1.5">
-                                                                                <input 
-                                                                                    type="text" 
-                                                                                    value={member.firstName || ''} 
-                                                                                    onChange={(e) => updateStaff(member.id, { firstName: e.target.value.toUpperCase() })}
-                                                                                    className="bg-transparent border-none p-0 text-xs font-black text-primary uppercase focus:ring-0 focus:bg-primary/5 rounded px-1 -ml-1 w-full"
-                                                                                />
-                                                                                <input 
-                                                                                    type="text" 
-                                                                                    value={member.lastName || ''} 
-                                                                                    onChange={(e) => updateStaff(member.id, { lastName: e.target.value.toUpperCase() })}
-                                                                                    className="bg-transparent border-none p-0 text-xs font-black text-primary uppercase focus:ring-0 focus:bg-primary/5 rounded px-1 w-full"
-                                                                                />
-                                                                            </div>
-                                                                            <div className="flex flex-wrap items-center gap-1 mt-0.5">
-                                                                                <Users size={8} className="text-indigo-500 shrink-0" />
-                                                                                {member.assignments && member.assignments.length > 0 ? (
-                                                                                    member.assignments.map((a, i) => (
-                                                                                        <p key={i} className="text-[9px] font-black text-indigo-600 uppercase leading-none bg-indigo-50 px-1 rounded-sm border border-indigo-100/50">
-                                                                                            {a.course}
-                                                                                        </p>
-                                                                                    ))
-                                                                                ) : (
-                                                                                    <p className="text-[10px] font-black text-indigo-600 uppercase leading-none italic opacity-40 text-center">Sin clase</p>
-                                                                                )}
-                                                                            </div>
-                                                                        </div>
-                                                                    </td>
-                                                                    <td className="py-4 px-3 text-center">
-                                                                        <span className="px-2 py-1 bg-primary/5 text-primary/60 rounded-lg text-[9px] font-black uppercase tracking-tight border border-primary/5 truncate block">
-                                                                            {member.role || 'DOCENTE'}
-                                                                        </span>
-                                                                    </td>
-                                                                    <td className="py-4 px-3 text-center">
-                                                                        <div className={`px-2.5 py-1.5 rounded-lg flex items-center justify-center gap-2 transition-all shadow-sm border border-black/5 mx-auto w-[130px] ${
-                                                                            hasPhoto ? 'bg-emerald-500 text-white shadow-emerald-500/20' : 'bg-rose-500 text-white shadow-rose-500/20'
-                                                                        }`}>
-                                                                            <div className="bg-white/20 p-1 rounded-md shrink-0">
-                                                                                {hasPhoto ? <Camera size={12} /> : <AlertCircle size={12} />}
-                                                                            </div>
-                                                                            <span className="text-[9px] font-black uppercase tracking-tight whitespace-nowrap">
-                                                                                {hasPhoto ? 'FOTO LISTA' : 'SIN FOTO'}
+
+                                                                        <div className="flex flex-col items-center w-full min-w-0">
+                                                                            {(String(member.role || '')).toUpperCase().includes('TUTOR') && (
+                                                                                <Star size={12} className="text-amber-500 fill-amber-500 mb-1" />
+                                                                            )}
+                                                                            <p className="text-[11px] font-bold text-center text-primary leading-tight line-clamp-2 w-full uppercase">
+                                                                                {member.firstName} {member.lastName}
+                                                                            </p>
+                                                                            <span className={`mt-2 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest ${hasPhoto ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'
+                                                                                }`}>
+                                                                                {hasPhoto ? member.photo_file_number : 'PENDIENTE'}
                                                                             </span>
                                                                         </div>
-                                                                    </td>
-                                                                    <td className="py-4 px-3 text-center align-middle border-x border-primary/5 min-w-[150px]">
-                                                                        <div className="flex items-center justify-center relative group/url mx-auto w-full">
-                                                                            <Link size={10} className="absolute left-2 text-indigo-500 opacity-40 group-focus-within/url:opacity-100 transition-opacity" />
-                                                                            <input 
-                                                                                type="text" 
-                                                                                value={member.digitalPhotoUrl || ''} 
-                                                                                onChange={(e) => updateStaff(member.id, { digitalPhotoUrl: e.target.value })}
-                                                                                placeholder="https://..."
-                                                                                className="w-full bg-white/50 border border-primary/5 rounded-md pl-6 pr-2 py-1 text-[9px] font-mono text-primary placeholder:text-primary/10 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 outline-none transition-all truncate"
-                                                                            />
+                                                                    </button>
+
+                                                                    {/* Checkbox para selección masiva */}
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setSelectedStaffIds(prev => prev.includes(member.id) ? prev.filter(id => id !== member.id) : [...prev, member.id]);
+                                                                        }}
+                                                                        className={`absolute top-2 left-2 w-7 h-7 rounded-lg border transition-all flex items-center justify-center z-20 ${isBulkSelected ? 'bg-indigo-500 border-indigo-500 text-white shadow-lg' : 'bg-white/90 border-primary/10 text-primary/10 hover:border-indigo-300 opacity-0 group-hover/card:opacity-100 backdrop-blur-sm'
+                                                                            }`}
+                                                                    >
+                                                                        <CheckSquare size={16} />
+                                                                    </button>
+
+                                                                    {/* Icono de Editar rápido */}
+                                                                    <div className="absolute top-2 right-2 opacity-0 group-hover/card:opacity-100 transition-opacity z-20">
+                                                                        <div className="p-1.5 bg-primary/5 hover:bg-indigo-500 hover:text-white rounded-lg text-primary/30 transition-all cursor-pointer border border-primary/5">
+                                                                            <Pencil size={14} />
                                                                         </div>
-                                                                    </td>
-                                                                    <td className="py-4 px-3 text-center align-middle">
-                                                                        <div className="flex items-center justify-center relative group/input mx-auto w-[100px]">
-                                                                            <Hash size={11} className="absolute left-3 text-indigo-500 opacity-40 group-focus-within/input:opacity-100 transition-opacity" />
-                                                                            <input 
-                                                                                type="text" 
-                                                                                value={member.photo_file_number || ''} 
-                                                                                onChange={(e) => updateStaff(member.id, { photo_file_number: e.target.value })}
-                                                                                placeholder={(idx + 1).toString().padStart(1, '0')}
-                                                                                className="w-full bg-white border border-primary/10 rounded-lg pl-8 pr-2 py-1.5 text-[12px] font-black text-center text-primary placeholder:text-primary/20 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
-                                                                            />
-                                                                        </div>
-                                                                    </td>
-                                                                    <td className="py-2 px-3 text-right align-middle">
-                                                                        <div className="flex items-center justify-end gap-1.5">
-                                                                            <button onClick={() => selectStudent({ ...member, isStaff: true, studentName: member.name || `${member.firstName} ${member.lastName}` })} className="p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-500 hover:text-white rounded-lg transition-colors border border-indigo-100 shadow-sm" title="Modo Disparo">
-                                                                                <Camera size={14} />
-                                                                            </button>
-                                                                            <button onClick={(e) => { e.stopPropagation(); handleStartEditStaff(member); }} className="p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-500 hover:text-white border border-indigo-100 rounded-lg shadow-sm transition-colors" title="Editar Ficha del Docente">
-                                                                                <Pencil size={14} />
-                                                                            </button>
-                                                                            <button onClick={(e) => { 
-                                                                                e.stopPropagation(); 
-                                                                                Swal.fire({
-                                                                                    title: '¿Eliminar docente?',
-                                                                                    text: `Se eliminará permanentemente a ${member.firstName} ${member.lastName}.`,
-                                                                                    icon: 'warning',
-                                                                                    showCancelButton: true,
-                                                                                    confirmButtonColor: '#ef4444',
-                                                                                    confirmButtonText: 'Sí, borrar',
-                                                                                    cancelButtonText: 'Cancelar'
-                                                                                    }).then((result) => {
-                                                                                        if (result.isConfirmed) {
-                                                                                            deleteStaff(member.id);
-                                                                                        }
-                                                                                    });
-                                                                                }} className="p-2 bg-rose-50 text-rose-600 hover:bg-rose-500 hover:text-white border border-rose-100 rounded-lg shadow-sm transition-colors" title="Eliminar Registro">
-                                                                                    <Trash2 size={14} />
-                                                                                </button>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                ) : (
+                                                    <div className="w-full overflow-x-auto">
+                                                        <table className="w-full text-left border-collapse table-fixed">
+                                                            <thead className="bg-white sticky top-0 md:top-0 z-[110] border-b-2 border-primary/10 shadow-sm">
+                                                                <tr className="bg-white">
+                                                                    <th className="py-4 px-5 text-[10px] font-black uppercase tracking-widest text-primary/40 w-[60px] text-center bg-white">
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                if (selectedStaffIds.length === filteredStaff.length && filteredStaff.length > 0) {
+                                                                                    setSelectedStaffIds([]);
+                                                                                } else {
+                                                                                    setSelectedStaffIds(filteredStaff.map(m => m.id));
+                                                                                }
+                                                                            }}
+                                                                            className="flex items-center justify-center w-full h-full text-primary/20 hover:text-indigo-500 transition-colors"
+                                                                        >
+                                                                            {selectedStaffIds.length === filteredStaff.length && filteredStaff.length > 0 ? <CheckSquare size={18} className="text-indigo-500" /> : <Square size={18} />}
+                                                                        </button>
+                                                                    </th>
+                                                                    <th className="py-4 px-5 text-[10px] font-black uppercase tracking-widest text-primary/40 w-[60px] text-center bg-white border-r border-primary/5">Nº ORLA</th>
+                                                                    <th className="py-3 px-3 text-[10px] font-black uppercase tracking-widest text-primary/40 text-center w-[60px] bg-white">Foto</th>
+                                                                    <th className="py-3 px-3 text-[10px] font-black uppercase tracking-wider text-primary/40 w-[35%] bg-white text-center border-b border-primary/5">
+                                                                        <div className="flex items-center justify-center gap-3">
+                                                                            <div className="w-7 flex justify-center shrink-0">
+                                                                                <Star size={10} className="text-amber-500/50" />
                                                                             </div>
-                                                                        </td>
-                                                                    </tr>
-                                                                );
-                                                            })}
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </>
-                    )}
-                </div>
-            )}
-        {shootMode === 'gallery' && (
-            <div className="flex flex-col h-full overflow-hidden animate-fade-in text-primary">
-                {/* Cabecera de Galería Global */}
-                <div className="px-4 mb-4 shrink-0">
-                    <div className="bg-card border border-primary/10 border-l-4 border-l-violet-500 rounded-[16px] shadow-sm overflow-hidden text-primary">
-                        <div className="px-5 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
-                            <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 bg-violet-500/10 rounded-xl flex items-center justify-center text-violet-500">
-                                    <LayoutGrid size={20} />
-                                </div>
-                                <div className="text-left">
-                                    <h2 className="text-sm font-black uppercase tracking-widest text-primary">Galería Global de Orla</h2>
-                                    <p className="text-[10px] text-primary/40 font-bold uppercase tracking-wider italic">Vista unificada: Docentes y Alumnos con reencuadre inteligente</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-3 w-full md:w-auto">
-                                <div className="h-[44px] flex items-center gap-3 px-5 rounded-xl bg-violet-50 border border-violet-100 shadow-sm">
-                                    <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center text-violet-600">
-                                        <Camera size={16} />
+                                                                            <span className="text-left min-w-[200px]">TUTOR / DOCENTE</span>
+                                                                        </div>
+                                                                    </th>
+                                                                    <th className="py-3 px-3 text-[10px] font-black uppercase tracking-wider text-primary/40 text-center w-[20%] bg-white">Cargo / Función</th>
+                                                                    <th className="py-3 px-3 text-[10px] font-black uppercase tracking-wider text-primary/40 text-center w-[150px] bg-white">
+                                                                        <div className="flex items-center justify-center gap-1.5">
+                                                                            <span>Estado</span>
+                                                                            <button
+                                                                                onClick={(e) => { e.stopPropagation(); handleBulkStatusChange('staff'); }}
+                                                                                className="bg-rose-500/10 hover:bg-rose-500 hover:text-white text-rose-500 p-1.5 rounded-lg transition-colors border border-rose-500/10"
+                                                                                title="Cambio masivo de estado"
+                                                                            >
+                                                                                <CheckCircle size={12} />
+                                                                            </button>
+                                                                        </div>
+                                                                    </th>
+
+                                                                    <th className="py-3 px-3 text-center text-[10px] font-black uppercase tracking-wider text-primary/40 w-[120px] bg-white">Nº Archivo</th>
+                                                                    <th className="py-3 px-3 text-center text-[10px] font-black uppercase tracking-wider text-primary/40 w-[140px] bg-white">Acciones</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody className="divide-y divide-primary/5">
+                                                                {filteredStaff.map((member, idx) => {
+                                                                    const isPhotoSelected = activeStudent?.id === member.id;
+                                                                    const hasPhoto = !!getPhotoSrc(member);
+                                                                    return (
+                                                                        <tr key={member.id} className={`relative z-0 hover:bg-primary/[0.01] transition-colors group ${isPhotoSelected ? 'ring-2 ring-inset ring-primary/50 bg-primary/[0.03]' : ''} ${selectedStaffIds.includes(member.id) ? 'bg-indigo-50/50' : ''}`}>
+                                                                            <td className="py-4 px-5 text-center">
+                                                                                <button onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    setSelectedStaffIds(prev => prev.includes(member.id) ? prev.filter(id => id !== member.id) : [...prev, member.id]);
+                                                                                }} className="text-primary/40 hover:text-indigo-500 transition-colors">
+                                                                                    {selectedStaffIds.includes(member.id) ? <CheckSquare size={18} className="text-indigo-500" /> : <Square size={18} />}
+                                                                                </button>
+                                                                            </td>
+                                                                            <td className="py-4 px-5 text-center">
+                                                                                <span className="text-[11px] font-mono font-black text-indigo-500">{getGlobalRank(member.id)}</span>
+                                                                            </td>
+                                                                            <td className="py-4 px-3 text-center align-middle">
+                                                                                <div className="relative group/photo mx-auto flex items-center justify-center">
+                                                                                    <div
+                                                                                        onClick={() => handleIndividualFileClick(member.id, 'staff')}
+                                                                                        style={getShapeStyle(configOrla.photoShape || 'circle', 48, 48)}
+                                                                                        className={`overflow-hidden shadow-sm flex items-center justify-center border transition-all cursor-pointer ${getPhotoSrc(member) ? 'border-emerald-500/20 hover:border-emerald-500 scale-110' : 'border-primary/5 bg-primary/5 hover:border-indigo-300'} ${['circle', 'shield', 'arch'].includes(configOrla.photoShape || 'circle') ? 'w-10 aspect-square' : 'w-10 aspect-[3/4]'}`}
+                                                                                        title="Clic para subir/cambiar foto"
+                                                                                    >
+                                                                                        {getPhotoSrc(member) ? (
+                                                                                            <div className="w-full h-full relative">
+                                                                                                <img
+                                                                                                    src={getPhotoSrc(member)}
+                                                                                                    className="w-full h-full object-cover transition-opacity group-hover/photo:opacity-40"
+                                                                                                    style={getPhotoTransform(member.photoConfig)}
+                                                                                                    alt="Foto"
+                                                                                                />
+                                                                                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/photo:opacity-100 transition-opacity bg-black/20">
+                                                                                                    <Maximize2 size={14} className="text-white drop-shadow-md" />
+                                                                                                </div>
+                                                                                                <button
+                                                                                                    onClick={(e) => {
+                                                                                                        e.stopPropagation();
+                                                                                                        setReframingItem({
+                                                                                                            id: member.id,
+                                                                                                            type: 'staff',
+                                                                                                            photoUrl: getPhotoSrc(member),
+                                                                                                            name: `${member.firstName} ${member.lastName}`,
+                                                                                                            photoConfig: member.photoConfig || { zoom: 1, x: 0, y: 0 }
+                                                                                                        });
+                                                                                                    }}
+                                                                                                    className="absolute -right-2 -bottom-2 w-7 h-7 bg-white text-emerald-600 rounded-full shadow-lg border border-primary/10 flex items-center justify-center opacity-0 group-hover/photo:opacity-100 transition-all hover:scale-110 z-10"
+                                                                                                    title="Reencuadrar foto"
+                                                                                                >
+                                                                                                    <Maximize2 size={12} />
+                                                                                                </button>
+                                                                                            </div>
+                                                                                        ) : (
+                                                                                            <Camera size={16} className="text-primary/10 group-hover/photo:text-indigo-500" />
+                                                                                        )}
+                                                                                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/photo:opacity-100 transition-opacity bg-black/20">
+                                                                                            <Upload size={14} className="text-white drop-shadow-md" />
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </td>
+                                                                            <td className="py-4 px-5">
+                                                                                <div className="flex flex-row items-center justify-center gap-2 py-1">
+                                                                                    <button
+                                                                                        onClick={(e) => {
+                                                                                            e.stopPropagation();
+                                                                                            const roleStr = typeof member.role === 'object' ? (member.role.name || member.role.label || 'DOCENTE') : (member.role || 'DOCENTE');
+                                                                                            const currentRole = roleStr.toUpperCase();
+                                                                                            const isTutor = currentRole.includes('TUTOR');
+                                                                                            let nextRole;
+                                                                                            if (isTutor) {
+                                                                                                nextRole = currentRole.replace(/TUTOR/g, '').replace(/\//g, '').replace(/\s+/g, ' ').trim() || 'DOCENTE';
+                                                                                            } else {
+                                                                                                nextRole = currentRole === 'DOCENTE' ? 'TUTOR' : `${currentRole} / TUTOR`;
+                                                                                            }
+                                                                                            updateStaff(member.id, { role: nextRole });
+                                                                                        }}
+                                                                                        className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center transition-all border ${(String(member.role || '')).toUpperCase().includes('TUTOR')
+                                                                                            ? 'bg-amber-400 text-white border-amber-300 shadow-sm'
+                                                                                            : 'bg-primary/5 text-primary/10 hover:text-amber-500 hover:bg-amber-50 border-transparent transition-transform active:scale-90'
+                                                                                            }`}
+                                                                                        title={(String(member.role || '')).toUpperCase().includes('TUTOR') ? 'Quitar Tutor' : 'Marcar como Tutor'}
+                                                                                    >
+                                                                                        <Star size={10} fill={(String(member.role || '')).toUpperCase().includes('TUTOR') ? 'currentColor' : 'none'} />
+                                                                                    </button>
+                                                                                    <div className="flex flex-col justify-center items-start min-w-0 flex-1">
+                                                                                        <span className="text-[11px] font-black text-slate-800 uppercase block whitespace-nowrap leading-tight text-left">
+                                                                                            {(member.firstName || '')} {(member.lastName || '')}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </td>
+                                                                            <td className="py-4 px-3 text-center">
+                                                                                <span className="px-2 py-1 bg-primary/5 text-primary/60 rounded-lg text-[9px] font-black uppercase tracking-tight border border-primary/5 truncate block">
+                                                                                    {typeof member.role === 'object' ? (member.role.name || member.role.label || 'DOCENTE') : (member.role || 'DOCENTE')}
+                                                                                </span>
+                                                                            </td>
+                                                                            <td className="py-4 px-3 text-center">
+                                                                                <div className={`px-2.5 py-1.5 rounded-lg flex items-center justify-center gap-2 transition-all shadow-sm border border-black/5 mx-auto w-[130px] ${hasPhoto ? 'bg-emerald-500 text-white shadow-emerald-500/20' : 'bg-rose-500 text-white shadow-rose-500/20'
+                                                                                    }`}>
+                                                                                    <div className="bg-white/20 p-1 rounded-md shrink-0">
+                                                                                        {hasPhoto ? <Camera size={12} /> : <AlertCircle size={12} />}
+                                                                                    </div>
+                                                                                    <span className="text-[9px] font-black uppercase tracking-tight whitespace-nowrap">
+                                                                                        {hasPhoto ? 'FOTO LISTA' : 'SIN FOTO'}
+                                                                                    </span>
+                                                                                </div>
+                                                                            </td>
+
+                                                                            <td className="py-4 px-3 text-center align-middle">
+                                                                                <div className="flex items-center justify-center relative group/input mx-auto w-[100px]">
+                                                                                    <Hash size={11} className="absolute left-3 text-indigo-500 opacity-40 group-focus-within/input:opacity-100 transition-opacity" />
+                                                                                    <input
+                                                                                        type="text"
+                                                                                        value={member.photo_file_number || ''}
+                                                                                        onChange={(e) => updateStaff(member.id, { photo_file_number: e.target.value })}
+                                                                                        placeholder={(idx + 1).toString().padStart(1, '0')}
+                                                                                        className="w-full bg-white border border-primary/10 rounded-lg pl-8 pr-2 py-1.5 text-[12px] font-black text-center text-primary placeholder:text-primary/20 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+                                                                                    />
+                                                                                </div>
+                                                                            </td>
+                                                                            <td className="py-2 px-3 text-right align-middle">
+                                                                                <div className="flex items-center justify-end gap-1.5 font-black">
+                                                                                    {/* BOTONES DE MOVIMIENTO DOCENTE */}
+                                                                                    <div className="flex flex-col gap-0.5 mr-1">
+                                                                                        <button 
+                                                                                            onClick={(e) => { e.stopPropagation(); handleMoveInView(idx, 'up', 'staff'); }}
+                                                                                            disabled={idx === 0}
+                                                                                            className="p-1 text-primary/30 hover:text-amber-600 disabled:opacity-0 transition-colors"
+                                                                                            title="Subir Docente"
+                                                                                        >
+                                                                                            <ChevronUp size={14} />
+                                                                                        </button>
+                                                                                        <button 
+                                                                                            onClick={(e) => { e.stopPropagation(); handleMoveInView(idx, 'down', 'staff'); }}
+                                                                                            disabled={idx === filteredStaff.length - 1}
+                                                                                            className="p-1 text-primary/30 hover:text-amber-600 disabled:opacity-0 transition-colors"
+                                                                                            title="Bajar Docente"
+                                                                                        >
+                                                                                            <ChevronDown size={14} />
+                                                                                        </button>
+                                                                                    </div>
+
+                                                                                    <button onClick={() => selectStudent({ ...member, isStaff: true, studentName: member.name || `${member.firstName} ${member.lastName}` })} className="p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-500 hover:text-white rounded-lg transition-colors border border-indigo-100 shadow-sm" title="Modo Disparo">
+                                                                                        <Camera size={14} />
+                                                                                    </button>
+                                                                                    <button onClick={(e) => { e.stopPropagation(); handleStartEditStaff(member); }} className="p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-500 hover:text-white border border-indigo-100 rounded-lg shadow-sm transition-colors" title="Editar Ficha del Docente">
+                                                                                        <Pencil size={14} />
+                                                                                    </button>
+                                                                                    <button onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        Swal.fire({
+                                                                                            title: '¿Eliminar docente?',
+                                                                                            text: `Se eliminará permanentemente a ${member.firstName} ${member.lastName}.`,
+                                                                                            icon: 'warning',
+                                                                                            showCancelButton: true,
+                                                                                            confirmButtonColor: '#ef4444',
+                                                                                            confirmButtonText: 'Sí, borrar',
+                                                                                            cancelButtonText: 'Cancelar'
+                                                                                        }).then((result) => {
+                                                                                            if (result.isConfirmed) {
+                                                                                                deleteStaff(member.id);
+                                                                                            }
+                                                                                        });
+                                                                                    }} className="p-2 bg-rose-50 text-rose-600 hover:bg-rose-500 hover:text-white border border-rose-100 rounded-lg shadow-sm transition-colors" title="Eliminar Registro">
+                                                                                        <Trash2 size={14} />
+                                                                                    </button>
+                                                                                </div>
+                                                                            </td>
+                                                                        </tr>
+                                                                    );
+                                                                })}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-violet-400 text-[9px] font-black uppercase leading-tight">Total Fotos</span>
-                                        <span className="text-violet-700 text-[11px] font-black leading-tight">
-                                            {globalGalleryItems.filter(s => getPhotoSrc(s)).length} / {globalGalleryItems.length}
-                                        </span>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                )}
+                {shootMode === 'gallery' && (
+                    <div className="flex flex-col h-full overflow-hidden animate-fade-in text-primary">
+                        {/* Cabecera de Galería Global */}
+                        <div className="px-4 mb-4 shrink-0">
+                            <div className="bg-card border border-primary/10 border-l-4 border-l-violet-500 rounded-[16px] shadow-sm overflow-hidden text-primary">
+                                <div className="px-5 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 bg-violet-500/10 rounded-xl flex items-center justify-center text-violet-500">
+                                            <LayoutGrid size={20} />
+                                        </div>
+                                        <div className="text-left">
+                                            <h2 className="text-sm font-black uppercase tracking-widest text-primary">Galería Global de Orla</h2>
+                                            <p className="text-[10px] text-primary/40 font-bold uppercase tracking-wider italic">Vista unificada: Docentes y Alumnos con reencuadre inteligente</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3 w-full md:w-auto">
+                                        <div className="h-[44px] flex items-center gap-3 px-5 rounded-xl bg-violet-50 border border-violet-100 shadow-sm">
+                                            <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center text-violet-600">
+                                                <Camera size={16} />
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-violet-400 text-[9px] font-black uppercase leading-tight">Total Fotos</span>
+                                                <span className="text-violet-700 text-[11px] font-black leading-tight">
+                                                    {globalGalleryItems.filter(s => getPhotoSrc(s)).length} / {globalGalleryItems.length}
+                                                </span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </div>
 
-                {/* Grid de Galería Global */}
-                <div className="flex-1 overflow-y-auto custom-scrollbar p-0">
-                    <div className="p-4 md:p-6 w-full animate-in fade-in duration-500">
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 pb-24">
-                            {globalGalleryItems.map(item => (
-                                <div 
-                                    key={item.id} 
-                                    onClick={() => {
-                                        const photo = getPhotoSrc(item);
-                                        if (photo) {
-                                            setReframingItem({ 
-                                                id: item.id, 
-                                                type: item._isStaff ? 'staff' : 'student', 
-                                                photoUrl: photo, 
-                                                name: item._isStaff ? `${item.firstName} ${item.lastName}` : (item.studentName || `${item.firstName} ${item.lastName}`),
-                                                photoConfig: item.photoConfig || { zoom: 1, x: 0, y: 0 }
-                                            });
-                                        }
-                                    }}
-                                    className={`relative border overflow-hidden group/gallery hover:shadow-xl transition-all cursor-pointer ${((configOrla?.photoShape || 'circle') === 'circle' || (configOrla?.photoShape || 'circle') === 'shield' || (configOrla?.photoShape || 'circle') === 'arch') ? 'aspect-square' : 'aspect-[3/4]'} ${item._isStaff ? 'bg-emerald-50/50 border-emerald-100 hover:shadow-emerald-500/10' : 'bg-indigo-50/50 border-indigo-100 hover:shadow-indigo-500/10'}`}
-                                    style={getShapeStyle(configOrla.photoShape || 'circle')}
-                                >
-                                    {getPhotoSrc(item) ? (
-                                        <div className="w-full h-full relative">
-                                            <img 
-                                                src={getPhotoSrc(item)} 
-                                                className="w-full h-full object-cover transition-transform group-hover/gallery:scale-110" 
-                                                style={getPhotoTransform(item.photoConfig)}
-                                                alt={item.name || item.studentName} 
-                                            />
-                                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover/gallery:opacity-100 transition-opacity flex flex-col justify-end p-3 rounded-2xl">
-                                                <p className="text-[10px] font-black text-white uppercase truncate">
-                                                    {item._isStaff ? `${item.firstName} ${item.lastName}` : item.studentName}
-                                                </p>
-                                                <div className="flex gap-2 mt-2">
-                                                    <button 
-                                                        className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-colors flex items-center justify-center gap-1 ${item._isStaff ? 'bg-white text-emerald-600 hover:bg-emerald-50' : 'bg-white text-indigo-600 hover:bg-indigo-50'}`}
+                        {/* Grid de Galería Global */}
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-0">
+                            <div className="p-4 md:p-6 w-full animate-in fade-in duration-500">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 pb-24">
+                                    {globalGalleryItems.map(item => (
+                                        <div
+                                            key={item.id}
+                                            onClick={() => {
+                                                const photo = getPhotoSrc(item);
+                                                if (photo) {
+                                                    setReframingItem({
+                                                        id: item.id,
+                                                        type: item._isStaff ? 'staff' : 'student',
+                                                        photoUrl: photo,
+                                                        name: item._isStaff ? `${item.firstName} ${item.lastName}` : (item.studentName || `${item.firstName} ${item.lastName}`),
+                                                        photoConfig: item.photoConfig || { zoom: 1, x: 0, y: 0 }
+                                                    });
+                                                }
+                                            }}
+                                            className={`relative border overflow-hidden group/gallery hover:shadow-xl transition-all cursor-pointer ${((configOrla?.photoShape || 'circle') === 'circle' || (configOrla?.photoShape || 'circle') === 'shield' || (configOrla?.photoShape || 'circle') === 'arch') ? 'aspect-square' : 'aspect-[3/4]'} ${item._isStaff ? 'bg-emerald-50/50 border-emerald-100 hover:shadow-emerald-500/10' : 'bg-indigo-50/50 border-indigo-100 hover:shadow-indigo-500/10'}`}
+                                            style={getShapeStyle(configOrla.photoShape || 'circle')}
+                                        >
+                                            {getPhotoSrc(item) ? (
+                                                <div className="w-full h-full relative">
+                                                    <img
+                                                        src={getPhotoSrc(item)}
+                                                        className="w-full h-full object-cover transition-transform group-hover/gallery:scale-110"
+                                                        style={getPhotoTransform(item.photoConfig)}
+                                                        alt={item.name || item.studentName}
+                                                    />
+                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover/gallery:opacity-100 transition-opacity flex flex-col justify-end p-3 rounded-2xl">
+                                                        <p className="text-[10px] font-black text-white uppercase truncate">
+                                                            {item._isStaff ? `${item.firstName} ${item.lastName}` : item.studentName}
+                                                        </p>
+                                                        <div className="flex gap-2 mt-2">
+                                                            <button
+                                                                className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-colors flex items-center justify-center gap-1 ${item._isStaff ? 'bg-white text-emerald-600 hover:bg-emerald-50' : 'bg-white text-indigo-600 hover:bg-indigo-50'}`}
+                                                            >
+                                                                <Maximize2 size={12} /> Reencuadrar
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <div className={`absolute top-2 left-2 px-1.5 py-0.5 text-white text-[8px] font-black rounded-md shadow-sm z-20 border border-white/20 ${item._isStaff ? 'bg-emerald-600' : 'bg-indigo-600'}`}>
+                                                        {getGlobalRank(item.id)}
+                                                    </div>
+                                                    {item._isStaff && (
+                                                        <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-emerald-500/80 text-white text-[7px] font-black rounded-md uppercase tracking-tighter">
+                                                            DOCENTE
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <div className={`w-full h-full flex flex-col items-center justify-center gap-2 p-4 ${item._isStaff ? 'text-emerald-200' : 'text-indigo-200'}`}>
+                                                    <Camera size={24} />
+                                                    <span className="text-[9px] font-black uppercase text-center">Sin Foto Registrada</span>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleIndividualFileClick(item.id, item._isStaff ? 'staff' : 'student'); }}
+                                                        className={`mt-2 px-3 py-1 bg-white border rounded-lg text-[8px] font-black uppercase transition-all shadow-sm ${item._isStaff ? 'border-emerald-100 text-emerald-400 hover:bg-emerald-600 hover:text-white' : 'border-indigo-100 text-indigo-400 hover:bg-indigo-600 hover:text-white'}`}
                                                     >
-                                                        <Maximize2 size={12} /> Reencuadrar
+                                                        Subir Ahora
                                                     </button>
                                                 </div>
-                                            </div>
-                                            <div className={`absolute top-2 left-2 px-1.5 py-0.5 text-white text-[8px] font-black rounded-md shadow-sm z-20 border border-white/20 ${item._isStaff ? 'bg-emerald-600' : 'bg-indigo-600'}`}>
-                                                {getGlobalRank(item.id)}
-                                            </div>
-                                            {item._isStaff && (
-                                                <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-emerald-500/80 text-white text-[7px] font-black rounded-md uppercase tracking-tighter">
-                                                    DOCENTE
-                                                </div>
                                             )}
                                         </div>
-                                    ) : (
-                                        <div className={`w-full h-full flex flex-col items-center justify-center gap-2 p-4 ${item._isStaff ? 'text-emerald-200' : 'text-indigo-200'}`}>
-                                             <Camera size={24} />
-                                             <span className="text-[9px] font-black uppercase text-center">Sin Foto Registrada</span>
-                                             <button 
-                                                onClick={(e) => { e.stopPropagation(); handleIndividualFileClick(item.id, item._isStaff ? 'staff' : 'student'); }}
-                                                className={`mt-2 px-3 py-1 bg-white border rounded-lg text-[8px] font-black uppercase transition-all shadow-sm ${item._isStaff ? 'border-emerald-100 text-emerald-400 hover:bg-emerald-600 hover:text-white' : 'border-indigo-100 text-indigo-400 hover:bg-indigo-600 hover:text-white'}`}
-                                             >
-                                                Subir Ahora
-                                             </button>
-                                        </div>
-                                    )}
+                                    ))}
                                 </div>
-                            ))}
+                            </div>
                         </div>
                     </div>
-                </div>
-            </div>
-        )}
-        </main>
+                )}
+            </main>
 
             {/* MODAL DISPARO ACTIVO */}
             {
@@ -2959,7 +3254,7 @@ const ShootingPanel = ({
                         <div className="w-full max-w-5xl max-h-[95vh] bg-card rounded-[40px] shadow-2xl overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-10 duration-500 border border-white/20 cursor-default relative flex flex-col">
                             {/* Botones de Navegación Rápida */}
                             <div className="absolute top-1/2 -translate-y-1/2 left-4 z-[60] hidden xl:block">
-                                <button 
+                                <button
                                     onClick={() => {
                                         const idx = filteredOrders.findIndex(o => o.id === activeStudent.id);
                                         if (idx > 0) selectStudent(filteredOrders[idx - 1]);
@@ -2971,7 +3266,7 @@ const ShootingPanel = ({
                                 </button>
                             </div>
                             <div className="absolute top-1/2 -translate-y-1/2 right-4 z-[60] hidden xl:block">
-                                <button 
+                                <button
                                     onClick={() => {
                                         const idx = filteredOrders.findIndex(o => o.id === activeStudent.id);
                                         if (idx < filteredOrders.length - 1) selectStudent(filteredOrders[idx + 1]);
@@ -2989,42 +3284,42 @@ const ShootingPanel = ({
                                         {settings?.logo ? <img src={settings.logo} alt="Logo" className="w-48 h-48 object-contain drop-shadow-2xl brightness-0 invert" /> : <Camera size={200} />}
                                     </div>
                                     <div className="relative z-10 lg:mt-4">
-                                         {(() => {
-                                             const shape = configOrla?.photoShape || 'rect34r';
-                                             const isCircle = shape === 'circle';
-                                             const isSquarish = ['circle', 'shield', 'arch'].includes(shape);
-                                             const dims = {
-                                                 circle:  { width: '180px', height: '180px' },
-                                                 oval:    { width: '150px', height: '200px' },
-                                                 rect34:  { width: '150px', height: '200px' },
-                                                 rect34r: { width: '150px', height: '200px' },
-                                                 shield:  { width: '180px', height: '180px' },
-                                                 arch:    { width: '180px', height: '180px' },
-                                                 square:  { width: '180px', height: '180px' },
-                                                 squarer: { width: '180px', height: '180px' },
-                                             }[shape] || { width: '150px', height: '200px' };
-                                             const shapeStyles = getShapeStyle(shape, dims.width, dims.height);
-                                             const { width: _w, height: _h, objectFit: _of, aspectRatio: _ar, ...clipStyles } = shapeStyles;
-                                             return (
-                                                 <div 
-                                                     className="mb-8 bg-white/10 flex items-center justify-center backdrop-blur-md border border-white/20 shadow-2xl overflow-hidden mx-auto lg:mx-0 group transition-all duration-500 hover:scale-105 hover:border-white/40"
-                                                     style={{ ...dims, ...clipStyles, flexShrink: 0 }}
-                                                 >
-                                                     {getPhotoSrc(activeStudent) ? (
-                                                         <img 
-                                                             src={getPhotoSrc(activeStudent)} 
-                                                             className="w-full h-full object-cover animate-fade-in" 
-                                                             style={getPhotoTransform(activeStudent.photoConfig)}
-                                                             alt="Foto Alumno" 
-                                                         />
-                                                     ) : settings?.logo ? (
-                                                         <img src={settings.logo} alt="Logo" className="w-20 h-20 object-contain drop-shadow-xl brightness-0 invert opacity-40" />
-                                                     ) : (
-                                                         <Camera size={48} className="text-white/20" />
-                                                     )}
-                                                 </div>
-                                             );
-                                         })()}
+                                        {(() => {
+                                            const shape = configOrla?.photoShape || 'rect34r';
+                                            const isCircle = shape === 'circle';
+                                            const isSquarish = ['circle', 'shield', 'arch'].includes(shape);
+                                            const dims = {
+                                                circle: { width: '180px', height: '180px' },
+                                                oval: { width: '150px', height: '200px' },
+                                                rect34: { width: '150px', height: '200px' },
+                                                rect34r: { width: '150px', height: '200px' },
+                                                shield: { width: '180px', height: '180px' },
+                                                arch: { width: '180px', height: '180px' },
+                                                square: { width: '180px', height: '180px' },
+                                                squarer: { width: '180px', height: '180px' },
+                                            }[shape] || { width: '150px', height: '200px' };
+                                            const shapeStyles = getShapeStyle(shape, dims.width, dims.height);
+                                            const { width: _w, height: _h, objectFit: _of, aspectRatio: _ar, ...clipStyles } = shapeStyles;
+                                            return (
+                                                <div
+                                                    className="mb-8 bg-white/10 flex items-center justify-center backdrop-blur-md border border-white/20 shadow-2xl overflow-hidden mx-auto lg:mx-0 group transition-all duration-500 hover:scale-105 hover:border-white/40"
+                                                    style={{ ...dims, ...clipStyles, flexShrink: 0 }}
+                                                >
+                                                    {getPhotoSrc(activeStudent) ? (
+                                                        <img
+                                                            src={getPhotoSrc(activeStudent)}
+                                                            className="w-full h-full object-cover animate-fade-in"
+                                                            style={getPhotoTransform(activeStudent.photoConfig)}
+                                                            alt="Foto Alumno"
+                                                        />
+                                                    ) : settings?.logo ? (
+                                                        <img src={settings.logo} alt="Logo" className="w-20 h-20 object-contain drop-shadow-xl brightness-0 invert opacity-40" />
+                                                    ) : (
+                                                        <Camera size={48} className="text-white/20" />
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
                                         <h1 className="text-3xl lg:text-5xl font-black uppercase tracking-tight leading-none italic text-white drop-shadow-xl mb-4 line-clamp-3">
                                             {(activeStudent.studentName && !activeStudent.studentName.startsWith('http'))
                                                 ? activeStudent.studentName
@@ -3032,7 +3327,7 @@ const ShootingPanel = ({
                                                     ? `${activeStudent.firstName || ''} ${activeStudent.lastName || ''}`.trim()
                                                     : 'Sin Nombre')}
                                         </h1>
-                                        
+
                                         {(activeStudent.parentName || activeStudent.phone) && (
                                             <div className="flex flex-wrap gap-4 mb-6">
                                                 {activeStudent.parentName && (
@@ -3064,7 +3359,7 @@ const ShootingPanel = ({
                                             <div className="flex flex-col gap-2">
                                                 {/* SELECTOR DE PAGO */}
                                                 <div className="relative">
-                                                    <div 
+                                                    <div
                                                         className={`flex items-center gap-3 cursor-pointer p-3 rounded-2xl transition-all group/state ${showPaymentSelector ? 'bg-white/10 ring-1 ring-white/20' : 'bg-white/5 hover:bg-white/10'}`}
                                                         onClick={() => {
                                                             setShowPaymentSelector(!showPaymentSelector);
@@ -3116,7 +3411,7 @@ const ShootingPanel = ({
 
                                                 {/* SELECTOR DE ESTADO FOTO */}
                                                 <div className="relative">
-                                                    <div 
+                                                    <div
                                                         className={`flex items-center gap-3 cursor-pointer p-3 rounded-2xl transition-all group/state ${showStatusSelector ? 'bg-white/10 ring-1 ring-white/20' : 'bg-white/5 hover:bg-white/10'}`}
                                                         onClick={() => {
                                                             setShowStatusSelector(!showStatusSelector);
@@ -3274,9 +3569,9 @@ const ShootingPanel = ({
 
 
             {/* MODAL DE SUBIDA MASIVA (RESTAURADO) */}
-            <BulkUploadModal 
-                isOpen={showBulkUpload} 
-                onClose={() => setShowBulkUpload(false)} 
+            <BulkUploadModal
+                isOpen={showBulkUpload}
+                onClose={() => setShowBulkUpload(false)}
                 photographerId={photographerId}
                 schools={schools}
                 currentSchoolId={adminSchool}
@@ -3284,17 +3579,17 @@ const ShootingPanel = ({
 
             {/* MODAL DE MAPEO DINÁMICO EXCEL (NAVAJA SUIZA) - REDISEÑO ORIENTADO A USUARIO */}
             {showExcelMappingModal && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-primary/20 backdrop-blur-md animate-in fade-in duration-300">
-                    <div className="bg-card border border-primary/10 rounded-[2.5rem] shadow-2xl w-full max-w-3xl overflow-hidden animate-in zoom-in-95 duration-300">
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-2 bg-primary/20 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-card border border-primary/10 rounded-[2rem] shadow-2xl w-full max-w-4xl overflow-hidden animate-in zoom-in-95 duration-300">
                         {/* Header */}
-                        <div className="p-8 border-b border-primary/5 bg-gradient-to-r from-emerald-500/5 to-transparent flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                <div className="w-14 h-14 bg-emerald-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
-                                    <Database size={28} />
+                        <div className="p-4 border-b border-primary/5 bg-gradient-to-r from-emerald-500/5 to-transparent flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
+                                    <Database size={20} />
                                 </div>
                                 <div>
-                                    <h3 className="text-2xl font-black text-primary tracking-tight uppercase">Navaja Suiza: Tu Configuración</h3>
-                                    <p className="text-[11px] font-bold text-primary/40 uppercase tracking-widest mt-1">Dinos qué contiene cada una de tus columnas</p>
+                                    <h3 className="text-[11px] font-black text-primary uppercase tracking-[0.2em]">Navaja Suiza Excel</h3>
+                                    <p className="text-[9px] font-bold text-primary/40 uppercase tracking-widest mt-0.5">Asigna tus columnas a los campos del sistema</p>
                                 </div>
                             </div>
                             <button onClick={() => setShowExcelMappingModal(false)} className="p-3 hover:bg-rose-500/10 text-primary/20 hover:text-rose-500 rounded-xl transition-all">
@@ -3302,15 +3597,14 @@ const ShootingPanel = ({
                             </button>
                         </div>
 
-                        {/* Content */}
-                        <div className="p-8 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                        <div className="px-6 py-4 max-h-[70vh] overflow-y-auto custom-scrollbar">
                             <div className="space-y-3">
-                                <div className="grid grid-cols-12 gap-4 px-6 mb-4 text-[10px] font-black text-primary/30 uppercase tracking-[0.2em]">
+                                <div className="grid grid-cols-12 gap-3 px-4 mb-2 text-[9px] font-black text-primary/30 uppercase tracking-[0.2em]">
                                     <div className="col-span-1 flex items-center justify-center text-center">#</div>
                                     <div className="col-span-5">Tu Columna (Excel)</div>
                                     <div className="col-span-6">¿A qué corresponde en la App?</div>
                                 </div>
-                                
+
                                 {excelColumns.map((col, index) => {
                                     const currentMappedField = Object.keys(excelMapping).find(key => excelMapping[key] === col);
                                     const systemField = [
@@ -3331,7 +3625,7 @@ const ShootingPanel = ({
                                     ];
 
                                     return (
-                                        <div key={col} className={`grid grid-cols-12 gap-4 items-center p-4 rounded-2xl border transition-all duration-300 ${currentMappedField ? 'bg-emerald-500/5 border-emerald-500/20 shadow-sm' : 'bg-primary/5 border-primary/10 hover:border-primary/20'}`}>
+                                        <div key={col} className={`grid grid-cols-12 gap-3 items-center p-2 px-3 rounded-xl border transition-all duration-300 ${currentMappedField ? 'bg-emerald-500/5 border-emerald-500/20 shadow-sm' : 'bg-primary/5 border-primary/10 hover:border-primary/20'}`}>
                                             <div className="col-span-1 flex items-center justify-center text-[11px] font-black text-primary/20">
                                                 {String(index + 1).padStart(2, '0')}
                                             </div>
@@ -3340,12 +3634,12 @@ const ShootingPanel = ({
                                             </div>
                                             <div className="col-span-6">
                                                 <div className="relative group">
-                                                    <select 
-                                                        value={currentMappedField || ""} 
+                                                    <select
+                                                        value={currentMappedField || ""}
                                                         onChange={(e) => {
                                                             const fieldId = e.target.value;
                                                             const newMapping = { ...excelMapping };
-                                                            
+
                                                             // Limpiar cualquier campo que estuviera apuntando a esta columna
                                                             Object.keys(newMapping).forEach(key => {
                                                                 if (newMapping[key] === col) newMapping[key] = '';
@@ -3355,14 +3649,13 @@ const ShootingPanel = ({
                                                             if (fieldId) {
                                                                 newMapping[fieldId] = col;
                                                             }
-                                                            
+
                                                             setExcelMapping(newMapping);
                                                         }}
-                                                        className={`w-full appearance-none bg-white border-2 rounded-xl px-5 py-3 text-[11px] font-black uppercase tracking-wider cursor-pointer focus:outline-none transition-all ${
-                                                            currentMappedField 
-                                                            ? 'border-emerald-500 text-emerald-600 focus:ring-4 focus:ring-emerald-500/10' 
+                                                        className={`w-full appearance-none bg-white border rounded-lg px-4 py-2 text-[10px] font-black uppercase tracking-wider cursor:pointer focus:outline-none transition-all ${currentMappedField
+                                                            ? 'border-emerald-500 text-emerald-600 focus:ring-4 focus:ring-emerald-500/10'
                                                             : 'border-primary/10 text-primary/40 hover:border-primary/30 focus:border-primary focus:text-primary focus:ring-4 focus:ring-primary/5'
-                                                        }`}
+                                                            }`}
                                                         title="Asigna esta columna de Excel a un campo de la aplicación"
                                                     >
                                                         <option value="">-- Ignorar columna --</option>
@@ -3384,79 +3677,134 @@ const ShootingPanel = ({
                                     );
                                 })}
                             </div>
-                            
+
                             {/* VALORES POR DEFECTO PARA CAMPOS NO ENCONTRADOS */}
-                            <div className="mt-12 p-8 bg-indigo-500/5 border border-indigo-500/10 rounded-[2rem] space-y-6">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-500">
-                                        <Package size={20} />
+                            <div className="mt-3 p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-xl space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Package size={16} className="text-indigo-500" />
+                                        <h4 className="text-[10px] font-black text-indigo-900/60 uppercase tracking-widest">Valores por Defecto</h4>
                                     </div>
-                                    <div>
-                                        <h4 className="text-[13px] font-black text-indigo-900 uppercase tracking-widest leading-none">Configuración de Seguridad</h4>
-                                        <p className="text-[10px] font-bold text-indigo-500/60 uppercase tracking-widest mt-1">Si una columna no existe, usaremos estos valores:</p>
-                                    </div>
+                                    <p className="text-[8px] font-bold text-indigo-900/30 uppercase">Se usarán si la columna no existe o está vacía</p>
                                 </div>
-                                
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div className="space-y-2">
-                                        <label className="text-[9px] font-black text-indigo-900/40 uppercase tracking-[0.2em] ml-2">Pack por defecto</label>
-                                        <select 
+
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    <div className="space-y-1">
+                                        <label className="text-[8px] font-black text-indigo-900/40 uppercase tracking-[0.1em] ml-1">Pack x Defecto</label>
+                                        <select
                                             value={excelDefaults.pack}
-                                            onChange={(e) => setExcelDefaults({...excelDefaults, pack: e.target.value})}
-                                            className="w-full bg-white border-2 border-indigo-500/10 rounded-2xl px-5 py-4 text-[11px] font-black uppercase tracking-wider focus:border-indigo-500 focus:outline-none transition-all"
+                                            onChange={(e) => setExcelDefaults({ ...excelDefaults, pack: e.target.value })}
+                                            className="w-full bg-white border border-indigo-500/10 rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-wider focus:border-indigo-500 focus:outline-none transition-all"
                                         >
                                             <option value="">Selecciona un pack</option>
                                             {availablePacks.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                                         </select>
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[9px] font-black text-indigo-900/40 uppercase tracking-[0.2em] ml-2">Curso / Nivel</label>
-                                        <select 
+                                    <div className="space-y-1">
+                                        <label className="text-[8px] font-black text-indigo-900/40 uppercase tracking-[0.1em] ml-1">Curso / Nivel</label>
+                                        <select
                                             value={excelDefaults.course}
-                                            onChange={(e) => setExcelDefaults({...excelDefaults, course: e.target.value})}
-                                            className="w-full bg-white border-2 border-indigo-500/10 rounded-2xl px-5 py-4 text-[11px] font-black uppercase tracking-wider focus:border-indigo-500 focus:outline-none transition-all"
+                                            onChange={(e) => setExcelDefaults({ ...excelDefaults, course: e.target.value })}
+                                            className="w-full bg-white border border-indigo-500/10 rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-wider focus:border-indigo-500 focus:outline-none transition-all"
                                         >
                                             <option value="">Selecciona clase</option>
                                             {allExistingCourses.map(c => <option key={c} value={c}>{c}</option>)}
                                         </select>
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[9px] font-black text-indigo-900/40 uppercase tracking-[0.2em] ml-2">Centro (Opcional)</label>
-                                        <select 
+                                    <div className="space-y-1">
+                                        <label className="text-[8px] font-black text-indigo-900/40 uppercase tracking-[0.1em] ml-1">Centro</label>
+                                        <select
                                             value={excelDefaults.schoolName}
-                                            onChange={(e) => setExcelDefaults({...excelDefaults, schoolName: e.target.value})}
-                                            className="w-full bg-white border-2 border-indigo-500/10 rounded-2xl px-5 py-4 text-[11px] font-black uppercase tracking-wider focus:border-indigo-500 focus:outline-none transition-all"
+                                            onChange={(e) => setExcelDefaults({ ...excelDefaults, schoolName: e.target.value })}
+                                            className="w-full bg-white border border-indigo-500/10 rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-wider focus:border-indigo-500 focus:outline-none transition-all"
                                         >
-                                            <option value="">Centro actual ({getSchoolName(adminSchool)})</option>
+                                            <option value="">Actual ({getSchoolName(adminSchool)})</option>
                                             {sortedSchools.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
                                         </select>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="mt-8 p-6 bg-amber-500/5 border border-amber-500/10 rounded-3xl flex items-start gap-5">
-                                <div className="w-10 h-10 bg-amber-500/20 rounded-xl flex items-center justify-center text-amber-600 shrink-0">
-                                    <Zap size={20} />
+                            <div className="mt-3 p-4 bg-amber-500/5 border border-amber-500/10 rounded-xl space-y-4">
+                                <div className="flex items-center gap-3">
+                                    <Wand2 size={16} className="text-amber-600" />
+                                    <h4 className="text-[10px] font-black text-amber-900/60 uppercase tracking-widest">Navaja Suiza de Datos (Auto-Arreglo)</h4>
                                 </div>
-                                <div>
-                                    <p className="text-[11px] font-black text-amber-700 uppercase tracking-widest">Mapeo Inteligente Activado</p>
-                                    <p className="text-[10px] font-bold text-amber-600/70 uppercase leading-relaxed mt-1">Hemos detectado algunas columnas automáticamente. Por favor, asegúrate de que cada una de tus columnas tenga el rol correcto para evitar errores en la importación.</p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <button
+                                        onClick={() => {
+                                            const col = excelMapping.photoNum;
+                                            if (!col) return Swal.fire('Error', 'Primero asigna la columna "Nº Archivo Foto"', 'error');
+                                            setExcelContent(prev => prev.map(row => {
+                                                const val = row[col];
+                                                if (val && !isNaN(val) && String(val).length < 3) {
+                                                    return { ...row, [col]: String(val).padStart(3, '0') };
+                                                }
+                                                return row;
+                                            }));
+                                            Swal.fire('¡Hecho!', 'Números corregidos a 3 cifras (ej: 1 -> 001)', 'success');
+                                        }}
+                                        className="p-3 bg-white border border-amber-200 rounded-xl text-[9px] font-black uppercase text-amber-700 hover:bg-amber-100 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <Hash size={12} /> Corregir Números (001, 002...)
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            const lastNameCol = excelMapping.lastName;
+                                            if (!lastNameCol) return Swal.fire('Error', 'Asigna primero la columna "Apellidos"', 'error');
+                                            const sorted = [...excelContent].sort((a, b) => {
+                                                const typeCol = excelMapping.type;
+                                                if (typeCol) {
+                                                    const tA = String(a[typeCol] || '').toLowerCase();
+                                                    const tB = String(b[typeCol] || '').toLowerCase();
+                                                    const isStaffA = tA.includes('docente') || tA.includes('staff');
+                                                    const isStaffB = tB.includes('docente') || tB.includes('staff');
+                                                    if (isStaffA && !isStaffB) return -1;
+                                                    if (!isStaffA && isStaffB) return 1;
+                                                }
+                                                return String(a[lastNameCol] || '').localeCompare(String(b[lastNameCol] || ''), 'es', { numeric: true });
+                                            });
+                                            setExcelContent(sorted);
+                                            Swal.fire('¡Listo!', 'Tabla re-ordenada (Docentes arriba, Alumnos por apellido)', 'success');
+                                        }}
+                                        className="p-3 bg-white border border-amber-200 rounded-xl text-[9px] font-black uppercase text-amber-700 hover:bg-amber-100 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <Users size={12} /> Re-ordenar por Apellido/Tipo
+                                    </button>
                                 </div>
+                                <button
+                                    onClick={() => {
+                                        const worksheet = XLSX.utils.json_to_sheet(excelContent);
+                                        const workbook = XLSX.utils.book_new();
+                                        XLSX.utils.book_append_sheet(workbook, worksheet, "Datos Limpios");
+                                        XLSX.writeFile(workbook, "TABLA_LIMPIA_ORLA_2026.xlsx");
+                                    }}
+                                    className="w-full p-3 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 hover:bg-indigo-700 shadow-lg shadow-indigo-500/20"
+                                >
+                                    <FileText size={14} /> Descargar Tabla Limpia (.xlsx)
+                                </button>
+                            </div>
+
+                            <div className="mt-3 p-3 bg-amber-500/5 border border-amber-500/10 rounded-xl flex items-center gap-3">
+                                <Zap size={14} className="text-amber-500 shrink-0" />
+                                <p className="text-[9px] font-bold text-amber-700/70 uppercase tracking-tight">
+                                    <span className="font-black text-amber-700">Mapeo Inteligente:</span> Revisa que cada columna tenga el rol correcto antes de continuar.
+                                </p>
                             </div>
                         </div>
 
                         {/* Footer */}
-                        <div className="p-8 bg-primary/5 flex items-center justify-between gap-6 border-t border-primary/5">
-                            <button 
+                        <div className="p-4 bg-primary/5 flex items-center justify-between gap-4 border-t border-primary/5">
+                            <button
                                 onClick={() => setShowExcelMappingModal(false)}
-                                className="px-10 py-5 text-[11px] font-black text-primary/30 uppercase tracking-[0.3em] hover:text-rose-500 transition-all active:scale-95"
+                                className="px-5 py-3 text-[10px] font-black text-primary/30 uppercase tracking-[0.2em] hover:text-rose-500 transition-all active:scale-95"
                             >
                                 Cancelar
                             </button>
-                            <button 
+                            <button
                                 onClick={processExcelImport}
                                 disabled={!excelMapping.studentName}
-                                className="flex-1 py-5 bg-emerald-500 hover:bg-emerald-600 disabled:bg-primary/10 disabled:text-primary/20 text-white font-black text-[12px] uppercase tracking-[0.4em] rounded-2xl shadow-xl shadow-emerald-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-4 group"
+                                className="flex-1 py-3 bg-emerald-500 hover:bg-emerald-600 disabled:bg-primary/10 disabled:text-primary/20 text-white font-black text-[11px] uppercase tracking-[0.3em] rounded-xl shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-3 group"
                             >
                                 <Zap size={18} className="group-hover:animate-pulse" /> Finalizar y Cargar Tabla
                             </button>
@@ -3479,7 +3827,7 @@ const ShootingPanel = ({
                         </div>
 
                         <div className="flex items-center gap-4">
-                            <button 
+                            <button
                                 onClick={() => {
                                     setSelectedOrderIds([]);
                                     setSelectedStaffIds([]);
@@ -3488,8 +3836,8 @@ const ShootingPanel = ({
                             >
                                 Desmarcar Todo
                             </button>
-                            
-                            <button 
+
+                            <button
                                 onClick={() => {
                                     if (selectedOrderIds.length > 0) setShowDeleteConfirm('orders');
                                     else if (selectedStaffIds.length > 0) setShowDeleteConfirm('staff');
@@ -3504,11 +3852,11 @@ const ShootingPanel = ({
             )}
 
             {/* INPUT DE ARCHIVO OCULTO PARA SUBIDA INDIVIDUAL */}
-            <input 
-                type="file" 
+            <input
+                type="file"
                 ref={fileInputRef}
-                className="hidden" 
-                accept="image/*"
+                className="hidden"
+                accept="image/*, .png, .jpg, .jpeg, .webp, image/png, image/jpeg, image/webp"
                 onChange={handleIndividualFileChange}
             />
 
@@ -3526,13 +3874,13 @@ const ShootingPanel = ({
                             </p>
                         </div>
                         <div className="flex bg-white/5 p-2 gap-2">
-                            <button 
+                            <button
                                 onClick={() => setShowDeleteConfirm(null)}
                                 className="flex-1 py-6 text-[11px] font-black text-white/30 hover:text-white hover:bg-white/5 uppercase tracking-[0.3em] transition-all rounded-[30px]"
                             >
                                 Cancelar
                             </button>
-                            <button 
+                            <button
                                 onClick={() => {
                                     if (showDeleteConfirm === 'orders') {
                                         deleteOrder(selectedOrderIds);
@@ -3551,33 +3899,33 @@ const ShootingPanel = ({
                     </div>
                 </div>
             )}
-            
+
             {/* MODAL DE REENCUADRE (REFRAMING) */}
             {reframingItem && (
                 <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 md:p-8">
-                    <div 
+                    <div
                         className="absolute inset-0 bg-slate-900/40 backdrop-blur-md"
                         onClick={() => setReframingItem(null)}
                     />
-                    
+
                     <div className="relative w-full max-w-4xl bg-white rounded-[32px] shadow-2xl overflow-hidden flex flex-col md:flex-row animate-in zoom-in-95 duration-300 border border-white/20">
                         {/* Área de Visualización (Preview) */}
                         <div className="flex-1 bg-slate-100 relative min-h-[400px] flex items-center justify-center overflow-hidden border-b md:border-b-0 md:border-r border-slate-200">
                             <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#000 0.5px, transparent 0.5px)', backgroundSize: '10px 10px' }}></div>
-                            
-                            <div 
+
+                            <div
                                 className="relative overflow-hidden bg-slate-900 shadow-2xl transition-all flex items-center justify-center select-none"
                                 style={(() => {
                                     const shape = configOrla?.photoShape || 'circle';
                                     // Dimensiones explícitas por forma (width + height, NO aspectRatio)
                                     const dims = {
-                                        circle:  { width: '400px', height: '400px' },
-                                        oval:    { width: '320px', height: '420px' },
-                                        rect34:  { width: '300px', height: '400px' },
+                                        circle: { width: '400px', height: '400px' },
+                                        oval: { width: '320px', height: '420px' },
+                                        rect34: { width: '300px', height: '400px' },
                                         rect34r: { width: '300px', height: '400px' },
-                                        shield:  { width: '380px', height: '380px' },
-                                        arch:    { width: '380px', height: '380px' },
-                                        square:  { width: '380px', height: '380px' },
+                                        shield: { width: '380px', height: '380px' },
+                                        arch: { width: '380px', height: '380px' },
+                                        square: { width: '380px', height: '380px' },
                                         squarer: { width: '380px', height: '380px' },
                                     }[shape] || { width: '320px', height: '420px' };
 
@@ -3592,52 +3940,52 @@ const ShootingPanel = ({
                                     };
                                 })()}
                             >
-                                 <img 
-                                     src={reframingItem.photoUrl} 
-                                     alt="Reencuadre"
-                                     draggable={false}
-                                     style={{
-                                         width: '100%',
-                                         height: '100%',
-                                         objectFit: 'cover',
-                                         ...getPhotoTransform(reframingItem.photoConfig),
-                                         cursor: 'move'
-                                     }}
-                                     onMouseDown={(e) => {
-                                         const rect = e.currentTarget.parentElement.getBoundingClientRect();
-                                         const refW = rect.width;
-                                         const refH = rect.height;
-                                         const startX = e.clientX;
-                                         const startY = e.clientY;
-                                         const initialX = reframingItem.photoConfig?.x || 0;
-                                         const initialY = reframingItem.photoConfig?.y || 0;
-                                         const currentZoom = reframingItem.photoConfig?.zoom || 1;
+                                <img
+                                    src={reframingItem.photoUrl}
+                                    alt="Reencuadre"
+                                    draggable={false}
+                                    style={{
+                                        width: '100%',
+                                        height: '100%',
+                                        objectFit: 'cover',
+                                        ...getPhotoTransform(reframingItem.photoConfig),
+                                        cursor: 'move'
+                                    }}
+                                    onMouseDown={(e) => {
+                                        const rect = e.currentTarget.parentElement.getBoundingClientRect();
+                                        const refW = rect.width;
+                                        const refH = rect.height;
+                                        const startX = e.clientX;
+                                        const startY = e.clientY;
+                                        const initialX = reframingItem.photoConfig?.x || 0;
+                                        const initialY = reframingItem.photoConfig?.y || 0;
+                                        const currentZoom = reframingItem.photoConfig?.zoom || 1;
 
-                                         const handleMouseMove = (mm) => {
-                                             // Calculamos el desplazamiento en porcentaje relativo al contenedor y al zoom
-                                             const dx = ((mm.clientX - startX) / currentZoom / refW) * 100;
-                                             const dy = ((mm.clientY - startY) / currentZoom / refH) * 100;
-                                             
-                                             setReframingItem(prev => ({
-                                                 ...prev,
-                                                 photoConfig: {
-                                                     ...prev.photoConfig,
-                                                     x: initialX + dx,
-                                                     y: initialY + dy,
-                                                     zoom: currentZoom
-                                                 }
-                                             }));
-                                         };
+                                        const handleMouseMove = (mm) => {
+                                            // Calculamos el desplazamiento en porcentaje relativo al contenedor y al zoom
+                                            const dx = ((mm.clientX - startX) / currentZoom / refW) * 100;
+                                            const dy = ((mm.clientY - startY) / currentZoom / refH) * 100;
 
-                                         const handleMouseUp = () => {
-                                             window.removeEventListener('mousemove', handleMouseMove);
-                                             window.removeEventListener('mouseup', handleMouseUp);
-                                         };
+                                            setReframingItem(prev => ({
+                                                ...prev,
+                                                photoConfig: {
+                                                    ...prev.photoConfig,
+                                                    x: initialX + dx,
+                                                    y: initialY + dy,
+                                                    zoom: currentZoom
+                                                }
+                                            }));
+                                        };
 
-                                         window.addEventListener('mousemove', handleMouseMove);
-                                         window.addEventListener('mouseup', handleMouseUp);
-                                     }}
-                                 />
+                                        const handleMouseUp = () => {
+                                            window.removeEventListener('mousemove', handleMouseMove);
+                                            window.removeEventListener('mouseup', handleMouseUp);
+                                        };
+
+                                        window.addEventListener('mousemove', handleMouseMove);
+                                        window.addEventListener('mouseup', handleMouseUp);
+                                    }}
+                                />
                                 {/* REGLA DE ORO / GUÍAS DE REENCUADRE */}
                                 <div className="absolute inset-0 pointer-events-none z-20">
                                     {/* Líneas horizontales */}
@@ -3646,15 +3994,15 @@ const ShootingPanel = ({
                                     {/* Líneas verticales */}
                                     <div className="absolute left-[33.33%] top-0 h-full w-[1px] bg-white/40 shadow-[0_0_8px_rgba(255,255,255,0.5)]"></div>
                                     <div className="absolute left-[66.66%] top-0 h-full w-[1px] bg-white/40 shadow-[0_0_8px_rgba(255,255,255,0.5)]"></div>
-                                    
+
                                     {/* Círculo central - Óvalo facial sugerido */}
                                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[62%] w-[200px] h-[240px] rounded-[100%] border border-white/30 border-dashed backdrop-brightness-110"></div>
-                                    
+
                                     {/* Punto central de nariz */}
                                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-white/20"></div>
                                 </div>
                             </div>
-                            
+
                             {/* Etiquetas Informativas */}
                             <div className="absolute bottom-6 left-6 flex flex-col gap-1">
                                 <span className="px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full text-[10px] font-black uppercase text-slate-500 shadow-sm border border-slate-200">Vista Previa Real</span>
@@ -3669,7 +4017,7 @@ const ShootingPanel = ({
                                     <h3 className="text-[20px] font-black text-slate-900 leading-tight uppercase">Reencuadrar</h3>
                                     <p className="text-[12px] text-slate-500 font-bold uppercase tracking-wider mt-1">{reframingItem.name}</p>
                                 </div>
-                                <button 
+                                <button
                                     onClick={() => setReframingItem(null)}
                                     className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-slate-600"
                                 >
@@ -3685,10 +4033,10 @@ const ShootingPanel = ({
                                     </label>
                                     <span className="text-[12px] font-black text-indigo-600">{Math.round((reframingItem.photoConfig?.zoom || 1) * 100)}%</span>
                                 </div>
-                                <input 
-                                    type="range" 
-                                    min="1" 
-                                    max="3" 
+                                <input
+                                    type="range"
+                                    min="1"
+                                    max="3"
                                     step="0.01"
                                     value={reframingItem.photoConfig?.zoom || 1}
                                     onChange={(e) => {
@@ -3701,9 +4049,9 @@ const ShootingPanel = ({
                                     className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-indigo-600"
                                 />
                                 <div className="flex justify-between px-1">
-                                    <button onClick={() => setReframingItem(prev => ({ ...prev, photoConfig: { zoom: 1, x: 0, y: 0 }}))} className="text-[10px] font-black text-slate-400 hover:text-indigo-600 transition-colors">1.0x</button>
-                                    <button onClick={() => setReframingItem(prev => ({ ...prev, photoConfig: { ...prev.photoConfig, zoom: 2 }}))} className="text-[10px] font-black text-slate-400 hover:text-indigo-600 transition-colors">2.0x</button>
-                                    <button onClick={() => setReframingItem(prev => ({ ...prev, photoConfig: { ...prev.photoConfig, zoom: 3 }}))} className="text-[10px] font-black text-slate-400 hover:text-indigo-600 transition-colors">3.0x</button>
+                                    <button onClick={() => setReframingItem(prev => ({ ...prev, photoConfig: { zoom: 1, x: 0, y: 0 } }))} className="text-[10px] font-black text-slate-400 hover:text-indigo-600 transition-colors">1.0x</button>
+                                    <button onClick={() => setReframingItem(prev => ({ ...prev, photoConfig: { ...prev.photoConfig, zoom: 2 } }))} className="text-[10px] font-black text-slate-400 hover:text-indigo-600 transition-colors">2.0x</button>
+                                    <button onClick={() => setReframingItem(prev => ({ ...prev, photoConfig: { ...prev.photoConfig, zoom: 3 } }))} className="text-[10px] font-black text-slate-400 hover:text-indigo-600 transition-colors">3.0x</button>
                                 </div>
                             </div>
 
@@ -3751,11 +4099,10 @@ const ShootingPanel = ({
                                                     }
                                                 });
                                             }}
-                                            className={`p-2 rounded-xl border transition-all flex flex-col items-center gap-2 group ${
-                                                (configOrla?.photoShape || 'circle') === shape.id 
-                                                ? 'bg-indigo-50 border-indigo-200 text-indigo-600 shadow-sm' 
+                                            className={`p-2 rounded-xl border transition-all flex flex-col items-center gap-2 group ${(configOrla?.photoShape || 'circle') === shape.id
+                                                ? 'bg-indigo-50 border-indigo-200 text-indigo-600 shadow-sm'
                                                 : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200 hover:text-slate-600'
-                                            }`}
+                                                }`}
                                         >
                                             <div className="w-8 h-8 flex items-center justify-center opacity-80 group-hover:opacity-100">
                                                 <svg viewBox="0 0 100 100" className="w-full h-full fill-current">
@@ -3770,13 +4117,13 @@ const ShootingPanel = ({
 
                             {/* Atajos / Acciones rápidas */}
                             <div className="grid grid-cols-2 gap-3">
-                                <button 
-                                    onClick={() => setReframingItem(prev => ({ ...prev, photoConfig: { zoom: 1, x: 0, y: 0 }}))}
+                                <button
+                                    onClick={() => setReframingItem(prev => ({ ...prev, photoConfig: { zoom: 1, x: 0, y: 0 } }))}
                                     className="p-3 bg-slate-50 border border-slate-200 rounded-2xl text-[10px] font-black text-slate-600 hover:bg-white hover:border-indigo-200 hover:text-indigo-600 transition-all flex flex-col items-center gap-2 uppercase tracking-tight"
                                 >
                                     <Maximize size={16} /> Resetear
                                 </button>
-                                <button 
+                                <button
                                     onClick={handleAutoReframe}
                                     className="p-3 bg-slate-50 border border-slate-200 rounded-2xl text-[10px] font-black text-slate-600 hover:bg-white hover:border-indigo-200 hover:text-indigo-600 transition-all flex flex-col items-center gap-2 uppercase tracking-tight"
                                 >
@@ -3786,8 +4133,8 @@ const ShootingPanel = ({
 
                             <div className="mt-auto pt-6 border-t border-slate-100 flex flex-col gap-3">
                                 <p className="text-[10px] text-slate-400 font-bold italic leading-tight mb-2 text-center">Arrastra la foto directamente para posicionarla dentro del marco.</p>
-                                
-                                <button 
+
+                                <button
                                     onClick={() => {
                                         // Guardar cambios
                                         if (reframingItem.type === 'student') {
@@ -3796,12 +4143,12 @@ const ShootingPanel = ({
                                             updateStaff(reframingItem.id, { photoConfig: reframingItem.photoConfig });
                                         }
                                         setReframingItem(null);
-                                        Swal.fire({ 
-                                            title: '<span class="text-[18px] font-black uppercase text-indigo-600">Ajuste Guardado</span>', 
-                                            text: 'El reencuadre se aplicará a la orla.', 
-                                            icon: 'success', 
+                                        Swal.fire({
+                                            title: '<span class="text-[18px] font-black uppercase text-indigo-600">Ajuste Guardado</span>',
+                                            text: 'El reencuadre se aplicará a la orla.',
+                                            icon: 'success',
                                             iconColor: '#4f46e5',
-                                            timer: 1500, 
+                                            timer: 1500,
                                             showConfirmButton: false,
                                             customClass: {
                                                 popup: 'rounded-[28px] border-none shadow-2xl p-6',
@@ -3812,8 +4159,8 @@ const ShootingPanel = ({
                                 >
                                     <Check size={18} /> Aplicar Ajustes
                                 </button>
-                                
-                                <button 
+
+                                <button
                                     onClick={() => setReframingItem(null)}
                                     className="w-full py-3 text-slate-400 hover:text-slate-600 font-black text-[11px] uppercase tracking-widest transition-colors mb-2"
                                 >
@@ -3821,13 +4168,13 @@ const ShootingPanel = ({
                                 </button>
 
                                 <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-4">
-                                    <button 
+                                    <button
                                         onClick={() => handleNavigateReframing(-1)}
                                         className="flex items-center justify-center gap-2 py-3 bg-slate-50 border border-slate-200 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-white hover:border-indigo-200 hover:text-indigo-600 transition-all active:scale-95 group shadow-sm"
                                     >
                                         <ChevronLeft size={16} className="group-hover:-translate-x-0.5 transition-transform" /> Anterior
                                     </button>
-                                    <button 
+                                    <button
                                         onClick={() => handleNavigateReframing(1)}
                                         className="flex items-center justify-center gap-2 py-3 bg-slate-50 border border-slate-200 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-white hover:border-indigo-200 hover:text-indigo-600 transition-all active:scale-95 group shadow-sm"
                                     >

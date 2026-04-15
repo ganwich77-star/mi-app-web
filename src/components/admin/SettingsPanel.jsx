@@ -321,42 +321,61 @@ const SettingsPanel = ({
                     isOpen={openSections.billing}
                 />
                 <div className={`transition-all duration-500 ease-in-out ${openSections.billing ? 'max-h-[1000px] opacity-100 p-8 pt-2' : 'max-h-0 opacity-0 pointer-events-none overflow-hidden'}`}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-4">
-                        <div className="space-y-2">
+                    <div className="grid grid-cols-12 gap-4 mb-4">
+                        {/* Fila 1 */}
+                        <div className="col-span-12 md:col-span-4 space-y-2">
                             <label className="text-[9px] font-black text-secondary uppercase tracking-widest block opacity-50 ml-1">Nombre Comercial</label>
-                            <input type="text" value={settings.brandName || ''} onChange={(e) => setSettings(prev => ({ ...prev, brandName: e.target.value }))} onBlur={(e) => updateSettings({ brandName: e.target.value })} className="input-dark w-full py-4 text-[11px] font-black uppercase rounded-2xl" />
+                            <input type="text" value={settings.brandName || ''} onChange={(e) => setSettings(prev => ({ ...prev, brandName: e.target.value }))} onBlur={(e) => updateSettings({ brandName: e.target.value })} className="input-dark input-billing w-full py-3.5 rounded-2xl" />
                         </div>
-                        <div className="space-y-2">
-                            <label className="text-[9px] font-black text-secondary uppercase tracking-widest block opacity-50 ml-1">Email de Soporte</label>
-                            <input type="email" value={settings.notificationEmail || ''} onChange={(e) => setSettings(prev => ({ ...prev, notificationEmail: e.target.value }))} onBlur={(e) => updateSettings({ notificationEmail: e.target.value })} className="input-dark w-full py-4 text-[11px] font-black lowercase rounded-2xl" />
+                        <div className="col-span-12 md:col-span-4 space-y-2">
+                            <label className="text-[9px] font-black text-secondary uppercase tracking-widest block opacity-50 ml-1">Email</label>
+                            <input type="email" value={settings.notificationEmail || ''} onChange={(e) => setSettings(prev => ({ ...prev, notificationEmail: e.target.value }))} onBlur={(e) => updateSettings({ notificationEmail: e.target.value })} className="input-dark input-billing w-full py-3.5 lowercase rounded-2xl" />
                         </div>
-                        <div className="space-y-2">
+                        <div className="col-span-12 md:col-span-4 space-y-2">
                             <label className="text-[9px] font-black text-secondary uppercase tracking-widest block opacity-50 ml-1">Teléfono de Contacto</label>
-                            <input type="text" value={settings.contactPhone || ''} onChange={(e) => setSettings(prev => ({ ...prev, contactPhone: e.target.value }))} onBlur={(e) => updateSettings({ contactPhone: e.target.value })} className="input-dark w-full py-4 text-[11px] font-black tracking-widest rounded-2xl" />
+                            <input type="text" value={settings.contactPhone || ''} onChange={(e) => setSettings(prev => ({ ...prev, contactPhone: e.target.value }))} onBlur={(e) => updateSettings({ contactPhone: e.target.value })} className="input-dark input-billing w-full py-3.5 tracking-widest rounded-2xl" />
                         </div>
-                        <div className="space-y-2">
+
+                        {/* Fila 2 */}
+                        <div className="col-span-12 md:col-span-8 space-y-2">
                             <label className="text-[9px] font-black text-secondary uppercase tracking-widest block opacity-50 ml-1">Razón Social</label>
-                            <input type="text" value={settings.fiscalName || ''} onChange={(e) => setSettings(prev => ({ ...prev, fiscalName: e.target.value }))} onBlur={(e) => updateSettings({ fiscalName: e.target.value })} className="input-dark w-full py-4 text-[11px] font-black uppercase rounded-2xl" />
+                            <input type="text" value={settings.fiscalName || ''} onChange={(e) => setSettings(prev => ({ ...prev, fiscalName: e.target.value }))} onBlur={(e) => updateSettings({ fiscalName: e.target.value })} className="input-dark input-billing w-full py-3.5 uppercase rounded-2xl" />
                         </div>
-                        <div className="space-y-2">
+                        <div className="col-span-12 md:col-span-4 space-y-2">
                             <label className="text-[9px] font-black text-secondary uppercase tracking-widest block opacity-50 ml-1">CIF / NIF</label>
-                            <input type="text" value={settings.cif || ''} onChange={(e) => setSettings(prev => ({ ...prev, cif: e.target.value }))} onBlur={(e) => updateSettings({ cif: e.target.value })} className="input-dark w-full py-4 text-[11px] font-black uppercase rounded-2xl" />
+                            <input type="text" value={settings.cif || ''} onChange={(e) => setSettings(prev => ({ ...prev, cif: e.target.value }))} onBlur={(e) => updateSettings({ cif: e.target.value })} className="input-dark input-billing w-full py-3.5 uppercase rounded-2xl" />
                         </div>
-                        <div className="space-y-2">
-                            <label className="text-[9px] font-black text-secondary uppercase tracking-widest block opacity-50 ml-1">Dirección</label>
-                            <input type="text" value={settings.address || ''} onChange={(e) => setSettings(prev => ({ ...prev, address: e.target.value }))} onBlur={(e) => updateSettings({ address: e.target.value })} className="input-dark w-full py-4 text-[11px] font-black uppercase rounded-2xl" />
+
+                        {/* Fila 3: Dirección Detallada */}
+                        <div className="col-span-12 md:col-span-6 space-y-2">
+                            <label className="text-[9px] font-black text-secondary uppercase tracking-widest block opacity-50 ml-1">Calle / Avenida</label>
+                            <input type="text" value={settings.address || ''} onChange={(e) => setSettings(prev => ({ ...prev, address: e.target.value }))} onBlur={(e) => updateSettings({ address: e.target.value })} className="input-dark input-billing w-full py-3.5 uppercase rounded-2xl" />
                         </div>
-                        <div className="space-y-2">
+                        <div className="col-span-4 md:col-span-2 space-y-2">
+                            <label className="text-[9px] font-black text-secondary uppercase tracking-widest block opacity-50 ml-1">Nº</label>
+                            <input type="text" value={settings.addressNumber || ''} onChange={(e) => setSettings(prev => ({ ...prev, addressNumber: e.target.value }))} onBlur={(e) => updateSettings({ addressNumber: e.target.value })} className="input-dark input-billing w-full py-3.5 uppercase rounded-2xl" />
+                        </div>
+                        <div className="col-span-4 md:col-span-2 space-y-2">
+                            <label className="text-[9px] font-black text-secondary uppercase tracking-widest block opacity-50 ml-1">Piso</label>
+                            <input type="text" value={settings.addressFloor || ''} onChange={(e) => setSettings(prev => ({ ...prev, addressFloor: e.target.value }))} onBlur={(e) => updateSettings({ addressFloor: e.target.value })} className="input-dark input-billing w-full py-3.5 uppercase rounded-2xl" />
+                        </div>
+                        <div className="col-span-4 md:col-span-2 space-y-2">
+                            <label className="text-[9px] font-black text-secondary uppercase tracking-widest block opacity-50 ml-1">Letra</label>
+                            <input type="text" value={settings.addressLetter || ''} onChange={(e) => setSettings(prev => ({ ...prev, addressLetter: e.target.value }))} onBlur={(e) => updateSettings({ addressLetter: e.target.value })} className="input-dark input-billing w-full py-3.5 uppercase rounded-2xl" />
+                        </div>
+
+                        {/* Fila 4: CP, Ciudad, Provincia */}
+                        <div className="col-span-4 md:col-span-2 space-y-2">
                             <label className="text-[9px] font-black text-secondary uppercase tracking-widest block opacity-50 ml-1">C.P.</label>
-                            <input type="text" value={settings.postalCode || ''} onChange={(e) => setSettings(prev => ({ ...prev, postalCode: e.target.value }))} onBlur={(e) => updateSettings({ postalCode: e.target.value })} className="input-dark w-full py-4 text-[11px] font-black uppercase rounded-2xl" />
+                            <input type="text" value={settings.postalCode || ''} onChange={(e) => setSettings(prev => ({ ...prev, postalCode: e.target.value }))} onBlur={(e) => updateSettings({ postalCode: e.target.value })} className="input-dark input-billing w-full py-3.5 uppercase rounded-2xl" />
                         </div>
-                        <div className="space-y-2">
+                        <div className="col-span-8 md:col-span-6 space-y-2">
                             <label className="text-[9px] font-black text-secondary uppercase tracking-widest block opacity-50 ml-1">Ciudad</label>
-                            <input type="text" value={settings.city || ''} onChange={(e) => setSettings(prev => ({ ...prev, city: e.target.value }))} onBlur={(e) => updateSettings({ city: e.target.value })} className="input-dark w-full py-4 text-[11px] font-black uppercase rounded-2xl" />
+                            <input type="text" value={settings.city || ''} onChange={(e) => setSettings(prev => ({ ...prev, city: e.target.value }))} onBlur={(e) => updateSettings({ city: e.target.value })} className="input-dark input-billing w-full py-3.5 uppercase rounded-2xl" />
                         </div>
-                        <div className="space-y-2">
+                        <div className="col-span-12 md:col-span-4 space-y-2">
                             <label className="text-[9px] font-black text-secondary uppercase tracking-widest block opacity-50 ml-1">Provincia</label>
-                            <input type="text" value={settings.province || ''} onChange={(e) => setSettings(prev => ({ ...prev, province: e.target.value }))} onBlur={(e) => updateSettings({ province: e.target.value })} className="input-dark w-full py-4 text-[11px] font-black uppercase rounded-2xl" />
+                            <input type="text" value={settings.province || ''} onChange={(e) => setSettings(prev => ({ ...prev, province: e.target.value }))} onBlur={(e) => updateSettings({ province: e.target.value })} className="input-dark input-billing w-full py-3.5 uppercase rounded-2xl" />
                         </div>
                     </div>
                 </div>

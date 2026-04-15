@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { db } from '../firebase.js';
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
 
 export function useOrders(photographerId, schoolId) {
     const key = `orlas2026_orders_${photographerId}_${schoolId}`;
@@ -17,7 +17,7 @@ export function useOrders(photographerId, schoolId) {
 
     // ESCUCHAR CAMBIOS EN FIREBASE (Sincronización en tiempo real)
     useEffect(() => {
-        if (!schoolId) {
+        if (!schoolId || !photographerId) {
             setOrders([]);
             return;
         }
@@ -119,6 +119,15 @@ export function useOrders(photographerId, schoolId) {
         });
     };
 
+    // Nueva: Actualiza múltiples órdenes cada una con sus propios cambios
+    const bulkUpdateOrdersMap = (updatesMap) => {
+        setOrders(prev => {
+            const updated = prev.map(o => updatesMap[o.id] ? { ...o, ...updatesMap[o.id] } : o);
+            saveToFirebase(updated);
+            return updated;
+        });
+    };
+
     const resetOrders = (ids) => {
         const idSet = new Set(ids);
         const updated = orders.map(o => idSet.has(o.id) ? {
@@ -151,5 +160,45 @@ export function useOrders(photographerId, schoolId) {
         await saveToFirebase(newOrders);
     };
 
-    return { orders, addOrder, updateStatus, deleteOrder, updatePhotoFile, updateOrder, bulkUpdateOrders, resetOrders, bulkAddOrders, updateAllOrders };
-}
+    // Nueva función para MOVER alumnos a otro centro
+    const moveToSchool = async (ids, targetSchoolId) => {
+        if (!targetSchoolId || !ids || ids.length === 0 || targetSchoolId === schoolId) return;
+        
+        const idSet = new Set(Array.isArray(ids) ? ids : [ids]);
+        const toMove = orders.filter(o => idSet.has(o.id));
+        const remaining = orders.filter(o => !idSet.has(o.id));
+
+        if (toMove.length === 0) return;
+
+        try {
+            // 1. Obtener datos actuales del destino para no machacar
+            const targetDocRef = doc(db, 'orlas2026_photographers', photographerId, 'orders', targetSchoolId);
+            const targetSnap = await getDoc(targetDocRef);
+            let targetOrders = [];
+            if (targetSnap.exists()) {
+                targetOrders = targetSnap.data().items || [];
+            }
+
+            // 2. Preparar los datos movidos con el nuevo schoolId
+            const movedWithNewId = toMove.map(o => ({ ...o, schoolId: targetSchoolId }));
+
+            // 3. Guardar en destino
+            await setDoc(targetDocRef, { items: [...movedWithNewId, ...targetOrders] }, { merge: true });
+
+            // 4. Quitar del origen y actualizar estado local
+            setOrders(remaining);
+            await saveToFirebase(remaining);
+
+            return true;
+        } catch (error) {
+            console.error("Error moviendo órdenes:", error);
+            throw error;
+        }
+    };
+
+    return { 
+        orders, addOrder, updateStatus, deleteOrder, updatePhotoFile, 
+        updateOrder, bulkUpdateOrders, bulkUpdateOrdersMap, resetOrders, 
+        bulkAddOrders, updateAllOrders, moveToSchool 
+    };
+};

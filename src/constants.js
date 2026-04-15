@@ -94,6 +94,16 @@ export const SCHOOLS = [
 
 // Cursos clave donde se realizan orlas.
 // `lines`: letras de clase disponibles. Vacío = no aplica línea.
+export const CANVAS_SIZES = [
+    { id: 'a3', label: 'A3 (42x29)', w: 420, h: 297 },
+    { id: 'a4', label: 'A4 (29x21)', w: 297, h: 210 },
+    { id: '7050', label: '70x50 cm', w: 700, h: 500 },
+    { id: '6040', label: '60x40 cm', w: 600, h: 400 },
+    { id: '4030', label: '40x30 cm', w: 400, h: 300 },
+    { id: '3020', label: '30x20 cm', w: 300, h: 200 },
+    { id: 'custom', label: 'Personalizado', custom: true }
+];
+
 export const COURSE_GROUPS = [
     {
         group: '🧸 Guardería — Mi Primera Graduación',

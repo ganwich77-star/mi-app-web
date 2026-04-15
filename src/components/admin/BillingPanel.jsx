@@ -2,30 +2,37 @@ import React, { useState } from 'react';
 import Swal from 'sweetalert2';
 import 'sweetalert2/dist/sweetalert2.min.css';
 import { FileText, Download, TrendingUp, CreditCard, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
+import { db } from '../../firebase.js';
+import { collection, onSnapshot, query, where, orderBy } from 'firebase/firestore';
 
-export default function BillingPanel({ settings, photographerId, sendAdminNotification }) {
+export default function BillingPanel({ settings, photographerId, sendAdminNotification, schoolsStats }) {
     const [invoices, setInvoices] = useState([]);
 
     React.useEffect(() => {
-        if (settings.isExempt) {
+        // En lugar de facturas ficticias, escuchamos la colección real si existiera
+        const invoicesRef = collection(db, 'orlas2026_photographers', photographerId, 'invoices');
+        const q = query(invoicesRef, orderBy('date', 'desc'));
+        
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const docs = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            setInvoices(docs);
+        }, (error) => {
+            console.error("Error cargando facturas:", error);
             setInvoices([]);
-        } else {
-            setInvoices([
-                {
-                    id: 'FAC-2026-001',
-                    date: new Date().toLocaleDateString(),
-                    plan: settings.plan?.toUpperCase() || 'STARTER',
-                    amount: settings.plan === 'pro' ? '449.00€' : '149.00€',
-                    status: 'Pagado',
-                    method: 'Transferencia'
-                }
-            ]);
-        }
-    }, [settings.isExempt, settings.plan]);
+        });
+
+        return () => unsubscribe();
+    }, [photographerId]);
 
     const handleDownload = (invoice) => {
         const printWindow = window.open('', '_blank');
-        const iva = (parseFloat(invoice.amount) * 0.21).toFixed(2);
+        const isIsland = ['Las Palmas', 'Santa Cruz de Tenerife', 'Ceuta', 'Melilla'].includes(settings.province);
+        const ivaRate = isIsland ? 0 : 0.21;
+        
+        const iva = (parseFloat(invoice.amount) * ivaRate).toFixed(2);
         const subtotal = (parseFloat(invoice.amount)).toFixed(2);
         const total = (parseFloat(subtotal) + parseFloat(iva)).toFixed(2);
         const currentYear = new Date().getFullYear();
@@ -156,10 +163,17 @@ export default function BillingPanel({ settings, photographerId, sendAdminNotifi
                             <div class="grid md:grid-cols-2 gap-3 mb-3">
                                 <div class="bg-slate-900 p-3 rounded-xl border border-white/5 relative overflow-hidden text-left">
                                     <p class="text-[7px] uppercase tracking-[0.3em] font-black text-indigo-400 mb-1">Información del Cliente</p>
-                                    <h3 class="text-base font-black text-white mb-0.5 tracking-tighter capitalize">${settings.fiscalName || settings.studioName || 'Cliente No Identificado'}</h3>
-                                    <div class="text-[9px] text-slate-400 space-y-0 font-medium">
+                                    <h3 class="text-base font-black text-white mb-0.5 tracking-tighter capitalize">${settings.fiscalName || settings.brandName || settings.studioName || 'Cliente No Identificado'}</h3>
+                                    <div class="text-[9px] text-slate-400 space-y-0.5 font-medium">
                                         <p class="flex items-center gap-1.5"><span class="w-1 h-1 bg-indigo-500 rounded-full"></span> CIF/NIF: ${settings.cif || '---'}</p>
-                                        <p class="flex items-start gap-1.5 leading-tight"><span class="w-1 h-1 bg-indigo-500 rounded-full mt-1"></span> ${settings.address || 'Pendiente de dirección'}</p>
+                                        <p class="flex items-start gap-1.5 leading-tight"><span class="w-1 h-1 bg-indigo-500 rounded-full mt-1"></span> 
+                                            ${settings.address || ''} 
+                                            ${settings.addressNumber ? ' nº ' + settings.addressNumber : ''}
+                                            ${settings.addressFloor ? ', ' + settings.addressFloor : ''}
+                                            ${settings.addressLetter ? ' ' + settings.addressLetter : ''}
+                                            ${!settings.address ? 'Pendiente de dirección' : ''}
+                                        </p>
+                                        <p class="flex items-center gap-1.5"><span class="w-1 h-1 bg-indigo-500 rounded-full"></span> ${settings.postalCode || ''} ${settings.city || ''} (${settings.province || ''})</p>
                                     </div>
                                 </div>
                                 
@@ -328,9 +342,9 @@ export default function BillingPanel({ settings, photographerId, sendAdminNotifi
 
             try {
                 await sendAdminNotification('SOPORTE', {
-                    brandName: settings.fiscalName || settings.studioName || 'Estudio No Identificado',
-                    email: settings.email || 'No registrado',
-                    phone: settings.phone || settings.contactPhone || 'No registrado',
+                    brandName: settings.fiscalName || settings.brandName || settings.studioName || 'Estudio No Identificado',
+                    email: settings.notificationEmail || settings.email || 'No registrado',
+                    phone: settings.contactPhone || settings.phone || 'No registrado',
                     subject: formValues.subject,
                     message: formValues.message
                 });
@@ -354,6 +368,79 @@ export default function BillingPanel({ settings, photographerId, sendAdminNotifi
 
     return (
         <div className="space-y-6 animate-fade-in">
+            {/* Flex Plan Status & Liquidation Button */}
+            {settings.plan === 'flex' && (
+                <div className="bg-gradient-to-br from-indigo-600 to-blue-700 p-8 rounded-[40px] text-white shadow-2xl shadow-indigo-500/20 relative overflow-hidden group border border-white/10">
+                    <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/4 w-96 h-96 bg-white/10 rounded-full blur-[100px] pointer-events-none" />
+                    
+                    <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
+                        <div className="w-20 h-20 bg-white/10 rounded-[30px] flex items-center justify-center backdrop-blur-md border border-white/20 shrink-0">
+                            <TrendingUp size={36} className="text-white" />
+                        </div>
+                        
+                        <div className="flex-1 text-center md:text-left space-y-2">
+                            <div className="flex flex-wrap justify-center md:justify-start items-center gap-3">
+                                <h3 className="text-2xl font-black uppercase tracking-tighter">Liquidación Plan Flexible</h3>
+                                <span className="px-3 py-1 bg-emerald-500 text-white text-[10px] font-black rounded-lg uppercase tracking-widest shadow-lg shadow-emerald-500/20">Activo</span>
+                            </div>
+                            <p className="text-indigo-100 text-sm font-bold max-w-2xl leading-relaxed">
+                                Estás en modalidad de pago por alumno (2,00€/alumno). Cuando finalices la descarga de tus orlas, solicita la liquidación para que generemos tu factura final.
+                            </p>
+                        </div>
+
+                        <button
+                            onClick={async () => {
+                                const result = await Swal.fire({
+                                    title: '🚀 ¿Finalizar y Liquidar?',
+                                    text: "Se enviará un aviso a administración para generar tu factura por los alumnos procesados hasta hoy.",
+                                    icon: 'question',
+                                    showCancelButton: true,
+                                    confirmButtonColor: '#10b981',
+                                    cancelButtonColor: '#6366f1',
+                                    confirmButtonText: 'Sí, solicitar liquidación',
+                                    cancelButtonText: 'Seguir trabajando',
+                                    background: '#ffffff',
+                                    customClass: {
+                                        popup: 'rounded-[30px]',
+                                        confirmButton: 'rounded-xl font-bold uppercase tracking-wider',
+                                        cancelButton: 'rounded-xl font-bold uppercase tracking-wider'
+                                    }
+                                });
+
+                                if (result.isConfirmed) {
+                                    try {
+                                        Swal.fire({ title: 'Enviando solicitud...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+                                        const totalStudents = Object.values(schoolsStats || {}).reduce((acc, s) => acc + (s.totalStudents || 0), 0);
+                                        const amount = (totalStudents * 2).toFixed(2) + '€';
+
+                                        await sendAdminNotification('LIQUIDACION_FLEX', {
+                                            brandName: settings.brandName || settings.studioName,
+                                            photographerId: photographerId,
+                                            email: settings.notificationEmail || settings.email,
+                                            totalStudents: totalStudents,
+                                            amount: amount,
+                                            date: new Date().toLocaleString()
+                                        });
+
+                                        Swal.fire({
+                                            icon: 'success',
+                                            title: '¡Solicitud enviada!',
+                                            text: 'Hemos recibido tu aviso. En las próximas 24h recibirás tu factura y los detalles de pago.',
+                                            confirmButtonColor: '#10b981'
+                                        });
+                                    } catch (error) {
+                                        Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo enviar la solicitud. Intenta de nuevo.' });
+                                    }
+                                }
+                            }}
+                            className="px-8 py-5 bg-white text-indigo-600 font-black text-xs uppercase tracking-[0.2em] rounded-2xl shadow-2xl hover:scale-105 active:scale-95 transition-all shrink-0 border border-white group-hover:shadow-white/20"
+                        >
+                            Solicitar Factura
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Stats Overview */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-card p-6 rounded-3xl border border-primary/5 shadow-xl">
@@ -377,7 +464,9 @@ export default function BillingPanel({ settings, photographerId, sendAdminNotifi
                         </div>
                         <div>
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Método de Pago</p>
-                            <p className="text-sm font-black text-primary leading-none uppercase tracking-tight">Transferencia Bancaria</p>
+                            <p className="text-sm font-black text-primary leading-none uppercase tracking-tight">
+                                {settings.plan === 'flex' ? 'Solicitud de Liquidación' : 'Pasarela (Tarjeta/Bizum)'}
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -388,8 +477,10 @@ export default function BillingPanel({ settings, photographerId, sendAdminNotifi
                             <Clock size={24} />
                         </div>
                         <div>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Próxima Renovación</p>
-                            <p className="text-sm font-black text-primary leading-none uppercase">Julio 2026</p>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">ESTADO DE LICENCIA</p>
+                            <p className="text-sm font-black text-primary leading-none uppercase">
+                                Válida hasta {settings.licenseExpiry ? new Date(settings.licenseExpiry).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }) : '1 Agosto 2026'}
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -427,39 +518,48 @@ export default function BillingPanel({ settings, photographerId, sendAdminNotifi
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-primary/5">
-                            {invoices.map((invoice) => (
-                                <tr key={invoice.id} className="hover:bg-primary/2 transition-colors group">
-                                    <td className="px-6 py-4">
-                                        <span className="text-xs font-black text-primary tracking-tight">{invoice.id}</span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className="text-[11px] font-bold text-secondary uppercase whitespace-nowrap">{invoice.date}</span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className="px-2 py-1 bg-indigo-500/10 text-indigo-500 text-[9px] font-black rounded-lg uppercase tracking-tight">
-                                            {invoice.plan}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-1.5 text-emerald-500">
-                                            <CheckCircle2 size={12} />
-                                            <span className="text-[10px] font-black uppercase tracking-widest">{invoice.status}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                        <span className="text-xs font-black text-primary">{(parseFloat(invoice.amount) * 1.21).toFixed(2)}€</span>
-                                        <p className="text-[8px] text-slate-400 font-bold uppercase mt-0.5 whitespace-nowrap">IVA Inc.</p>
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                        <button 
-                                            onClick={() => handleDownload(invoice)}
-                                            className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary/5 hover:bg-indigo-600 hover:text-white rounded-lg transition-all text-[9px] font-black uppercase tracking-widest"
-                                        >
-                                            <Download size={14} /> Descargar
-                                        </button>
+                            {invoices.length > 0 ? (
+                                invoices.map((invoice) => (
+                                    <tr key={invoice.id} className="hover:bg-primary/2 transition-colors group">
+                                        <td className="px-6 py-4">
+                                            <span className="text-xs font-black text-primary tracking-tight">{invoice.id}</span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className="text-[11px] font-bold text-secondary uppercase whitespace-nowrap">{invoice.date}</span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className="px-2 py-1 bg-indigo-500/10 text-indigo-500 text-[9px] font-black rounded-lg uppercase tracking-tight">
+                                                {invoice.plan}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-1.5 text-emerald-500">
+                                                <CheckCircle2 size={12} />
+                                                <span className="text-[10px] font-black uppercase tracking-widest">{invoice.status}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <span className="text-xs font-black text-primary">{(parseFloat(invoice.amount) * 1.21).toFixed(2)}€</span>
+                                            <p className="text-[8px] text-slate-400 font-bold uppercase mt-0.5 whitespace-nowrap">IVA Inc.</p>
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <button 
+                                                onClick={() => handleDownload(invoice)}
+                                                className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary/5 hover:bg-indigo-600 hover:text-white rounded-lg transition-all text-[9px] font-black uppercase tracking-widest"
+                                            >
+                                                <Download size={14} /> Descargar
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan="6" className="px-6 py-12 text-center text-slate-400">
+                                        <p className="text-xs font-black uppercase tracking-widest leading-none mb-1">Sin movimientos</p>
+                                        <p className="text-[10px] font-bold opacity-60">No hay facturas emitidas por el momento.</p>
                                     </td>
                                 </tr>
-                            ))}
+                            )}
                         </tbody>
                     </table>
                 </div>

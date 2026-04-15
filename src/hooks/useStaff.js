@@ -16,7 +16,7 @@ export function useStaff(photographerId, schoolId) {
 
     // ESCUCHAR CAMBIOS EN FIREBASE (Sincronización en tiempo real)
     useEffect(() => {
-        if (!schoolId) {
+        if (!schoolId || !photographerId) {
             setStaff([]);
             return;
         }
@@ -122,5 +122,11 @@ export function useStaff(photographerId, schoolId) {
         await saveToFirebase(newStaff);
     };
 
-    return { staff, addStaff, updateStaffPhoto, updateStaffMember, deleteStaff, bulkAddStaff, updateAllStaff };
-}
+    const bulkUpdateStaffMap = (updatesMap) => {
+        const updated = staff.map(m => updatesMap[m.id] ? { ...m, ...updatesMap[m.id] } : m);
+        setStaff(updated);
+        saveToFirebase(updated);
+    };
+
+    return { staff, addStaff, updateStaffPhoto, updateStaffMember, deleteStaff, bulkAddStaff, updateAllStaff, bulkUpdateStaffMap };
+};

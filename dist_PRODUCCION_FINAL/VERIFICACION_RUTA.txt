@@ -1,0 +1,2 @@
+DESPLIEGUE v8.3.4 OK - 15/03/2026 02:20
+Si lees esto con la fecha correcta, el servidor se ha actualizado.

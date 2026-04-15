@@ -3,19 +3,33 @@ import {
     LayoutGrid, Maximize, MoveHorizontal, ArrowUpDown, MoveVertical,
     Baseline, ChevronsUpDown, AlignCenterHorizontal, UserSquare2,
     Box, Download, History, Search, Check, X, Maximize2, Minimize2,
-    ChevronLeft, ChevronRight, Layers, Type, Trash2, Edit, ZoomIn, ZoomOut, Eye, Settings2, UserCheck,
+    ChevronLeft, ChevronRight, Layers, Type, Edit, ZoomIn, ZoomOut, Eye, Settings2, UserCheck,
     Type as TypeIcon, Ruler, Users, Grid, Square, List, AlignCenterVertical, MousePointer2,
-    MoreVertical, Save, Trash, Minus, Plus, Shapes, Wand2, GraduationCap, Calendar, EyeOff
+    MoreVertical, Save, Minus, Plus, Shapes, Wand2, GraduationCap, EyeOff, AlertCircle, ShieldCheck, ArrowRight, Wallet, Info, Shield, Star
 } from 'lucide-react';
+import { getCourseBase, getGroup } from '../../utils/formatters.js';
+import Swal from 'sweetalert2';
 
 // ─── TAMAÑOS DE LIENZO ─────────────────────────────────────────────────────
-const CANVAS_SIZES = [
-    { id: 'a3', label: 'A3 (42x29)', w: 420, h: 297 },
-    { id: 'a4', label: 'A4 (29x21)', w: 297, h: 210 },
-    { id: '4030', label: '40x30 cm', w: 400, h: 300 },
-    { id: '3020', label: '30x20 cm', w: 300, h: 200 },
-    { id: 'custom', label: 'Personalizado', custom: true }
-];
+import { CANVAS_SIZES } from '../../constants.js';
+
+// Icono personalizado de dos triángulos para FILAS y T. TODOS
+const TwoTrianglesIcon = ({ size = 18, className }) => (
+    <svg 
+        width={size} 
+        height={size} 
+        viewBox="0 0 24 24" 
+        fill="none" 
+        stroke="currentColor" 
+        strokeWidth="2.5" 
+        strokeLinecap="round" 
+        strokeLinejoin="round" 
+        className={className}
+    >
+        <path d="M12 3L21 18H3L12 3Z" />
+        <path d="M12 21L3 6H21L12 21Z" />
+    </svg>
+);
 
 // ─── FORMAS DE PLACEHOLDER ─────────────────────────────────────────────────
 const PHOTO_SHAPES = [
@@ -46,20 +60,21 @@ const PHOTO_SHAPES = [
             borderRadius: '50%',
             width: w + 'px',
             height: h + 'px',
-            objectFit: 'cover'
+            objectFit: 'cover',
+            clipPath: 'none'
         }),
     },
     {
         id: 'rect34',
         label: '3:4 Recto',
         preview: (w, h) => `<rect x="${w*0.08}" y="${h*0.04}" width="${w*0.84}" height="${h*0.92}" rx="2" />`,
-        getStyle: () => ({ borderRadius: '2px' }),
+        getStyle: () => ({ borderRadius: '2px', clipPath: 'none' }),
     },
     {
         id: 'rect34r',
         label: '3:4 Redondeado',
         preview: (w, h) => `<rect x="${w*0.08}" y="${h*0.04}" width="${w*0.84}" height="${h*0.92}" rx="${w*0.12}" />`,
-        getStyle: (w, h) => ({ borderRadius: `${w * 0.12}px` }),
+        getStyle: (w, h) => ({ borderRadius: `${w * 0.12}px`, clipPath: 'none' }),
     },
     {
         id: 'shield',
@@ -71,14 +86,11 @@ const PHOTO_SHAPES = [
             return `<path d="M${ox + s*0.1},${oy + s*0.04} L${ox + s*0.9},${oy + s*0.04} L${ox + s*0.9},${oy + s*0.65} Q${ox + s*0.9},${oy + s*0.85} ${ox + s*0.5},${oy + s*0.96} Q${ox + s*0.1},${oy + s*0.85} ${ox + s*0.1},${oy + s*0.65} Z" />`;
         },
         getStyle: (w, h) => {
-            const size = Math.min(w, h);
-            const ox = (w - size) / 2;
-            const oy = (h - size) / 2;
             return {
-                width: size + 'px',
-                height: size + 'px',
+                width: w + 'px',
+                height: h + 'px',
                 margin: '0 auto',
-                clipPath: `path('M${size*0.1},${size*0.04} L${size*0.9},${size*0.04} L${size*0.9},${size*0.65} Q${size*0.9},${size*0.85} ${size*0.5},${size*0.96} Q${size*0.1},${size*0.85} ${size*0.1},${size*0.65} Z')`,
+                clipPath: `path('M${w*0.1},${h*0.04} L${w*0.9},${h*0.04} L${w*0.9},${h*0.65} Q${w*0.9},${h*0.85} ${w*0.5},${h*0.96} Q${w*0.1},${h*0.85} ${w*0.1},${h*0.65} Z')`,
             };
         },
     },
@@ -92,12 +104,11 @@ const PHOTO_SHAPES = [
             return `<path d="M${ox + s*0.1},${oy + s*0.96} L${ox + s*0.1},${oy + s*0.48} A${s*0.4},${s*0.48} 0 0,1 ${ox + s*0.9},${oy + s*0.48} L${ox + s*0.9},${oy + s*0.96} Z" />`;
         },
         getStyle: (w, h) => {
-            const size = Math.min(w, h);
             return {
-                width: size + 'px',
-                height: size + 'px',
+                width: w + 'px',
+                height: h + 'px',
                 margin: '0 auto',
-                clipPath: `path('M${size*0.1},${size*0.96} L${size*0.1},${size*0.48} A${size*0.4},${size*0.48} 0 0,1 ${size*0.9},${size*0.48} L${size*0.9},${size*0.96} Z')`,
+                clipPath: `path('M${w*0.1},${h*0.96} L${w*0.1},${h*0.48} A${w*0.4},${h*0.48} 0 0,1 ${w*0.9},${h*0.48} L${w*0.9},${h*0.96} Z')`,
             };
         },
     },
@@ -230,7 +241,6 @@ const ShapePill = ({ shape, active, onClick, isDark }) => {
         </button>
     );
 };
-import { getCourseBase, getGroup } from '../../utils/formatters.js';
 
 const DesignPanel = ({
     isFullScreenDesign,
@@ -256,7 +266,9 @@ const DesignPanel = ({
     COURSE_GROUPS = [],
     updateSchool,
     updateOrder,
-    updateStaffMember
+    updateStaffMember,
+    onBack,
+    sendAdminNotification
 }) => {
     // ESTADO PARA PESTAÑAS DEL EDITOR
     const [activeTab, setActiveTab] = useState('GENERAL');
@@ -264,18 +276,85 @@ const DesignPanel = ({
     const [confirmModal, setConfirmModal] = useState({ show: false, title: '', message: '', onConfirm: null });
     const isDark = theme === 'dark';
 
+    const [showPaymentBlockedModal, setShowPaymentBlockedModal] = useState(false);
+    const [requestingPayment, setRequestingPayment] = useState(false);
+
+    const isStarter = settings?.plan === 'starter';
+    const isFlex = settings?.plan === 'flex';
+    const isPaid = settings?.isPaid;
+    const isBlocked = (isStarter || isFlex) && !isPaid;
+
+    const handleFinalizeClick = () => {
+        if (isBlocked) {
+            setShowPaymentBlockedModal(true);
+        } else {
+            setView('command');
+        }
+    };
+
+    const handleRequestPayment = async () => {
+        const result = await Swal.fire({
+            title: '¿SOLICITAR LIQUIDACIÓN?',
+            text: 'Se enviará una notificación a administración para revisar tu cuenta y habilitar la descarga final.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#4f46e5',
+            cancelButtonColor: '#64748b',
+            confirmButtonText: 'SÍ, SOLICITAR',
+            cancelButtonText: 'CANCELAR',
+            background: isDark ? '#1e293b' : '#fff',
+            color: isDark ? '#fff' : '#000'
+        });
+
+        if (result.isConfirmed) {
+            setRequestingPayment(true);
+            
+            // Lógica de notificación al admin
+            if (sendAdminNotification) {
+                // Aseguramos que usamos los campos correctos del objeto settings
+                const contactEmail = settings?.notificationEmail || settings?.email || settings?.contactEmail || 'No especificado';
+                
+                await sendAdminNotification('LIQUIDACION', {
+                    brandName: settings?.brandName || 'Fotógrafo Desconocido',
+                    email: contactEmail,
+                    plan: settings?.plan || 'Starter',
+                    photographerId: settings?.id || 'ID Desconocido'
+                });
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 800));
+            setRequestingPayment(false);
+            setShowPaymentBlockedModal(false);
+            
+            Swal.fire({
+                title: 'SOLICITUD ENVIADA',
+                text: 'Administración revisará tu cuenta en menos de 24h.',
+                icon: 'success',
+                confirmButtonColor: '#10b981',
+                background: isDark ? '#1e293b' : '#fff',
+                color: isDark ? '#fff' : '#000'
+            });
+        }
+    };
+
     // Conversiones Internas Robustas para Orla A3 (420mm -> 4961px)
     const factor = 4961 / 420; // 11.8119
     const safeMmToPx = (mm) => (mm || 0) * factor;
     const safePxToMm = (px) => (px || 0) / factor;
 
     // Función para obtener la etiqueta del formato actual
-    const getFormatLabel = (w, h) => {
+    const getFormatLabel = () => {
+        const w = configOrla.canvasW || 4961;
+        const h = configOrla.canvasH || 3508;
         const mmW = Math.round(safePxToMm(w));
         const mmH = Math.round(safePxToMm(h));
         const matchedSize = CANVAS_SIZES.find(s => !s.custom && s.w === mmW && s.h === mmH);
         if (matchedSize) return matchedSize.label;
-        return `${Math.round(mmW/10)}X${Math.round(mmH/10)} CM`;
+        if (configOrla.canvasSize && configOrla.canvasSize !== 'custom') {
+            const sizeById = CANVAS_SIZES.find(s => s.id === configOrla.canvasSize);
+            if (sizeById) return sizeById.label;
+        }
+        return `${(mmW/10).toFixed(1)}x${(mmH/10).toFixed(1)} cm`;
     };
 
     // Función para auto-ajustar la distribución de alumnos
@@ -290,8 +369,18 @@ const DesignPanel = ({
 
     const splitName = (fullName) => {
         if (!fullName) return { nombre: '', apellidos: '' };
-        const parts = fullName.trim().split(' ');
+        
+        // Soporte para formato "Apellidos, Nombre"
+        if (fullName.includes(',')) {
+            const [apellidos, nombre] = fullName.split(',').map(s => s.trim());
+            return { nombre: nombre || '', apellidos: apellidos || '' };
+        }
+
+        const parts = fullName.trim().split(/\s+/);
         if (parts.length === 1) return { nombre: parts[0], apellidos: '' };
+        
+        // Si hay más de una palabra, asumimos que la primera es el nombre
+        // y el resto los apellidos (comportamiento estándar previo)
         return { nombre: parts[0], apellidos: parts.slice(1).join(' ') };
     };
 
@@ -302,6 +391,10 @@ const DesignPanel = ({
     };
 
     const filteredStaff = (staff || []).filter(m => {
+        const { apellidos } = splitName(m.name || `${m.firstName || ''} ${m.lastName || ''}`);
+        // Filtrado preventivo solicitado por el usuario: ocultar si no tiene apellidos ni foto (registro roto)
+        if (!apellidos && !getPhotoSrc(m)) return false;
+
         const asgs = getStaffAssignments(m);
         if (!designFilter.course) return true;
         return asgs.some(a => {
@@ -313,20 +406,42 @@ const DesignPanel = ({
             const filterGroupNormal = normalize(designFilter.group);
             return courseMatch && (!groupNormal || groupNormal === filterGroupNormal);
         });
+    }).sort((a, b) => {
+        const idxA = a.manual_sort_index !== undefined ? a.manual_sort_index : 9999999;
+        const idxB = b.manual_sort_index !== undefined ? b.manual_sort_index : 9999999;
+        if (idxA !== idxB) return idxA - idxB;
+
+        const nameA = (a.firstName || a.name || '').trim();
+        const nameB = (b.firstName || b.name || '').trim();
+        return nameA.localeCompare(nameB, 'es', { numeric: true, sensitivity: 'base' });
     });
 
     const filteredOrders = (orders || [])
-        .filter(o =>
-            (!designFilter.course || getCourseBase(o.course) === designFilter.course) &&
-            (!designFilter.group || getGroup(o.course) === designFilter.group)
-        )
+        .filter(o => {
+            const { apellidos } = splitName(o.studentName);
+            // Filtrado preventivo solicitado por el usuario: ocultar si no tiene apellidos ni foto (registro roto)
+            if (!apellidos && !getPhotoSrc(o)) return false;
+
+            const courseNormal = normalize(getCourseBase(o.course));
+            const filterCourseNormal = normalize(designFilter.course);
+            const matchesCourse = !designFilter.course || courseNormal === filterCourseNormal;
+
+            const groupNormal = normalize(getGroup(o.course));
+            const filterGroupNormal = normalize(designFilter.group);
+            const matchesGroup = !designFilter.group || groupNormal === filterGroupNormal;
+
+            return matchesCourse && matchesGroup;
+        })
         .sort((a, b) => {
+            const idxA = a.manual_sort_index !== undefined ? a.manual_sort_index : 9999999;
+            const idxB = b.manual_sort_index !== undefined ? b.manual_sort_index : 9999999;
+            if (idxA !== idxB) return idxA - idxB;
+
             const apellidosA = splitName(a.studentName).apellidos;
             const apellidosB = splitName(b.studentName).apellidos;
-            return apellidosA.localeCompare(apellidosB);
+            return apellidosA.localeCompare(apellidosB, 'es', { numeric: true, sensitivity: 'base' });
         });
 
-    // Detectar automáticamente el curso más frecuente de los alumnos filtrados
     const autoDetectedCourse = (() => {
         if (designFilter.course) {
             const base = getCourseBase(designFilter.course);
@@ -345,136 +460,150 @@ const DesignPanel = ({
         return sorted.length > 0 ? sorted[0][0] : '';
     })();
 
+    const saveLayoutConfig = () => {
+        if (!adminSchool?.id) return;
+        localStorage.setItem(`orla_layout_config_${adminSchool.id}`, JSON.stringify(configOrla));
+        Swal.fire({ title: 'Diseño Guardado', text: 'Tus ajustes de diseño están guardados localmente para este colegio.', icon: 'success', toast: true, position: 'top-end', timer: 3000, showConfirmButton: false, customClass: { popup: 'rounded-xl', title: 'font-black' } });
+    };
+
+    const loadLayoutConfig = () => {
+        if (!adminSchool?.id) return;
+        const saved = localStorage.getItem(`orla_layout_config_${adminSchool.id}`);
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                setConfigOrla(parsed);
+                Swal.fire({ title: 'Diseño Restaurado', text: 'Planos y medidas aplicadas correctamente.', icon: 'success', toast: true, position: 'top-end', timer: 3000, showConfirmButton: false, customClass: { popup: 'rounded-xl', title: 'font-black' } });
+            } catch (e) {
+                console.error(e);
+            }
+        } else {
+            Swal.fire({ title: 'Aviso', text: 'No hay ningún diseño previo guardado en memoria para este colegio.', icon: 'info', customClass: { popup: 'rounded-xl', title: 'font-black' } });
+        }
+    };
+
+    // Funci\u00f3n para distribuir alumnos con control de equilibrio (Top/Bottom)
+    const distributeOrders = (items, cols, balance = 'bottom') => {
+        if (!items || items.length === 0) return [];
+        const n = items.length;
+        if (n <= cols) return [items];
+
+        const rows = [];
+        let currentIndex = 0;
+
+        if (balance === 'top') {
+            // Fila incompleta ARRIBA (Pir\u00e1mide)
+            const remainder = n % cols;
+            const firstRowSize = remainder === 0 ? cols : remainder;
+            rows.push(items.slice(0, firstRowSize));
+            currentIndex = firstRowSize;
+            while (currentIndex < n) {
+                rows.push(items.slice(currentIndex, currentIndex + cols));
+                currentIndex += cols;
+            }
+        } else {
+            // Fila incompleta ABAJO (Pir\u00e1mide Invertida / Est\u00e1ndar)
+            while (currentIndex < n) {
+                let size = Math.min(cols, n - currentIndex);
+                rows.push(items.slice(currentIndex, currentIndex + size));
+                currentIndex += size;
+            }
+        }
+        return rows;
+    };
+
+    const orderedRows = distributeOrders(filteredOrders, Math.round(configOrla.aCols || 8), configOrla.studentRowBalance);
+
     const autoAdjustLayout = (passedConfig = null) => {
-        // Si passedConfig es un evento de React, lo ignoramos
         const configToUse = (passedConfig && passedConfig.nativeEvent) ? {} : (passedConfig || {});
         const cfg = { ...configOrla, ...configToUse };
-        const numStudents = filteredOrders?.length || 0;
-        const numStaff = filteredStaff?.length || 0;
+        const cw = cfg.canvasW || 4961;
+        const ch = cfg.canvasH || 3508;
+        const scale = cw / 4961; 
 
-        if (numStudents === 0 && numStaff === 0) return;
+        const numDocs = filteredStaff.length;
+        const numAlus = filteredOrders.length;
+        if (numAlus === 0 && numDocs === 0) return;
 
         const updates = {};
-        const canvasW = cfg.canvasW || 4961;
-        const canvasH = cfg.canvasH || 3508;
-        const margin = cfg.margin || safeMmToPx(15);
-        const availableWidth = canvasW - (margin * 2);
-        const fontBase = canvasW / 4961;
-        const heightBase = canvasH / 3508;
+        const margin = safeMmToPx(5);
+        updates.margin = margin;
+        const availableWidth = cw - (margin * 2);
 
-        // Reset de desplazamientos manuales
-        updates.aOffsetX = 0;
-        updates.dOffsetX = 0;
+        // 1. Footer (Sección inferior)
+        updates.fontSizeSchool = Math.round(115 * scale);
+        updates.fontSizePromo = Math.round(65 * scale);
+        updates.fontSizeCourse = Math.round(55 * scale);
+        const footerHeight = (updates.fontSizeSchool + updates.fontSizePromo + updates.fontSizeCourse) * 1.25 + (60 * scale); 
+        const bottomLimit = ch - margin - footerHeight;
 
-        // 1. DOCENTES (SIEMPRE EN UNA SOLA FILA)
-        const dCols = numStaff || 8;
-        const baseDocW = 380; 
-        const baseDocH = 480; 
+        // 2. Bases y Sincronización de Fuentes (Valores Base @ 300dpi)
+        const fSizeName_base  = 36;
+        const fSizeSur_base   = 28;
+        const fSizeRole_base  = 28;
+        const photoW_base     = 350;
+        const photoH_base     = 450;
+        const gapY_base       = 118; // 10mm absoluto (fixed)
+        const gapX_base       = 45;
+        const textOffset_base = safeMmToPx(10);
         
-        // Escala de docentes: que quepan todos en una sola fila dentro del ancho disponible
-        updates.dScale = Math.min(1.2, (availableWidth / (dCols * baseDocW)) * 0.90);
-        updates.dCols = dCols;
-        updates.fontSizeDocName = Math.round(50 * updates.dScale * fontBase);
-        updates.fontSizeDocRole = Math.round(updates.fontSizeDocName * 0.80);
-        
-        const fDocW = baseDocW * updates.dScale;
-        // Separación horizontal de docentes (centrados con gap controlado)
-        if (numStaff > 1) {
-            const idealGap = safeMmToPx(15) * updates.dScale;
-            // No permitimos que el gap sea enorme para que no se dispersen
-            const maxDGap = fDocW * 0.35; 
-            updates.dGapX = Math.min(idealGap, maxDGap);
-        } else {
-            updates.dGapX = 0;
-        }
+        // Área vertical de texto base (bajo la foto)
+        const textAreaH_base = (fSizeName_base * 2.5);
 
-        const docHWithText = (baseDocH * updates.dScale) + updates.fontSizeDocName + updates.fontSizeDocRole + safeMmToPx(12);
-        
-        updates.dY = Math.round(canvasH * 0.05); // Menos aire superior inicial
-        const topLimit = updates.dY + docHWithText + safeMmToPx(15);
+        // Parámetros internos para el bucle de ajuste: estimaciones iniciales agresivas
+        let dScale = numDocs > 10 ? 0.8 : numDocs > 5 ? 1.0 : 1.3; 
+        let aScale = 2.5; 
+        let found = false;
 
-        // 2. FOOTER (Parte Inferior)
-        const currentSchool = schools.find(s => s.id === adminSchool) || { name: 'COLEGIO' };
-        const sName = currentSchool.name || "COLEGIO";
-        const sLen = Math.max(10, sName.length);
-        const maxF = Math.floor((availableWidth * 0.9) / (sLen * 0.55));
-        
-        updates.fontSizeSchool = Math.min(Math.round(140 * fontBase), maxF);
-        updates.fontSizePromo = Math.round(updates.fontSizeSchool * 0.45);
-        updates.fontSizeCourse = Math.round(updates.fontSizeSchool * 0.35);
-        
-        const currentMargin = updates.margin !== undefined ? updates.margin : (configOrla.margin || safeMmToPx(15));
-        updates.footerY = safeMmToPx(10); // Por defecto un poco encima del margen (10mm)
-        const footerTextHeight = updates.fontSizeSchool + updates.fontSizePromo + updates.fontSizeCourse + safeMmToPx(15);
-        const bottomLimit = canvasH - (currentMargin + updates.footerY + footerTextHeight + safeMmToPx(15));
+        for (let iter = 0; iter < 150; iter++) {
+            const realDocH = ((photoH_base * dScale) + (textAreaH_base * dScale)) * scale;
+            const sectionGap = safeMmToPx(15); 
+            const currentTopLimit = margin + (20 * scale) + realDocH + sectionGap;
+            const currentAvailH = bottomLimit - currentTopLimit;
 
-        // 3. ALUMNOS (Contenido central entre docentes y pie)
-        let availableHeight = bottomLimit - topLimit;
-        const baseAluW = 350;
-        const baseAluH = 450;
-        
-        // Escala razonable según cantidad inicial (empezamos más alto)
-        let curScale = 1.3;
-        if (numStudents > 25) curScale = 1.1;
-        if (numStudents > 50) curScale = 0.9;
-        if (numStudents > 100) curScale = 0.7;
-        
-        let aCols, aRows, aHT, totalAH, tGapY;
+            const rowH = ((photoH_base + textAreaH_base) * aScale * scale) + (gapY_base * scale);
+            const totalH = rows * rowH;
+            const totalW = (cols * photoW_base * aScale * scale) + ((cols - 1) * gapX_base * scale);
 
-        // Bucle de refinamiento para encajar verticalmente y equilibrar filas
-        for (let i = 0; i < 40; i++) {
-            updates.fontSizeAluName = Math.round(42 * curScale * fontBase);
-            updates.fontSizeAluSur = Math.round(updates.fontSizeAluName * 0.75);
-            
-            const aW = baseAluW * curScale;
-            const aH = baseAluH * curScale;
-            aHT = aH + updates.fontSizeAluName + updates.fontSizeAluSur + safeMmToPx(10);
-            
-            const minGX = safeMmToPx(12);
-            // Columnas máximas por ancho
-            const maxColsByWidth = Math.max(1, Math.floor((availableWidth + minGX) / (aW + minGX)));
-            
-            // Calculamos filas necesarias
-            aRows = Math.ceil(numStudents / maxColsByWidth);
-            
-            // Ajuste de "Uniformidad": Equilibrar columnas si hay varias filas
-            if (aRows > 1) {
-                aCols = Math.ceil(numStudents / aRows);
-            } else {
-                aCols = numStudents;
-            }
-
-            tGapY = Math.max(safeMmToPx(8), safeMmToPx(35) * curScale);
-            totalAH = (aRows * (aHT + tGapY)) - tGapY;
-
-            // Si cabe con un margen de seguridad, paramos. Si no, bajamos escala.
-            if (totalAH <= availableHeight * 0.98 || curScale < 0.15) {
+            if (totalH <= currentAvailH && totalW <= availableWidth) {
+                found = true;
+                updates.dScale = Number((dScale * scale).toFixed(4));
+                updates.aScale = Number((aScale * scale).toFixed(4));
+                updates.aStartY = Math.round(currentTopLimit + (currentAvailH - totalH) / 2);
                 break;
             }
-            curScale *= 0.94;
+
+            if (aScale > 0.45) aScale -= 0.02;
+            else if (dScale > 0.45) { dScale -= 0.02; aScale -= 0.005; }
+            else aScale -= 0.01;
+            
+            if (dScale < 0.1 || aScale < 0.05) break; 
         }
 
-        updates.aScale = curScale;
-        updates.aCols = Math.round(aCols);
-        const fAluW = baseAluW * updates.aScale;
-        
-        // Espaciado horizontal para alumnos (centrado con gap controlado)
-        if (aCols > 1) {
-            const idealAGap = safeMmToPx(20) * updates.aScale;
-            // Limitamos gap excesivo para que la cuadrícula quede compacta y centrada
-            const maxAGap = fAluW * 0.45;
-            updates.aGapX = Math.min(idealAGap, maxAGap);
-        } else {
-            updates.aGapX = 0;
+        if (!found) {
+            updates.dScale = Number((dScale * scale).toFixed(4));
+            updates.aScale = Number((aScale * scale).toFixed(4));
+            const realDocH = ((photoH_base * dScale) + (textAreaH_base * dScale)) * scale;
+            updates.aStartY = Math.round(margin + (20 * scale) + realDocH + safeMmToPx(15));
         }
-        
-        updates.aGapY = tGapY;
-        // Centrar el bloque de alumnos en el espacio vertical disponible
-        updates.aStartY = Math.round(topLimit + (availableHeight - totalAH) / 2);
-        updates.aTextOffset = 0; // SEP.TEXTO=0 → texto pegado al borde de la foto
-        updates.dTextOffset = 0; // SEP.TEXTO=0 → texto pegado al borde de la foto
 
-        // Aplicamos todos los cambios al estado global
+        updates.aW = photoW_base;
+        updates.aH = photoH_base;
+        updates.aGapX = Math.round(gapX_base * scale); 
+        updates.aGapY = gapY_base; // 1cm absoluto
+        updates.aTextOffset = Math.round(textOffset_base * updates.aScale);
+        updates.dTextOffset = updates.aTextOffset; // PARIDAD TOTAL
+        
+        // Almacenamos el tamaño BASE. El renderizador aplica el escalado (aScale o dScale).
+        // El usuario solicitó paridad visual total entre docentes y alumnos.
+        // El usuario solicitó paridad visual total entre docentes y alumnos.
+        updates.fontSizeAluName = fSizeName_base; 
+        updates.fontSizeAluSur = fSizeSur_base;
+        // Sincronizamos también las variables de docentes por si acaso, aunque el renderizador usará las de alumnos
+        updates.fontSizeDocName = fSizeName_base;
+        updates.fontSizeDocSur = fSizeSur_base;
+        updates.fontSizeDocRole = fSizeRole_base;
+
         setConfigOrla(prev => ({ ...prev, ...updates }));
     };
 
@@ -514,7 +643,7 @@ const DesignPanel = ({
                 if (key === 'fontSizeDocName') val = 120;
                 if (key === 'fontSizeDocRole') val = 84;
                 if (key === 'fontSizeCourse') val = 60;
-                if (key === 'footerY') val = 10; // Valor inicial relativo al margen (10mm)
+                if (key === 'footerY') val = 0; // Valor inicial relativo al margen (0mm)
             }
             if (val !== undefined) {
                 updates[key] = val * scaleFactor;
@@ -558,7 +687,17 @@ const DesignPanel = ({
                 { icon: Layers, label: 'ANCHO', key: 'canvasW', min: 2000, max: 10000, unit: 'PX', description: 'Ajuste manual del ancho del lienzo en píxeles' },
                 { icon: Layers, label: 'ALTO', key: 'canvasH', min: 2000, max: 10000, unit: 'PX', description: 'Ajuste manual del alto del lienzo en píxeles' },
                 { icon: Grid, label: 'GUIAS', key: 'showGuides', isToggle: true, description: 'Muestra u oculta la rejilla de alineación' },
-                { icon: Shapes, label: 'FORMA', key: 'photoShape', isShapeSelector: true, description: 'Cambia el recorte de todas las fotos (Círculo, Óvalo, Escudo...)' },
+                { icon: Shapes, label: 'FORMA', key: 'photoShape', isShapeSelector: true, description: 'Cambia el recorte de todas las fotos (C\u00edrculo, \u00d3valo, Escudo...)' },
+                { 
+                    icon: MoveVertical, 
+                    label: 'MOVER TODO', 
+                    key: 'globalMoveY', 
+                    min: safeMmToPx(-100), 
+                    max: safeMmToPx(100), 
+                    unit: 'MM', 
+                    description: 'Mueve todos los elementos a la vez (excepto el pie de orla)',
+                    className: "bg-orange-500/10 text-orange-500 border-orange-500/20 hover:bg-orange-500 hover:text-white"
+                },
             ]
         },
         'PIE': {
@@ -569,6 +708,16 @@ const DesignPanel = ({
                 { icon: Type, label: 'CENTRO', key: 'fontSizeSchool', min: 10, max: 800, step: 10, unit: 'PT', toggleKey: 'hideSchool', description: 'Tamaño del nombre del colegio' },
                 { icon: TypeIcon, label: 'PROMO', key: 'fontSizePromo', min: 10, max: 500, step: 5, unit: 'PT', toggleKey: 'hidePromo', description: 'Tamaño del texto de la promoción' },
                 { icon: TypeIcon, label: 'CURSO', key: 'fontSizeCourse', min: 10, max: 500, step: 5, unit: 'PT', toggleKey: 'hideCourse', description: 'Tamaño del texto del curso y grupo' },
+                { 
+                    icon: TypeIcon, 
+                    label: 'TODOS', 
+                    key: 'fontSizeAllFooter', 
+                    min: 10, 
+                    max: 800, 
+                    step: 10, 
+                    unit: 'PT', 
+                    description: 'Ajuste simultáneo de los tres textos del pie' 
+                },
             ]
         },
         'ALUMNOS': {
@@ -577,12 +726,23 @@ const DesignPanel = ({
             tools: [
                 { icon: LayoutGrid, label: 'ALUMNOS POR FILA', key: 'aCols', min: 1, max: 20, step: 1, unit: 'ALUMNOS', description: 'Número de columnas en la cuadrícula de alumnos' },
                 { icon: Maximize, label: 'ESCALA', key: 'aScale', min: 0.2, max: 4.0, step: 0.05, unit: 'x', description: 'Tamaño general de las fotos de los alumnos' },
+                { icon: MoveVertical, label: 'EJE Y', key: 'aStartY', min: safeMmToPx(0), max: safeMmToPx(350), unit: 'MM', description: 'Margen superior donde empieza el bloque de alumnos' },
                 { icon: TypeIcon, label: 'T. NOMBRES', key: 'fontSizeAluName', min: 10, max: 1000, step: 5, unit: 'PX', description: 'Tamaño de fuente para los nombres de alumnos' },
                 { icon: TypeIcon, label: 'T. APELLIDOS', key: 'fontSizeAluSur', min: 10, max: 800, step: 5, unit: 'PX', toggleKey: 'hideApellidosAlu', description: 'Tamaño de fuente para los apellidos (u ocultarlos)' },
                 { icon: Baseline, label: 'SEP. TEXTO', key: 'aTextOffset', min: 0, max: 100, step: 1, unit: 'PT', description: 'Distancia entre la foto y el nombre del alumno' },
                 { icon: MoveHorizontal, label: 'SEP. HORIZ', key: 'aGapX', min: safeMmToPx(0), max: safeMmToPx(300), unit: 'MM', description: 'Espacio horizontal entre fotos de alumnos' },
                 { icon: ArrowUpDown, label: 'SEP. VERT', key: 'aGapY', min: safeMmToPx(0), max: safeMmToPx(500), unit: 'MM', description: 'Espacio vertical entre filas de alumnos' },
-                { icon: MoveVertical, label: 'EJE Y', key: 'aStartY', min: safeMmToPx(0), max: safeMmToPx(350), unit: 'MM', description: 'Margen superior donde empieza el bloque de alumnos' },
+                { 
+                    icon: TwoTrianglesIcon, 
+                    label: 'FILAS', 
+                    key: 'studentRowBalance', 
+                    isToggle: true, 
+                    description: 'Alterna entre pirámide normal o invertida para alumnos impares',
+                    onClick: () => {
+                        const current = configOrla.studentRowBalance || 'bottom';
+                        updateConfig('studentRowBalance', current === 'bottom' ? 'top' : 'bottom');
+                    }
+                },
             ]
         },
         'DOCENTES': {
@@ -590,12 +750,12 @@ const DesignPanel = ({
             icon: UserSquare2,
             tools: [
                 { icon: UserSquare2, label: 'ESCALA', key: 'dScale', min: 0.2, max: 5.0, step: 0.05, unit: 'x', description: 'Ajusta el tamaño de las fotos de los docentes' },
-                { icon: TypeIcon, label: 'T. NOMBRES', key: 'fontSizeDocName', min: 10, max: 1000, step: 5, unit: 'PX', description: 'Tamaño de fuente para los nombres de los docentes' },
-                { icon: TypeIcon, label: 'T. APELLIDOS', key: 'fontSizeDocSur', min: 10, max: 800, step: 5, unit: 'PX', toggleKey: 'hideApellidosDoc', description: 'Tamaño de fuente para los apellidos de los docentes (u ocultarlos)' },
-                { icon: TypeIcon, label: 'T. CARGO', key: 'fontSizeDocRole', min: 10, max: 800, step: 5, unit: 'PX', toggleKey: 'hideCargoDoc', description: 'Tamaño de fuente para los cargos de los docentes' },
+                { icon: MoveVertical, label: 'EJE Y', key: 'dY', min: safeMmToPx(0), max: safeMmToPx(350), unit: 'MM', description: 'Posición vertical de la fila de docentes' },
+                { icon: TypeIcon, label: 'T. NOMBRES', key: 'fontSizeAluName', min: 10, max: 1000, step: 5, unit: 'PX', description: 'Tamaño de fuente para los nombres (compartido con alumnos)' },
+                { icon: TypeIcon, label: 'T. APELLIDOS', key: 'fontSizeAluSur', min: 10, max: 800, step: 5, unit: 'PX', toggleKey: 'hideApellidosDoc', description: 'Tamaño de fuente para los apellidos (compartido con alumnos)' },
+                { icon: TypeIcon, label: 'T. CARGO', key: 'fontSizeAluSur', min: 10, max: 800, step: 5, unit: 'PX', toggleKey: 'hideCargoDoc', description: 'Tamaño de fuente para los cargos (usa tamaño de apellidos de alumnos)' },
                 { icon: Baseline, label: 'SEP. TEXTO', key: 'dTextOffset', min: 0, max: 100, step: 1, unit: 'PT', description: 'Distancia entre la foto y el texto del docente' },
                 { icon: MoveHorizontal, label: 'SEPARACIÓN', key: 'dGapX', min: safeMmToPx(0), max: safeMmToPx(500), unit: 'MM', description: 'Espacio horizontal entre los docentes' },
-                { icon: MoveVertical, label: 'EJE Y', key: 'dY', min: safeMmToPx(0), max: safeMmToPx(350), unit: 'MM', description: 'Posición vertical de la fila de docentes' },
             ]
         },
     };
@@ -779,19 +939,23 @@ const DesignPanel = ({
                                 <h3 className="text-2xl md:text-3xl font-black text-white tracking-tighter uppercase leading-tight">
                                     PREVISUALIZACIÓN ORLA
                                 </h3>
-                                <p className="text-white/60 text-[9px] uppercase tracking-[0.4em] font-black mt-1 flex items-center gap-2">
-                                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                                    Sistema de Renderizado Vectorial
-                                </p>
+                                <div className="flex flex-wrap items-center gap-3 mt-1.5">
+                                    <p className="text-white/60 text-[9px] uppercase tracking-[0.4em] font-black flex items-center gap-2">
+                                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                                        Sistema de Renderizado Vectorial
+                                    </p>
+                                </div>
                             </div>
                         </div>
 
                         <div className="flex items-center gap-4 relative z-10 w-full md:w-auto mr-2">
+
                             <button
-                                onClick={() => setView('command')}
-                                className="flex-1 md:flex-none h-12 px-8 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl flex items-center justify-center gap-3 transition-all shadow-glow-emerald text-[10px] font-black uppercase tracking-widest active:scale-95 border border-white/20 hover:border-white/40"
+                                onClick={handleFinalizeClick}
+                                className={`flex-1 md:flex-none h-12 px-8 ${isBlocked ? 'bg-slate-700' : 'bg-emerald-500 hover:bg-emerald-600'} text-white rounded-2xl flex items-center justify-center gap-3 transition-all shadow-glow-emerald text-[10px] font-black uppercase tracking-widest active:scale-95 border border-white/20 hover:border-white/40`}
                             >
                                 <LayoutGrid size={18} />
+                                {isBlocked ? <Shield size={16} className="text-amber-500" /> : null}
                                 FINALIZAR
                             </button>
                             <button
@@ -828,7 +992,7 @@ const DesignPanel = ({
 
                                     {/* Márgenes (Guía de Seguridad) */}
                                     {configOrla.showMarginGuide && (
-                                        <div className="absolute border-[4px] border-red-600 border-dashed pointer-events-none z-50 opacity-100"
+                                        <div className="absolute border-[4px] border-red-600 border-dashed pointer-events-none z-[100] opacity-100"
                                             style={{ 
                                                 inset: (configOrla.margin || 0) + 'px',
                                                 boxSizing: 'border-box'
@@ -836,26 +1000,25 @@ const DesignPanel = ({
                                     )}
 
                                     {/* Contenido Orla */}
-                                    <div className="absolute top-0 w-full flex justify-center z-20"
+                                    <div className="absolute top-0 w-full flex flex-wrap justify-center z-20 pointer-events-auto"
                                         style={{
                                             top: (configOrla.dY || 0) + 'px',
-                                            gap: (configOrla.dGapX ?? 0) + 'px',
+                                            padding: `0 ${(configOrla.margin || 20)}px`,
+                                            gap: `${configOrla.dGapY ?? 100}px ${configOrla.dGapX ?? 0}px`,
                                             transform: `translateX(${(configOrla.dOffsetX || 0)}px)`
                                         }}>
-                                        {filteredStaff.length > 0 && filteredStaff.map((member) => {
+                                        {filteredStaff.map((member) => {
                                             const { nombre, apellidos } = splitName(member.name);
-                                            const baseSize = configOrla.fontSizeDoc || 120;
-                                            const baseScale = configOrla.dScale || 1.25;
+                                            const baseScale = configOrla.dScale || 1.2;
                                             const w = (configOrla.aW || 350);
                                             const h = (configOrla.aH || 450);
                                             return (
                                                 <div key={member.id}
-                                                    className="relative flex flex-col items-center text-center"
+                                                    className="relative flex flex-col items-center text-center group/member overflow-visible"
                                                     style={{ width: (w * baseScale) + 'px' }}
                                                 >
-                                                    <div className="relative group/member">
-                                                        {/* Foto docente: dimensiones directas sin transform scale */}
-                                                        <div style={{
+                                                    <div className="relative flex flex-col items-center">
+                                                        <div className="overflow-hidden" style={{
                                                             width: Math.round(w * baseScale) + 'px',
                                                             height: Math.round(h * baseScale) + 'px',
                                                             ...getShapeStyle(currentShape, Math.round(w * baseScale), Math.round(h * baseScale)),
@@ -870,27 +1033,22 @@ const DesignPanel = ({
                                                                     onDragStart={(e) => e.preventDefault()}
                                                                 />
                                                             ) : (
-                                                                <div className="w-full h-full bg-slate-200 flex items-center justify-center">
-                                                                    <div className="text-slate-400 font-black opacity-40" style={{ fontSize: (w * baseScale * 0.12) + 'px' }}>DOCENTE</div>
+                                                                <div className="w-full h-full bg-slate-100 flex items-center justify-center">
+                                                                    <div className="text-slate-300 font-black" style={{ fontSize: (w * baseScale * 0.12) + 'px' }}>DOCENTE</div>
                                                                 </div>
                                                             )}
                                                         </div>
-                                                        <div className="flex flex-col items-center px-1" style={{
-                                                            marginTop: (configOrla.dTextOffset ?? 0) + 'px'
+                                                        <div className="flex flex-col items-center w-full" style={{
+                                                            marginTop: (configOrla.aTextOffset ?? 0) + 'px',
+                                                            padding: '0'
                                                         }}>
                                                             <div
                                                                 contentEditable={true}
                                                                 suppressContentEditableWarning={true}
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setActiveTab('DOCENTES');
-                                                                    setActiveDesignParam(TOOLBAR_CONFIG['DOCENTES'].tools[1]); // T. NOMBRES
-                                                                }}
-                                                                className="font-normal uppercase text-black leading-tight outline-none cursor-text hover:bg-accent/5 focus:bg-white focus:ring-4 focus:ring-accent/20 rounded px-1 transition-all duration-200 group-hover/member:text-accent focus:shadow-lg"
+                                                                className="font-normal uppercase text-black leading-tight outline-none cursor-text hover:bg-accent/5 focus:bg-white focus:ring-4 focus:ring-accent/20 rounded px-2 transition-all duration-200 group-hover/member:text-accent focus:shadow-lg w-full text-center"
                                                                 style={{ 
-                                                                    fontSize: (configOrla.fontSizeDocName || 54) + 'px', 
-                                                                    minWidth: '40px', 
-                                                                    width: 'max-content' 
+                                                                    fontSize: ((configOrla.fontSizeAluName || 36) * (configOrla.aScale || 1)) + 'px', 
+                                                                    textAlign: 'center'
                                                                 }}
                                                                 onBlur={(e) => {
                                                                     const newName = e.target.innerText.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
@@ -905,17 +1063,12 @@ const DesignPanel = ({
                                                                     }
                                                                 }}
                                                             >
-                                                                <div className="whitespace-nowrap">{nombre}</div>
+                                                                <div className="leading-[1.1] text-wrap">{nombre}</div>
                                                                 <div
-                                                                    className="whitespace-nowrap cursor-pointer hover:text-accent"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        setActiveTab('DOCENTES');
-                                                                        setActiveDesignParam(TOOLBAR_CONFIG['DOCENTES'].tools[2]); // T. APELLIDOS
-                                                                    }}
+                                                                    className="leading-[1.1] text-wrap cursor-pointer hover:text-accent"
                                                                     style={{ 
                                                                         display: configOrla.hideApellidosDoc ? 'none' : 'block',
-                                                                        fontSize: (configOrla.fontSizeDocSur || 42) + 'px'
+                                                                        fontSize: ((configOrla.fontSizeAluSur || 28) * (configOrla.aScale || 1)) + 'px'
                                                                     }}
                                                                 >
                                                                     {apellidos}
@@ -924,15 +1077,13 @@ const DesignPanel = ({
                                                             <p
                                                                 contentEditable={true}
                                                                 suppressContentEditableWarning={true}
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setActiveTab('DOCENTES');
-                                                                    setActiveDesignParam(TOOLBAR_CONFIG['DOCENTES'].tools[3]); // T. CARGO
-                                                                }}
                                                                 className="font-normal uppercase text-black leading-tight mt-0.5 outline-none cursor-text hover:bg-accent/5 focus:bg-white focus:ring-4 focus:ring-accent/20 rounded px-1 transition-all duration-200 hover:text-accent focus:shadow-lg"
                                                                 style={{
-                                                                    fontSize: (configOrla.fontSizeDocRole || 42) + 'px',
-                                                                    display: configOrla.hideCargoDoc ? 'none' : 'block'
+                                                                    fontSize: ((configOrla.fontSizeAluSur || 28) * (configOrla.aScale || 1)) + 'px',
+                                                                    display: configOrla.hideCargoDoc ? 'none' : 'block',
+                                                                    textAlign: 'center',
+                                                                    width: '100%',
+                                                                    padding: '0 10px'
                                                                 }}
                                                                 onBlur={(e) => {
                                                                     const newRole = e.target.innerText.trim();
@@ -953,93 +1104,118 @@ const DesignPanel = ({
                                             );
                                         })}
                                     </div>
-                                    <div className="absolute w-full z-10"
+
+                                    <div className="absolute w-full z-10 pointer-events-auto"
                                         style={{
                                             top: (configOrla.aStartY || 1350) + 'px',
                                             padding: `0 ${(configOrla.margin || 20)}px`,
                                             transform: `translateX(${(configOrla.aOffsetX || 0)}px)`
                                         }}>
-                                        <div className="grid justify-center"
+                                        <div className="flex flex-col items-center"
                                             style={{
-                                                gridTemplateColumns: `repeat(${Math.round(configOrla.aCols || 8)}, ${((configOrla.aW || 350)) * (configOrla.aScale || 1)}px)`,
-                                                columnGap: (configOrla.aGapX ?? 0) + 'px',
-                                                rowGap: (configOrla.aGapY ?? 650) + 'px'
+                                                gap: '118px' // Forzado a 1cm (10mm) exacto entre filas
                                             }}>
-                                            {filteredOrders.map((o) => {
-                                                const { nombre, apellidos } = splitName(o.studentName);
-                                                const baseSize = configOrla.fontSizeAlu || 100;
-                                                const baseScale = configOrla.aScale || 1;
-                                                const w = (configOrla.aW || 350);
-                                                const h = (configOrla.aH || 450);
-                                                return (
-                                                    <div key={o.id}
-                                                        className="flex flex-col items-center text-center"
-                                                        style={{ width: (w * baseScale) + 'px' }}
-                                                    >
-                                                        <div className="relative">
-                                                            {/* Foto alumno: dimensiones directas sin transform scale */}
-                                                            <div className="overflow-hidden" style={{
-                                                                width: Math.round(w * baseScale) + 'px',
-                                                                height: Math.round(h * baseScale) + 'px',
-                                                                ...getShapeStyle(currentShape, Math.round(w * baseScale), Math.round(h * baseScale)),
-                                                                margin: '0 auto'
-                                                            }}>
-                                                                {getPhotoSrc(o) ? (
-                                                                    <img 
-                                                                        src={getPhotoSrc(o)} 
-                                                                        className="w-full h-full object-cover transition-transform duration-300" 
-                                                                        style={getPhotoTransform(o.photoConfig)}
-                                                                        alt={o.studentName}
-                                                                        onDragStart={(e) => e.preventDefault()}
-                                                                    />
-                                                                ) : (
-                                                                    <div className="w-full h-full bg-slate-100 flex items-center justify-center">
-                                                                        <div className="text-slate-300 font-black" style={{ fontSize: (w * baseScale * 0.15) + 'px' }}>{o.photo_file_number || '?'}</div>
+                                            {orderedRows.map((rowItems, rowIndex) => (
+                                                <div key={rowIndex} className="flex justify-center" style={{ gap: (configOrla.aGapX ?? 0) + 'px' }}>
+                                                    {rowItems.map((o) => {
+                                                        const { nombre, apellidos } = splitName(o.studentName);
+                                                        const baseScale = configOrla.aScale || 1;
+                                                        const w = (configOrla.aW || 350);
+                                                        const h = (configOrla.aH || 450);
+                                                        return (
+                                                            <div key={o.id}
+                                                                className="flex flex-col items-center text-center group/alu overflow-visible"
+                                                                style={{ width: (w * baseScale) + 'px' }}
+                                                            >
+                                                                <div className="relative flex flex-col items-center">
+                                                                    <div className="overflow-hidden" style={{
+                                                                        width: Math.round(w * baseScale) + 'px',
+                                                                        height: Math.round(h * baseScale) + 'px',
+                                                                        ...getShapeStyle(currentShape, Math.round(w * baseScale), Math.round(h * baseScale)),
+                                                                        margin: '0 auto'
+                                                                    }}>
+                                                                        {getPhotoSrc(o) ? (
+                                                                            <img 
+                                                                                src={getPhotoSrc(o)} 
+                                                                                className="w-full h-full object-cover transition-transform duration-300" 
+                                                                                style={getPhotoTransform(o.photoConfig)}
+                                                                                alt={o.studentName}
+                                                                                onDragStart={(e) => e.preventDefault()}
+                                                                            />
+                                                                        ) : (
+                                                                            <div className="w-full h-full bg-slate-100 flex items-center justify-center">
+                                                                                <div className="text-slate-300 font-black" style={{ fontSize: (w * baseScale * 0.15) + 'px' }}>{o.photo_file_number || '?'}</div>
+                                                                            </div>
+                                                                        )}
                                                                     </div>
-                                                                )}
-                                                            </div>
-                                                            <div className="flex flex-col items-center px-1" style={{
-                                                                marginTop: (configOrla.aTextOffset ?? 0) + 'px'
-                                                            }}>
-                                                                <div
-                                                                    contentEditable={true}
-                                                                    suppressContentEditableWarning={true}
-                                                                    className="font-normal uppercase text-black leading-tight outline-none cursor-text hover:bg-accent/5 focus:bg-white focus:ring-2 focus:ring-accent/30 rounded px-1 transition-all duration-200"
-                                                                    style={{ fontSize: (configOrla.fontSizeAluName || 36) + 'px' }}
-                                                                    onBlur={(e) => {
-                                                                        const newName = e.target.innerText.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
-                                                                        if (newName && newName !== o.studentName) {
-                                                                            updateOrder(o.id, { studentName: newName });
-                                                                        }
-                                                                    }}
-                                                                    onKeyDown={(e) => {
-                                                                        if (e.key === 'Enter') {
-                                                                            e.preventDefault();
-                                                                            e.target.blur();
-                                                                        }
-                                                                    }}
-                                                                >
-                                                                    <div className="whitespace-nowrap">{nombre}</div>
-                                                                    <div className="whitespace-nowrap" style={{ 
-                                                                        display: configOrla.hideApellidosAlu ? 'none' : 'block',
-                                                                        fontSize: (configOrla.fontSizeAluSur || 28) + 'px'
-                                                                    }}>{apellidos}</div>
+                                                                    <div className="flex flex-col items-center w-full" style={{
+                                                                        marginTop: (configOrla.aTextOffset ?? 0) + 'px',
+                                                                        padding: '0'
+                                                                    }}>
+                                                                        <div
+                                                                            contentEditable={true}
+                                                                            suppressContentEditableWarning={true}
+                                                                            className="font-normal uppercase text-black leading-tight outline-none cursor-text hover:bg-accent/5 focus:bg-white focus:ring-4 focus:ring-accent/20 rounded px-2 transition-all duration-200 group-hover/alu:text-accent focus:shadow-lg w-full text-center"
+                                                                            style={{ 
+                                                                                fontSize: ((configOrla.fontSizeAluName || 36) * baseScale) + 'px', 
+                                                                                textAlign: 'center'
+                                                                            }}
+                                                                            onBlur={(e) => {
+                                                                                const newName = e.target.innerText.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+                                                                                if (newName && newName !== nombre) {
+                                                                                    updateOrder(o.id, { studentName: `${newName} ${apellidos}`.trim() });
+                                                                                }
+                                                                            }}
+                                                                            onKeyDown={(e) => {
+                                                                                if (e.key === 'Enter') {
+                                                                                    e.preventDefault();
+                                                                                    e.target.blur();
+                                                                                }
+                                                                            }}
+                                                                        >
+                                                                            <div className="leading-[1.1] text-wrap">{nombre}</div>
+                                                                        </div>
+                                                                        <div
+                                                                            contentEditable={true}
+                                                                            suppressContentEditableWarning={true}
+                                                                            className="font-normal uppercase text-black leading-tight mt-0.5 outline-none cursor-text hover:bg-accent/5 focus:bg-white focus:ring-4 focus:ring-accent/20 rounded px-1 transition-all duration-200 group-hover/alu:text-accent focus:shadow-lg"
+                                                                            style={{ 
+                                                                                fontSize: ((configOrla.fontSizeAluSur || 28) * baseScale) + 'px', 
+                                                                                display: configOrla.hideApellidosAlu ? 'none' : 'block',
+                                                                                textAlign: 'center'
+                                                                            }}
+                                                                            onBlur={(e) => {
+                                                                                const newSur = e.target.innerText.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+                                                                                if (newSur !== apellidos) {
+                                                                                    updateOrder(o.id, { studentName: `${nombre} ${newSur}`.trim() });
+                                                                                }
+                                                                            }}
+                                                                            onKeyDown={(e) => {
+                                                                                if (e.key === 'Enter') {
+                                                                                    e.preventDefault();
+                                                                                    e.target.blur();
+                                                                                }
+                                                                            }}
+                                                                        >
+                                                                            <div className="leading-[1.1] text-wrap">{apellidos}</div>
+                                                                        </div>
+                                                                    </div>
                                                                 </div>
                                                             </div>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
+                                                        );
+                                                    })}
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
 
                                     {/* Pie de Orla */}
-                                    <div className="absolute bottom-0 w-full text-center" style={{ bottom: ((configOrla.margin || 0) + (configOrla.footerY || 0)) + 'px' }}>
+                                    <div className="absolute bottom-0 w-full text-center pointer-events-auto" style={{ bottom: ((configOrla.margin || 0) + (configOrla.footerY || 0)) + 'px' }}>
                                         {!configOrla.hideSchool && (
                                             <h2
                                                 contentEditable={true}
                                                 suppressContentEditableWarning={true}
-                                                className="font-normal text-black uppercase tracking-tighter outline-none cursor-text hover:text-accent hover:bg-accent/5 focus:bg-white focus:ring-2 focus:ring-accent/30 transition-all duration-200 inline-block px-4 rounded"
+                                                className="font-normal text-black uppercase tracking-tighter outline-none cursor-text hover:text-accent hover:bg-accent/5 focus:bg-white focus:ring-8 focus:ring-accent/10 transition-all duration-300 focus:shadow-2xl inline-block px-4 rounded whitespace-nowrap mx-auto"
                                                 style={{ fontSize: (configOrla.fontSizeSchool || 200) + 'px' }}
                                                 onBlur={(e) => {
                                                     const newName = e.target.innerText.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
@@ -1257,7 +1433,7 @@ const DesignPanel = ({
                                                     )}
                                                 </div>
                                                 <div className="flex flex-col items-center w-full" style={{
-                                                    marginTop: (configOrla.dTextOffset ?? 0) + 'px',
+                                                    marginTop: (configOrla.aTextOffset ?? 0) + 'px',
                                                     padding: '0'
                                                 }}>
                                                     <div
@@ -1266,11 +1442,11 @@ const DesignPanel = ({
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             setActiveTab('DOCENTES');
-                                                            setActiveDesignParam(TOOLBAR_CONFIG['DOCENTES'].tools[1]); // T. NOMBRES
+                                                            setActiveDesignParam(TOOLBAR_CONFIG['DOCENTES'].tools[2]); // T. NOMBRES (ahora apunta a fontSizeAluName)
                                                         }}
                                                         className="font-normal uppercase text-black leading-tight outline-none cursor-text hover:bg-accent/5 focus:bg-white focus:ring-4 focus:ring-accent/20 rounded px-2 transition-all duration-200 group-hover/member:text-accent focus:shadow-lg w-full text-center"
                                                         style={{ 
-                                                            fontSize: (configOrla.fontSizeDocName || 54) + 'px', 
+                                                            fontSize: ((configOrla.fontSizeAluName || 36) * (configOrla.aScale || 1)) + 'px', 
                                                             textAlign: 'center'
                                                         }}
                                                         onBlur={(e) => {
@@ -1292,11 +1468,11 @@ const DesignPanel = ({
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 setActiveTab('DOCENTES');
-                                                                setActiveDesignParam(TOOLBAR_CONFIG['DOCENTES'].tools[2]); // T. APELLIDOS
+                                                                setActiveDesignParam(TOOLBAR_CONFIG['DOCENTES'].tools[3]); // T. APELLIDOS (ahora apunta a fontSizeAluSur)
                                                             }}
                                                             style={{ 
                                                                 display: configOrla.hideApellidosDoc ? 'none' : 'block',
-                                                                fontSize: (configOrla.fontSizeDocSur || 42) + 'px'
+                                                                fontSize: ((configOrla.fontSizeAluSur || 28) * (configOrla.aScale || 1)) + 'px'
                                                             }}
                                                         >
                                                             {apellidos}
@@ -1308,11 +1484,11 @@ const DesignPanel = ({
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             setActiveTab('DOCENTES');
-                                                            setActiveDesignParam(TOOLBAR_CONFIG['DOCENTES'].tools[3]); // T. CARGO
+                                                            setActiveDesignParam(TOOLBAR_CONFIG['DOCENTES'].tools[4]); // T. CARGO (ahora apunta a fontSizeAluSur)
                                                         }}
                                                         className="font-normal uppercase text-black leading-tight mt-0.5 outline-none cursor-text hover:bg-accent/5 focus:bg-white focus:ring-4 focus:ring-accent/20 rounded px-1 transition-all duration-200 hover:text-accent focus:shadow-lg"
                                                         style={{
-                                                            fontSize: (configOrla.fontSizeDocRole || 42) + 'px',
+                                                            fontSize: ((configOrla.fontSizeAluSur || 28) * (configOrla.aScale || 1)) + 'px',
                                                             display: configOrla.hideCargoDoc ? 'none' : 'block',
                                                             textAlign: 'center',
                                                             width: '100%',
@@ -1343,78 +1519,85 @@ const DesignPanel = ({
                                     padding: `0 ${(configOrla.margin || 20)}px`,
                                     transform: `translateX(${(configOrla.aOffsetX || 0)}px)`
                                 }}>
-                                <div className="grid justify-center"
+                                <div className="flex flex-col justify-center"
                                     style={{
-                                        gridTemplateColumns: `repeat(${Math.round(configOrla.aCols || 8)}, ${(configOrla.aW || 350) * (configOrla.aScale || 1)}px)`,
-                                        columnGap: (configOrla.aGapX ?? 0) + 'px',
-                                        rowGap: (configOrla.aGapY ?? 0) + 'px'
+                                        gap: '118.11px' // Exactamente 1cm (10mm @ 300dpi eq) entre filas de alumnos
                                     }}>
-                                    {filteredOrders.map((o) => {
-                                        const { nombre, apellidos } = splitName(o.studentName);
-                                        const baseSize = configOrla.fontSizeAlu || 100;
-                                        const baseScale = configOrla.aScale || 1;
-                                        const w = (configOrla.aW || 350);
-                                        const h = (configOrla.aH || 450);
-                                        return (
-                                            <div key={o.id}
-                                                className="flex flex-col items-center text-center group/alu overflow-visible"
-                                                style={{ width: (w * baseScale) + 'px' }}
-                                            >
-                                                <div className="relative flex flex-col items-center">
-                                                    {/* Foto alumno: dimensiones directas sin transform scale */}
-                                                    <div className="overflow-hidden" style={{
-                                                        width: Math.round(w * baseScale) + 'px',
-                                                        height: Math.round(h * baseScale) + 'px',
-                                                        ...getShapeStyle(currentShape, Math.round(w * baseScale), Math.round(h * baseScale)),
-                                                        margin: '0 auto'
-                                                    }}>
-                                                        {getPhotoSrc(o) ? (
-                                                            <img 
-                                                                src={getPhotoSrc(o)} 
-                                                                className="w-full h-full object-cover transition-transform duration-300" 
-                                                                style={getPhotoTransform(o.photoConfig)}
-                                                                alt={o.studentName}
-                                                                onDragStart={(e) => e.preventDefault()}
-                                                            />
-                                                        ) : (
-                                                            <div className="w-full h-full bg-slate-100 flex items-center justify-center">
-                                                                <div className="text-slate-300 font-black" style={{ fontSize: (w * baseScale * 0.15) + 'px' }}>{o.photo_file_number || '?'}</div>
+                                    {orderedRows.map((rowItems, rowIndex) => (
+                                        <div key={`row-${rowIndex}`} className="flex justify-center"
+                                            style={{
+                                                gap: (configOrla.aGapX ?? 0) + 'px'
+                                            }}>
+                                            {rowItems.map((o) => {
+                                                const { nombre, apellidos } = splitName(o.studentName);
+                                                const baseSize = configOrla.fontSizeAlu || 100;
+                                                const baseScale = configOrla.aScale || 1;
+                                                const w = (configOrla.aW || 350);
+                                                const h = (configOrla.aH || 450);
+                                                return (
+                                                    <div key={o.id}
+                                                        className="flex flex-col items-center text-center group/alu overflow-visible"
+                                                        style={{ width: (w * baseScale) + 'px' }}
+                                                    >
+                                                        <div className="relative flex flex-col items-center">
+                                                            {/* Foto alumno: dimensiones directas sin transform scale */}
+                                                            <div className="overflow-hidden" style={{
+                                                                width: Math.round(w * baseScale) + 'px',
+                                                                height: Math.round(h * baseScale) + 'px',
+                                                                ...getShapeStyle(currentShape, Math.round(w * baseScale), Math.round(h * baseScale)),
+                                                                margin: '0 auto'
+                                                            }}>
+                                                                {getPhotoSrc(o) ? (
+                                                                    <img 
+                                                                        src={getPhotoSrc(o)} 
+                                                                        className="w-full h-full object-cover transition-transform duration-300" 
+                                                                        style={getPhotoTransform(o.photoConfig)}
+                                                                        alt={o.studentName}
+                                                                        onDragStart={(e) => e.preventDefault()}
+                                                                    />
+                                                                ) : (
+                                                                    <div className="w-full h-full bg-slate-100 flex items-center justify-center">
+                                                                        <div className="text-slate-300 font-black" style={{ fontSize: (w * baseScale * 0.15) + 'px' }}>{o.photo_file_number || '?'}</div>
+                                                                    </div>
+                                                                )}
                                                             </div>
-                                                        )}
-                                                    </div>
-                                                    <div className="flex flex-col items-center w-full" style={{
-                                                        marginTop: (configOrla.aTextOffset ?? 0) + 'px',
-                                                        padding: '0'
-                                                    }}>
-                                                        <div
-                                                            contentEditable={true}
-                                                            suppressContentEditableWarning={true}
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setActiveTab('ALUMNOS');
-                                                                setActiveDesignParam(TOOLBAR_CONFIG['ALUMNOS'].tools[2]); // T. NOMBRES
-                                                            }}
-                                                            className="font-normal uppercase text-black leading-tight outline-none cursor-text hover:bg-accent/5 focus:bg-white focus:ring-4 focus:ring-accent/20 rounded px-2 transition-all duration-200 group-hover/alu:text-accent focus:shadow-lg w-full text-center"
-                                                            style={{ 
-                                                                fontSize: (configOrla.fontSizeAluName || 36) + 'px', 
-                                                                textAlign: 'center'
-                                                            }}
-                                                            onBlur={(e) => {
-                                                                const newName = e.target.innerText.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
-                                                                if (newName && newName !== o.studentName) {
-                                                                    updateOrder(o.id, { studentName: newName });
-                                                                }
-                                                            }}
-                                                            onKeyDown={(e) => {
-                                                                if (e.key === 'Enter') {
-                                                                    e.preventDefault();
-                                                                    e.target.blur();
-                                                                }
-                                                            }}
-                                                        >
-                                                            <div className="leading-[1.1] text-wrap">{nombre}</div>
-                                                        </div>
-                                                        <div
+                                                            <div className="flex flex-col items-center w-full" style={{
+                                                                marginTop: (configOrla.aTextOffset ?? 0) + 'px',
+                                                                padding: '0'
+                                                            }}>
+                                                                <div
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setActiveTab('ALUMNOS');
+                                                                        setActiveDesignParam(TOOLBAR_CONFIG['ALUMNOS'].tools[2]); // T. NOMBRES
+                                                                    }}
+                                                                    className="flex items-center justify-center gap-1.5 font-normal uppercase text-black leading-tight hover:bg-accent/5 rounded px-2 transition-all duration-200 group-hover/alu:text-accent w-full text-center"
+                                                                    style={{ 
+                                                                        fontSize: ((configOrla.fontSizeAluName || 36) * baseScale) + 'px', 
+                                                                        textAlign: 'center'
+                                                                    }}
+                                                                >
+                                                                    <div 
+                                                                        contentEditable={true}
+                                                                        suppressContentEditableWarning={true}
+                                                                        className="leading-[1.1] text-wrap outline-none focus:bg-white focus:ring-4 focus:ring-accent/20 px-1"
+                                                                        onBlur={(e) => {
+                                                                            const newName = e.target.innerText.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+                                                                            if (newName && newName !== nombre) {
+                                                                                updateOrder(o.id, { studentName: `${newName} ${apellidos}`.trim() });
+                                                                            }
+                                                                        }}
+                                                                        onKeyDown={(e) => {
+                                                                            if (e.key === 'Enter') {
+                                                                                e.preventDefault();
+                                                                                e.target.blur();
+                                                                            }
+                                                                        }}
+                                                                    >
+                                                                        {nombre}
+                                                                    </div>
+                                                                </div>
+                                                                <div
                                                             contentEditable={true}
                                                             suppressContentEditableWarning={true}
                                                             onClick={(e) => {
@@ -1424,7 +1607,7 @@ const DesignPanel = ({
                                                             }}
                                                             className="font-normal uppercase text-black leading-tight mt-0.5 outline-none cursor-text hover:bg-accent/5 focus:bg-white focus:ring-4 focus:ring-accent/20 rounded px-1 transition-all duration-200 group-hover/alu:text-accent focus:shadow-lg"
                                                             style={{ 
-                                                                fontSize: (configOrla.fontSizeAluSur || 28) + 'px', 
+                                                                fontSize: ((configOrla.fontSizeAluSur || 28) * baseScale) + 'px', 
                                                                 display: configOrla.hideApellidosAlu ? 'none' : 'block',
                                                                 textAlign: 'center'
                                                             }}
@@ -1449,6 +1632,8 @@ const DesignPanel = ({
                                             </div>
                                         );
                                     })}
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
 
@@ -1460,7 +1645,7 @@ const DesignPanel = ({
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             setActiveTab('PIE');
-                                            setActiveDesignParam(TOOLBAR_CONFIG['PIE'].tools[2]); // T. COLEGIO
+                                            setActiveDesignParam(TOOLBAR_CONFIG['PIE'].tools[1]); // T. COLEGIO
                                         }}
                                         className="font-normal text-black uppercase tracking-tighter outline-none cursor-text hover:text-accent hover:bg-accent/5 focus:bg-white focus:ring-8 focus:ring-accent/10 transition-all duration-300 focus:shadow-2xl inline-block px-4 rounded whitespace-nowrap mx-auto"
                                         style={{ fontSize: (configOrla.fontSizeSchool || 200) + 'px' }}
@@ -1488,7 +1673,7 @@ const DesignPanel = ({
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             setActiveTab('PIE');
-                                            setActiveDesignParam(TOOLBAR_CONFIG['PIE'].tools[4]); // T. PROMO
+                                            setActiveDesignParam(TOOLBAR_CONFIG['PIE'].tools[2]); // T. PROMO
                                         }}
                                         className="font-normal text-black tracking-[0.5em] mt-1 outline-none cursor-text hover:text-accent hover:bg-accent/5 focus:bg-white focus:ring-8 focus:ring-accent/10 transition-all duration-300 focus:shadow-2xl inline-block px-2 rounded ml-[0.5em] max-w-[95%]"
                                         style={{ fontSize: (configOrla.fontSizePromo || 80) + 'px' }}
@@ -1516,7 +1701,7 @@ const DesignPanel = ({
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             setActiveTab('PIE');
-                                            setActiveDesignParam(TOOLBAR_CONFIG['PIE'].tools[6]); // T. CURSO
+                                            setActiveDesignParam(TOOLBAR_CONFIG['PIE'].tools[3]); // T. CURSO
                                         }}
                                         className="font-semibold text-gray-500 uppercase tracking-widest mt-0.5 outline-none cursor-text hover:text-accent hover:bg-accent/5 focus:bg-white focus:ring-8 focus:ring-accent/10 transition-all duration-300 focus:shadow-2xl inline-block px-2 rounded max-w-[95%]"
                                         style={{ fontSize: (configOrla.fontSizeCourse || 60) + 'px' }}
@@ -1567,8 +1752,8 @@ const DesignPanel = ({
                         </div>
 
                         {/* 2. Dock de Herramientas Principal */}
-                        <div className="p-4 flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide flex-1 py-1">
+                        <div className="p-2 flex items-center justify-between gap-1 overflow-visible">
+                            <div className="flex items-center gap-1 flex-grow overflow-visible py-0.5">
                                 {(() => {
                                     const isCustom = !CANVAS_SIZES.some(s => !s.custom && Math.round(safePxToMm(configOrla.canvasW || 4961)) === s.w && Math.round(safePxToMm(configOrla.canvasH || 3508)) === s.h);
                                     
@@ -1589,9 +1774,9 @@ const DesignPanel = ({
                                                             setShowSizeSelector(false);
                                                             setActiveDesignParam(null); 
                                                         }}
-                                                        onMouseEnter={() => setHoveredTool({ label: 'FORMA', description: 'Cambia el estilo de recorte de las fotografías' })}
+                                                        onMouseEnter={() => setHoveredTool({ label: 'FORMA', description: 'Cambia el estilo de recorte de las fotograf\u00edas' })}
                                                         onMouseLeave={() => setHoveredTool(null)}
-                                                        className={`flex flex-col items-center justify-center gap-1.5 p-3 min-w-[85px] rounded-2xl transition-all active:scale-95 border ${
+                                                        className={`flex flex-col items-center justify-center gap-1 p-1 min-w-[60px] rounded-2xl transition-all active:scale-95 border ${
                                                             showShapeSelector
                                                                 ? 'bg-accent text-white shadow-glow-indigo border-white/20'
                                                                 : isDark
@@ -1599,8 +1784,8 @@ const DesignPanel = ({
                                                                     : 'bg-slate-100 border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-200'
                                                         }`}
                                                     >
-                                                        <Shapes size={18} />
-                                                        <span className="text-[9px] font-black uppercase tracking-tighter text-center leading-none">FORMA</span>
+                                                        <Shapes size={14} />
+                                                        <span className="text-[7px] font-black uppercase tracking-tighter text-center leading-none">FORMA</span>
                                                     </button>
                                                 );
                                             }
@@ -1615,7 +1800,7 @@ const DesignPanel = ({
                                                         }}
                                                         onMouseEnter={() => setHoveredTool({ label: 'TAMAÑO', description: 'Cambia las dimensiones físicas del lienzo de la orla' })}
                                                         onMouseLeave={() => setHoveredTool(null)}
-                                                        className={`flex flex-col items-center justify-center gap-1.5 p-3 min-w-[85px] rounded-2xl transition-all active:scale-95 border ${
+                                                        className={`flex flex-col items-center justify-center gap-1 p-1 min-w-[60px] rounded-2xl transition-all active:scale-95 border ${
                                                             showSizeSelector
                                                                 ? 'bg-accent text-white shadow-glow-indigo border-white/20'
                                                                 : isDark
@@ -1623,8 +1808,8 @@ const DesignPanel = ({
                                                                     : 'bg-slate-100 border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-200'
                                                         }`}
                                                     >
-                                                        <tool.icon size={18} />
-                                                        <span className="text-[9px] font-black uppercase tracking-tighter text-center leading-none">TAMAÑO</span>
+                                                        <tool.icon size={14} />
+                                                        <span className="text-[7px] font-black uppercase tracking-tighter text-center leading-none">TAMAÑO</span>
                                                     </button>
                                                 );
                                             }
@@ -1652,14 +1837,15 @@ const DesignPanel = ({
                                                     }}
                                                     onMouseEnter={() => setHoveredTool({ label: tool.label, description: tool.description || `Ajustar el parámetro ${tool.label.toLowerCase()}` })}
                                                     onMouseLeave={() => setHoveredTool(null)}
-                                                    className={`flex flex-col items-center justify-center gap-1.5 p-3 min-w-[85px] rounded-2xl transition-all active:scale-95 border ${
-                                                        (tool.onClick)
+                                                    className={`flex flex-col items-center justify-center gap-1 p-1 min-w-[60px] rounded-2xl transition-all active:scale-95 border ${
+                                                        (tool.onClick && tool.key !== 'studentRowBalance')
                                                             ? 'bg-accent/10 border-accent/30 text-accent hover:bg-accent hover:text-white'
-                                                            // Toggles: Iluminar con Accent cuando están ACTIVOS
+                                                            // Toggles: Iluminar con Accent cuando est\u00e1n ACTIVOS
                                                             : (
                                                                 (tool.key === 'showMarginGuide' && configOrla.showMarginGuide) || 
                                                                 (tool.isToggle && tool.key === 'showGuides' && showGuides) || 
-                                                                (tool.isToggle && tool.key !== 'showGuides' && tool.key !== 'showMarginGuide' && configOrla[tool.key])
+                                                                (tool.key === 'studentRowBalance' && configOrla.studentRowBalance === 'top') ||
+                                                                (tool.isToggle && tool.key !== 'showGuides' && tool.key !== 'showMarginGuide' && tool.key !== 'studentRowBalance' && configOrla[tool.key])
                                                               )
                                                                 ? 'bg-accent text-white shadow-glow-indigo border-accent/20'
                                                                 : activeDesignParam?.key === tool.key
@@ -1669,8 +1855,8 @@ const DesignPanel = ({
                                                                         : 'bg-slate-100 border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-200'
                                                     }`}
                                                 >
-                                                    <tool.icon size={18} />
-                                                    <span className="text-[9px] font-black uppercase tracking-tighter text-center leading-none">
+                                                    <tool.icon size={14} />
+                                                    <span className="text-[7px] font-black uppercase tracking-tighter text-center leading-none">
                                                         {tool.label}
                                                     </span>
                                                 </button>
@@ -1679,34 +1865,7 @@ const DesignPanel = ({
                                 })()}
                             </div>
 
-                            <div className={`w-px h-10 mx-2 shrink-0 ${isDark ? 'bg-white/10' : 'bg-black/5'}`} />
-
-                            {/* Área de tooltips dinámicos */}
-                            <div className="flex-1 flex items-center gap-3 px-2 overflow-hidden">
-                                <div 
-                                    className={`p-2 rounded-xl border shrink-0 transition-all ${isDark ? 'bg-white/5 border-white/10 text-white/20' : 'bg-slate-100 border-black/5 text-slate-300'} hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/20 cursor-pointer`}
-                                    title="Reiniciar parámetros de esta pestaña"
-                                    onClick={() => {
-                                        // Funcionalidad de papelera: Resetear parámetros de la pestaña activa
-                                        setConfirmModal({
-                                            show: true,
-                                            title: 'REINICIAR SECCIÓN',
-                                            message: '¿Deseas reiniciar todos los ajustes de esta sección a sus valores predeterminados?',
-                                            onConfirm: () => {
-                                                const tabTools = TOOLBAR_CONFIG[activeTab].tools;
-                                                const updates = {};
-                                                tabTools.forEach(t => {
-                                                    if (t.key && t.min !== undefined) updates[t.key] = t.min;
-                                                });
-                                                setConfigOrla(prev => ({ ...prev, ...updates }));
-                                            }
-                                        });
-                                    }}
-                                    onMouseEnter={() => setHoveredTool({ label: 'PAPELERA', description: 'Resetear todos los ajustes de la pestaña actual a sus valores iniciales' })}
-                                    onMouseLeave={() => setHoveredTool(null)}
-                                >
-                                    <Trash2 size={16} />
-                                </div>
+                            <div className="flex-none flex items-center gap-2 px-2 min-h-[44px]">
                                 
                                 {hoveredTool && (
                                     <div className="flex flex-col animate-in fade-in slide-in-from-left-2 duration-300">
@@ -1716,14 +1875,30 @@ const DesignPanel = ({
                                 )}
                             </div>
 
-                            <div className={`w-px h-10 mx-2 shrink-0 ${isDark ? 'bg-white/10' : 'bg-black/5'}`} />
 
                             <div className="flex items-center gap-2 shrink-0">
                                 <button
-                                    onClick={() => setView('command')}
-                                    className="px-5 py-3 bg-emerald-500 text-white rounded-2xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 active:scale-95 flex flex-col items-center gap-1"
+                                    onClick={loadLayoutConfig}
+                                    className={`px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl shadow-sm border border-slate-200 active:scale-95 flex flex-col items-center gap-1 transition-all`}
+                                    title="Recuperar Diseño"
+                                >
+                                    <History size={18} />
+                                    <span className="text-[8px] font-black uppercase tracking-wider">CARGAR</span>
+                                </button>
+                                <button
+                                    onClick={saveLayoutConfig}
+                                    className={`px-4 py-3 bg-indigo-600 outline-none text-white rounded-2xl shadow-lg shadow-indigo-500/20 hover:bg-indigo-500 active:scale-95 flex flex-col items-center gap-1 transition-all`}
+                                    title="Guardar Diseño"
+                                >
+                                    <Save size={18} />
+                                    <span className="text-[8px] font-black uppercase tracking-wider">GUARDAR</span>
+                                </button>
+                                <button
+                                    onClick={handleFinalizeClick}
+                                    className={`px-5 py-3 ${isBlocked ? 'bg-slate-700' : 'bg-emerald-500 hover:bg-emerald-600'} text-white rounded-2xl shadow-lg shadow-emerald-500/20 active:scale-95 flex flex-col items-center gap-1 transition-all`}
                                 >
                                     <LayoutGrid size={18} />
+                                    {isBlocked && <Shield size={16} className="text-amber-500" />}
                                     <span className="text-[8px] font-black uppercase tracking-wider">FINALIZAR</span>
                                 </button>
                                 <button
@@ -1957,7 +2132,7 @@ const DesignPanel = ({
 
                                             <div className="ml-auto flex items-center gap-3">
                                                 <div className="flex flex-col items-end">
-                                                    <span className={`text-[7px] font-black uppercase tracking-[0.2em] opacity-40 leading-none mb-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>FORMATO ACTUAL</span>
+                                                    <span className={`text-[7px] font-black uppercase tracking-[0.2em] opacity-40 leading-none mb-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>LIENZO</span>
                                                     <span className={`text-sm font-black uppercase tracking-tighter leading-none ${isDark ? 'text-white' : 'text-accent'}`}>
                                                         {getFormatLabel(configOrla.canvasW || 4961, configOrla.canvasH || 3508)}
                                                     </span>
@@ -1969,7 +2144,7 @@ const DesignPanel = ({
                                         // Siempre mostrar el formato si el sub-dock está "vacío"
                                         <div className="flex-1 flex items-center justify-end gap-3">
                                              <div className="flex flex-col items-end">
-                                                <span className={`text-[7px] font-black uppercase tracking-[0.2em] opacity-40 leading-none mb-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>FORMATO ACTUAL</span>
+                                                <span className={`text-[7px] font-black uppercase tracking-[0.2em] opacity-40 leading-none mb-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>LIENZO</span>
                                                 <span className={`text-sm font-black uppercase tracking-tighter leading-none ${isDark ? 'text-white' : 'text-accent'}`}>
                                                     {getFormatLabel(configOrla.canvasW || 4961, configOrla.canvasH || 3508)}
                                                 </span>
@@ -2017,6 +2192,65 @@ const DesignPanel = ({
                     </div>
                 </div>
             </div>
+
+            {/* MODAL BLOQUEO PAGO STARTER */}
+            {showPaymentBlockedModal && (
+                <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-slate-950/90 backdrop-blur-2xl animate-fade-in">
+                    <div className="w-full max-w-md bg-white rounded-[40px] shadow-2xl overflow-hidden animate-scale-in text-left">
+                        <div className="relative p-10 flex flex-col items-center text-center">
+                            {/* Botón cerrar */}
+                            <button onClick={() => setShowPaymentBlockedModal(false)} className="absolute top-6 right-6 p-2 bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-600 rounded-full transition-all"><X size={20} /></button>
+
+                            <div className="w-24 h-24 bg-amber-50 rounded-[32px] flex items-center justify-center border-2 border-amber-100 mb-8 shadow-xl shadow-amber-500/10">
+                                <Wallet size={48} className="text-amber-500" />
+                            </div>
+
+                            <div className="space-y-4 mb-10">
+                                <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-100/50 border border-amber-200 rounded-full">
+                                    <Shield size={12} className="text-amber-600" />
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-amber-700">Acción Requerida</span>
+                                </div>
+                                <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter leading-none" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                                    Liquidación Pendiente
+                                </h2>
+                                <p className="text-slate-500 font-bold text-sm leading-relaxed px-4">
+                                    {isFlex ? (
+                                        <>Para acceder al paso final y generar los scripts en el <span className="text-indigo-600">Plan Flex</span>, es necesario solicitar el pago de los alumnos trabajados.</>
+                                    ) : (
+                                        <>Para generar los scripts finales en el <span className="text-emerald-600">Plan Starter</span>, es necesario regularizar el pago de la campaña.</>
+                                    )}
+                                </p>
+                            </div>
+
+                            <div className="w-full space-y-4">
+                                <button
+                                    onClick={handleRequestPayment}
+                                    disabled={requestingPayment}
+                                    className="w-full h-16 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-400 text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl transition-all shadow-xl shadow-indigo-600/20 flex items-center justify-center gap-3 active:scale-[0.98]"
+                                >
+                                    {requestingPayment ? (
+                                        <span className="flex items-center gap-2">
+                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            Enviando Solicitud...
+                                        </span>
+                                    ) : (
+                                        <>Solicitar Liquidación <ArrowRight size={18} /></>
+                                    )}
+                                </button>
+                                
+                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-start gap-4 text-left">
+                                    <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center shrink-0">
+                                        <Info size={16} className="text-indigo-500" />
+                                    </div>
+                                    <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider leading-relaxed">
+                                        Una vez solicitado, verificaremos tu cuenta y habilitaremos la descarga en menos de 24h.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

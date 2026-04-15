@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { db } from '../firebase.js';
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, getDocs, collection } from 'firebase/firestore';
 import { PACKS, EXTRAS, DEMO_PACKS, DEMO_EXTRAS, DEFAULT_PAYMENT_METHODS, SCHOOLS, DEMO_2026_PACKS, DEMO_2026_EXTRAS } from '../constants.js';
 
 const ensureArray = (data, fallback) => {
@@ -43,6 +43,9 @@ export function useSettings(photographerId, isDemo = false) {
             fiscalName: '',
             cif: '',
             address: '',
+            addressNumber: '',
+            addressFloor: '',
+            addressLetter: '',
             postalCode: '',
             city: '',
             province: '',
@@ -84,22 +87,22 @@ export function useSettings(photographerId, isDemo = false) {
                     'efectivo': { 
                         icon: '💶', 
                         label: 'EFECTIVO',
-                        desc: 'Actívalo si deseas que se paguen así los packs. Al padre se le indicará que debe llevar el dinero exacto en un sobre con el nombre del alumno.'
+                        desc: 'Pago manual en mano. Al finalizar, se indicará al usuario que entregue el dinero en un sobre.'
                     },
                     'bizum': { 
                         icon: '📲', 
                         label: 'BIZUM',
-                        desc: 'Envío normal de Bizum con su app del banco. Incompatible con la pasarela Tarjeta/Bizum.'
+                        desc: 'Pago mediante Bizum integrado en la pasarela de pagos Paycomet (Automático).'
                     },
                     'card': { 
                         icon: '💳', 
                         label: 'TARJETA',
-                        desc: 'Pasarela de pago solo tarjeta.'
+                        desc: 'Pago con tarjeta de crédito/débito a través de la pasarela Paycomet (Automático).'
                     },
                     'tarjeta_bizum': { 
-                        icon: '📲', 
+                        icon: '🛡️',
                         label: 'TARJETA/BIZUM',
-                        desc: 'Pasarela de pago Tarjeta y Bizum. Si se activa, el Bizum normal se desactivará automáticamente ya que no pueden estar activos a la vez.'
+                        desc: 'Opción combinada de pasarela (No recomendada si se activan por separado).'
                     }
                 };
 
@@ -184,6 +187,18 @@ export function useSettings(photographerId, isDemo = false) {
         saveToFirebase(updated);
     };
 
+    const addSchoolWithId = (id, name, code) => {
+        const upperName = name.trim().toUpperCase();
+        updateSettings(prev => {
+            const currentSchools = prev.schools || SCHOOLS;
+            if (currentSchools.some(s => s.id === id)) return prev;
+            return {
+                ...prev,
+                schools: [...currentSchools, { id, name: upperName, code }]
+            };
+        });
+    };
+
     const addSchool = (name) => {
         const upperName = name.trim().toUpperCase();
 
@@ -225,6 +240,42 @@ export function useSettings(photographerId, isDemo = false) {
         }));
     };
 
+    const [orphanSchools, setOrphanSchools] = useState([]);
+
+    const detectOrphanSchools = async () => {
+        if (!photographerId || isDemo) return;
+        try {
+            const ordersRef = collection(db, 'orlas2026_photographers', photographerId, 'orders');
+            const snap = await getDocs(ordersRef);
+            
+            const existingIds = (settings.schools || []).map(s => s.id);
+            const orphans = [];
+            
+            snap.forEach(docSnap => {
+                const id = docSnap.id;
+                if (!existingIds.includes(id)) {
+                    // Buscar si existe en la lista maestra por defecto
+                    const defaultSchool = SCHOOLS.find(s => s.id === id);
+                    const data = docSnap.data().items || [];
+                    
+                    if (data.length > 0) {
+                        orphans.push({
+                            id,
+                            count: data.length,
+                            defaultName: defaultSchool?.name || 'CENTRO DESCONOCIDO',
+                            suggestedName: data[0]?.schoolName || defaultSchool?.name || 'COLEGIO SIN NOMBRE',
+                            code: defaultSchool?.code || id.substring(0, 3).toUpperCase()
+                        });
+                    }
+                }
+            });
+            
+            setOrphanSchools(orphans);
+        } catch (error) {
+            console.error("Error detectando huérfanos:", error);
+        }
+    };
+
     const updateAdminPin = (newPin) => {
         updateSettings({ adminPin: newPin });
     };
@@ -263,9 +314,12 @@ export function useSettings(photographerId, isDemo = false) {
         togglePaymentMethod,
         addPaymentMethod,
         addSchool,
+        addSchoolWithId,
         updateSchool,
         deleteSchool,
         updateAdminPin,
         updateSettings,
+        orphanSchools,
+        detectOrphanSchools
     };
 }

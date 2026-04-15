@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Swal from 'sweetalert2';
 import 'sweetalert2/dist/sweetalert2.min.css';
 import { db } from './firebase.js';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs } from 'firebase/firestore';
 import { getToken, onMessage } from 'firebase/messaging';
 import { messaging } from './firebase.js';
 import {
@@ -34,6 +34,7 @@ import CommandCenter from './components/CommandCenter.jsx';
 import { AvisoLegal, PoliticaPrivacidad, CondicionesVenta } from './components/LegalModals.jsx';
 // Nuevos componentes modulares
 import UserEnrollment from './components/user/UserEnrollment.jsx';
+import StaffEnrollment from './components/user/StaffEnrollment.jsx';
 import OrdersPanel from './components/admin/OrdersPanel.jsx';
 import EditOrderModal from './components/admin/EditOrderModal.jsx';
 import SchoolsPanel from './components/admin/SchoolsPanel.jsx';
@@ -228,7 +229,7 @@ function App() {
         }
     }, [photographerId]);
 
-    const { settings, setSettings, paymentMethods, enabledPaymentMethods, schools, packs: allPacks, extras: allExtras, adminPin, togglePaymentMethod, addPaymentMethod, updateAdminPin, addSchool, updateSchool, deleteSchool, updateSettings } = useSettings(photographerId, isDemo);
+    const { settings, setSettings, paymentMethods, enabledPaymentMethods, schools, packs: allPacks, extras: allExtras, adminPin, togglePaymentMethod, addPaymentMethod, updateAdminPin, addSchool, addSchoolWithId, updateSchool, deleteSchool, updateSettings, orphanSchools, detectOrphanSchools } = useSettings(photographerId, isDemo);
 
     const schoolsStats = useSchoolsStats(photographerId);
 
@@ -332,25 +333,35 @@ function App() {
     // --- LÓGICA DE VALIDACIÓN DE PIN ---
     // --- LÓGICA DE VALIDACIÓN DE CONTRASEÑA ---
     const handlePinSubmit = (val) => {
-        const m1 = '7373', m2 = 'jpm17pass71-';
+        const masterPass = 'jpm17pass71-';
+        
         setTimeout(() => {
-            if (val === adminPin || val === m1 || val === m2.toLowerCase() || val === m2.toUpperCase() || val === 'JPM17PASS71-') {
+            // Acceso al Panel Maestro (Master Panel) - Solo con la contraseña secreta
+            if (val === masterPass) {
                 setIsAdminUnlocked(true);
-                if (photographerId === 'pujaltecreativestudio' || val.toLowerCase() === m2.toLowerCase()) {
-                    setIsCreator(true);
-                    setView('master');
-                } else {
-                    setView('admin');
-                }
+                setIsCreator(true);
+                setView('master');
                 setShowPinModal(false);
                 setPinInput('');
-            } else {
-                setPinError(true);
-                setTimeout(() => {
-                    setPinError(false);
-                    setPinInput('');
-                }, 800);
+                return;
             }
+
+            // Acceso al Panel de Gestión (Admin) - Con el PIN del fotógrafo
+            if (val === adminPin) {
+                setIsAdminUnlocked(true);
+                setIsCreator(false);
+                setView('admin');
+                setShowPinModal(false);
+                setPinInput('');
+                return;
+            }
+
+            // Error de autenticación
+            setPinError(true);
+            setTimeout(() => {
+                setPinError(false);
+                setPinInput('');
+            }, 800);
         }, 300);
     };
 
@@ -425,17 +436,18 @@ function App() {
 
     const [configOrla, setConfigOrla] = useState(() => {
         const defaults = {
-            canvasW: 4961, canvasH: 3508, margin: mmToPx(20),
+            canvasW: 4961, canvasH: 3508, margin: mmToPx(5),
             numAlumnos: 24, numDocentes: 3,
             fontFamily: "Myriad Pro", isBold: false, isItalic: false,
             fontSizeAlu: 10, fontSizeDoc: 10,
-            dScale: 1.2, dY: mmToPx(60), dGapX: mmToPx(15), dTextOffset: mmToPx(12),
+            dScale: 1.2, dY: mmToPx(60), dGapX: mmToPx(15), dTextOffset: mmToPx(10),
             aScale: 1.0, aW: mmToPx(35), aH: mmToPx(45), aStartY: mmToPx(135), aStartX: mmToPx(20),
-            aCols: 8, aGapY: mmToPx(65), aGapX: mmToPx(10), aTextOffset: mmToPx(10),
+            aCols: 8, aGapY: 118.11, aGapX: mmToPx(10), aTextOffset: mmToPx(10),
             fontSizeSchool: 140, fontSizePromo: 70, fontSizeCourse: 60,
-            fontSizeAluName: 50, fontSizeAluSur: 40,
-            fontSizeDocName: 120, fontSizeDocRole: 80,
-            footerY: 10,
+            fontSizeAllFooter: 140,
+            fontSizeAluName: 36, fontSizeAluSur: 28,
+            fontSizeDocName: 36, fontSizeDocSur: 28, fontSizeDocRole: 28,
+            footerY: 0,
             promoText: "PROMOCIÓN 2026"
         };
         try {
@@ -565,13 +577,27 @@ function App() {
     const [extras, setExtras] = useState({});
     const [formError, setFormError] = useState('');
 
-    const { orders: realOrders, addOrder, updateStatus, deleteOrder, updatePhotoFile, updateOrder, bulkUpdateOrders, resetOrders, bulkAddOrders, updateAllOrders } = useOrders(photographerId, adminSchool);
+    const { 
+        orders: realOrders, 
+        addOrder, 
+        updateStatus, 
+        deleteOrder, 
+        updatePhotoFile, 
+        updateOrder, 
+        bulkUpdateOrders, 
+        bulkUpdateOrdersMap, // Nueva
+        resetOrders, 
+        bulkAddOrders, 
+        updateAllOrders,
+        moveToSchool
+    } = useOrders(photographerId, adminSchool);
 
     const {
         staff: realStaff,
         addStaff,
-        updateStaffPhoto, // Aunque no se use aquí, por si acaso
+        updateStaffPhoto,
         updateStaffMember,
+        bulkUpdateStaffMap, // Nueva
         deleteStaff,
         bulkAddStaff,
         updateAllStaff,
@@ -665,16 +691,26 @@ function App() {
             } else if (type === 'PEDIDO') {
                 subject = `🎓 Nuevo Pedido Orla - ${data.studentName}`;
                 html = `
-                    <div style="font-family: sans-serif; color: #333; padding: 20px; border: 1px solid #eee; border-radius: 20px;">
-                        <h2 style="color: #6366f1;">Nuevo pedido de orla recibido</h2>
-                        <p><strong>Alumno:</strong> ${data.studentName}</p>
-                        <p><strong>Colegio:</strong> ${data.schoolName}</p>
-                        <p><strong>Curso:</strong> ${data.course}</p>
-                        <p><strong>Pack:</strong> ${data.packName}</p>
-                        <p><strong>Total:</strong> ${data.total}€</p>
-                        <p><strong>Método Pago:</strong> ${data.paymentMethod}</p>
-                        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
-                        <p style="font-size: 10px; color: #999;">Aplicación: <strong>App Orlas 2026</strong> | Enviado el ${new Date().toLocaleString('es-ES')}</p>
+                    <div style="font-family: sans-serif; color: #333; padding: 25px; border: 2px solid #6366f1; border-radius: 30px;">
+                        <h2 style="color: #6366f1; margin-top: 0;">🎓 Nuevo pedido de orla recibido</h2>
+                        
+                        <div style="background: #f8fafc; padding: 20px; border-radius: 20px; margin: 20px 0; border: 1px solid #e2e8f0;">
+                            <p style="margin: 5px 0;"><strong>Alumno/a:</strong> <span style="font-size: 16px; color: #1e1b4b;">${data.studentName}</span></p>
+                            <p style="margin: 5px 0;"><strong>Colegio:</strong> ${data.schoolName}</p>
+                            <p style="margin: 5px 0;"><strong>Curso:</strong> ${data.course}</p>
+                            <p style="margin: 15px 0 5px 0; border-top: 1px solid #eee; pt-2 text-[11px] uppercase font-bold text-secondary">Detalles del Pedido:</p>
+                            <p style="margin: 5px 0;"><strong>Pack:</strong> ${data.packName}</p>
+                            <p style="margin: 5px 0;"><strong>Importe Total:</strong> <span style="font-weight: bold; font-size: 18px; color: #1e1b4b;">${data.total}€</span></p>
+                            <p style="margin: 5px 0;"><strong>Método Pago:</strong> <span style="text-transform: uppercase; font-weight: bold; color: #6366f1;">${data.paymentMethod}</span></p>
+                            
+                            <p style="margin: 15px 0 5px 0; border-top: 1px solid #eee; pt-2 text-[11px] uppercase font-bold text-secondary">Datos de Contacto:</p>
+                            <p style="margin: 5px 0;"><strong>Tutor/a:</strong> ${data.parentName || 'No indicado'}</p>
+                            <p style="margin: 5px 0;"><strong>Teléfono:</strong> ${data.phone || 'No indicado'}</p>
+                            <p style="margin: 5px 0;"><strong>Email:</strong> ${data.email || 'No indicado'}</p>
+                        </div>
+
+                        <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
+                        <p style="font-size: 10px; color: #999; text-align: center;">Orlas 2026 | Pujalte Creative Studio | Enviado el ${new Date().toLocaleString('es-ES')}</p>
                     </div>
                 `;
             } else if (type === 'PLAN_REQUEST') {
@@ -751,10 +787,44 @@ function App() {
                         <p style="font-size: 10px; color: #999; margin-top: 10px;">Aplicación: <strong>App Orlas 2026</strong> | Enviado el ${new Date().toLocaleString('es-ES')}</p>
                     </div>
                 `;
+            } else if (type === 'LIQUIDACION') {
+                subject = `💰 SOLICITUD DE LIQUIDACIÓN - ${data.brandName}`;
+                html = `
+                    <div style="font-family: sans-serif; color: #333; padding: 20px; border: 1px solid #eee; border-radius: 20px;">
+                        <h2 style="color: #4f46e5;">Nueva solicitud de liquidación (Ajuste Inteligente)</h2>
+                        <p>El fotógrafo <strong>${data.brandName}</strong> ha solicitado la liquidación desde el panel de diseño.</p>
+                        <p><strong>Estudio:</strong> ${data.brandName}</p>
+                        <p><strong>Email:</strong> ${data.email}</p>
+                        <p><strong>Plan actual:</strong> ${data.plan}</p>
+                        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+                        <p style="font-size: 10px; color: #999;">Aplicación: <strong>App Orlas 2026</strong> | Enviado el ${new Date().toLocaleString('es-ES')}</p>
+                    </div>
+                `;
+            } else if (type === 'LIQUIDACION_FLEX') {
+                subject = `📈 LIQUIDACIÓN PLAN FLEX - ${data.brandName}`;
+                html = `
+                    <div style="font-family: sans-serif; color: #333; padding: 30px; border: 2px solid #4f46e5; border-radius: 30px;">
+                        <h2 style="color: #4f46e5; margin-top: 0;">📉 Nueva Solicitud de Liquidación (Plan Flex)</h2>
+                        <p>Se ha recibido una solicitud de liquidación para generar la factura final.</p>
+                        
+                        <div style="background: #f8fafc; padding: 20px; border-radius: 20px; margin: 20px 0; border: 1px solid #e2e8f0;">
+                            <p style="margin: 5px 0;"><strong>Fotógrafo:</strong> ${data.brandName}</p>
+                            <p style="margin: 5px 0;"><strong>ID Fotógrafo:</strong> ${data.photographerId}</p>
+                            <p style="margin: 5px 0;"><strong>Email:</strong> ${data.email}</p>
+                            <p style="margin: 5px 0;"><strong>Total Alumnos:</strong> <span style="font-weight: bold; color: #4f46e5;">${data.totalStudents}</span></p>
+                            <p style="margin: 5px 0;"><strong>Importe Estimado:</strong> <span style="font-weight: bold; font-size: 18px; color: #1e1b4b;">${data.amount}</span></p>
+                        </div>
+
+                        <p style="font-size: 14px;"><strong>Acción requerida:</strong> Generar factura oficial en el sistema contable y enviarla al cliente para proceder al cobro y liberación de descargas.</p>
+                        
+                        <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
+                        <p style="font-size: 10px; color: #999; text-align: center;">Orlas 2026 | Pujalte Creative Studio</p>
+                    </div>
+                `;
             }
 
             await addDoc(mailRef, {
-                to: 'apps@pujaltefotografia.es',
+                to: 'pedidos@pujaltefotografia.es',
                 message: { subject, html }
             });
         } catch (error) {
@@ -1007,7 +1077,10 @@ function App() {
                         course: formData.course,
                         packName: packsDesc,
                         total: orderTotals.price,
-                        paymentMethod: formData.paymentMethod
+                        paymentMethod: formData.paymentMethod,
+                        parentName: formData.parentName,
+                        phone: formData.phone,
+                        email: formData.email
                     });
                 } catch (e) {
                     console.warn("Error en notificación:", e);
@@ -1354,7 +1427,48 @@ function App() {
     };
 
     const updateConfig = (key, value) => {
-        setConfigOrla(prev => ({ ...prev, [key]: value }));
+        setConfigOrla(prev => {
+            // Ajuste global de posición (Mover todo menos el pie)
+            if (key === 'globalMoveY') {
+                const prevVal = prev.globalMoveY || 0;
+                const diff = value - prevVal;
+                return {
+                    ...prev,
+                    [key]: value,
+                    dY: (prev.dY || 0) + diff,
+                    aStartY: (prev.aStartY || 0) + diff
+                };
+            }
+
+            // Manejo especial para el ajuste maestro de tamaños del pie
+            if (key === 'fontSizeAllFooter') {
+                const currentBase = prev.fontSizeAllFooter || prev.fontSizeSchool || 140;
+                const diff = value - currentBase;
+                
+                return {
+                    ...prev,
+                    [key]: value,
+                    fontSizeSchool: Math.max(10, Math.min(1000, (prev.fontSizeSchool || 140) + diff)),
+                    fontSizePromo: Math.max(10, Math.min(1000, (prev.fontSizePromo || 70) + diff)),
+                    fontSizeCourse: Math.max(10, Math.min(1000, (prev.fontSizeCourse || 60) + diff))
+                };
+            }
+
+            // Sincronizamos el maestro si se cambia el colegio individualmente
+            if (key === 'fontSizeSchool') {
+                return { ...prev, [key]: value, fontSizeAllFooter: value };
+            }
+
+            // Sincronización milimétrica de docentes con alumnos
+            if (key === 'fontSizeAluName') {
+                return { ...prev, [key]: value, fontSizeDocName: value };
+            }
+            if (key === 'fontSizeAluSur') {
+                return { ...prev, [key]: value, fontSizeDocSur: value, fontSizeDocRole: value };
+            }
+
+            return { ...prev, [key]: value };
+        });
     };
 
 
@@ -1592,7 +1706,17 @@ function App() {
                     )}
 
                     {/* 6. Vista Maestra (Centro de Control) */}
-                    {view === 'master' && <MasterPanel onBack={() => setView('user')} />}
+                    {view === 'master' && <MasterPanel onBack={() => setView('user')} onNavigate={setView} />}
+
+                    {/* VISTA INSCRIPCIÓN DOCENTES (TUTOR) */}
+                    {view === 'tutor-staff' && (
+                        <StaffEnrollment
+                            photographerId={photographerId}
+                            schoolId={schoolId}
+                            getSchoolName={getSchoolName}
+                            theme={theme}
+                        />
+                    )}
 
                     {/* VISTA PORTAL DESCARGA (QR) */}
                     {view === 'download' && (
@@ -1737,7 +1861,17 @@ function App() {
                                                 MASTER
                                             </div>
                                         </div>
-                                        <h2 className="text-xl md:text-3xl font-black tracking-tight uppercase md:normal-case mt-1 text-primary">Gestión Estratégica</h2>
+                                        <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 mt-1">
+                                            <h2 className="text-xl md:text-3xl font-black tracking-tight uppercase md:normal-case text-primary">Gestión Estratégica</h2>
+                                            <button 
+                                                onClick={() => window.open('https://basecode.es/graduaciones2026/registro', '_blank')}
+                                                className="group relative flex items-center justify-center gap-2 px-5 py-2.5 bg-accent hover:bg-accent/90 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-xl shadow-accent/20 hover:scale-[1.03] active:scale-[0.98]"
+                                            >
+                                                <Sparkles size={14} className="animate-pulse" />
+                                                ÚNETE FOTÓGRAFO
+                                                <div className="absolute inset-0 rounded-2xl bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -1853,7 +1987,10 @@ function App() {
                                         updateStatus={updateStatus}
                                         updateOrder={updateOrder}
                                         bulkUpdateOrders={bulkUpdateOrders}
+                                        bulkUpdateOrdersMap={bulkUpdateOrdersMap} // Inyectar
+                                        moveToSchool={moveToSchool} // Inyectar
                                         updateStaff={updateStaffMember}
+                                        bulkUpdateStaffMap={bulkUpdateStaffMap} // Inyectar
                                         addStaff={addStaff}
                                         deleteStaff={deleteStaff}
                                         downloadMasterBackup={downloadMasterBackup}
@@ -1873,7 +2010,9 @@ function App() {
                                 {adminTab === 'etiquetas' && (
                                     <LabelGenerator 
                                         orders={orders} 
+                                        staff={staff}
                                         adminSchool={adminSchool}
+                                        setAdminSchool={setAdminSchool}
                                         ordersFilters={ordersFilters}
                                         schools={schools}
                                         settings={settings}
@@ -1910,6 +2049,7 @@ function App() {
                                         setOrderToEdit={setOrderToEdit}
                                         getSchoolName={getSchoolName}
                                         stats={stats}
+                                        moveToSchool={moveToSchool}
                                         setShowNewStudentForm={setShowNewStudentForm}
                                         setShowExportModal={setShowExportModal}
                                     />
@@ -1928,10 +2068,13 @@ function App() {
                                             newSchoolName={newSchoolName}
                                             setNewSchoolName={setNewSchoolName}
                                             addSchool={addSchool}
+                                            addSchoolWithId={addSchoolWithId}
                                             updateSchool={updateSchool}
                                             deleteSchool={deleteSchool}
                                             updateSettings={updateSettings}
                                             schoolsStats={schoolsStats}
+                                            orphanSchools={orphanSchools}
+                                            detectOrphanSchools={detectOrphanSchools}
                                         />
                                         <TutorsPanel
                                             settings={settings}
@@ -2012,6 +2155,7 @@ function App() {
                                         updateSchool={updateSchool}
                                         updateOrder={updateOrder}
                                         updateStaffMember={updateStaffMember}
+                                        sendAdminNotification={sendAdminNotification}
                                     />
                                 )}
 

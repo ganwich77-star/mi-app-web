@@ -1,9 +1,10 @@
 import React from 'react';
-import { Check, Sparkles, Building, Zap, Crown, User } from 'lucide-react';
+import { Check, Sparkles, Building, Zap, Crown, User, ChevronLeft } from 'lucide-react';
 
 export default function PricingTiers(props) {
     const onSelectPlan = props.onSelectPlan;
     const currentPlan = props.currentPlan || '';
+    const onBack = props.onBack;
 
     // Lógica de Precios Dinámicos según Plan Actual
     const getPlanPrice = (id) => {
@@ -31,16 +32,16 @@ export default function PricingTiers(props) {
                     </div>
                 );
             }
-            return '449 € + IVA';
+            return '449 €';
         }
 
         const basePrices = {
             flex: '2,00 €',
-            starter: '149 € + IVA',
+            starter: '149 €',
             custom: (
                 <div className="flex flex-col">
-                    <span className="text-2xl font-black">Desde 850 € + IVA</span>
-                    <span className="text-[10px] text-indigo-400 font-bold uppercase mt-1 tracking-tighter">White Label: 1.250 € + IVA</span>
+                    <span className="text-2xl font-black">Desde 850 €</span>
+                    <span className="text-[10px] text-indigo-400 font-bold uppercase mt-1 tracking-tighter">White Label: 1.250 €</span>
                 </div>
             )
         };
@@ -116,9 +117,19 @@ export default function PricingTiers(props) {
 
     return (
         <div className="space-y-6">
-            <div className="text-center space-y-2 mb-8">
-                <h2 className="text-2xl sm:text-3xl font-black text-white uppercase tracking-tight">Elige tu Plan</h2>
-                <p className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider">Sin riesgo. Paga solo por lo que necesitas.</p>
+            <div className="relative mb-8 flex items-center justify-center min-h-[60px]">
+                {onBack && (
+                    <button 
+                        onClick={onBack}
+                        className="absolute left-0 p-2 rounded-xl bg-slate-800/50 hover:bg-slate-700 text-slate-400 transition-colors border border-white/5"
+                    >
+                        <ChevronLeft size={20} />
+                    </button>
+                )}
+                <div className="text-center space-y-2">
+                    <h2 className="text-2xl sm:text-3xl font-black text-white uppercase tracking-tight leading-none">Elige tu Plan</h2>
+                    <p className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider opacity-60">Sin compromiso. Sin permanencia.</p>
+                </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3 sm:gap-4">
@@ -155,7 +166,7 @@ export default function PricingTiers(props) {
                                     {plan.price}
                                 </div>
                                 <div className="text-[8px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-tighter opacity-70">
-                                    {plan.period} {plan.id !== 'custom' && '+ IVA'}
+                                    {plan.period}
                                 </div>
                             </div>
 
@@ -178,6 +189,12 @@ export default function PricingTiers(props) {
                 ))}
             </div>
 
+            {/* IVA Footer Notice */}
+            <div className="mt-8 pt-4 border-t border-slate-800/50">
+                <p className="text-[9px] font-black text-white uppercase tracking-widest text-center opacity-30">
+                    * Precios sujetos a IVA (21%) no incluido.
+                </p>
+            </div>
         </div>
     );
 }

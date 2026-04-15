@@ -11,12 +11,16 @@ const SchoolsPanel = ({
     newSchoolName,
     setNewSchoolName,
     addSchool,
+    addSchoolWithId,
     updateSchool,
     deleteSchool,
     updateSettings,
     schoolsStats = {},
+    orphanSchools = [],
+    detectOrphanSchools,
     theme = 'dark'
 }) => {
+    const [isScanning, setIsScanning] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [viewMode, setViewMode] = useState('grid');
@@ -131,6 +135,70 @@ const SchoolsPanel = ({
                             <Plus size={28} className="group-hover:rotate-90 transition-transform duration-300" />
                         </button>
                     </div>
+                </div>
+
+                {/* Alerta de Rescate de Centros */}
+                <div className="flex flex-col gap-4 mb-8">
+                    {(SCHOOLS.some(s => !sortedSchools.some(exist => exist.id === s.id)) || orphanSchools.length > 0) && (
+                        <div className="p-6 bg-orange-500/10 border border-orange-500/20 rounded-3xl animate-fade-in shadow-xl shadow-orange-900/5">
+                            <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-4">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-2xl bg-orange-500/20 flex items-center justify-center text-orange-500 shadow-inner">
+                                        <RefreshCcw size={24} className={isScanning ? 'animate-spin' : 'animate-spin-slow'} />
+                                    </div>
+                                    <div>
+                                        <h4 className="text-[12px] font-black text-primary uppercase tracking-wider">Centro de Recuperación de Datos</h4>
+                                        <p className="text-[10px] font-bold text-secondary uppercase opacity-60 tracking-widest mt-0.5">Se han detectado {orphanSchools.length || 'centros base'} que podrían contener alumnos</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={async () => {
+                                        setIsScanning(true);
+                                        await detectOrphanSchools();
+                                        setIsScanning(false);
+                                    }}
+                                    disabled={isScanning}
+                                    className="px-6 py-3 bg-white/5 border border-white/10 hover:bg-orange-500 hover:text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all shadow-lg active:scale-95 disabled:opacity-50 flex items-center gap-3"
+                                >
+                                    {isScanning ? 'BUSCANDO...' : 'BUSCAR ALUMNOS PERDIDOS'}
+                                </button>
+                            </div>
+
+                            {/* Lista de Centros Huérfanos encontrados */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
+                                {orphanSchools.map(s => (
+                                    <div key={s.id} className="p-4 bg-black/20 rounded-2xl border border-white/5 flex items-center justify-between group hover:border-orange-500/30 transition-all">
+                                        <div className="flex flex-col">
+                                            <span className="text-[11px] font-black text-primary uppercase leading-tight">{s.suggestedName}</span>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <Users size={12} className="text-orange-500" />
+                                                <span className="text-[9px] font-black text-secondary tracking-widest uppercase">{s.count} ALUMNOS ENCONTRADOS</span>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => addSchoolWithId(s.id, s.suggestedName, s.code)}
+                                            className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-lg active:scale-95 flex items-center gap-2"
+                                        >
+                                            <RefreshCcw size={12} /> RECUPERAR
+                                        </button>
+                                    </div>
+                                ))}
+
+                                {/* Centros base normales si no han sido detectados como huérfanos con datos aún */}
+                                {orphanSchools.length === 0 && SCHOOLS.filter(s => !sortedSchools.some(exist => exist.id === s.id)).slice(0, 3).map(s => (
+                                    <div key={s.id} className="p-4 bg-white/5 rounded-2xl border border-white/5 flex items-center justify-between opacity-60 hover:opacity-100 transition-all">
+                                        <span className="text-[10px] font-black text-primary uppercase tracking-wider">{s.name}</span>
+                                        <button
+                                            onClick={() => addSchoolWithId(s.id, s.name, s.code)}
+                                            className="px-4 py-2 bg-white/10 text-primary hover:bg-orange-600 hover:text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-lg active:scale-95"
+                                        >
+                                            RESTAURAR
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Grid/List of Schools */}

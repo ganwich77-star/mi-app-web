@@ -5,14 +5,14 @@ import obfuscator from 'vite-plugin-javascript-obfuscator';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { execSync } from 'child_process';
+import { execSync, exec } from 'child_process';
 
 // Plugin: escribe el script JSX directamente en ~/Downloads (evita restricciones del navegador)
 function downloadScriptPlugin() {
   return {
     name: 'download-script-api',
     configureServer(server) {
-      server.middlewares.use('/graduaciones2026/api/download-script', (req, res) => {
+      server.middlewares.use('/api/download-script', (req, res) => {
         if (req.method !== 'POST') { res.statusCode = 405; res.end('Method not allowed'); return; }
         let body = '';
         req.on('data', chunk => { body += chunk.toString(); });
@@ -40,7 +40,7 @@ function downloadScriptPlugin() {
       });
 
       // Endpoint 2: revela el fichero en Finder (macOS: open -R)
-      server.middlewares.use('/graduaciones2026/api/reveal-file', (req, res) => {
+      server.middlewares.use('/api/reveal-file', (req, res) => {
         if (req.method !== 'POST') { res.statusCode = 405; res.end('Method not allowed'); return; }
         let body = '';
         req.on('data', chunk => { body += chunk.toString(); });
@@ -60,44 +60,52 @@ function downloadScriptPlugin() {
       });
 
       // Endpoint 3: Diálogo "Guardar como" nativo de macOS (vía AppleScript)
-      server.middlewares.use('/graduaciones2026/api/save-as', (req, res) => {
+      server.middlewares.use('/api/save-as', (req, res) => {
         if (req.method !== 'POST') { res.statusCode = 405; res.end('Method not allowed'); return; }
+        
+        // Configurar cabeceras de CORS inmediatamente para permitir preflight si fuera necesario
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+        
+        if (req.method === 'OPTIONS') { res.end(); return; }
+
         let body = '';
         req.on('data', chunk => { body += chunk.toString(); });
         req.on('end', () => {
           try {
             const { content, filename } = JSON.parse(body);
 
-            // Ejecutamos AppleScript para abrir el diálogo de macOS "Guardar como"
+            // Ejecutamos AppleScript de forma asíncrona para no bloquear el proceso de Node/Vite
             const appleScript = `osascript -e 'POSIX path of (choose file name with prompt "Selecciona dónde guardar el script:" default name "${filename}")'`;
 
-            let chosenPath;
-            try {
-              chosenPath = execSync(appleScript).toString().trim();
-            } catch (err) {
-              // El usuario canceló el diálogo
-              res.setHeader('Content-Type', 'application/json');
-              res.setHeader('Access-Control-Allow-Origin', '*');
-              res.end(JSON.stringify({ success: false, cancelled: true }));
-              return;
-            }
-
-            if (chosenPath) {
-              // Asegurar extensión .jsx si el usuario la borró
-              if (!chosenPath.toLowerCase().endsWith('.jsx')) {
-                chosenPath += '.jsx';
+            exec(appleScript, (error, stdout, stderr) => {
+              if (error) {
+                // Probablemente el usuario pulsó "Cancelar"
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ success: false, cancelled: true }));
+                return;
               }
 
-              fs.writeFileSync(chosenPath, content, 'utf8');
+              let chosenPath = stdout.toString().trim();
+              if (chosenPath) {
+                if (!chosenPath.toLowerCase().endsWith('.jsx')) {
+                  chosenPath += '.jsx';
+                }
 
-              res.setHeader('Content-Type', 'application/json');
-              res.setHeader('Access-Control-Allow-Origin', '*');
-              res.end(JSON.stringify({
-                success: true,
-                path: chosenPath,
-                filename: path.basename(chosenPath)
-              }));
-            }
+                fs.writeFileSync(chosenPath, content, 'utf8');
+
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({
+                  success: true,
+                  path: chosenPath,
+                  filename: path.basename(chosenPath)
+                }));
+              } else {
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ success: false, cancelled: true }));
+              }
+            });
           } catch (e) {
             res.statusCode = 500;
             res.setHeader('Content-Type', 'application/json');
@@ -116,6 +124,7 @@ export default defineConfig(({ mode }) => ({
     emptyOutDir: true
   },
   server: {
+    port: 5173,
     watch: {
       ignored: ['**/backups/**', '**/*.json', '**/*.log', '**/dist/**']
     }
@@ -137,7 +146,7 @@ export default defineConfig(({ mode }) => ({
         background_color: '#0f172a',
         display: 'standalone',
         orientation: 'portrait',
-        start_url: 'index.html?utm_source=pwa',
+        start_url: '/graduaciones2026/index.html?utm_source=pwa',
         icons: [
           { src: 'favicon.svg', sizes: '32x32', type: 'image/svg+xml' },
           { src: 'logo.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }
@@ -165,43 +174,6 @@ export default defineConfig(({ mode }) => ({
           }
         ]
       }
-    }),
-    mode === 'production' && obfuscator({
-      options: {
-        compact: true,
-        controlFlowFlattening: true,
-        controlFlowFlatteningThreshold: 1,
-        deadCodeInjection: true,
-        deadCodeInjectionThreshold: 1,
-        debugProtection: true,
-        debugProtectionInterval: 4000,
-        disableConsoleOutput: false,
-        identifierNamesGenerator: 'hexadecimal',
-        log: false,
-        numbersToExpressions: true,
-        renameGlobals: false,
-        selfDefending: true,
-        simplify: true,
-        splitStrings: true,
-        splitStringsChunkLength: 5,
-        stringArray: true,
-        stringArrayEncoding: ['rc4'],
-        stringArrayThreshold: 1,
-        unicodeEscapeSequence: false,
-        domainLock: [
-          'asistente-digital-comuniones.web.app', 
-          'asistente-digital-comuniones.firebaseapp.com', 
-          'basecode.es', 
-          'www.basecode.es', 
-          'basecode.tech',
-          'pujaltecreative.com',
-          'graduaciones.pujaltecreative.com',
-          'pujaltefotografia.com',
-          'www.pujaltefotografia.com',
-          'localhost', 
-          '127.0.0.1'
-        ] // Permitir local y dominios de producción conocidos
-      },
     })
-  ].filter(Boolean)
+  ]
 }));

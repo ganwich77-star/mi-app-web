@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-    UserCircle, Plus, Trash2, Mail, Phone, ChevronDown, Search, MessageCircle, LayoutGrid, List
+    UserCircle, Plus, Trash2, Mail, Phone, ChevronDown, Search, MessageCircle, LayoutGrid, List, Copy, UserCheck
 } from 'lucide-react';
 import { COURSE_GROUPS } from '../../constants.js';
 
@@ -306,6 +306,52 @@ const TutorsPanel = ({
                                                 </div>
                                             </div>
                                         </div>
+
+                                        {t.schoolId && (
+                                            <div className="bg-indigo-600/5 p-5 rounded-2xl border border-indigo-600/10 space-y-4">
+                                                <div className="flex items-center gap-3">
+                                                    <UserCheck size={16} className="text-indigo-600" />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600">Recursos para el Tutor</span>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            const url = `${window.location.origin}${window.location.pathname}?photographer=${settings.id || 'default'}&school=${t.schoolId}&view=tutor-staff`;
+                                                            navigator.clipboard.writeText(url);
+                                                            Swal.fire({
+                                                                title: '¡Copiado!',
+                                                                text: 'Link del formulario de docentes copiado al portapapeles',
+                                                                icon: 'success',
+                                                                timer: 1500,
+                                                                showConfirmButton: false
+                                                            });
+                                                        }}
+                                                        className="flex-1 py-4 bg-indigo-600 text-white rounded-xl font-black uppercase tracking-widest text-[9px] shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 transition-all flex items-center justify-center gap-3 active:scale-95"
+                                                    >
+                                                        <Copy size={16} /> COPIAR LINK
+                                                    </button>
+                                                    
+                                                    {t.phone && (
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                const url = `${window.location.origin}${window.location.pathname}?photographer=${settings.id || 'default'}&school=${t.schoolId}&view=tutor-staff`;
+                                                                const schoolName = schools.find(s => s.id === t.schoolId)?.name || 'su centro';
+                                                                const message = encodeURIComponent(`¡Hola ${t.name || ''}! 👋 Te adjunto el enlace para completar el listado de docentes de ${schoolName} para la orla de este curso: ${url} \n¡Muchas gracias!`);
+                                                                window.open(`https://wa.me/34${t.phone.replace(/\s+/g, '')}?text=${message}`, '_blank');
+                                                            }}
+                                                            className="px-6 py-4 bg-emerald-600 text-white rounded-xl font-black uppercase tracking-widest text-[9px] shadow-lg shadow-emerald-900/20 hover:bg-emerald-500 transition-all flex items-center justify-center gap-3 active:scale-95"
+                                                        >
+                                                            <MessageCircle size={16} /> WHATSAPP
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <p className="text-[8px] font-bold text-indigo-600/50 uppercase tracking-widest leading-relaxed">
+                                                    Envía este link al tutor para que complete el listado de profesores y cargos directamente.
+                                                </p>
+                                            </div>
+                                        )}
 
                                         <div className="bg-primary/5 p-4 rounded-xl border border-primary/10">
                                             <div className="flex items-center gap-3 cursor-pointer group" onClick={() => updateTutor(t.id, { newsletter: !t.newsletter })}>

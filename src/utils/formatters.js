@@ -16,21 +16,27 @@ export const firstSurname = (name = '') => {
     return parts[1] || parts[0] || '';
 };
 
-// 3. Obtener la base del curso (sin el grupo A, B, C...)
 export const getCourseBase = (name = '') => {
     if (!name) return '';
-    const parts = name.split(' ');
-    const last = parts[parts.length - 1];
-    const isGroupChar = last.length === 1 && last === last.toUpperCase() && isNaN(last);
-    return isGroupChar ? parts.slice(0, -1).join(' ') : name;
+    const parts = name.trim().split(' ');
+    if (parts.length <= 1) return name;
+    
+    const last = parts[parts.length - 1].toUpperCase();
+    // Detecta grupos: A, B, C... o 1ºA, 2ºB... o 1A, 2B...
+    const isGroup = /^[0-9º]*[A-Z]$/.test(last) || (last.length === 1 && isNaN(last));
+    
+    return isGroup ? parts.slice(0, -1).join(' ') : name;
 };
 
-// 4. Obtener la letra del grupo (A, B, C...)
 export const getGroup = (name = '') => {
     if (!name) return '';
-    const parts = name.split(' ');
-    const last = parts[parts.length - 1];
-    return (last.length === 1 && last === last.toUpperCase() && isNaN(last)) ? last : '';
+    const parts = name.trim().split(' ');
+    if (parts.length <= 1) return '';
+    
+    const last = parts[parts.length - 1].toUpperCase();
+    const isGroup = /^[0-9º]*[A-Z]$/.test(last) || (last.length === 1 && isNaN(last));
+    
+    return isGroup ? last : '';
 };
 // 5. Normalizar para comparaciones seguras
 export const normalize = (str) => {

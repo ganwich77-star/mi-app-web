@@ -444,10 +444,26 @@ const UserEnrollment = ({
                                 <div className="card p-6">
                                     <h3 className="text-sm font-bold text-black flex items-center gap-2 mb-5"><CreditCard size={18} className="text-accent" /> Método de pago</h3>
                                     {enabledPaymentMethods.length > 0 ? (
-                                        <div className={`grid ${enabledPaymentMethods.length === 1 ? 'grid-cols-1 max-w-[200px] mx-auto w-full' : 'grid-cols-2'} gap-3`}>
+                                        <div className={`grid ${enabledPaymentMethods.length === 1 ? 'grid-cols-1 max-w-[280px] mx-auto w-full' : 'grid-cols-2'} gap-4`}>
                                             {enabledPaymentMethods.map(m => (
-                                                <button key={m.id} onClick={() => setFormData({ ...formData, paymentMethod: m.id })} className={`py-4 rounded-2xl font-bold text-sm border-2 transition-all duration-200 active:scale-95 ${formData.paymentMethod === m.id ? 'border-accent bg-accent/5 text-accent shadow-lg shadow-accent/5' : 'border-primary/5 bg-primary/5 text-secondary hover:border-primary/20 hover:text-primary'}`}>
-                                                    {m.label}
+                                                <button 
+                                                    key={m.id} 
+                                                    onClick={() => setFormData({ ...formData, paymentMethod: m.id })} 
+                                                    className={`
+                                                        relative flex flex-col items-center justify-center gap-2 py-6 px-4 rounded-3xl font-bold transition-all duration-300 active:scale-95 border-2
+                                                        ${formData.paymentMethod === m.id 
+                                                            ? 'border-accent bg-accent/10 text-accent shadow-xl shadow-accent/10 scale-[1.02]' 
+                                                            : 'border-slate-100 bg-white text-slate-500 hover:border-slate-200 hover:bg-slate-50'
+                                                        }
+                                                    `}
+                                                >
+                                                    <span className={`text-3xl transition-transform duration-300 ${formData.paymentMethod === m.id ? 'scale-110' : ''}`}>{m.icon}</span>
+                                                    <span className="text-xs uppercase tracking-widest font-black">{m.label}</span>
+                                                    {formData.paymentMethod === m.id && (
+                                                        <div className="absolute top-2 right-2 w-5 h-5 bg-accent rounded-full flex items-center justify-center">
+                                                            <CheckCircle size={14} className="text-white" />
+                                                        </div>
+                                                    )}
                                                 </button>
                                             ))}
                                         </div>

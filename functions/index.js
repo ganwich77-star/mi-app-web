@@ -484,7 +484,84 @@ exports.handlePaycometNotification = onRequest(async (req, res) => {
         }
 
         if (Response === "OK") {
-            // 2. Actualizar estado del pago en la estructura de array 'items'
+            // === CASO A: ACTIVACIÓN DE PLATAFORMA (ONBOARDING) ===
+            if (data.schoolId === 'onboarding') {
+                const configRef = db.collection("orlas2026_photographers").doc(data.photographerId)
+                                    .collection("config").doc("main");
+                
+                await configRef.update({
+                    isPaid: true,
+                    paymentGateConfirmed: true,
+                    paycometOrder: Order,
+                    paymentDate: admin.firestore.FieldValue.serverTimestamp()
+                });
+
+                // Obtener datos del fotógrafo para el email
+                const photographerDoc = await db.collection("orlas2026_photographers").doc(data.photographerId).get();
+                const pData = photographerDoc.data() || {};
+                const amountEur = (parseFloat(Amount) / 100).toFixed(2);
+
+                // Enviar Recibo (No factura legal aún, solo justificante de pago)
+                await db.collection("mail").add({
+                    to: pData.notificationEmail || pData.email,
+                    message: {
+                        subject: `✅ Confirmación de Pago - Alta Orlas 2026 - ${pData.brandName}`,
+                        html: `
+                            <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; color: #1e293b; background-color: #f8fafc; border-radius: 24px; overflow: hidden; border: 1px solid #e2e8f0;">
+                                <div style="background: #0f172a; padding: 40px 20px; text-align: center;">
+                                    <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">JUSTIFICANTE DE PAGO</h1>
+                                    <p style="color: #94a3b8; margin: 10px 0 0 0; font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em;">Operación Confirmada</p>
+                                </div>
+                                
+                                <div style="padding: 40px 30px; background-color: white;">
+                                    <div style="text-align: center; margin-bottom: 30px;">
+                                        <div style="font-size: 48px; font-weight: 900; color: #0f172a;">${amountEur}€</div>
+                                        <div style="color: #64748b; font-size: 14px; font-weight: 600; text-transform: uppercase;">Importe Total Recibido</div>
+                                    </div>
+
+                                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+                                        <tr>
+                                            <td style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: #64748b; font-size: 13px;">Concepto</td>
+                                            <td style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right;">Activación Licencia Orlas 2026</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: #64748b; font-size: 13px;">Referencia</td>
+                                            <td style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right;">${Order}</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: #64748b; font-size: 13px;">Fecha</td>
+                                            <td style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: #0f172a; font-size: 13px; font-weight: 700; text-align: right;">${new Date().toLocaleDateString('es-ES')}</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding: 12px 0; color: #64748b; font-size: 13px;">Estado</td>
+                                            <td style="padding: 12px 0; color: #10b981; font-size: 13px; font-weight: 700; text-align: right;">PAGADO</td>
+                                        </tr>
+                                    </table>
+
+                                    <div style="background: #f8fafc; padding: 25px; border-radius: 16px; border: 1px solid #e2e8f0;">
+                                        <p style="margin: 0; font-size: 14px; color: #475569; line-height: 1.6;">
+                                            <strong>¡Tu plataforma ya está activa!</strong><br>
+                                            Puedes acceder a tu panel de administración inmediatamente. En los próximos días recibirás la factura oficial emitida por Pujalte Fotografía tras la validación administrativa.
+                                        </p>
+                                    </div>
+
+                                    <a href="https://basecode.es/graduaciones2026/?f=${data.photographerId}&view=admin" style="display: block; width: fit-content; margin: 30px auto 0; background: #0f172a; color: white; padding: 16px 32px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 15px;">ACCEDER A MI PANEL</a>
+                                </div>
+
+                                <div style="background: #f1f5f9; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0;">
+                                    <p style="margin: 0; font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.1em;">Pujalte Fotografía • Orlas 2026</p>
+                                </div>
+                            </div>
+                        `
+                    }
+                });
+
+                await orderDoc.ref.update({ status: "success", auth_code: AuthCode });
+                logger.info(`ALTA DE FOTÓGRAFO ACTIVADA para: ${data.photographerId}`);
+                return res.status(200).send("OK");
+            }
+
+            // === CASO B: PAGO DE ALUMNO (NORMAL) ===
             const schoolRef = db.collection("orlas2026_photographers").doc(data.photographerId)
                                 .collection("orders").doc(data.schoolId);
             

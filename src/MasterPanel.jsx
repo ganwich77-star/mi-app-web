@@ -38,7 +38,7 @@ function MasterErrorBoundary({ children }) {
     return children;
 }
 
-export default function MasterPanel({ onBack }) {
+export default function MasterPanel({ onBack, onNavigate }) {
     const [photographers, setPhotographers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -140,7 +140,8 @@ export default function MasterPanel({ onBack }) {
             province: p.province || '',
             plan: p.plan || 'starter',
             isPaid: p.isPaid || false,
-            isExempt: p.isExempt || false
+            isExempt: p.isExempt || false,
+            licenseExpiry: p.licenseExpiry || '2026-08-01'
         });
     };
 
@@ -154,12 +155,15 @@ export default function MasterPanel({ onBack }) {
                 brandName: editData.brandName,
                 plan: editData.plan,
                 isPaid: editData.isPaid,
-                isExempt: editData.isExempt
+                isExempt: editData.isExempt,
+                licenseExpiry: editData.licenseExpiry
             });
 
             setEditingPhotographer(null);
+            Swal.fire({ icon: 'success', title: 'Guardado', text: 'Datos actualizados correctamente.', timer: 1500, showConfirmButton: false });
         } catch (error) {
             console.error("Error guardando cambios:", error);
+            Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudieron guardar los cambios.' });
         }
     };
 
@@ -459,7 +463,7 @@ export default function MasterPanel({ onBack }) {
                                         <span class="font-mono text-slate-900">${base}€</span>
                                     </div>
                                     <div class="flex justify-between text-[10px] text-slate-500 font-bold uppercase tracking-widest">
-                                        <span>IVA Incl.</span>
+                                        <span>IVA (21%)</span>
                                         <span class="font-mono text-slate-900">${iva}€</span>
                                     </div>
                                     <div class="flex justify-between items-center pt-3 border-t-2 border-slate-900 mt-2" style="color: ${color}">
@@ -501,6 +505,19 @@ export default function MasterPanel({ onBack }) {
     };
 
     const handleDownloadInvoice = (p) => {
+        // Verificar si hay alumnos para liquidar (solo aplica a visualización, no bloquea el botón si es exento o plan fijo si se quiere cobrar)
+        const totalStudents = Object.values(p.schoolsStats || {}).reduce((acc, s) => acc + (s.totalStudents || 0), 0);
+        
+        if (totalStudents === 0 && p.plan === 'flex') {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Sin alumnos',
+                text: 'Este fotógrafo no tiene alumnos para liquidar en el Plan Flex.',
+                confirmButtonColor: '#4F46E5'
+            });
+            return;
+        }
+
         const printWindow = window.open('', '_blank');
         printWindow.document.write(getInvoiceHTML(p));
         printWindow.document.close();
@@ -528,15 +545,24 @@ export default function MasterPanel({ onBack }) {
 
 
 
-                    <div className="relative w-full md:min-w-[320px]">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-                        <input
-                            type="text"
-                            placeholder="Buscar fotógrafo..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="bg-slate-900 border-2 border-white/10 rounded-2xl pl-12 pr-6 py-4 outline-none focus:border-indigo-500/50 transition-all w-full font-bold text-white placeholder:text-slate-600 shadow-inner text-sm md:text-base"
-                        />
+                    <div className="flex items-center gap-4 w-full md:w-auto">
+                        <button
+                            onClick={() => onNavigate('onboarding')}
+                            className="bg-indigo-600 px-6 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-indigo-600/20 hover:bg-indigo-700 transition-all active:scale-95 min-h-[48px] whitespace-nowrap"
+                        >
+                            <Sparkles size={16} /> ÚNETE FOTÓGRAFO
+                        </button>
+                        
+                        <div className="relative w-full md:min-w-[320px]">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                            <input
+                                type="text"
+                                placeholder="Buscar fotógrafo..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="bg-slate-900 border-2 border-white/10 rounded-2xl pl-12 pr-6 py-4 outline-none focus:border-indigo-500/50 transition-all w-full font-bold text-white placeholder:text-slate-600 shadow-inner text-sm md:text-base"
+                            />
+                        </div>
                     </div>
                 </div>
 
@@ -969,6 +995,16 @@ export default function MasterPanel({ onBack }) {
                                             <option value="pro" className="bg-slate-900">PRO</option>
                                             <option value="custom" className="bg-slate-900">CUSTOM</option>
                                         </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-2 block">Vencimiento Licencia</label>
+                                        <input
+                                            type="date"
+                                            value={editData.licenseExpiry}
+                                            onChange={e => setEditData({ ...editData, licenseExpiry: e.target.value })}
+                                            className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white font-bold outline-none focus:border-indigo-500/50 appearance-none"
+                                        />
                                     </div>
 
                                     <div>
