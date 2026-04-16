@@ -141,6 +141,21 @@ const EditOrderModal = ({
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block ml-1">Nombre Padre / Madre</label>
+                            <input type="text" value={orderToEdit.parentName || ''}
+                                onChange={e => setOrderToEdit(p => ({ ...p, parentName: e.target.value }))}
+                                className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs font-bold rounded-xl px-4 py-3.5 outline-none focus:border-emerald-500 transition-all" />
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block ml-1">Teléfono Contacto</label>
+                            <input type="text" value={orderToEdit.parentPhone || ''}
+                                onChange={e => setOrderToEdit(p => ({ ...p, parentPhone: e.target.value }))}
+                                className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs font-bold rounded-xl px-4 py-3.5 outline-none focus:border-emerald-500 transition-all" />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block ml-1">Curso</label>
                             <select value={orderToEdit.tempCourse} onChange={e => setOrderToEdit(p => ({ ...p, tempCourse: e.target.value, tempGroup: '' }))}
                                 className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs font-bold rounded-xl px-4 py-3.5 outline-none focus:border-emerald-500 cursor-pointer transition-all">

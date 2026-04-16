@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iPhone 17 Pro Max | Orlas 2026 Sim</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --phone-width: 380px;
+            --phone-height: 800px;
+            --bezel: 16px;
+            --bg-color: #020617;
+            --accent: #6366f1;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(circle at 20% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 80% 80%, rgba(168, 85, 247, 0.15) 0%, transparent 40%);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            color: white;
+        }
+
+        .header {
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 900;
+            letter-spacing: -0.05em;
+            text-transform: uppercase;
+            background: linear-gradient(to right, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header p {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.3em;
+            opacity: 0.5;
+            margin-top: 0.5rem;
+        }
+
+        /* IPHONE 17 PRO MAX FRAME */
+        .iphone-frame {
+            position: relative;
+            width: var(--phone-width);
+            height: var(--phone-height);
+            background: #111;
+            border-radius: 64px;
+            padding: var(--bezel);
+            box-shadow: 
+                0 0 0 4px #334155,
+                0 0 0 10px #0f172a,
+                0 50px 100px -20px rgba(0,0,0,0.8),
+                0 0 80px rgba(99, 102, 241, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        /* Dynamic Island */
+        .dynamic-island {
+            position: absolute;
+            top: 28px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100px;
+            height: 30px;
+            background: #000;
+            border-radius: 20px;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: width 0.3s ease;
+        }
+
+        .dynamic-island:hover {
+            width: 200px;
+        }
+
+        /* Volume & Power Buttons */
+        .button {
+            position: absolute;
+            background: #1e293b;
+            border-radius: 4px;
+        }
+
+        .button.volume-up { width: 4px; height: 50px; left: -4px; top: 160px; }
+        .button.volume-down { width: 4px; height: 50px; left: -4px; top: 220px; }
+        .button.power { width: 4px; height: 80px; right: -4px; top: 200px; }
+
+        /* Mute Switch */
+        .button.action { width: 4px; height: 30px; left: -4px; top: 110px; }
+
+        /* Screen Wrapper */
+        .screen-wrapper {
+            width: 100%;
+            height: 100%;
+            background: #fff;
+            border-radius: 50px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.1);
+        }
+
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: #fff;
+        }
+
+        /* Footer Info */
+        .footer-info {
+            margin-top: 2rem;
+            display: flex;
+            gap: 2rem;
+            opacity: 0.6;
+        }
+
+        .info-pill {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(255,255,255,0.05);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            background: #22c55e;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #22c55e;
+        }
+
+        @media (max-height: 900px) {
+            .iphone-frame {
+                transform: scale(0.85);
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Orlas 2026 Simulator</h1>
+        <p>Pujalte Creative Studio</p>
+    </div>
+
+    <!-- IPHONE 17 PRO MAX -->
+    <div class="iphone-frame">
+        <div class="button action"></div>
+        <div class="button volume-up"></div>
+        <div class="button volume-down"></div>
+        <div class="button power"></div>
+        
+        <div class="dynamic-island"></div>
+        
+        <div class="screen-wrapper">
+            <iframe src="http://localhost:5173/?f=pujalte-studio&view=user"></iframe>
+        </div>
+    </div>
+
+    <div class="footer-info">
+        <div class="info-pill">
+            <div class="status-dot"></div>
+            LOCAL SERVER OK
+        </div>
+        <div class="info-pill">
+            IPHONE 17 PRO MAX
+        </div>
+        <div class="info-pill">
+            VIEW: USER
+        </div>
+    </div>
+
+</body>
+</html>

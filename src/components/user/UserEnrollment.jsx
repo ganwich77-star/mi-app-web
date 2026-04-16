@@ -99,7 +99,7 @@ const UserEnrollment = ({
             <div className={`relative px-4 transition-all duration-500 text-center ${(step === 0 || step === 1) ? 'pt-8 pb-10' : 'pt-4 pb-4'}`}>
                 <button
                     onClick={handleSecretAdminAccess}
-                    className={`flex items-center justify-center mx-auto active:scale-95 transition-all duration-500 relative z-[750] pointer-events-auto ${(step === 0 || step === 1) ? 'w-36 mb-6' : 'w-20 mb-2'}`}
+                    className={`flex items-center justify-center mx-auto active:scale-95 transition-all duration-500 relative z-[750] pointer-events-auto ${(step === 0 || step === 1) ? 'w-32 mb-4' : 'w-20 mb-2'}`}
                 >
                     {settings.logoUrl || settings.logoUrlDark ? (
                         <img
@@ -118,7 +118,7 @@ const UserEnrollment = ({
                     )}
                 </button>
                 <h1 className={`font-black text-primary tracking-tight leading-none transition-all duration-500 ${(step === 0 || step === 1) ? 'text-4xl' : 'text-xl'}`}>
-                    {(step === 0 || step === 1) ? <>Orlas<br /><span className="text-accent">2026</span></> : <>Orlas <span className="text-accent">2026</span></>}
+                    {(step === 0 || step === 1) ? <>Orlas<br /><span className="text-secondary opacity-90">2026</span></> : <>Orlas <span className="text-secondary opacity-90">2026</span></>}
                 </h1>
             </div>
 
@@ -129,7 +129,7 @@ const UserEnrollment = ({
 
                         {/* PASO 0 - BIENVENIDA */}
                         {step === 0 && (
-                            <div className="card p-10 space-y-6 text-center animate-slide-up relative overflow-hidden">
+                            <div className="card p-8 pb-8 space-y-6 text-center animate-slide-up relative overflow-hidden mb-6">
                                 <div className="absolute top-0 right-0 w-40 h-40 bg-indigo-500/10 rounded-full blur-[40px] pointer-events-none" />
                                 <div className="absolute bottom-0 left-0 w-40 h-40 bg-violet-500/10 rounded-full blur-[40px] pointer-events-none" />
 
@@ -159,20 +159,58 @@ const UserEnrollment = ({
                                     </div>
                                 </div>
                                 <div className="space-y-4">
-                                    <div>
-                                        <label className="text-black font-black uppercase text-[10px] tracking-widest">Nombre y Apellidos *</label>
-                                        <input
-                                            type="text"
-                                            lang="es"
-                                            spellCheck={true}
-                                            autoCorrect="on"
-                                            autoCapitalize="characters"
-                                            style={{ textTransform: 'uppercase' }}
-                                            className={`input-dark ${formError && !formData.studentName.trim() ? 'border-red-500 bg-red-50' : ''}`}
-                                            placeholder="EJ: MARIO LÓPEZ PÉREZ"
-                                            value={formData.studentName}
-                                            onChange={e => { setFormData({ ...formData, studentName: e.target.value.toUpperCase() }); if (formError) setFormError(''); }}
-                                        />
+                                    <div className="space-y-2">
+                                        <label className="block text-[10px] font-black text-secondary/60 uppercase tracking-widest ml-1">Nombre y apellidos del Alumno *</label>
+                                        <div className="relative group/input">
+                                            <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/30 group-focus-within/input:text-primary transition-colors" />
+                                            <input
+                                                type="text"
+                                                required
+                                                className="input-field w-full pl-12 pr-4 py-4 rounded-2xl bg-primary/5 border border-primary/10 focus:border-primary/30 focus:bg-white transition-all text-sm font-bold placeholder:text-primary/20 placeholder:font-medium"
+                                                placeholder="Ej: Mario López Pérez (Pon los dos apellidos)"
+                                                value={formData.studentName}
+                                                onChange={(e) => { 
+                                                    setFormData({ ...formData, studentName: e.target.value.toUpperCase() });
+                                                    if (formError) setFormError('');
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <label className="block text-[10px] font-black text-secondary/60 uppercase tracking-widest ml-1">Nombre Padre / Madre *</label>
+                                            <div className="relative group/input">
+                                                <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/30 group-focus-within/input:text-primary transition-colors" />
+                                                <input
+                                                    type="text"
+                                                    required
+                                                    className="input-field w-full pl-12 pr-4 py-4 rounded-2xl bg-primary/5 border border-primary/10 focus:border-primary/30 focus:bg-white transition-all text-sm font-bold placeholder:text-primary/20 placeholder:font-medium"
+                                                    placeholder="Escribe tu nombre..."
+                                                    value={formData.parentName}
+                                                    onChange={(e) => setFormData({ ...formData, parentName: e.target.value })}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="block text-[10px] font-black text-secondary/60 uppercase tracking-widest ml-1">Teléfono Móvil *</label>
+                                            <div className="relative group/input">
+                                                <Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/30 group-focus-within/input:text-primary transition-colors" />
+                                                <input
+                                                    type="tel"
+                                                    required
+                                                    className="input-field w-full pl-12 pr-4 py-4 rounded-2xl bg-primary/5 border border-primary/10 focus:border-primary/30 focus:bg-white transition-all text-sm font-bold placeholder:text-primary/20 placeholder:font-medium"
+                                                    placeholder="Ej: 600 000 000"
+                                                    value={formData.parentPhone}
+                                                    onChange={(e) => { 
+                                                        const val = e.target.value.replace(/[^0-9]/g, '');
+                                                        setFormData({ ...formData, parentPhone: val }); 
+                                                        if (formError) setFormError(''); 
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <div>
@@ -225,6 +263,20 @@ const UserEnrollment = ({
                                     </div>
                                 </div>
 
+                                <div className="pt-4 space-y-4">
+                                    {formError && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-bold text-center animate-shake uppercase">{formError}</div>}
+                                    <button onClick={() => {
+                                        if (!formData.studentName?.trim()) { setFormError('Introduce el nombre del alumno'); return; }
+                                        if (!formData.parentName?.trim()) { setFormError('Introduce el nombre del padre/madre'); return; }
+                                        if (!formData.parentPhone?.trim() || formData.parentPhone.length < 9) { setFormError('Introduce un teléfono de contacto válido'); return; }
+                                        if (!formData.schoolId) { setFormError('Selecciona tu centro educativo'); return; }
+                                        if (!formData.course) { setFormError('Selecciona el curso completo'); return; }
+                                        setFormError(''); setShowLegalModal(true);
+                                    }} className="btn-primary w-full text-base font-black flex items-center justify-center gap-2">
+                                        Elegir Pack <ChevronRight size={18} />
+                                    </button>
+                                </div>
+
                                 {/* ISLA DE FECHAS CRÍTICAS - DETECCIÓN DE EXCEPCIONES */}
                                 {(() => {
                                     const exceptions = settings.dateExceptions || [];
@@ -234,16 +286,53 @@ const UserEnrollment = ({
 
                                     if (!sId || !cB) return null;
 
-                                    let ex = exceptions.find(e => e.schoolId === sId && e.courseName === cB && e.groupName === gL);
-                                    if (!ex) ex = exceptions.find(e => e.schoolId === sId && e.courseName === cB && !e.groupName);
+                                    // Lógica de limpieza extrema para encontrar la fecha ignorando emojis y mayúsculas
+                                    const cleanText = (val) => {
+                                        return (val || '').toString()
+                                            .replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '')
+                                            .trim()
+                                            .toUpperCase();
+                                    };
 
-                                    if (!ex) return null;
+                                    const targetCB = cleanText(courseName);
+                                    const targetGL = cleanText(courseLine);
+                                    const targetSId = cleanText(formData.schoolId);
+
+                                    if (!formData.schoolId || !targetCB) return null;
+
+                                    // 1. Buscamos específica del colegio
+                                    let ex = exceptions.find(e => 
+                                        cleanText(e.schoolId) === targetSId && 
+                                        cleanText(e.courseName) === targetCB && 
+                                        cleanText(e.groupName) === targetGL
+                                    );
+
+                                    if (!ex) ex = exceptions.find(e => 
+                                        cleanText(e.schoolId) === targetSId && 
+                                        cleanText(e.courseName) === targetCB && 
+                                        !e.groupName
+                                    );
+
+                                    // 2. Buscamos Global ("Todos los centros")
+                                    if (!ex) ex = exceptions.find(e => 
+                                        (e.schoolId === "" || cleanText(e.schoolId) === "ALL") && 
+                                        cleanText(e.courseName) === targetCB && 
+                                        cleanText(e.groupName) === targetGL
+                                    );
+
+                                    if (!ex) ex = exceptions.find(e => 
+                                        (e.schoolId === "" || cleanText(e.schoolId) === "ALL") && 
+                                        cleanText(e.courseName) === targetCB && 
+                                        !e.groupName
+                                    );
 
                                     const dates = {
                                         shooting: ex?.shootingDate || settings.shootingDateDefault,
                                         deadline: ex?.appDeadline || settings.appDeadlineDefault,
                                         graduation: ex?.graduationDate || settings.graduationDateDefault
                                     };
+
+                                    if (!dates.shooting && !dates.deadline && !dates.graduation) return null;
 
                                     const fmt = (d) => {
                                         if (!d) return '--';
@@ -258,22 +347,22 @@ const UserEnrollment = ({
                                                 : 'bg-white border-slate-200 text-slate-900 shadow-sm'}`}>
                                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
 
-                                                {/* 1. SHOOTING */}
-                                                <div className="flex flex-col items-center text-center py-1">
-                                                    <div className="h-12 flex items-center justify-center mb-1">
-                                                        <Camera size={38} className="text-[#d946ef]" strokeWidth={1.5} />
-                                                    </div>
-                                                    <p className={`text-[9px] font-black uppercase tracking-[0.15em] mb-1 whitespace-nowrap ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>SHOOTING</p>
-                                                    <p className="text-xl font-black uppercase leading-tight">{fmt(dates.shooting)}</p>
-                                                </div>
-
-                                                {/* 2. LIMITE PAGO */}
-                                                <div className={`flex flex-col items-center text-center py-1 border-y sm:border-y-0 sm:border-x ${theme === 'dark' ? 'border-slate-800/40' : 'border-slate-100'}`}>
+                                                {/* 1. LIMITE PAGO */}
+                                                <div className={`flex flex-col items-center text-center py-1 sm:border-r ${theme === 'dark' ? 'border-slate-800/40' : 'border-slate-100'}`}>
                                                     <div className="h-12 flex items-center justify-center mb-1">
                                                         <CreditCard size={38} className="text-[#f59e0b]" strokeWidth={1.5} />
                                                     </div>
                                                     <p className={`text-[9px] font-black uppercase tracking-[0.15em] mb-1 whitespace-nowrap ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>LIMITE PAGO</p>
                                                     <p className="text-xl font-black uppercase leading-tight">{fmt(dates.deadline)}</p>
+                                                </div>
+
+                                                {/* 2. SHOOTING */}
+                                                <div className={`flex flex-col items-center text-center py-1 border-y sm:border-y-0 sm:border-x ${theme === 'dark' ? 'border-slate-800/40' : 'border-slate-100'}`}>
+                                                    <div className="h-12 flex items-center justify-center mb-1">
+                                                        <Camera size={38} className="text-[#d946ef]" strokeWidth={1.5} />
+                                                    </div>
+                                                    <p className={`text-[9px] font-black uppercase tracking-[0.15em] mb-1 whitespace-nowrap ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>SHOOTING</p>
+                                                    <p className="text-xl font-black uppercase leading-tight">{fmt(dates.shooting)}</p>
                                                 </div>
 
                                                 {/* 3. GRADUACIÓN */}
@@ -289,18 +378,6 @@ const UserEnrollment = ({
                                         </div>
                                     );
                                 })()}
-
-                                <div className="pt-4 space-y-4">
-                                    {formError && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-bold text-center animate-shake">{formError}</div>}
-                                    <button onClick={() => {
-                                        if (!formData.studentName.trim()) { setFormError('Introduce el nombre del alumno'); return; }
-                                        if (!formData.schoolId) { setFormError('Selecciona tu centro educativo'); return; }
-                                        if (!formData.course) { setFormError('Selecciona el curso completo'); return; }
-                                        setFormError(''); setShowLegalModal(true);
-                                    }} className="btn-primary w-full text-base font-black flex items-center justify-center gap-2">
-                                        Elegir Pack <ChevronRight size={18} />
-                                    </button>
-                                </div>
                             </div>
                         )}
 

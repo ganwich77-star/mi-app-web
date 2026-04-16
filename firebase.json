@@ -22,7 +22,7 @@
         "rewrites": [
             {
                 "source": "/graduaciones2026/**",
-                "destination": "/graduaciones2026/index.html"
+                "destination": "/index.html"
             }
         ],
         "headers": [
@@ -47,7 +47,7 @@
                     },
                     {
                         "key": "Cache-Control",
-                        "value": "max-age=3600"
+                        "value": "no-cache, no-store, must-revalidate"
                     }
                 ]
             },

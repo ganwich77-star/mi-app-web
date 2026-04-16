@@ -314,7 +314,23 @@ function App() {
     const [selectedOrderIds, setSelectedOrderIds] = useState([]);
     const [selectedStaffIds, setSelectedStaffIds] = useState([]);
 
-    const [newStudentForm, setNewStudentForm] = useState({ schoolId: '', name: '', parentName: '', course: '', group: '', phone: '', email: '', packId: '', pack: '', extras: [], complements: [], notes: '', photoFile: '', status: 'Pendiente', paymentMethod: '' });
+    const [newStudentForm, setNewStudentForm] = useState({ 
+        schoolId: '', 
+        name: '', 
+        parentName: '', 
+        course: '', 
+        group: '', 
+        parentPhone: '', 
+        email: '', 
+        packId: '', 
+        pack: '', 
+        extras: [], 
+        complements: [], 
+        notes: '', 
+        photoFile: '', 
+        status: 'Pendiente', 
+        paymentMethod: '' 
+    });
 
     // Regalo
     const [showGiftModal, setShowGiftModal] = useState(false);
@@ -551,6 +567,8 @@ function App() {
 
     const [formData, setFormData] = useState({
         studentName: '',
+        parentName: '',
+        parentPhone: '',
         schoolId: '',
         course: '',
         paymentMethod: '',
@@ -580,7 +598,7 @@ function App() {
     const { 
         orders: realOrders, 
         addOrder, 
-        updateStatus, 
+        updateStatus: baseUpdateStatus, 
         deleteOrder, 
         updatePhotoFile, 
         updateOrder, 
@@ -591,6 +609,20 @@ function App() {
         updateAllOrders,
         moveToSchool
     } = useOrders(photographerId, adminSchool);
+
+    // Envolver updateStatus para disparar correos de aceptación
+    const updateStatus = async (id, status, photoFile = null) => {
+        // Ejecutar actualización base
+        await baseUpdateStatus(id, status, photoFile);
+
+        // Si el estado pasa a "Pagado", enviamos el recibo al alumno
+        if (status === 'Pagado') {
+            const order = realOrders.find(o => o.id === id);
+            if (order && order.email) {
+                sendStudentNotification('PEDIDO_ACEPTADO', order);
+            }
+        }
+    };
 
     const {
         staff: realStaff,
@@ -668,6 +700,140 @@ function App() {
             fetchToken();
         }
     }, [isAdminUnlocked, photographerId]);
+
+    // Notificaciones Email para el Alumno
+    const sendStudentNotification = async (type, orderData) => {
+        try {
+            if (!orderData.email) return;
+
+            const mailRef = collection(db, 'mail');
+            const brand = settings.brandName || 'Pujalte Creative Studio';
+            let subject = '';
+            let html = '';
+
+            if (type === 'REGISTRO_RECIBIDO') {
+                subject = `✅ Registro Recibido: ${orderData.studentName} - ${brand}`;
+                html = `
+                    <div style="font-family: sans-serif; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 24px; overflow: hidden; background: white;">
+                        <div style="background: #6366f1; padding: 40px 20px; text-align: center; color: white;">
+                            <h1 style="margin: 0; font-size: 24px; font-weight: 800;">¡Hola! 👋</h1>
+                            <p style="margin: 10px 0 0; opacity: 0.9; font-size: 16px;">Hemos recibido tus datos correctamente</p>
+                        </div>
+                        <div style="padding: 40px 30px;">
+                            <p style="font-size: 16px; line-height: 1.6;">Tu registro para <strong>${orderData.studentName}</strong> se ha completado correctamente y está <strong>a la espera de ser validado</strong> por nuestro equipo.</p>
+                            
+                            <div style="background: #f1f5f9; padding: 25px; border-radius: 20px; margin: 30px 0;">
+                                <p style="margin: 0 0 10px 0; font-size: 12px; font-weight: 800; color: #6366f1; text-transform: uppercase; letter-spacing: 1px;">Detalles de la inscripción:</p>
+                                <p style="margin: 5px 0; font-size: 15px;"><strong>Centro:</strong> ${orderData.schoolName}</p>
+                                <p style="margin: 5px 0; font-size: 15px;"><strong>Curso / Grupo:</strong> ${orderData.course}</p>
+                                <p style="margin: 5px 0; font-size: 15px;"><strong>Pack:</strong> ${orderData.pack?.label || orderData.packName}</p>
+                            </div>
+
+                            <p style="font-size: 14px; color: #64748b; line-height: 1.6; text-align: center;">
+                                En cuanto verifiquemos tu pedido, recibirás un nuevo correo electrónico con el recibo definitivo y los detalles de entrega.
+                            </p>
+                        </div>
+                        <div style="background: #f8fafc; padding: 20px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #f1f5f9;">
+                            Este es un correo automático de ${brand} · App Orlas 2026
+                        </div>
+                    </div>
+                `;
+            } else if (type === 'PEDIDO_ACEPTADO') {
+                const amount = parseFloat(orderData.price || 0).toFixed(2);
+                subject = `🧾 Recibo del Pedido: ${orderData.studentName} - ${brand}`;
+                html = `
+                    <div style="font-family: sans-serif; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #10b981; border-radius: 24px; overflow: hidden; background: white;">
+                        <div style="background: #10b981; padding: 40px 20px; text-align: center; color: white;">
+                            <h1 style="margin: 0; font-size: 24px; font-weight: 800;">¡Pedido Confirmado! ✅</h1>
+                            <p style="margin: 10px 0 0; opacity: 0.9; font-size: 16px;">Gracias por tu confianza</p>
+                        </div>
+                        <div style="padding: 40px 30px;">
+                            <div style="text-align: center; margin-bottom: 40px;">
+                                <div style="font-size: 48px; font-weight: 900; color: #0f172a;">${amount}€</div>
+                                <div style="color: #64748b; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">Total de tu pedido</div>
+                            </div>
+                            
+                            <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+                                <tr>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: #64748b; font-size: 14px;">Alumno/a</td>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: #0f172a; font-size: 14px; font-weight: 700; text-align: right;">${orderData.studentName}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: #64748b; font-size: 14px;">Centro</td>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: #0f172a; font-size: 14px; font-weight: 700; text-align: right;">${orderData.schoolName || '---'}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: #64748b; font-size: 14px;">Pack Seleccionado</td>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: #0f172a; font-size: 14px; font-weight: 700; text-align: right;">${(typeof orderData.pack === 'object' ? orderData.pack.label : orderData.pack) || orderData.packName}</td>
+                                </tr>
+                                ${orderData.extrasDesc ? `
+                                <tr>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: #64748b; font-size: 14px;">Extras</td>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: #0f172a; font-size: 14px; font-weight: 700; text-align: right;">${orderData.extrasDesc}</td>
+                                </tr>` : ''}
+                                ${orderData.supplementsDesc ? `
+                                <tr>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: #64748b; font-size: 14px;">Suplementos</td>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: #0f172a; font-size: 14px; font-weight: 700; text-align: right;">${orderData.supplementsDesc}</td>
+                                </tr>` : ''}
+                            </table>
+
+                            <div style="background: #f8fafc; padding: 25px; border-radius: 20px; border: 1px solid #e2e8f0;">
+                                <p style="margin: 0; font-size: 14px; color: #475569; line-height: 1.6; text-align: center;">
+                                    <strong>¿Qué sucede ahora?</strong><br>
+                                    Ya tenemos tu pedido listo para producción. Te avisaremos cuando las fotos estén disponibles para su descarga o entrega.
+                                </p>
+                            </div>
+                        </div>
+                        <div style="background: #f1f5f9; padding: 20px; text-align: center; font-size: 11px; color: #94a3b8;">
+                            Este es un correo automático de ${brand} · App Orlas 2026
+                        </div>
+                    </div>
+                `;
+            }
+
+            await addDoc(mailRef, {
+                to: orderData.email,
+                message: { subject, html }
+            });
+        } catch (e) {
+            console.error("Error enviando notificación al alumno:", e);
+        }
+    };
+
+    // Notificación WhatsApp de Pago Confirmado
+    const sendWhatsAppNotification = (order) => {
+        if (!order.parentPhone) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Teléfono no disponible',
+                text: 'Este pedido no tiene un número de teléfono de contacto registrado.',
+                confirmButtonColor: '#f59e0b'
+            });
+            return;
+        }
+
+        const brand = settings.brandName || 'Pujalte Creative Studio';
+        const status = order.status || 'Pendiente';
+        
+        let intro = `👋 *Hola ${toTitleCase(order.parentName || 'Papá/Mamá')}!*`;
+        let body = '';
+
+        if (status === 'Pendiente') {
+            body = `Le recordamos que el pedido de *${order.studentName}* para la orla del centro *${order.schoolName}* sigue pendiente de pago. Por favor, realice el pago para asegurar su plaza en la orla. 📌`;
+        } else if (status === 'Pagado') {
+            body = `Le confirmamos que el pago del pedido de *${order.studentName}* correspondiente a *${order.schoolName}* ha sido recibido correctamente. ✅ ¡Muchas gracias por su confianza!`;
+        } else if (status === 'Producido') {
+            body = `¡Buenas noticias! El pedido de *${order.studentName}* ya ha sido fabricado y está listo para su entrega. 🎓✨`;
+        } else if (status === 'Entregado') {
+            body = `Le informamos que el pedido de *${order.studentName}* ha sido entregado satisfactoriamente. ✅ ¡Esperamos que le guste el resultado!`;
+        } else {
+            body = `Le escribimos en relación al pedido de *${order.studentName}* para informarle de cambios en su estado: *${status}*.`;
+        }
+
+        const msg = encodeURIComponent(`${intro}\n\n${body}\n\n_Enviado desde la App Oficial de ${brand}_`);
+        window.open(`https://api.whatsapp.com/send?phone=34${order.parentPhone}&text=${msg}`, '_blank');
+    };
 
     // Notificaciones Email para Administrador
     const sendAdminNotification = async (type, data) => {
@@ -824,7 +990,7 @@ function App() {
             }
 
             await addDoc(mailRef, {
-                to: 'pedidos@pujaltefotografia.es',
+                to: settings.notificationEmail || 'pedidos@pujaltefotografia.es',
                 message: { subject, html }
             });
         } catch (error) {
@@ -987,6 +1153,8 @@ function App() {
 
             const newOrder = {
                 studentName: formData.studentName || '',
+                parentName: formData.parentName || '',
+                parentPhone: formData.parentPhone || '',
                 schoolId: formData.schoolId || '',
                 schoolName: getSchoolName(formData.schoolId),
                 schoolCode: schools.find(s => s.id === formData.schoolId)?.code || '',
@@ -1071,19 +1239,28 @@ function App() {
                 setStep(4);
                 
                 try {
-                    sendAdminNotification('PEDIDO', {
+                    const notifyData = {
                         studentName: formData.studentName,
                         schoolName: getSchoolName(formData.schoolId),
                         course: formData.course,
                         packName: packsDesc,
+                        extrasDesc: extrasDesc,
                         total: orderTotals.price,
                         paymentMethod: formData.paymentMethod,
                         parentName: formData.parentName,
                         phone: formData.phone,
-                        email: formData.email
-                    });
+                        email: formData.email,
+                        pack: newOrder.pack
+                    };
+
+                    // 1. Notificar al Fotógrafo
+                    sendAdminNotification('PEDIDO', notifyData);
+
+                    // 2. Confirmación al Alumno
+                    sendStudentNotification('REGISTRO_RECIBIDO', notifyData);
+
                 } catch (e) {
-                    console.warn("Error en notificación:", e);
+                    console.warn("Error en notificaciones:", e);
                 }
             }
         } catch (error) {
@@ -1096,19 +1273,28 @@ function App() {
     // Mensaje WhatsApp diferenciado por método de pago
     const buildWhatsAppMsg = () => {
         const school = getSchoolName(formData.schoolId);
-        const extrasDesc = getExtrasDesc();
-        const isBizum = formData.paymentMethod === 'bizum';
-        const isEfectivo = formData.paymentMethod === 'efectivo';
         const methodLabel = enabledPaymentMethods.find(m => m.id === formData.paymentMethod)?.label || formData.paymentMethod;
 
+        // --- PARES SUBROGADOS (MÁXIMA COMPATIBILIDAD) ---
+        const iHello  = "\uD83D\uDC4B"; // 👋
+        const iPin    = "\uD83D\uDCCC"; // 📌
+        const iGrad   = "\uD83C\uDF93"; // 🎓
+        const iSchool = "\uD83C\uDFE2"; // 🏢
+        const iCourse = "\uD83C\uDFEB"; // 🏫
+        const iPack   = "\uD83D\uDCE6"; // 📦
+        const iTotal  = "\uD83D\uDCB0"; // 💰
+        const iPay    = "\uD83D\uDCB3"; // 💳
+        const iHand   = "\uD83E\uDD1D"; // 🤝
+        const iCheck  = "\u2705";         // ✅
+
         const header =
-            `Hola Pujalte Studio 👋\n\n` +
-            `📋 *Resumen del pedido:*\n\n` +
-            `🎓 *Alumno:* ${formData.studentName}\n` +
-            `🏫 *Colegio:* ${school}\n` +
-            `📚 *Curso:* ${formData.course}\n` +
-            `📦 *Packs:* ${getPacksDesc()}\n` +
-            (extrasDesc ? `➕ *Extras:* ${extrasDesc}\n` : '');
+            `${iHello} Hola Pujalte, mi nombre es *${formData.parentName || formData.studentName}*\n\n` +
+            `${iPin} *Resumen del pedido:*\n\n` +
+            `${iGrad} *Alumno:* ${formData.studentName}\n` +
+            `${iSchool} *Colegio:* ${school}\n` +
+            `${iCourse} *Curso:* ${formData.course}\n` +
+            `${iPack} *Packs:* ${getPacksDesc()}\n` +
+            (getExtrasDesc() ? `➕ *Extras:* ${getExtrasDesc()}\n` : '');
 
         // Obtener descripción de suplementos para WhatsApp
         const activeSupplements = settings.supplements || [];
@@ -1122,34 +1308,51 @@ function App() {
 
         const footer =
             (supplementsDescList.length > 0 ? `✨ *Suplementos:* ${supplementsDescList.join(', ')}\n` : '') +
-            `💰 *Total:* ${orderTotals.price.toFixed(0)}€\n`;
+            `\n${iTotal} *Total:* ${orderTotals.price.toFixed(0)}€\n`;
 
-        const fullMsg = header + footer;
+        let finalMsg = header + footer + "\n";
 
-        if (isBizum) {
+        if (formData.paymentMethod === 'bizum') {
             const phone = settings.contactPhone || CONTACT_PHONE;
-            return fullMsg + "\n" +
-                `💳 *Pago:* Bizum\n\n` +
-                `✅ He realizado el Bizum al ${phone} con el concepto *ORLA ${formData.studentName}*.\n` +
-                `Adjunto el justificante. ¡Gracias!`;
+            finalMsg += `${iPay} *Pago:* Bizum\n\n${iCheck} He realizado el Bizum al ${phone} con el concepto *ORLA ${formData.studentName}*.\nAdjunto justificante. ¡Muchas gracias!`;
+        } else if (formData.paymentMethod === 'efectivo') {
+            finalMsg += `${iPay} *Pago:* Efectivo\n\n${iHand} Haré entrega del importe en efectivo directamente en el centro escolar.\nPor favor, confirmad disponibilidad para la recogida. ¡Muchas gracias!`;
+        } else {
+            finalMsg += `${iPay} *Pago:* ${methodLabel}\n\n${iCheck} El pago se ha realizado correctamente. ¡Muchas gracias!`;
         }
 
-        if (isEfectivo) {
-            return fullMsg + "\n" +
-                `💶 *Pago:* Efectivo\n\n` +
-                `🏫 Haré entrega del importe en efectivo directamente en el centro escolar.\n` +
-                `Por favor, confirmad disponibilidad para la recogida. ¡Muchas gracias!`;
-        }
-
-        // Transferencia u otro
-        return fullMsg + "\n" +
-            `🏦 *Pago:* ${methodLabel}\n\n` +
-            `En cuanto realice el pago os aviso. ¡Gracias!`;
+        return finalMsg;
     };
 
     const sendWhatsApp = () => {
         const phone = settings.contactPhone || CONTACT_PHONE;
-        window.open(`https://wa.me/34${phone}?text=${encodeURIComponent(buildWhatsAppMsg())}`, '_blank');
+        const school = getSchoolName(formData.schoolId);
+        
+        const params = new URLSearchParams();
+        
+        // Iconos seguros (Unicode)
+        const iHello  = "\u{1F44B}"; // 👋
+        const iGrad   = "\u{1F393}"; // 🎓
+        const iSchool = "\u{1F3EB}"; // 🏫
+        const iPack   = "\u{1F4E6}"; // 📦
+        const iMoney  = "\u{1F4B0}"; // 💰
+        const iDone   = "\u{2705}";   // ✅
+
+        const text = 
+            `${iHello} Hola Pujalte, mi nombre es *${formData.parentName || formData.studentName}*\n\n` +
+            `*RESUMEN DEL PEDIDO OK* \n` +
+            `${iGrad} *Alumno:* ${formData.studentName}\n` +
+            `${iSchool} *Colegio:* ${school}\n` +
+            `${iPack} *Packs:* ${getPacksDesc()}\n\n` +
+            `${iMoney} *Total:* ${orderTotals.price.toFixed(0)}€\n` +
+            `${iDone} *Pago:* ${formData.paymentMethod.toUpperCase()}\n\n` +
+            `Haré entrega del importe en efectivo en el centro.\n¡Muchas gracias!`;
+
+        params.set('phone', `34${phone}`);
+        params.set('text', text);
+
+        const whatsappUrl = `https://api.whatsapp.com/send?${params.toString()}`;
+        window.open(whatsappUrl, '_blank');
     };
 
     const [gapiInited, setGapiInited] = useState(false);
@@ -2052,6 +2255,7 @@ function App() {
                                         moveToSchool={moveToSchool}
                                         setShowNewStudentForm={setShowNewStudentForm}
                                         setShowExportModal={setShowExportModal}
+                                        sendWhatsAppNotification={sendWhatsAppNotification}
                                     />
                                 )}
 

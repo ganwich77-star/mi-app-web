@@ -18,7 +18,8 @@ export default function OrdersPanel({
     deleteOrder,
     setOrderToEdit,
     getSchoolName,
-    moveToSchool
+    moveToSchool,
+    sendWhatsAppNotification
 }) {
     const [viewMode, setViewMode] = useState('list');
     const [selectedOrderIds, setSelectedOrderIds] = useState([]);
@@ -68,6 +69,49 @@ export default function OrdersPanel({
         }
     };
 
+    const handleBulkDelete = async () => {
+        if (selectedOrderIds.length === 0) return;
+
+        const result = await Swal.fire({
+            title: '¿Estás completamente seguro?',
+            html: `Vas a eliminar permanentemente a <b>${selectedOrderIds.length}</b> alumnos.<br/><span style="color: #ef4444; font-size: 10px; font-weight: 800; text-transform: uppercase; margin-top: 10px; display: block;">Esta acción es irreversible</span>`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#6366f1',
+            confirmButtonText: 'Sí, eliminar ahora',
+            cancelButtonText: 'Cancelar',
+            background: '#1e293b',
+            color: '#fff',
+            customClass: {
+                popup: 'rounded-[30px] border border-white/10 shadow-2xl',
+                title: 'text-xl font-black uppercase tracking-tighter',
+                htmlContainer: 'text-sm font-medium opacity-80',
+                confirmButton: 'rounded-xl font-black uppercase tracking-widest text-[10px] py-3 px-6',
+                cancelButton: 'rounded-xl font-black uppercase tracking-widest text-[10px] py-3 px-6'
+            }
+        });
+
+        if (result.isConfirmed) {
+            Swal.fire({ title: 'Eliminando...', didOpen: () => Swal.showLoading(), allowOutsideClick: false });
+            try {
+                await deleteOrder(selectedOrderIds);
+                setSelectedOrderIds([]);
+                Swal.fire({
+                    title: '¡Eliminados!',
+                    text: 'Los registros han sido borrados de la base de datos.',
+                    icon: 'success',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+            } catch (error) {
+                Swal.fire('Error', 'No se pudieron eliminar los registros.', 'error');
+            }
+        }
+    };
+
+    const TABLE_GRID = 'grid-cols-[40px_1.8fr_1.2fr_1.8fr_1fr_1.5fr_0.8fr_130px_140px]';
+
     return (
         <div className="bg-card rounded-[30px] border border-primary/10 shadow-xl overflow-hidden animate-fade-in">
             <div className="p-4 md:p-8 space-y-6">
@@ -75,7 +119,7 @@ export default function OrdersPanel({
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-primary/5 pb-6">
                     <div>
                         <h2 className="text-xl font-black text-primary uppercase tracking-tighter">Gestión de Alumnos</h2>
-                        <p className="text-[10px] text-secondary font-bold uppercase opacity-60 tracking-widest mt-1">Listado, filtros y estados de pedido</p>
+                        <p className="text-[10px] text-secondary font-bold uppercase opacity-60 tracking-widest mt-1">Listado, filtros e información en tiempo real</p>
                     </div>
                 </div>
 
@@ -95,7 +139,7 @@ export default function OrdersPanel({
                         <select value={adminSchool} onChange={e => setAdminSchool(e.target.value)} className="input-dark text-[10px] md:text-xs font-bold py-3.5 appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%20stroke%3D%22currentColor%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%20%2F%3E%3C%2Fsvg%3E')] bg-[length:14px] bg-[right_0.8rem_center] bg-no-repeat">
                             {schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </select>
-                        <select value={ordersFilters.course} onChange={e => setOrdersFilters(p => ({ ...p, course: e.target.value, group: '' }))} className="input-dark text-[10px] md:text-xs font-bold py-3.5 appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%20stroke%3D%22currentColor%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%20%2F%3E%3C%2Fsvg%3E')] bg-[length:14px] bg-[right_0.8rem_center] bg-no-repeat">
+                        <select value={ordersFilters.course} onChange={e => setOrdersFilters(p => ({ ...p, course: e.target.value, group: '' }))} className="input-dark text-[10px] md:text-xs font-bold py-3.5 appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%220%200%2024%2024%20stroke%3D%22currentColor%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%20%2F%3E%3C%2Fsvg%3E')] bg-[length:14px] bg-[right_0.8rem_center] bg-no-repeat">
                             <option value="">— Cursos —</option>
                             {[...new Set(orders.map(o => getCourseBase(o.course)))].filter(Boolean).sort().map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
@@ -124,21 +168,29 @@ export default function OrdersPanel({
 
                 {/* Selección masiva Info */}
                 {selectedOrderIds.length > 0 && (
-                    <div className="flex items-center justify-between bg-indigo-500/10 border border-indigo-500/20 px-6 py-3 rounded-2xl animate-fade-in">
+                    <div className="flex flex-col md:flex-row items-center justify-between bg-indigo-500/10 border border-indigo-500/20 px-6 py-4 rounded-3xl animate-fade-in gap-4">
                         <div className="flex items-center gap-3">
-                            <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{selectedOrderIds.length} Alumnos seleccionados</span>
+                            <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white text-[10px] font-black">{selectedOrderIds.length}</div>
+                            <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Alumnos seleccionados</span>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center justify-center gap-2">
                              <button
                                 onClick={handleMoveToSchoolAction}
                                 className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-600/20 transition-all active:scale-95"
                             >
                                 <ArrowRight size={14} />
-                                <span>Traspasar a otro centro</span>
+                                <span>Traspasar</span>
+                            </button>
+                            <button
+                                onClick={handleBulkDelete}
+                                className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-red-500/20 transition-all active:scale-95"
+                            >
+                                <Trash2 size={14} />
+                                <span>Eliminar por lotes</span>
                             </button>
                             <button
                                 onClick={() => setSelectedOrderIds([])}
-                                className="px-4 py-2 bg-primary/5 hover:bg-primary/10 text-secondary rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                                className="px-4 py-2 bg-primary/10 hover:bg-primary/20 text-secondary rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
                             >
                                 Cancelar
                             </button>
@@ -148,7 +200,7 @@ export default function OrdersPanel({
 
                 {/* Cabecera Tabla escritorio */}
                 {viewMode === 'list' && (
-                    <div className="hidden sm:grid grid-cols-[40px_minmax(120px,1.5fr)_minmax(110px,1.2fr)_minmax(160px,2fr)_minmax(100px,1fr)_minmax(130px,1.5fr)_minmax(80px,0.7fr)_minmax(80px,0.7fr)_70px] gap-2 px-8 py-2.5 bg-primary/3 border-y border-primary/5">
+                    <div className={`hidden sm:grid ${TABLE_GRID} gap-2 px-8 py-3 bg-primary/3 border-y border-primary/5 items-center`}>
                         <div className="flex justify-center">
                             <input
                                 type="checkbox"
@@ -157,8 +209,12 @@ export default function OrdersPanel({
                                 className="w-4 h-4 rounded border-primary/20 accent-indigo-500 cursor-pointer"
                             />
                         </div>
-                        {['Alumno', 'Curso', 'Centro Educativo', 'Pack', 'Extras', 'Pago', 'Estado', ''].map((h, i) => (
-                            <span key={i} className="text-[9px] font-black text-secondary tracking-widest uppercase text-center first:text-left last:text-right opacity-50">{h}</span>
+                        {['Alumno', 'Curso', 'Centro Educativo', 'Pack', 'Extras', 'Pago', 'Estado', 'Acciones'].map((h, i) => (
+                            <div key={i} className={`flex ${i === 0 ? 'justify-start' : i === 7 ? 'justify-end pr-6' : 'justify-center'}`}>
+                                <span className="text-[9px] font-black text-secondary tracking-widest uppercase opacity-50">
+                                    {h}
+                                </span>
+                            </div>
                         ))}
                     </div>
                 )}
@@ -174,6 +230,7 @@ export default function OrdersPanel({
                                     onSelect={(selected) => setSelectedOrderIds(prev => selected ? [...prev, order.id] : prev.filter(id => id !== order.id))}
                                     onStatusChange={(s) => updateStatus(order.id, s)}
                                     onDelete={() => deleteOrder(order.id)}
+                                    sendWhatsAppNotification={sendWhatsAppNotification}
                                     onEdit={(o) => setOrderToEdit({
                                         ...o,
                                         tempPhotoFile: o.photoFile || '',
