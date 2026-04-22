@@ -264,20 +264,20 @@ const CriticalDatesPanel = ({
                                         {/* Fila central: Islas de Fecha */}
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                                             <DateIsland
-                                                id="shooting-date"
-                                                label="FECHA DE SHOOTING"
-                                                value={ex.shootingDate}
-                                                onChange={v => updateDateException(ex.id, { shootingDate: v })}
-                                                icon={Camera}
-                                                colorClass="text-indigo-400"
-                                            />
-                                            <DateIsland
                                                 id="payment-deadline"
                                                 label="LÍMITE PAGO / APP"
                                                 value={ex.appDeadline}
                                                 onChange={v => updateDateException(ex.id, { appDeadline: v })}
                                                 icon={CreditCard}
                                                 colorClass="text-orange-400"
+                                            />
+                                            <DateIsland
+                                                id="shooting-date"
+                                                label="FECHA DE SHOOTING"
+                                                value={ex.shootingDate}
+                                                onChange={v => updateDateException(ex.id, { shootingDate: v })}
+                                                icon={Camera}
+                                                colorClass="text-indigo-400"
                                             />
                                             <DateIsland
                                                 id="grad-date"
@@ -345,16 +345,16 @@ const CriticalDatesPanel = ({
 
                                     {/* Fechas Resumidas */}
                                     <div className={`flex gap-2 items-center ${viewMode === 'grid' ? 'flex-col w-full max-w-[160px] mx-auto' : 'flex-row flex-1'}`}>
-                                        <div className={`flex items-center justify-center gap-2 px-3 py-1.5 bg-indigo-500/10 rounded-xl border border-indigo-500/20 group-hover:border-indigo-500/40 transition-colors ${viewMode === 'grid' ? 'w-full' : 'min-w-[80px]'}`}>
-                                            <Camera size={12} className="text-indigo-400" />
-                                            <span className="text-[10px] font-black text-indigo-300 tracking-[0.1em] uppercase">
-                                                {ex.shootingDate ? new Date(ex.shootingDate).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }) : '--/--'}
-                                            </span>
-                                        </div>
                                         <div className={`flex items-center justify-center gap-2 px-3 py-1.5 bg-orange-500/10 rounded-xl border border-orange-500/20 group-hover:border-orange-500/40 transition-colors ${viewMode === 'grid' ? 'w-full' : 'min-w-[80px]'}`}>
                                             <CreditCard size={12} className="text-orange-400" />
                                             <span className="text-[10px] font-black text-orange-300 tracking-[0.1em] uppercase">
                                                 {ex.appDeadline ? new Date(ex.appDeadline).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }) : '--/--'}
+                                            </span>
+                                        </div>
+                                        <div className={`flex items-center justify-center gap-2 px-3 py-1.5 bg-indigo-500/10 rounded-xl border border-indigo-500/20 group-hover:border-indigo-500/40 transition-colors ${viewMode === 'grid' ? 'w-full' : 'min-w-[80px]'}`}>
+                                            <Camera size={12} className="text-indigo-400" />
+                                            <span className="text-[10px] font-black text-indigo-300 tracking-[0.1em] uppercase">
+                                                {ex.shootingDate ? new Date(ex.shootingDate).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }) : '--/--'}
                                             </span>
                                         </div>
                                         <div className={`flex items-center justify-center gap-2 px-3 py-1.5 bg-emerald-500/10 rounded-xl border border-emerald-500/20 group-hover:border-emerald-500/40 transition-colors ${viewMode === 'grid' ? 'w-full' : 'min-w-[80px]'}`}>

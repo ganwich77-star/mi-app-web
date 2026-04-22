@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Swal from 'sweetalert2';
 import 'sweetalert2/dist/sweetalert2.min.css';
 import { db } from './firebase.js';
-import { collection, addDoc, getDocs } from 'firebase/firestore';
+import { collection, addDoc } from 'firebase/firestore';
 import { getToken, onMessage } from 'firebase/messaging';
 import { messaging } from './firebase.js';
 import {
@@ -34,7 +34,6 @@ import CommandCenter from './components/CommandCenter.jsx';
 import { AvisoLegal, PoliticaPrivacidad, CondicionesVenta } from './components/LegalModals.jsx';
 // Nuevos componentes modulares
 import UserEnrollment from './components/user/UserEnrollment.jsx';
-import StaffEnrollment from './components/user/StaffEnrollment.jsx';
 import OrdersPanel from './components/admin/OrdersPanel.jsx';
 import EditOrderModal from './components/admin/EditOrderModal.jsx';
 import SchoolsPanel from './components/admin/SchoolsPanel.jsx';
@@ -48,6 +47,8 @@ import CriticalDatesPanel from './components/admin/CriticalDatesPanel.jsx';
 import TutorsPanel from './components/admin/TutorsPanel.jsx';
 import LabelGenerator from './components/admin/LabelGenerator.jsx';
 import DownloadPortal from './components/user/DownloadPortal.jsx';
+import StaffForm from './components/user/StaffForm.jsx';
+
 
 
 
@@ -229,7 +230,7 @@ function App() {
         }
     }, [photographerId]);
 
-    const { settings, setSettings, paymentMethods, enabledPaymentMethods, schools, packs: allPacks, extras: allExtras, adminPin, togglePaymentMethod, addPaymentMethod, updateAdminPin, addSchool, addSchoolWithId, updateSchool, deleteSchool, updateSettings, orphanSchools, detectOrphanSchools } = useSettings(photographerId, isDemo);
+    const { settings, setSettings, paymentMethods, enabledPaymentMethods, schools, packs: allPacks, extras: allExtras, adminPin, togglePaymentMethod, addPaymentMethod, updateAdminPin, addSchool, updateSchool, deleteSchool, updateSettings } = useSettings(photographerId, isDemo);
 
     const schoolsStats = useSchoolsStats(photographerId);
 
@@ -238,9 +239,10 @@ function App() {
         const params = new URLSearchParams(window.location.search);
         const v = params.get('view');
         const f = params.get('f');
-        if (v === 'admin' || v === 'master' || v === 'command' || v === 'user' || v === 'download') return v;
+        if (v === 'admin' || v === 'master' || v === 'command' || v === 'user' || v === 'download' || v === 'staff-form') return v;
         if (f) return 'user';
         return 'landing';
+
     });
 
     useEffect(() => {
@@ -270,7 +272,7 @@ function App() {
     const [mobileAdminMenuOpen, setMobileAdminMenuOpen] = useState(false);
     const [mobileOrdersFiltersOpen, setMobileOrdersFiltersOpen] = useState(false);
 
-    const [step, setStep] = useState(0);
+    const [step, setStep] = useState(1);
     const [orderCompleted, setOrderCompleted] = useState(false);
     const [copyStatus, setCopyStatus] = useState('');
     const [adminSchool, setAdminSchool] = useState('');
@@ -314,23 +316,7 @@ function App() {
     const [selectedOrderIds, setSelectedOrderIds] = useState([]);
     const [selectedStaffIds, setSelectedStaffIds] = useState([]);
 
-    const [newStudentForm, setNewStudentForm] = useState({ 
-        schoolId: '', 
-        name: '', 
-        parentName: '', 
-        course: '', 
-        group: '', 
-        parentPhone: '', 
-        email: '', 
-        packId: '', 
-        pack: '', 
-        extras: [], 
-        complements: [], 
-        notes: '', 
-        photoFile: '', 
-        status: 'Pendiente', 
-        paymentMethod: '' 
-    });
+    const [newStudentForm, setNewStudentForm] = useState({ schoolId: '', name: '', parentName: '', parentPhone: '', parentEmail: '', course: '', group: '', phone: '', email: '', packId: '', pack: '', extras: [], complements: [], notes: '', photoFile: '', status: 'Pendiente', paymentMethod: '' });
 
     // Regalo
     const [showGiftModal, setShowGiftModal] = useState(false);
@@ -569,6 +555,7 @@ function App() {
         studentName: '',
         parentName: '',
         parentPhone: '',
+        parentEmail: '',
         schoolId: '',
         course: '',
         paymentMethod: '',
@@ -598,7 +585,7 @@ function App() {
     const { 
         orders: realOrders, 
         addOrder, 
-        updateStatus: baseUpdateStatus, 
+        updateStatus, 
         deleteOrder, 
         updatePhotoFile, 
         updateOrder, 
@@ -606,23 +593,8 @@ function App() {
         bulkUpdateOrdersMap, // Nueva
         resetOrders, 
         bulkAddOrders, 
-        updateAllOrders,
-        moveToSchool
+        updateAllOrders 
     } = useOrders(photographerId, adminSchool);
-
-    // Envolver updateStatus para disparar correos de aceptación
-    const updateStatus = async (id, status, photoFile = null) => {
-        // Ejecutar actualización base
-        await baseUpdateStatus(id, status, photoFile);
-
-        // Si el estado pasa a "Pagado", enviamos el recibo al alumno
-        if (status === 'Pagado') {
-            const order = realOrders.find(o => o.id === id);
-            if (order && order.email) {
-                sendStudentNotification('PEDIDO_ACEPTADO', order);
-            }
-        }
-    };
 
     const {
         staff: realStaff,
@@ -701,140 +673,6 @@ function App() {
         }
     }, [isAdminUnlocked, photographerId]);
 
-    // Notificaciones Email para el Alumno
-    const sendStudentNotification = async (type, orderData) => {
-        try {
-            if (!orderData.email) return;
-
-            const mailRef = collection(db, 'mail');
-            const brand = settings.brandName || 'Pujalte Creative Studio';
-            let subject = '';
-            let html = '';
-
-            if (type === 'REGISTRO_RECIBIDO') {
-                subject = `✅ Registro Recibido: ${orderData.studentName} - ${brand}`;
-                html = `
-                    <div style="font-family: sans-serif; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 24px; overflow: hidden; background: white;">
-                        <div style="background: #6366f1; padding: 40px 20px; text-align: center; color: white;">
-                            <h1 style="margin: 0; font-size: 24px; font-weight: 800;">¡Hola! 👋</h1>
-                            <p style="margin: 10px 0 0; opacity: 0.9; font-size: 16px;">Hemos recibido tus datos correctamente</p>
-                        </div>
-                        <div style="padding: 40px 30px;">
-                            <p style="font-size: 16px; line-height: 1.6;">Tu registro para <strong>${orderData.studentName}</strong> se ha completado correctamente y está <strong>a la espera de ser validado</strong> por nuestro equipo.</p>
-                            
-                            <div style="background: #f1f5f9; padding: 25px; border-radius: 20px; margin: 30px 0;">
-                                <p style="margin: 0 0 10px 0; font-size: 12px; font-weight: 800; color: #6366f1; text-transform: uppercase; letter-spacing: 1px;">Detalles de la inscripción:</p>
-                                <p style="margin: 5px 0; font-size: 15px;"><strong>Centro:</strong> ${orderData.schoolName}</p>
-                                <p style="margin: 5px 0; font-size: 15px;"><strong>Curso / Grupo:</strong> ${orderData.course}</p>
-                                <p style="margin: 5px 0; font-size: 15px;"><strong>Pack:</strong> ${orderData.pack?.label || orderData.packName}</p>
-                            </div>
-
-                            <p style="font-size: 14px; color: #64748b; line-height: 1.6; text-align: center;">
-                                En cuanto verifiquemos tu pedido, recibirás un nuevo correo electrónico con el recibo definitivo y los detalles de entrega.
-                            </p>
-                        </div>
-                        <div style="background: #f8fafc; padding: 20px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #f1f5f9;">
-                            Este es un correo automático de ${brand} · App Orlas 2026
-                        </div>
-                    </div>
-                `;
-            } else if (type === 'PEDIDO_ACEPTADO') {
-                const amount = parseFloat(orderData.price || 0).toFixed(2);
-                subject = `🧾 Recibo del Pedido: ${orderData.studentName} - ${brand}`;
-                html = `
-                    <div style="font-family: sans-serif; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #10b981; border-radius: 24px; overflow: hidden; background: white;">
-                        <div style="background: #10b981; padding: 40px 20px; text-align: center; color: white;">
-                            <h1 style="margin: 0; font-size: 24px; font-weight: 800;">¡Pedido Confirmado! ✅</h1>
-                            <p style="margin: 10px 0 0; opacity: 0.9; font-size: 16px;">Gracias por tu confianza</p>
-                        </div>
-                        <div style="padding: 40px 30px;">
-                            <div style="text-align: center; margin-bottom: 40px;">
-                                <div style="font-size: 48px; font-weight: 900; color: #0f172a;">${amount}€</div>
-                                <div style="color: #64748b; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">Total de tu pedido</div>
-                            </div>
-                            
-                            <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
-                                <tr>
-                                    <td style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: #64748b; font-size: 14px;">Alumno/a</td>
-                                    <td style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: #0f172a; font-size: 14px; font-weight: 700; text-align: right;">${orderData.studentName}</td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: #64748b; font-size: 14px;">Centro</td>
-                                    <td style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: #0f172a; font-size: 14px; font-weight: 700; text-align: right;">${orderData.schoolName || '---'}</td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: #64748b; font-size: 14px;">Pack Seleccionado</td>
-                                    <td style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: #0f172a; font-size: 14px; font-weight: 700; text-align: right;">${(typeof orderData.pack === 'object' ? orderData.pack.label : orderData.pack) || orderData.packName}</td>
-                                </tr>
-                                ${orderData.extrasDesc ? `
-                                <tr>
-                                    <td style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: #64748b; font-size: 14px;">Extras</td>
-                                    <td style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: #0f172a; font-size: 14px; font-weight: 700; text-align: right;">${orderData.extrasDesc}</td>
-                                </tr>` : ''}
-                                ${orderData.supplementsDesc ? `
-                                <tr>
-                                    <td style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: #64748b; font-size: 14px;">Suplementos</td>
-                                    <td style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: #0f172a; font-size: 14px; font-weight: 700; text-align: right;">${orderData.supplementsDesc}</td>
-                                </tr>` : ''}
-                            </table>
-
-                            <div style="background: #f8fafc; padding: 25px; border-radius: 20px; border: 1px solid #e2e8f0;">
-                                <p style="margin: 0; font-size: 14px; color: #475569; line-height: 1.6; text-align: center;">
-                                    <strong>¿Qué sucede ahora?</strong><br>
-                                    Ya tenemos tu pedido listo para producción. Te avisaremos cuando las fotos estén disponibles para su descarga o entrega.
-                                </p>
-                            </div>
-                        </div>
-                        <div style="background: #f1f5f9; padding: 20px; text-align: center; font-size: 11px; color: #94a3b8;">
-                            Este es un correo automático de ${brand} · App Orlas 2026
-                        </div>
-                    </div>
-                `;
-            }
-
-            await addDoc(mailRef, {
-                to: orderData.email,
-                message: { subject, html }
-            });
-        } catch (e) {
-            console.error("Error enviando notificación al alumno:", e);
-        }
-    };
-
-    // Notificación WhatsApp de Pago Confirmado
-    const sendWhatsAppNotification = (order) => {
-        if (!order.parentPhone) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Teléfono no disponible',
-                text: 'Este pedido no tiene un número de teléfono de contacto registrado.',
-                confirmButtonColor: '#f59e0b'
-            });
-            return;
-        }
-
-        const brand = settings.brandName || 'Pujalte Creative Studio';
-        const status = order.status || 'Pendiente';
-        
-        let intro = `👋 *Hola ${toTitleCase(order.parentName || 'Papá/Mamá')}!*`;
-        let body = '';
-
-        if (status === 'Pendiente') {
-            body = `Le recordamos que el pedido de *${order.studentName}* para la orla del centro *${order.schoolName}* sigue pendiente de pago. Por favor, realice el pago para asegurar su plaza en la orla. 📌`;
-        } else if (status === 'Pagado') {
-            body = `Le confirmamos que el pago del pedido de *${order.studentName}* correspondiente a *${order.schoolName}* ha sido recibido correctamente. ✅ ¡Muchas gracias por su confianza!`;
-        } else if (status === 'Producido') {
-            body = `¡Buenas noticias! El pedido de *${order.studentName}* ya ha sido fabricado y está listo para su entrega. 🎓✨`;
-        } else if (status === 'Entregado') {
-            body = `Le informamos que el pedido de *${order.studentName}* ha sido entregado satisfactoriamente. ✅ ¡Esperamos que le guste el resultado!`;
-        } else {
-            body = `Le escribimos en relación al pedido de *${order.studentName}* para informarle de cambios en su estado: *${status}*.`;
-        }
-
-        const msg = encodeURIComponent(`${intro}\n\n${body}\n\n_Enviado desde la App Oficial de ${brand}_`);
-        window.open(`https://api.whatsapp.com/send?phone=34${order.parentPhone}&text=${msg}`, '_blank');
-    };
-
     // Notificaciones Email para Administrador
     const sendAdminNotification = async (type, data) => {
         try {
@@ -857,26 +695,16 @@ function App() {
             } else if (type === 'PEDIDO') {
                 subject = `🎓 Nuevo Pedido Orla - ${data.studentName}`;
                 html = `
-                    <div style="font-family: sans-serif; color: #333; padding: 25px; border: 2px solid #6366f1; border-radius: 30px;">
-                        <h2 style="color: #6366f1; margin-top: 0;">🎓 Nuevo pedido de orla recibido</h2>
-                        
-                        <div style="background: #f8fafc; padding: 20px; border-radius: 20px; margin: 20px 0; border: 1px solid #e2e8f0;">
-                            <p style="margin: 5px 0;"><strong>Alumno/a:</strong> <span style="font-size: 16px; color: #1e1b4b;">${data.studentName}</span></p>
-                            <p style="margin: 5px 0;"><strong>Colegio:</strong> ${data.schoolName}</p>
-                            <p style="margin: 5px 0;"><strong>Curso:</strong> ${data.course}</p>
-                            <p style="margin: 15px 0 5px 0; border-top: 1px solid #eee; pt-2 text-[11px] uppercase font-bold text-secondary">Detalles del Pedido:</p>
-                            <p style="margin: 5px 0;"><strong>Pack:</strong> ${data.packName}</p>
-                            <p style="margin: 5px 0;"><strong>Importe Total:</strong> <span style="font-weight: bold; font-size: 18px; color: #1e1b4b;">${data.total}€</span></p>
-                            <p style="margin: 5px 0;"><strong>Método Pago:</strong> <span style="text-transform: uppercase; font-weight: bold; color: #6366f1;">${data.paymentMethod}</span></p>
-                            
-                            <p style="margin: 15px 0 5px 0; border-top: 1px solid #eee; pt-2 text-[11px] uppercase font-bold text-secondary">Datos de Contacto:</p>
-                            <p style="margin: 5px 0;"><strong>Tutor/a:</strong> ${data.parentName || 'No indicado'}</p>
-                            <p style="margin: 5px 0;"><strong>Teléfono:</strong> ${data.phone || 'No indicado'}</p>
-                            <p style="margin: 5px 0;"><strong>Email:</strong> ${data.email || 'No indicado'}</p>
-                        </div>
-
-                        <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
-                        <p style="font-size: 10px; color: #999; text-align: center;">Orlas 2026 | Pujalte Creative Studio | Enviado el ${new Date().toLocaleString('es-ES')}</p>
+                    <div style="font-family: sans-serif; color: #333; padding: 20px; border: 1px solid #eee; border-radius: 20px;">
+                        <h2 style="color: #6366f1;">Nuevo pedido de orla recibido</h2>
+                        <p><strong>Alumno:</strong> ${data.studentName}</p>
+                        <p><strong>Colegio:</strong> ${data.schoolName}</p>
+                        <p><strong>Curso:</strong> ${data.course}</p>
+                        <p><strong>Pack:</strong> ${data.packName}</p>
+                        <p><strong>Total:</strong> ${data.total}€</p>
+                        <p><strong>Método Pago:</strong> ${data.paymentMethod}</p>
+                        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+                        <p style="font-size: 10px; color: #999;">Aplicación: <strong>App Orlas 2026</strong> | Enviado el ${new Date().toLocaleString('es-ES')}</p>
                     </div>
                 `;
             } else if (type === 'PLAN_REQUEST') {
@@ -990,7 +818,7 @@ function App() {
             }
 
             await addDoc(mailRef, {
-                to: settings.notificationEmail || 'pedidos@pujaltefotografia.es',
+                to: 'apps@pujaltefotografia.es',
                 message: { subject, html }
             });
         } catch (error) {
@@ -1155,6 +983,7 @@ function App() {
                 studentName: formData.studentName || '',
                 parentName: formData.parentName || '',
                 parentPhone: formData.parentPhone || '',
+                parentEmail: formData.parentEmail || '',
                 schoolId: formData.schoolId || '',
                 schoolName: getSchoolName(formData.schoolId),
                 schoolCode: schools.find(s => s.id === formData.schoolId)?.code || '',
@@ -1239,28 +1068,16 @@ function App() {
                 setStep(4);
                 
                 try {
-                    const notifyData = {
+                    sendAdminNotification('PEDIDO', {
                         studentName: formData.studentName,
                         schoolName: getSchoolName(formData.schoolId),
                         course: formData.course,
                         packName: packsDesc,
-                        extrasDesc: extrasDesc,
                         total: orderTotals.price,
-                        paymentMethod: formData.paymentMethod,
-                        parentName: formData.parentName,
-                        phone: formData.phone,
-                        email: formData.email,
-                        pack: newOrder.pack
-                    };
-
-                    // 1. Notificar al Fotógrafo
-                    sendAdminNotification('PEDIDO', notifyData);
-
-                    // 2. Confirmación al Alumno
-                    sendStudentNotification('REGISTRO_RECIBIDO', notifyData);
-
+                        paymentMethod: formData.paymentMethod
+                    });
                 } catch (e) {
-                    console.warn("Error en notificaciones:", e);
+                    console.warn("Error en notificación:", e);
                 }
             }
         } catch (error) {
@@ -1273,28 +1090,19 @@ function App() {
     // Mensaje WhatsApp diferenciado por método de pago
     const buildWhatsAppMsg = () => {
         const school = getSchoolName(formData.schoolId);
+        const extrasDesc = getExtrasDesc();
+        const isBizum = formData.paymentMethod === 'bizum';
+        const isEfectivo = formData.paymentMethod === 'efectivo';
         const methodLabel = enabledPaymentMethods.find(m => m.id === formData.paymentMethod)?.label || formData.paymentMethod;
 
-        // --- PARES SUBROGADOS (MÁXIMA COMPATIBILIDAD) ---
-        const iHello  = "\uD83D\uDC4B"; // 👋
-        const iPin    = "\uD83D\uDCCC"; // 📌
-        const iGrad   = "\uD83C\uDF93"; // 🎓
-        const iSchool = "\uD83C\uDFE2"; // 🏢
-        const iCourse = "\uD83C\uDFEB"; // 🏫
-        const iPack   = "\uD83D\uDCE6"; // 📦
-        const iTotal  = "\uD83D\uDCB0"; // 💰
-        const iPay    = "\uD83D\uDCB3"; // 💳
-        const iHand   = "\uD83E\uDD1D"; // 🤝
-        const iCheck  = "\u2705";         // ✅
-
         const header =
-            `${iHello} Hola Pujalte, mi nombre es *${formData.parentName || formData.studentName}*\n\n` +
-            `${iPin} *Resumen del pedido:*\n\n` +
-            `${iGrad} *Alumno:* ${formData.studentName}\n` +
-            `${iSchool} *Colegio:* ${school}\n` +
-            `${iCourse} *Curso:* ${formData.course}\n` +
-            `${iPack} *Packs:* ${getPacksDesc()}\n` +
-            (getExtrasDesc() ? `➕ *Extras:* ${getExtrasDesc()}\n` : '');
+            `Hola Pujalte Studio 👋\n\n` +
+            `📋 *Resumen del pedido:*\n\n` +
+            `🎓 *Alumno:* ${formData.studentName}\n` +
+            `🏫 *Colegio:* ${school}\n` +
+            `📚 *Curso:* ${formData.course}\n` +
+            `📦 *Packs:* ${getPacksDesc()}\n` +
+            (extrasDesc ? `➕ *Extras:* ${extrasDesc}\n` : '');
 
         // Obtener descripción de suplementos para WhatsApp
         const activeSupplements = settings.supplements || [];
@@ -1308,51 +1116,34 @@ function App() {
 
         const footer =
             (supplementsDescList.length > 0 ? `✨ *Suplementos:* ${supplementsDescList.join(', ')}\n` : '') +
-            `\n${iTotal} *Total:* ${orderTotals.price.toFixed(0)}€\n`;
+            `💰 *Total:* ${orderTotals.price.toFixed(0)}€\n`;
 
-        let finalMsg = header + footer + "\n";
+        const fullMsg = header + footer;
 
-        if (formData.paymentMethod === 'bizum') {
+        if (isBizum) {
             const phone = settings.contactPhone || CONTACT_PHONE;
-            finalMsg += `${iPay} *Pago:* Bizum\n\n${iCheck} He realizado el Bizum al ${phone} con el concepto *ORLA ${formData.studentName}*.\nAdjunto justificante. ¡Muchas gracias!`;
-        } else if (formData.paymentMethod === 'efectivo') {
-            finalMsg += `${iPay} *Pago:* Efectivo\n\n${iHand} Haré entrega del importe en efectivo directamente en el centro escolar.\nPor favor, confirmad disponibilidad para la recogida. ¡Muchas gracias!`;
-        } else {
-            finalMsg += `${iPay} *Pago:* ${methodLabel}\n\n${iCheck} El pago se ha realizado correctamente. ¡Muchas gracias!`;
+            return fullMsg + "\n" +
+                `💳 *Pago:* Bizum\n\n` +
+                `✅ He realizado el Bizum al ${phone} con el concepto *ORLA ${formData.studentName}*.\n` +
+                `Adjunto el justificante. ¡Gracias!`;
         }
 
-        return finalMsg;
+        if (isEfectivo) {
+            return fullMsg + "\n" +
+                `💶 *Pago:* Efectivo\n\n` +
+                `🏫 Haré entrega del importe en efectivo directamente en el centro escolar.\n` +
+                `Por favor, confirmad disponibilidad para la recogida. ¡Muchas gracias!`;
+        }
+
+        // Transferencia u otro
+        return fullMsg + "\n" +
+            `🏦 *Pago:* ${methodLabel}\n\n` +
+            `En cuanto realice el pago os aviso. ¡Gracias!`;
     };
 
     const sendWhatsApp = () => {
         const phone = settings.contactPhone || CONTACT_PHONE;
-        const school = getSchoolName(formData.schoolId);
-        
-        const params = new URLSearchParams();
-        
-        // Iconos seguros (Unicode)
-        const iHello  = "\u{1F44B}"; // 👋
-        const iGrad   = "\u{1F393}"; // 🎓
-        const iSchool = "\u{1F3EB}"; // 🏫
-        const iPack   = "\u{1F4E6}"; // 📦
-        const iMoney  = "\u{1F4B0}"; // 💰
-        const iDone   = "\u{2705}";   // ✅
-
-        const text = 
-            `${iHello} Hola Pujalte, mi nombre es *${formData.parentName || formData.studentName}*\n\n` +
-            `*RESUMEN DEL PEDIDO OK* \n` +
-            `${iGrad} *Alumno:* ${formData.studentName}\n` +
-            `${iSchool} *Colegio:* ${school}\n` +
-            `${iPack} *Packs:* ${getPacksDesc()}\n\n` +
-            `${iMoney} *Total:* ${orderTotals.price.toFixed(0)}€\n` +
-            `${iDone} *Pago:* ${formData.paymentMethod.toUpperCase()}\n\n` +
-            `Haré entrega del importe en efectivo en el centro.\n¡Muchas gracias!`;
-
-        params.set('phone', `34${phone}`);
-        params.set('text', text);
-
-        const whatsappUrl = `https://api.whatsapp.com/send?${params.toString()}`;
-        window.open(whatsappUrl, '_blank');
+        window.open(`https://wa.me/34${phone}?text=${encodeURIComponent(buildWhatsAppMsg())}`, '_blank');
     };
 
     const [gapiInited, setGapiInited] = useState(false);
@@ -1697,17 +1488,25 @@ function App() {
         setPinError(false);
     };
 
-    const exportCSV = (filters) => {
+    const exportCSV = async (filters) => {
+        console.log("🚀 Iniciando exportación con filtros:", filters);
+        
         if (settings?.plan === 'flex' && !settings?.isPaid) {
+            console.warn("⚠️ Bloqueado: Plan FLEX no pagado");
             setShowFlexPaymentModal(true);
             return;
         }
+
         const school = schools.find(s => s.id === filters.school) || schools.find(s => s.id === adminSchool);
-        // Filtrar pedidos por código de colegio, curso y grupo
+        
+        // Filtrar pedidos
         let rows = orders;
         if (filters.school) rows = rows.filter(o => o.schoolId === filters.school);
         if (filters.course) rows = rows.filter(o => o.course?.startsWith(filters.course));
         if (filters.group) rows = rows.filter(o => o.course?.endsWith(filters.group));
+        
+        console.log(`📊 Procesando ${rows.length} pedidos para exportar...`);
+
         // Orden alfabético por primer apellido
         const _firstSurname = (name = '') => {
             if (!name) return '';
@@ -1716,34 +1515,38 @@ function App() {
         };
         rows = [...rows].sort((a, b) => _firstSurname(a.studentName).localeCompare(_firstSurname(b.studentName), 'es', { sensitivity: 'base' }));
 
-        let csv = '\uFEFF';
+        let csv = '\uFEFF'; // BOM para Excel
 
         // ── SECCIÓN 1: ALUMNOS ──────────────────────────────────────────
         csv += '[[ SECCIÓN: ALUMNOS ]],,,,,,,,,\n';
-        csv += 'Alumno,Fichero,Curso,Centro Educativo,Pack,Extras,Método Pago,Estado,Total,Fecha\n';
+        csv += 'Alumno,Fichero,Curso,Centro Educativo,Pack,Extras,Método Pago,Estado,Total,Fecha Registro,Tutor,Telf. Tutor,Email Tutor\n';
 
         if (rows.length > 0) {
             rows.forEach(o => {
-                const date = new Date(o.timestamp).toLocaleDateString('es-ES');
+                const date = o.timestamp ? new Date(o.timestamp).toLocaleString('es-ES', { 
+                    day: '2-digit', month: '2-digit', year: 'numeric', 
+                    hour: '2-digit', minute: '2-digit' 
+                }) : 'S/F';
                 const packLabel = typeof o.pack === 'object' ? o.pack.label : (o.pack || 'S/Q');
                 const extrasLabels = Array.isArray(o.extras) ? o.extras.map(e => e.label || e.name || '') :
                     Object.entries(o.extras || {}).filter(([, q]) => q > 0).map(([id]) => allExtras.find(e => e.id === id)?.name || id);
 
-                csv += `"${o.studentName}","${o.photoFile || ''}","${o.course}","${o.schoolName}","${packLabel}","${extrasLabels.join('; ')}","${o.paymentMethod}","${o.status}","${o.total || o.price || 0}€","${date}"\n`;
+                const parentPhone = o.parentPhone || o.phone || '';
+                const parentEmail = o.parentEmail || o.email || '';
+
+                csv += `"${o.studentName}","${o.photoFile || ''}","${o.course || ''}","${o.schoolName || school?.name || ''}","${packLabel}","${extrasLabels.join('; ')}","${o.paymentMethod || ''}","${o.status || ''}","${o.total || o.price || 0}€","${date}","${o.parentName || ''}","${parentPhone}","${parentEmail}"\n`;
             });
         } else {
             csv += 'Sin alumnos registrados,,,,,,,,,\n';
         }
 
-        // Espacio de separación
         csv += '\n\n';
 
         // ── SECCIÓN 2: EQUIPO DOCENTE ───────────────────────────────────
         csv += '[[ SECCIÓN: EQUIPO DOCENTE ]],,,,,,,,,\n';
-        csv += 'Nombre completo,Fichero,Puesto / Cargo,Centro Educativo,Curso vinculado,Grupo vinculado,,,,,\n';
+        csv += 'Nombre completo,Fichero,Puesto / Cargo,Centro Educativo,Clases vinculadas,,,,,,,\n';
 
         let exportStaff = staff;
-        // Si el colegio del filtro es diferente al actual, cargamos su personal del localStorage
         if (filters.school && filters.school !== adminSchool) {
             try {
                 const stored = localStorage.getItem(`orlas2026_staff_${filters.school}`);
@@ -1765,29 +1568,61 @@ function App() {
         }
 
         if (exportStaff.length > 0) {
-            csv += `\n\n=== EQUIPO DOCENTE ===\n`;
-            csv += `"Nombre","Foto","Puesto","Colegio","Clases Asignadas"\n`;
             exportStaff.forEach(m => {
                 const combined = getStaffAssignments(m).map(a => `${a.course || ''} ${a.group || ''}`.trim()).join(' / ');
-                csv += `"${m.name}","${m.photoFile || ''}","${m.role}","${school?.name || ''}","${combined}"\n`;
+                csv += `"${m.name}","${m.photoFile || ''}","${m.role || ''}","${school?.name || ''}","${combined}"\n`;
             });
         } else {
             csv += 'Sin personal docente registrado,,,,,,,,,\n';
         }
 
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href = url;
-        const parts = ['Orlas2026'];
-        if (school) parts.push(school.name.replace(/\s+/g, '-'));
-        if (filters.course) parts.push(filters.course.replace(/\s+/g, '-'));
-        if (filters.group) parts.push(`Grupo-${filters.group}`);
-        parts.push(new Date().toISOString().slice(0, 10));
-        a.download = parts.join('_') + '.csv';
-        a.click(); URL.revokeObjectURL(url);
-        setShowExportModal(false);
-        return csv;
+        // MÉTODO DEFINITIVO: Guardar en disco local vía servidor Vite
+        try {
+            console.log("📡 Enviando datos al servidor local para guardado directo...");
+            
+            const fileName = `PEDIDOS_ORLAS2026_${(school?.name || 'General').replace(/[^a-z0-9]/gi, '-')}.csv`;
+
+            const response = await fetch('/api/save-csv', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    filename: fileName,
+                    content: csv
+                })
+            });
+
+            if (response.ok) {
+                console.log("✅ ARCHIVO GUARDADO EN TU CARPETA DE DESCARGAS:", fileName);
+                Swal.fire({
+                    title: '¡Éxito!',
+                    text: `Archivo guardado en tu carpeta de DESCARGAS como: ${fileName}`,
+                    icon: 'success',
+                    timer: 3000
+                });
+            } else {
+                throw new Error("El servidor local no respondió correctamente");
+            }
+
+            setShowExportModal(false);
+            return true;
+        } catch (error) {
+            console.error("❌ Error en guardado local:", error);
+            // Si falla el método local, intentamos el normal como último recurso
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `PEDIDOS_BACKUP_${Date.now()}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            return false;
+        }
     };
+
+
+
+
 
     const filteredOrders = orders
         .filter(o => {
@@ -1805,8 +1640,16 @@ function App() {
         .sort((a, b) => firstSurname(a.studentName).localeCompare(firstSurname(b.studentName), 'es', { sensitivity: 'base' }));
 
     if (!isLoaded) return <div className="min-h-screen bg-card flex items-center justify-center animate-pulse"><img src={`${import.meta.env.BASE_URL}logo.png`} className="w-12 h-12 grayscale opacity-20" /></div>;
+    if (view === 'staff-form') {
+        return (
+            <AppErrorBoundary>
+                <StaffForm theme={theme} />
+            </AppErrorBoundary>
+        );
+    }
 
     return (
+
         <div className={`min-h-screen transition-colors duration-500 ${theme === 'dark' ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
 
             {/* AVISO OFFLINE */}
@@ -1850,7 +1693,7 @@ function App() {
             {/* CABECERA (Ocultar en Master/Onboarding/Suspended/Landing/Command) */}
             {view !== 'master' && view !== 'onboarding' && view !== 'landing' && view !== 'command' && !settings?.isSuspended && (
                 <>
-                    <header className={`fixed top-0 inset-x-0 z-[700] backdrop-blur-xl border-b transition-all duration-500 safe-top bg-card/80 border-primary/5 md:bg-transparent md:border-none md:backdrop-blur-none ${isFullScreenDesign ? '!bg-card/95 !backdrop-blur-2xl !border-white/5' : ''}`}>
+                    <header className={`fixed top-0 inset-x-0 z-[700] backdrop-blur-md transition-all duration-500 safe-top bg-transparent border-none md:bg-transparent md:border-none md:backdrop-blur-none ${isFullScreenDesign ? '!bg-card/95 !backdrop-blur-2xl !border-white/5' : ''}`}>
                         <div className={`${isFullScreenDesign ? 'max-w-7xl' : 'max-w-5xl'} mx-auto px-4 md:px-8 h-16 md:h-20 flex items-center justify-between relative`}>
                             <div className="flex items-center gap-3">
                                 <div className="flex flex-col leading-none gap-0.5">
@@ -1910,16 +1753,6 @@ function App() {
 
                     {/* 6. Vista Maestra (Centro de Control) */}
                     {view === 'master' && <MasterPanel onBack={() => setView('user')} onNavigate={setView} />}
-
-                    {/* VISTA INSCRIPCIÓN DOCENTES (TUTOR) */}
-                    {view === 'tutor-staff' && (
-                        <StaffEnrollment
-                            photographerId={photographerId}
-                            schoolId={schoolId}
-                            getSchoolName={getSchoolName}
-                            theme={theme}
-                        />
-                    )}
 
                     {/* VISTA PORTAL DESCARGA (QR) */}
                     {view === 'download' && (
@@ -2191,7 +2024,6 @@ function App() {
                                         updateOrder={updateOrder}
                                         bulkUpdateOrders={bulkUpdateOrders}
                                         bulkUpdateOrdersMap={bulkUpdateOrdersMap} // Inyectar
-                                        moveToSchool={moveToSchool} // Inyectar
                                         updateStaff={updateStaffMember}
                                         bulkUpdateStaffMap={bulkUpdateStaffMap} // Inyectar
                                         addStaff={addStaff}
@@ -2252,10 +2084,8 @@ function App() {
                                         setOrderToEdit={setOrderToEdit}
                                         getSchoolName={getSchoolName}
                                         stats={stats}
-                                        moveToSchool={moveToSchool}
                                         setShowNewStudentForm={setShowNewStudentForm}
                                         setShowExportModal={setShowExportModal}
-                                        sendWhatsAppNotification={sendWhatsAppNotification}
                                     />
                                 )}
 
@@ -2272,13 +2102,10 @@ function App() {
                                             newSchoolName={newSchoolName}
                                             setNewSchoolName={setNewSchoolName}
                                             addSchool={addSchool}
-                                            addSchoolWithId={addSchoolWithId}
                                             updateSchool={updateSchool}
                                             deleteSchool={deleteSchool}
                                             updateSettings={updateSettings}
                                             schoolsStats={schoolsStats}
-                                            orphanSchools={orphanSchools}
-                                            detectOrphanSchools={detectOrphanSchools}
                                         />
                                         <TutorsPanel
                                             settings={settings}
@@ -2362,10 +2189,81 @@ function App() {
                                         sendAdminNotification={sendAdminNotification}
                                     />
                                 )}
+                                {showExportModal && (
+                                    <div className="fixed inset-0 z-[600] flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl animate-fade-in text-left">
+                                        <div className="w-full max-w-[450px] bg-card border border-indigo-500/30 rounded-[40px] shadow-2xl overflow-hidden animate-scale-in">
+                                            <div className="p-8 space-y-6">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-400">
+                                                            <Download size={20} />
+                                                        </div>
+                                                        <h3 className="text-lg font-black text-primary uppercase tracking-widest">Exportar Datos</h3>
+                                                    </div>
+                                                    <button onClick={() => setShowExportModal(false)} className="w-10 h-10 flex items-center justify-center rounded-full bg-primary/5 text-secondary hover:text-primary transition-all"><X size={20} /></button>
+                                                </div>
 
-                                <BackgroundOrbs />
+                                                <div className="space-y-4">
+                                                    <div className="space-y-1.5">
+                                                        <label className="text-[9px] font-black text-secondary/50 uppercase tracking-widest ml-1">Centro Educativo</label>
+                                                        <select 
+                                                            value={exportFilters.school} 
+                                                            onChange={e => setExportFilters(p => ({ ...p, school: e.target.value }))}
+                                                            className="input-dark w-full py-3.5 px-4 text-xs font-bold appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%20stroke%3D%22currentColor%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%20%2F%3E%3C%2Fsvg%3E')] bg-[length:14px] bg-[right_0.8rem_center] bg-no-repeat"
+                                                        >
+                                                            <option value="">Todos los centros</option>
+                                                            {schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                                        </select>
+                                                    </div>
+
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div className="space-y-1.5">
+                                                            <label className="text-[9px] font-black text-secondary/50 uppercase tracking-widest ml-1">Curso</label>
+                                                            <select 
+                                                                value={exportFilters.course} 
+                                                                onChange={e => setExportFilters(p => ({ ...p, course: e.target.value }))}
+                                                                className="input-dark w-full py-3.5 px-4 text-xs font-bold appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%20stroke%3D%22currentColor%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%20%2F%3E%3C%2Fsvg%3E')] bg-[length:14px] bg-[right_0.8rem_center] bg-no-repeat"
+                                                            >
+                                                                <option value="">Todos</option>
+                                                                {[...new Set(orders.map(o => getCourseBase(o.course)))].filter(Boolean).sort().map(c => <option key={c} value={c}>{c}</option>)}
+                                                            </select>
+                                                        </div>
+                                                        <div className="space-y-1.5">
+                                                            <label className="text-[9px] font-black text-secondary/50 uppercase tracking-widest ml-1">Grupo</label>
+                                                            <select 
+                                                                value={exportFilters.group} 
+                                                                onChange={e => setExportFilters(p => ({ ...p, group: e.target.value }))}
+                                                                className="input-dark w-full py-3.5 px-4 text-xs font-bold appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%20stroke%3D%22currentColor%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%20%2F%3E%3C%2Fsvg%3E')] bg-[length:14px] bg-[right_0.8rem_center] bg-no-repeat"
+                                                            >
+                                                                <option value="">Todos</option>
+                                                                {(exportFilters.course
+                                                                    ? [...new Set(orders.filter(o => getCourseBase(o.course) === exportFilters.course).map(o => getGroup(o.course)))].filter(Boolean).sort()
+                                                                    : [...new Set(orders.map(o => getGroup(o.course)))].filter(Boolean).sort()
+                                                                ).map(g => <option key={g} value={g}>{g}</option>)}
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="pt-4 flex flex-col gap-3">
+                                                    <button
+                                                        onClick={() => exportCSV(exportFilters)}
+                                                        className="w-full h-14 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-[10px] uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-indigo-600/20 transition-all active:scale-[0.98] flex items-center justify-center gap-3"
+                                                    >
+                                                        GENERAR EXCEL (CSV) <Download size={16} />
+                                                    </button>
+                                                    <p className="text-center text-[9px] text-secondary/40 font-bold uppercase tracking-widest px-8">
+                                                        Se generará un archivo compatible con Excel con los filtros seleccionados.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+
+
                             </div>
-
                             {/* Modales de Administración */}
                             <EditOrderModal
                                 orderToEdit={orderToEdit}

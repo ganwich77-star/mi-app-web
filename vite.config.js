@@ -113,12 +113,33 @@ function downloadScriptPlugin() {
           }
         });
       });
+
+      // Endpoint 4: Guardado directo de archivos CSV en la carpeta del proyecto
+      server.middlewares.use('/api/save-csv', (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end('Method not allowed'); return; }
+        let body = '';
+        req.on('data', chunk => { body += chunk.toString(); });
+        req.on('end', () => {
+          try {
+            const { content, filename } = JSON.parse(body);
+            const filePath = path.join(os.homedir(), 'Downloads', filename);
+            fs.writeFileSync(filePath, content, 'utf8');
+            res.setHeader('Content-Type', 'application/json');
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.end(JSON.stringify({ success: true, filename, path: filePath }));
+          } catch (e) {
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ success: false, error: e.message }));
+          }
+        });
+      });
     }
   };
 }
 
 export default defineConfig(({ mode }) => ({
-  base: './',
+  base: '/graduaciones2026/',
   build: {
     outDir: 'dist',
     emptyOutDir: true
@@ -154,8 +175,17 @@ export default defineConfig(({ mode }) => ({
       },
       workbox: {
         maximumFileSizeToCacheInBytes: 10000000,
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,webp}'],
+        globPatterns: ['**/*.{js,css,ico,png,svg,woff2,webp}'], // Quitamos .html de aquí
         runtimeCaching: [
+          {
+            urlPattern: ({ request }) => request.mode === 'navigate',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'html-cache',
+              expiration: { maxEntries: 1 },
+              networkTimeoutSeconds: 3 // Si no hay internet en 3s, usa el caché
+            }
+          },
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
             handler: 'CacheFirst',

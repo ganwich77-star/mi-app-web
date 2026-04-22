@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-    UserCircle, Plus, Trash2, Mail, Phone, ChevronDown, Search, MessageCircle, LayoutGrid, List, Copy, UserCheck
+    UserCircle, Plus, Trash2, Mail, Phone, ChevronDown, Search, MessageCircle, LayoutGrid, List, Users
 } from 'lucide-react';
 import { COURSE_GROUPS } from '../../constants.js';
 
@@ -63,6 +63,31 @@ const TutorsPanel = ({
         const match = `${t.name} ${schoolName} ${t.courseName} ${t.groupName}`.toLowerCase();
         return match.includes(searchTerm.toLowerCase());
     });
+    
+    const sendStaffRequest = (t) => {
+        if (!t.phone) return;
+        
+        const schoolName = schools.find(s => s.id === t.schoolId)?.name || 'su centro';
+        const photographerId = settings?.id || 'pujaltecreativestudio';
+        
+        // Obtener solo el primer nombre del tutor
+        const firstName = (t.name || 'Tutor/a').split(' ')[0].toUpperCase();
+        
+        // URL base para el formulario
+        const baseUrl = window.location.origin + window.location.pathname;
+        const formUrl = `${baseUrl}?view=staff-form&f=${photographerId}&s=${t.schoolId}&c=${encodeURIComponent(t.courseName || '')}&g=${encodeURIComponent(t.groupName || '')}&t=${encodeURIComponent(t.name || '')}`;
+
+        const msg = `¡Hola ${firstName}! 👋\n\n` +
+            `Estamos preparando el diseño de las orlas y necesitamos que nos confirméis el listado del *EQUIPO DOCENTE* del centro *${schoolName.toUpperCase()}* (${t.courseName || ''} ${t.groupName || ''}).\n\n` +
+            `He preparado un formulario muy rápido para que podáis completarlo en 1 minuto desde el móvil:\n\n` +
+            `📎 *RELLENAR AQUÍ:* ${formUrl}\n\n` +
+            `¡Muchas gracias por tu colaboración! 🙏`;
+
+        const cleanPhone = t.phone.replace(/\s+/g, '').replace('+', '');
+        window.open(`https://wa.me/34${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+    };
+
+
 
 
 
@@ -208,16 +233,25 @@ const TutorsPanel = ({
                                             <Mail size={16} />
                                         </a>
                                         {t.phone && (
-                                            <a
-                                                href={`https://wa.me/34${t.phone.replace(/\s+/g, '')}`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                onClick={(e) => e.stopPropagation()}
-                                                className="w-9 h-9 flex items-center justify-center text-emerald-500 hover:bg-emerald-500/20 rounded-lg transition-all"
-                                                title="WhatsApp"
-                                            >
-                                                <MessageCircle size={16} />
-                                            </a>
+                                            <div className="flex gap-1">
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); sendStaffRequest(t); }}
+                                                    className="w-9 h-9 flex items-center justify-center text-indigo-500 hover:bg-indigo-500/20 rounded-lg transition-all"
+                                                    title="Pedir Listado Docentes (WhatsApp)"
+                                                >
+                                                    <Users size={16} />
+                                                </button>
+                                                <a
+                                                    href={`https://wa.me/34${t.phone.replace(/\s+/g, '')}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    className="w-9 h-9 flex items-center justify-center text-emerald-500 hover:bg-emerald-500/20 rounded-lg transition-all"
+                                                    title="WhatsApp Directo"
+                                                >
+                                                    <MessageCircle size={16} />
+                                                </a>
+                                            </div>
                                         )}
                                     </div>
                                 </div>
@@ -306,52 +340,6 @@ const TutorsPanel = ({
                                                 </div>
                                             </div>
                                         </div>
-
-                                        {t.schoolId && (
-                                            <div className="bg-indigo-600/5 p-5 rounded-2xl border border-indigo-600/10 space-y-4">
-                                                <div className="flex items-center gap-3">
-                                                    <UserCheck size={16} className="text-indigo-600" />
-                                                    <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600">Recursos para el Tutor</span>
-                                                </div>
-                                                <div className="flex gap-2">
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            const url = `${window.location.origin}${window.location.pathname}?photographer=${settings.id || 'default'}&school=${t.schoolId}&view=tutor-staff`;
-                                                            navigator.clipboard.writeText(url);
-                                                            Swal.fire({
-                                                                title: '¡Copiado!',
-                                                                text: 'Link del formulario de docentes copiado al portapapeles',
-                                                                icon: 'success',
-                                                                timer: 1500,
-                                                                showConfirmButton: false
-                                                            });
-                                                        }}
-                                                        className="flex-1 py-4 bg-indigo-600 text-white rounded-xl font-black uppercase tracking-widest text-[9px] shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 transition-all flex items-center justify-center gap-3 active:scale-95"
-                                                    >
-                                                        <Copy size={16} /> COPIAR LINK
-                                                    </button>
-                                                    
-                                                    {t.phone && (
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                const url = `${window.location.origin}${window.location.pathname}?photographer=${settings.id || 'default'}&school=${t.schoolId}&view=tutor-staff`;
-                                                                const schoolName = schools.find(s => s.id === t.schoolId)?.name || 'su centro';
-                                                                const message = encodeURIComponent(`¡Hola ${t.name || ''}! 👋 Te adjunto el enlace para completar el listado de docentes de ${schoolName} para la orla de este curso: ${url} \n¡Muchas gracias!`);
-                                                                window.open(`https://wa.me/34${t.phone.replace(/\s+/g, '')}?text=${message}`, '_blank');
-                                                            }}
-                                                            className="px-6 py-4 bg-emerald-600 text-white rounded-xl font-black uppercase tracking-widest text-[9px] shadow-lg shadow-emerald-900/20 hover:bg-emerald-500 transition-all flex items-center justify-center gap-3 active:scale-95"
-                                                        >
-                                                            <MessageCircle size={16} /> WHATSAPP
-                                                        </button>
-                                                    )}
-                                                </div>
-                                                <p className="text-[8px] font-bold text-indigo-600/50 uppercase tracking-widest leading-relaxed">
-                                                    Envía este link al tutor para que complete el listado de profesores y cargos directamente.
-                                                </p>
-                                            </div>
-                                        )}
 
                                         <div className="bg-primary/5 p-4 rounded-xl border border-primary/10">
                                             <div className="flex items-center gap-3 cursor-pointer group" onClick={() => updateTutor(t.id, { newsletter: !t.newsletter })}>

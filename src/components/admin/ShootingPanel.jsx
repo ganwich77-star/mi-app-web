@@ -5,8 +5,9 @@ import {
     Sparkles, XCircle, RotateCcw, Tv, Camera, CheckCircle2, Zap, FolderUp,
     ChevronRight, ChevronLeft, AlertCircle, CreditCard, ChevronDown, ChevronUp, Mail, FileText,
     Package, Plus, LayoutGrid, List, Upload, X, User, Home, Pencil, Wand2, Link,
-    Maximize, Maximize2, ZoomIn, Eye, Check, Images, Star, ArrowDownUp
+    Maximize, Maximize2, ZoomIn, Eye, Check, Images, Star, ArrowDownUp, Paperclip
 } from 'lucide-react';
+
 
 import { COURSE_GROUPS, PACKS, EXTRAS, STAFF_ROLES } from '../../constants.js';
 import { toTitleCase, getCourseBase, getGroup } from '../../utils/formatters.js';
@@ -16,9 +17,11 @@ import * as XLSX from 'xlsx';
 import { PHOTO_SHAPES, getShapeStyle } from '../../constants/shapes.js';
 import { storage } from '../../firebase.js';
 import { ref, uploadBytesResumable, getDownloadURL, listAll } from 'firebase/storage';
-
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { db } from '../../firebase.js';
 
 const ShootingPanel = ({
+
     orders,
     staff,
     shootFilters,
@@ -59,9 +62,8 @@ const ShootingPanel = ({
     schools,
     settings,
     photographerId,
-    configOrla,
+    configOrla = {},
     setConfigOrla,
-    moveToSchool,
     setAdminTab
 }) => {
 
@@ -86,8 +88,32 @@ const ShootingPanel = ({
     const [showQuickExtras, setShowQuickExtras] = useState(false);
     const [showPaymentSelector, setShowPaymentSelector] = useState(false);
     const [shootSortMode, setShootSortMode] = useState('filename'); // 'filename' | 'alphabetical'
+    const [studentLists, setStudentLists] = useState([]);
+
+    useEffect(() => {
+        if (!adminSchool || !photographerId) {
+            setStudentLists([]);
+            return;
+        }
+
+        const docRef = doc(db, 'orlas2026_photographers', photographerId, 'student_lists', adminSchool);
+        
+        const unsubscribe = onSnapshot(docRef, (docSnap) => {
+            if (docSnap.exists()) {
+                setStudentLists(docSnap.data().items || []);
+            } else {
+                setStudentLists([]);
+            }
+        }, (error) => {
+            console.error("Error watching student lists:", error);
+        });
+
+        return () => unsubscribe();
+    }, [adminSchool, photographerId]);
+
 
     // REPARADOR DE FOTOS AUTOMÁTICO (AUTOCURACIÓN)
+
     useEffect(() => {
         const repairMissingPhotos = async () => {
             if (!photographerId || !orders || !staff || isRepairing || showBulkUpload) return;
@@ -338,7 +364,72 @@ const ShootingPanel = ({
         if (eOrFile?.target) eOrFile.target.value = '';
     };
 
+    const showStudentListsModal = () => {
+        if (studentLists.length === 0) {
+            Swal.fire({
+                title: 'No hay listados',
+                text: 'Aún no se han recibido listados de alumnos por parte de los tutores para este centro.',
+                icon: 'info',
+                confirmButtonColor: '#6366f1'
+            });
+            return;
+        }
+
+        // Filtrar por el curso actual si hay uno seleccionado, si no, mostrar todos
+        const currentLists = shootFilters.course 
+            ? studentLists.filter(l => l.course === shootFilters.course && (!shootFilters.group || l.group === shootFilters.group))
+            : studentLists;
+
+        if (currentLists.length === 0 && shootFilters.course) {
+             Swal.fire({
+                title: 'Sin listados para esta clase',
+                text: `No hay listados específicos para ${shootFilters.course} ${shootFilters.group || ''}, pero tienes ${studentLists.length} listados de otras clases de este centro.`,
+                icon: 'info',
+                showCancelButton: true,
+                confirmButtonText: 'Ver todos',
+                cancelButtonText: 'Cerrar',
+                confirmButtonColor: '#6366f1'
+            }).then(r => {
+                if (r.isConfirmed) {
+                    setShootFilters(p => ({ ...p, course: '', group: '' }));
+                }
+            });
+            return;
+        }
+
+        Swal.fire({
+            title: 'ARCHIVOS DE ALUMNOS ADJUNTOS',
+            html: `
+                <div style="text-align: left; display: flex; flex-direction: column; gap: 12px; max-height: 400px; overflow-y: auto; padding: 5px;">
+                    ${currentLists.map(list => `
+                        <div style="display: flex; align-items: center; justify-between; padding: 15px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 20px;">
+                            <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
+                                <div style="width: 40px; height: 40px; background: rgba(99, 102, 241, 0.1); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #6366f1;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><line x1="10" y1="9" x2="8" y2="9"></line></svg>
+                                </div>
+                                <div style="display: flex; flex-direction: column;">
+                                    <span style="font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em; color: #1e293b;">${list.course} ${list.group || ''}</span>
+                                    <span style="font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase;">Subido por ${list.tutorName || 'Tutor/a'}</span>
+                                </div>
+                            </div>
+                            <a href="${list.fileUrl}" download="${list.fileName}" target="_blank" style="padding: 10px 15px; background: #6366f1; color: white; border-radius: 12px; font-size: 10px; font-weight: 900; text-transform: uppercase; text-decoration: none; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);">
+                                DESCARGAR
+                            </a>
+                        </div>
+                    `).join('')}
+                </div>
+            `,
+            showConfirmButton: false,
+            showCloseButton: true,
+            customClass: {
+                popup: 'rounded-[35px] border-none shadow-2xl',
+                htmlContainer: 'p-0'
+            }
+        });
+    };
+
     const processExcelImport = async () => {
+
         if (!excelMapping.studentName && !excelMapping.role) {
             Swal.fire('Atención', 'Debes mapear al menos el campo de Nombre o Cargo.', 'warning');
             return;
@@ -357,20 +448,23 @@ const ShootingPanel = ({
 
         setShowExcelMappingModal(false);
 
-        // --- MAPEO DE COLEGIOS POR NOMBRE ---
-        const schoolByNameMap = new Map((schools || []).map(s => [normalize(s.name), s.id]));
+        // --- INICIO DE PROCESAMIENTO ---
+        const normalize = (str) => (str || '').toString().toUpperCase().trim().replace(/\s+/g, ' ');
+        
+        const newStudents = [];
+        const newStaffMembers = [];
+        let count = 0;
+
+        // --- CÁLCULO DE SIGUIENTE NÚMERO DE FICHERO ---
+        // Buscamos el número más alto ya asignado en el sistema
+        const allExistingNums = [
+            ...orders.map(o => parseInt(o.photo_file_number)),
+            ...staff.map(s => parseInt(s.photo_file_number))
+        ].filter(n => !isNaN(n));
+        let nextFileNum = allExistingNums.length > 0 ? Math.max(...allExistingNums) + 1 : 1;
 
         try {
             for (const row of excelContent) {
-                const customSchoolName = row[excelMapping.schoolName] || '';
-                const normalizedCustomName = normalize(customSchoolName);
-                
-                // Determinamos el ID del colegio destino para este alumno concreto
-                let targetSchoolId = adminSchool; // Por defecto el actual
-                if (normalizedCustomName && schoolByNameMap.has(normalizedCustomName)) {
-                    targetSchoolId = schoolByNameMap.get(normalizedCustomName);
-                }
-
                 const name = row[excelMapping.studentName] || '';
                 const lastName1 = row[excelMapping.lastName] || '';
                 const lastName2 = row[excelMapping.lastName2] || '';
@@ -381,6 +475,7 @@ const ShootingPanel = ({
                 const photoNum = row[excelMapping.photoNum] || '';
                 const role = row[excelMapping.role] || '';
                 const type = row[excelMapping.type] || '';
+                const customSchool = row[excelMapping.schoolName] || '';
                 const customPack = row[excelMapping.pack] || '';
                 const phone = row[excelMapping.phone] || '';
                 const email = row[excelMapping.email] || '';
@@ -394,6 +489,7 @@ const ShootingPanel = ({
                     // --- DETECCIÓN INTELIGENTE DE DOCENTES (Whitelist) ---
                     const staffKeywords = ['DOCENTE', 'PROFESOR', 'PROFESORA', 'MAESTRO', 'MAESTRA', 'TUTOR', 'TUTORA', 'DIRECTOR', 'DIRECTORA', 'STAFF', 'PERSONAL', 'LIMPIEZA', 'ADMINISTRACION', 'ADMINISTRATIVO', 'ADMINISTRATIVA', 'RECTOR', 'RECTORA', 'COORDINADOR', 'COORDINADORA', 'AUXILIAR', 'PSICOLOGO', 'PSICOLOGA', 'CONSERJE', 'COMEDOR', 'SECRETARIA', 'SECRETARIO', 'JEFE', 'JEFA', 'CONSEJO'];
 
+                    // Solo es Staff si contiene explícitamente palabras clave relacionadas con personal docente/centro
                     const isStaff = (roleStr !== '' && staffKeywords.some(kw => roleStr.includes(normalize(kw)))) ||
                         (typeStr !== '' && staffKeywords.some(kw => typeStr.includes(normalize(kw))));
 
@@ -403,13 +499,13 @@ const ShootingPanel = ({
                             lastName: fullLastName,
                             role: role || 'DOCENTE',
                             assignments: [{
-                                schoolId: targetSchoolId,
+                                schoolId: adminSchool,
                                 course: courseColumn || excelDefaults.course || shootFilters.course || 'GENERAL',
                                 group: groupColumn || excelDefaults.group || shootFilters.group || ''
                             }],
                             photo_file_number: photoNum?.toString() || '',
-                            schoolId: targetSchoolId,
-                            schoolName: customSchoolName || excelDefaults.schoolName || getSchoolName(targetSchoolId),
+                            schoolId: adminSchool,
+                            schoolName: customSchool || excelDefaults.schoolName || getSchoolName(adminSchool),
                             phone: phone?.toString() || '',
                             email: email?.toString() || '',
                             notes: notes?.toString() || ''
@@ -420,8 +516,8 @@ const ShootingPanel = ({
                             course: courseColumn || excelDefaults.course || shootFilters.course || 'PENDIENTE',
                             group: groupColumn || excelDefaults.group || shootFilters.group || '',
                             photo_file_number: photoNum?.toString() || '',
-                            schoolId: targetSchoolId,
-                            schoolName: customSchoolName || excelDefaults.schoolName || getSchoolName(targetSchoolId),
+                            schoolId: adminSchool,
+                            schoolName: customSchool || excelDefaults.schoolName || getSchoolName(adminSchool),
                             parentName: tutorFromExcel || findTutorForClass(courseColumn || excelDefaults.course || shootFilters.course, groupColumn || excelDefaults.group || shootFilters.group) || '',
                             pack: customPack
                                 ? { id: 'custom', label: customPack.toString() }
@@ -697,50 +793,6 @@ const ShootingPanel = ({
         }
     };
 
-    const handleMoveToSchoolAction = async () => {
-        const selectedIds = shootMode === 'students' ? selectedOrderIds : selectedStaffIds;
-        if (selectedIds.length === 0) {
-            Swal.fire('Atención', 'Selecciona primero los registros que deseas mover.', 'info');
-            return;
-        }
-
-        const schoolOptions = {};
-        sortedSchools.forEach(s => {
-            if (s.id !== adminSchool) {
-                schoolOptions[s.id] = s.name;
-            }
-        });
-
-        const { value: targetSchoolId } = await Swal.fire({
-            title: 'Traspasar a otro Centro',
-            html: `Vas a mover <b>${selectedIds.length}</b> registros.<br/><br/>Selecciona el centro de destino:`,
-            input: 'select',
-            inputOptions: schoolOptions,
-            inputPlaceholder: 'Seleccionar centro...',
-            showCancelButton: true,
-            confirmButtonColor: '#6366f1',
-            confirmButtonText: 'Mover Registros',
-            cancelButtonText: 'Cancelar'
-        });
-
-        if (targetSchoolId) {
-            Swal.fire({ title: 'Moviendo registros...', didOpen: () => Swal.showLoading(), allowOutsideClick: false });
-            try {
-                if (shootMode === 'students') {
-                    await moveToSchool(selectedIds, targetSchoolId);
-                    setSelectedOrderIds([]);
-                } else {
-                    // Implementar mover staff si es necesario, por ahora centrado alumnos
-                    Swal.fire('Pendiente', 'El movimiento de docentes estará disponible próximamente.', 'info');
-                    return;
-                }
-                Swal.fire('¡Éxito!', 'Los registros han sido trasladados correctamente.', 'success');
-            } catch (error) {
-                Swal.fire('Error', 'No se pudieron mover los registros.', 'error');
-            }
-        }
-    };
-
     const handleBulkAssign = async () => {
         const schoolName = sortedSchools.find(s => s.id === adminSchool)?.name || "Sin Centro seleccionado";
         const groupName = shootFilters.group || "";
@@ -845,6 +897,8 @@ const ShootingPanel = ({
             course: newStudentForm.course || shootFilters.course || 'PENDIENTE',
             group: newStudentForm.group || shootFilters.group || '',
             parentName: newStudentForm.parentName || findTutorForClass(newStudentForm.course || shootFilters.course, newStudentForm.group || shootFilters.group) || '',
+            parentPhone: newStudentForm.parentPhone || newStudentForm.phone || '',
+            parentEmail: newStudentForm.parentEmail || newStudentForm.email || '',
             pack: { id: packId, label: selectedPack?.name || packId },
             packId: packId,
             price: total,
@@ -861,6 +915,8 @@ const ShootingPanel = ({
             studentName: '',
             name: '',
             parentName: '',
+            parentPhone: '',
+            parentEmail: '',
             course: '',
             group: '',
             phone: '',
@@ -1054,8 +1110,8 @@ const ShootingPanel = ({
     const filteredOrders = useMemo(() => {
         if (!orders || !Array.isArray(orders)) return [];
         return orders.filter(order => {
-            // El hook useOrders ya filtra por centro al cargar los datos
-            // Eliminamos el filtro interno redundante que oculta alumnos rescatados/movidos
+            // Filtro por centro
+            if (adminSchool && order.schoolId !== adminSchool) return false;
 
             if (shootSearch) {
                 const searchLower = shootSearch.toLowerCase();
@@ -1098,10 +1154,11 @@ const ShootingPanel = ({
 
             // Verificamos si tiene el curso/grupo en sus asignaciones
             const matchesCourse = !shootFilters.course || (Array.isArray(m.assignments) && m.assignments.some(a =>
-                getCourseBase(a.course) === shootFilters.course &&
-                getCourseBase(a.course) === shootFilters.course &&
-                (!shootFilters.group || getGroup(a.course) === shootFilters.group)
+                (!adminSchool || a.schoolId === adminSchool) &&
+                getCourseBase(a.course).toUpperCase() === shootFilters.course.toUpperCase() &&
+                (!shootFilters.group || getGroup(a.course).toUpperCase() === shootFilters.group.toUpperCase())
             ));
+
 
             return matchesSearch && matchesCourse;
         }).sort((a, b) => {
@@ -1642,6 +1699,28 @@ const ShootingPanel = ({
                                 <ArrowRight size={14} />
                                 <span>Excel</span>
                             </button>
+
+                            {/* Ver Listados Adjuntos de Tutores */}
+                            {adminSchool && (
+                                <button
+                                    onClick={showStudentListsModal}
+                                    className={`h-[48px] flex items-center justify-center gap-2 px-5 rounded-xl transition-all border font-black text-[11px] uppercase tracking-widest active:scale-95 shadow-md relative group ${
+                                        studentLists.length > 0
+                                        ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-400/20 shadow-amber-500/20'
+                                        : 'bg-slate-100 text-slate-400 border-slate-200 opacity-50 cursor-not-allowed'
+                                    }`}
+                                    title="Ver listados de alumnos adjuntados por los tutores"
+                                >
+                                    <Paperclip size={14} className={studentLists.length > 0 ? 'animate-bounce-slow' : ''} />
+                                    <span>Listados</span>
+                                    {studentLists.length > 0 && (
+                                        <div className="absolute -top-2 -right-2 w-5 h-5 bg-rose-500 text-white text-[9px] font-black rounded-full flex items-center justify-center border-2 border-white shadow-lg animate-in zoom-in">
+                                            {studentLists.length}
+                                        </div>
+                                    )}
+                                </button>
+                            )}
+
                             {/* Subir Fotos */}
                             <button
                                 onClick={() => setShowBulkUpload(true)}
@@ -1848,17 +1927,27 @@ const ShootingPanel = ({
                                                     </div>
                                                 </div>
 
-                                                <div className="md:col-span-4 space-y-2">
+                                                <div className="md:col-span-3 space-y-2 text-left">
                                                     <p className="text-[10px] font-bold uppercase tracking-widest text-primary/40 pl-1">Teléfono Móvil</p>
                                                     <div className="flex items-center bg-transparent border border-primary/10 rounded-xl overflow-hidden focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/50 transition-all group/field">
                                                         <div className="px-4 py-3 border-r border-primary/10 text-primary/30 group-focus-within/field:text-emerald-500 transition-colors">
                                                             <Phone size={18} />
                                                         </div>
-                                                        <input type="tel" value={newStudentForm.phone} onChange={e => setNewStudentForm(p => ({ ...p, phone: e.target.value }))} placeholder="9 dígitos..." className="flex-1 bg-transparent px-4 py-3 text-[13px] text-primary placeholder:text-primary/20 outline-none" />
+                                                        <input type="tel" value={newStudentForm.parentPhone || newStudentForm.phone} onChange={e => setNewStudentForm(p => ({ ...p, parentPhone: e.target.value, phone: e.target.value }))} placeholder="9 dígitos..." className="flex-1 bg-transparent px-4 py-3 text-[13px] text-primary placeholder:text-primary/20 outline-none" />
                                                     </div>
                                                 </div>
 
-                                                <div className="md:col-span-4 space-y-2 flex flex-col justify-end">
+                                                <div className="md:col-span-3 space-y-2 text-left">
+                                                    <p className="text-[10px] font-bold uppercase tracking-widest text-primary/40 pl-1">Email Tutor/a</p>
+                                                    <div className="flex items-center bg-transparent border border-primary/10 rounded-xl overflow-hidden focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/50 transition-all group/field">
+                                                        <div className="px-4 py-3 border-r border-primary/10 text-primary/30 group-focus-within/field:text-emerald-500 transition-colors">
+                                                            <Mail size={18} />
+                                                        </div>
+                                                        <input type="email" value={newStudentForm.parentEmail || newStudentForm.email} onChange={e => setNewStudentForm(p => ({ ...p, parentEmail: e.target.value, email: e.target.value }))} placeholder="correo@ejemplo.com" className="flex-1 bg-transparent px-4 py-3 text-[13px] text-primary placeholder:text-primary/20 outline-none" />
+                                                    </div>
+                                                </div>
+
+                                                <div className="md:col-span-2 space-y-2 flex flex-col justify-end">
                                                     <p className="text-[10px] font-black uppercase tracking-widest text-transparent pointer-events-none select-none pl-1 opacity-0">Acción</p>
                                                     <button onClick={handleWhatsAppQuickAdd} disabled={!newStudentForm.phone || (!newStudentForm.studentName && !newStudentForm.name)} className="w-full h-[46px] bg-transparent border border-primary/10 text-primary/50 hover:bg-primary/[0.02] hover:text-primary hover:border-primary/20 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-20 shadow-sm font-bold text-[13px] tracking-wide group" title="Enviar recibo de pedido por WhatsApp">
                                                         <MessageSquare size={16} className="group-hover:animate-bounce" />
@@ -2244,23 +2333,16 @@ const ShootingPanel = ({
                                                                 </div>
                                                             </th>
                                                             <th className="py-3 px-4 text-[10px] font-black uppercase tracking-wider text-primary/40 w-[150px] text-center bg-white">
-                                                                    <div className="flex items-center justify-center gap-1.5">
-                                                                        <span>Estado</span>
-                                                                        <button
-                                                                            onClick={(e) => { e.stopPropagation(); handleBulkStatusChange('students'); }}
-                                                                            className="bg-rose-500/10 hover:bg-rose-500 hover:text-white text-rose-500 p-1.5 rounded-lg transition-colors border border-rose-500/10"
-                                                                            title="Cambio masivo de estado"
-                                                                        >
-                                                                            <CheckCircle size={12} />
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={(e) => { e.stopPropagation(); handleMoveToSchoolAction(); }}
-                                                                            className="bg-indigo-500/10 hover:bg-indigo-500 hover:text-white text-indigo-500 p-1.5 rounded-lg transition-colors border border-indigo-500/10"
-                                                                            title="Traspasar alumnos a otro centro"
-                                                                        >
-                                                                            <ArrowRight size={12} />
-                                                                        </button>
-                                                                    </div>
+                                                                <div className="flex items-center justify-center gap-1.5">
+                                                                    <span>Estado</span>
+                                                                    <button
+                                                                        onClick={(e) => { e.stopPropagation(); handleBulkStatusChange('students'); }}
+                                                                        className="bg-rose-500/10 hover:bg-rose-500 hover:text-white text-rose-500 p-1.5 rounded-lg transition-colors border border-rose-500/10"
+                                                                        title="Cambio masivo de estado"
+                                                                    >
+                                                                        <CheckCircle size={12} />
+                                                                    </button>
+                                                                </div>
                                                             </th>
 
                                                             <th className="py-3 px-4 text-[10px] font-black uppercase tracking-wider text-primary/40 w-[100px] text-center bg-white">Nº Archivo</th>

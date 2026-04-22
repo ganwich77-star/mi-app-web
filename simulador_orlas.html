@@ -179,7 +179,7 @@
         <div class="dynamic-island"></div>
         
         <div class="screen-wrapper">
-            <iframe src="http://localhost:5173/?f=pujalte-studio&view=user"></iframe>
+            <iframe id="app-frame" src="http://localhost:5173/graduaciones2026/?f=pujalte-studio&view=user"></iframe>
         </div>
     </div>
 
@@ -191,10 +191,25 @@
         <div class="info-pill">
             IPHONE 17 PRO MAX
         </div>
-        <div class="info-pill">
+        <div id="view-indicator" class="info-pill">
             VIEW: USER
         </div>
     </div>
 
+    <script>
+        // Lógica para cargar dinámicamente la URL en el iframe
+        const params = new URLSearchParams(window.location.search);
+        const iframe = document.getElementById('app-frame');
+        const viewIndicator = document.getElementById('view-indicator');
+        
+        if (params.toString()) {
+            // El simulador actúa como un túnel para pasar los parámetros del tutor a la App de React
+            iframe.src = 'http://localhost:5173/graduaciones2026/' + window.location.search;
+            
+            // Actualizamos el indicador inferior
+            const viewName = params.get('view') || 'USER';
+            if (viewIndicator) viewIndicator.innerText = 'VIEW: ' + viewName.toUpperCase().replace('-', ' ');
+        }
+    </script>
 </body>
 </html>

@@ -139,18 +139,25 @@ const EditOrderModal = ({
                             className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm font-bold rounded-xl px-4 py-3.5 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all" />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block ml-1">Nombre Padre / Madre</label>
+                    <div className="pt-2 border-t border-slate-100">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block ml-1">Datos de Contacto (Padre/Madre)</label>
+                        <div className="space-y-3">
                             <input type="text" value={orderToEdit.parentName || ''}
+                                placeholder="Nombre Padre / Madre"
                                 onChange={e => setOrderToEdit(p => ({ ...p, parentName: e.target.value }))}
-                                className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs font-bold rounded-xl px-4 py-3.5 outline-none focus:border-emerald-500 transition-all" />
-                        </div>
-                        <div>
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block ml-1">Teléfono Contacto</label>
-                            <input type="text" value={orderToEdit.parentPhone || ''}
-                                onChange={e => setOrderToEdit(p => ({ ...p, parentPhone: e.target.value }))}
-                                className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs font-bold rounded-xl px-4 py-3.5 outline-none focus:border-emerald-500 transition-all" />
+                                className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs font-bold rounded-xl px-4 py-3 outline-none focus:border-emerald-500 transition-all" />
+                            
+                            <div className="grid grid-cols-2 gap-3">
+                                <input type="tel" value={orderToEdit.parentPhone || ''}
+                                    placeholder="Teléfono"
+                                    onChange={e => setOrderToEdit(p => ({ ...p, parentPhone: e.target.value }))}
+                                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs font-bold rounded-xl px-4 py-3 outline-none focus:border-emerald-500 transition-all" />
+                                
+                                <input type="email" value={orderToEdit.parentEmail || ''}
+                                    placeholder="Email"
+                                    onChange={e => setOrderToEdit(p => ({ ...p, parentEmail: e.target.value }))}
+                                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs font-bold rounded-xl px-4 py-3 outline-none focus:border-emerald-500 transition-all" />
+                            </div>
                         </div>
                     </div>
 
